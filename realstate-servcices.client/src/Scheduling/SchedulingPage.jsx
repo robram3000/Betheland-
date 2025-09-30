@@ -8,21 +8,24 @@ import {
     Form,
     Input,
     Select,
-    TimePicker,
     Row,
     Col,
     Tag,
-    message
+    message,
+    Tabs,
+    Table,
+    Space
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import { PlusOutlined, CalendarOutlined, UnorderedListOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { TabPane } = Tabs;
 
 const SchedulingPage = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [events, setEvents] = useState([]);
+    const [activeTab, setActiveTab] = useState('calendar');
     const [form] = Form.useForm();
 
     const showModal = () => {
@@ -41,8 +44,8 @@ const SchedulingPage = () => {
                     id: Date.now(),
                     title: values.title,
                     description: values.description,
-                    date: values.date.format('YYYY-MM-DD'),
-                    time: values.time.format('HH:mm'),
+                    date: values.date,
+                    time: values.time,
                     type: values.type,
                 };
 
@@ -77,6 +80,42 @@ const SchedulingPage = () => {
         );
     };
 
+    // Table columns for the list view
+    const columns = [
+        {
+            title: 'Date',
+            dataIndex: 'date',
+            key: 'date',
+            sorter: (a, b) => new Date(a.date) - new Date(b.date),
+        },
+        {
+            title: 'Time',
+            dataIndex: 'time',
+            key: 'time',
+        },
+        {
+            title: 'Title',
+            dataIndex: 'title',
+            key: 'title',
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: (type) => (
+                <Tag color={type === 'meeting' ? 'blue' : type === 'appointment' ? 'green' : 'orange'}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            ellipsis: true,
+        },
+    ];
+
     return (
         <div style={{ padding: '24px' }}>
             <Row gutter={[16, 16]}>
@@ -93,10 +132,44 @@ const SchedulingPage = () => {
                             </Button>
                         }
                     >
-                        <Calendar
-                            dateCellRender={dateCellRender}
-                            style={{ background: 'white', borderRadius: '8px' }}
-                        />
+                        <Tabs
+                            activeKey={activeTab}
+                            onChange={setActiveTab}
+                            type="card"
+                        >
+                            <TabPane
+                                tab={
+                                    <span>
+                                        <CalendarOutlined />
+                                        Calendar View
+                                    </span>
+                                }
+                                key="calendar"
+                            >
+                                <Calendar
+                                    dateCellRender={dateCellRender}
+                                    style={{ background: 'white', borderRadius: '8px' }}
+                                />
+                            </TabPane>
+
+                            <TabPane
+                                tab={
+                                    <span>
+                                        <UnorderedListOutlined />
+                                        All Schedules ({events.length})
+                                    </span>
+                                }
+                                key="list"
+                            >
+                                <Table
+                                    columns={columns}
+                                    dataSource={events}
+                                    rowKey="id"
+                                    pagination={{ pageSize: 10 }}
+                                    locale={{ emptyText: 'No scheduled events found' }}
+                                />
+                            </TabPane>
+                        </Tabs>
                     </Card>
                 </Col>
             </Row>

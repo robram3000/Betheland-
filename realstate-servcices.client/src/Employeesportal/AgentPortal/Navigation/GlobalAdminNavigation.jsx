@@ -11,58 +11,43 @@ import {
     theme,
 } from 'antd';
 import {
-    SecurityScanOutlined,
-    DashboardOutlined,
-    SettingOutlined,
-    UserOutlined,
-    TeamOutlined,
-    BarChartOutlined,
-    FileTextOutlined,
-    ShoppingOutlined,
     MessageOutlined,
-    BellOutlined,
+    CalendarOutlined,
+    HomeOutlined,
     AppstoreOutlined,
-    SafetyCertificateOutlined,
 } from '@ant-design/icons';
+import { Link, useLocation } from 'react-router-dom';
 
 const { Sider } = Layout;
 const { Title, Text } = Typography;
 
 const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
-    const [selectedKey, setSelectedKey] = useState('dashboard');
+    const location = useLocation();
+    const [selectedKey, setSelectedKey] = useState('chat');
     const {
         token: { colorPrimary, colorBgContainer },
     } = theme.useToken();
 
     const navigationItems = [
-   
         {
-            key: 'authentication',
-            icon: <SafetyCertificateOutlined />,
-            label: 'Authentication Logs',
-            badge: 3,
+            key: 'chat',
+            icon: <MessageOutlined />,
+            label: 'Chat',
+            path: '/admin/chat'
         },
         {
-            key: 'users',
-            icon: <UserOutlined />,
-            label: 'User Management',
-        },
-      
-        {
-            key: 'content',
-            icon: <FileTextOutlined />,
-            label: 'Content Management',
+            key: 'appointments',
+            icon: <CalendarOutlined />,
+            label: 'Appointment',
+            path: '/admin/appointments'
         },
         {
-            key: 'landing',
-            icon: <AppstoreOutlined />,
-            label: 'Landing Page',
-        },
-    
+            key: 'properties',
+            icon: <HomeOutlined />,
+            label: 'Property',
+            path: '/portal/agent/all-properties'
+        }
     ];
-
-  
-   
 
     const handleMenuClick = ({ key }) => {
         setSelectedKey(key);
@@ -79,12 +64,25 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                     {item.icon}
                 </Badge>
             ) : item.icon,
-            label: collapsed ? (
-                <Tooltip title={item.label} placement="right">
-                    {item.label}
-                </Tooltip>
-            ) : (
-                item.label
+            label: (
+                <Link
+                    to={item.path}
+                    style={{
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        display: 'block',
+                        width: '100%'
+                    }}
+                    onClick={() => handleMenuClick({ key: item.key })}
+                >
+                    {collapsed ? (
+                        <Tooltip title={item.label} placement="right">
+                            {item.label}
+                        </Tooltip>
+                    ) : (
+                        item.label
+                    )}
+                </Link>
             ),
             style: {
                 borderRadius: '8px',
@@ -97,6 +95,17 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
 
         return menuItem;
     };
+
+    // Set selected key based on current path
+    React.useEffect(() => {
+        const currentPath = location.pathname;
+        const currentItem = navigationItems.find(item =>
+            currentPath.startsWith(item.path)
+        );
+        if (currentItem) {
+            setSelectedKey(currentItem.key);
+        }
+    }, [location.pathname]);
 
     return (
         <Sider
@@ -134,18 +143,20 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                         </Text>
                     </div>
                 ) : (
-                    <div style={{
-                        width: 32,
-                        height: 32,
-                        background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto',
-                    }}>
-                        <AppstoreOutlined style={{ color: 'white', fontSize: '16px' }} />
-                    </div>
+                    <Link to="/admin" style={{ textDecoration: 'none' }}>
+                        <div style={{
+                            width: 32,
+                            height: 32,
+                            background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto',
+                        }}>
+                            <AppstoreOutlined style={{ color: 'white', fontSize: '16px' }} />
+                        </div>
+                    </Link>
                 )}
             </div>
 
@@ -173,8 +184,6 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
             </div>
 
             <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
-
-          
         </Sider>
     );
 };

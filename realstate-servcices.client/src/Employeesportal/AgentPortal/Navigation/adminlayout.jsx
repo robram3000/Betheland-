@@ -6,7 +6,7 @@ import GlobalAdminTopbar from './GlobalAdminTopbar';
 
 const { Content } = Layout;
 
-const AdminLayout = ({ children }) => {
+const AgentLayout = ({ children }) => {
     const [collapsed, setCollapsed] = useState(false);
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -21,7 +21,9 @@ const AdminLayout = ({ children }) => {
             theme={{
                 token: {
                     borderRadius: 8,
-                    colorPrimary: '#1B3C53',
+                    colorPrimary: '#1a365d', // Dark blue color
+                    colorInfo: '#1a365d',
+                    colorSuccess: '#1a365d',
                 },
             }}
         >
@@ -57,4 +59,4 @@ const AdminLayout = ({ children }) => {
     );
 };
 
-export default AdminLayout;
+export default AgentLayout;

@@ -109,6 +109,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                 right: 0,
                 zIndex: 1000,
                 height: 64,
+                borderBottom: '1px solid #f0f0f0',
             }}
         >
             {/* Left Side */}
@@ -122,6 +123,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                         fontSize: '16px',
                         width: 32,
                         height: 32,
+                        color: '#1a365d', // Dark blue color
                     }}
                 />
 
@@ -130,7 +132,8 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                     strong
                     style={{
                         fontSize: '20px',
-                        color: '#1890ff',
+                        color: '#1a365d', // Dark blue color
+                        fontWeight: 600,
                     }}
                 >
                     Betheland
@@ -140,25 +143,23 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
 
             {/* Right Side */}
             <Space size="middle">
-                {/* Dark Mode Toggle */}
-                <Space size="small">
-                    <SunOutlined style={{ color: darkMode ? '#8c8c8c' : '#1890ff' }} />
-                    <Switch
-                        size="small"
-                        checked={darkMode}
-                        onChange={toggleDarkMode}
-                    />
-                    <MoonOutlined style={{ color: darkMode ? '#1890ff' : '#8c8c8c' }} />
-                </Space>
+             
 
                 {/* Notifications */}
-                <Badge count={5} size="small">
+                <Badge
+                    count={5}
+                    size="small"
+                    style={{
+                        backgroundColor: '#1a365d', // Dark blue color
+                    }}
+                >
                     <Button
                         type="text"
                         icon={<BellOutlined />}
                         style={{
                             width: 32,
                             height: 32,
+                            color: '#1a365d', // Dark blue color
                         }}
                     />
                 </Badge>
@@ -168,6 +169,9 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                     type="text"
                     icon={<QuestionCircleOutlined />}
                     onClick={handleHelp}
+                    style={{
+                        color: '#1a365d', // Dark blue color
+                    }}
                 >
                     Help
                 </Button>
@@ -179,29 +183,54 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                     open={dropdownVisible}
                     onOpenChange={setDropdownVisible}
                     placement="bottomRight"
+                    overlayStyle={{
+                        minWidth: 160,
+                    }}
                 >
                     <Button
                         type="text"
                         style={{
-                            padding: '4px',
+                            padding: '4px 8px',
                             height: 'auto',
+                            borderRadius: '6px',
+                            border: '1px solid transparent',
+                            transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#1a365d';
+                            e.currentTarget.style.backgroundColor = 'rgba(26, 54, 93, 0.04)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'transparent';
+                            e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                     >
                         <Space size="small">
                             <Avatar
                                 size="small"
                                 style={{
-                                    backgroundColor: '#1890ff',
+                                    backgroundColor: '#1a365d', // Dark blue color
                                     verticalAlign: 'middle',
+                                    fontWeight: 600,
                                 }}
                             >
                                 A
                             </Avatar>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <Text strong style={{ fontSize: '12px', lineHeight: 1 }}>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                lineHeight: 1.2,
+                            }}>
+                                <Text strong style={{
+                                    fontSize: '12px',
+                                    color: '#1a365d', // Dark blue color
+                                }}>
                                     Admin User
                                 </Text>
-                                <Text type="secondary" style={{ fontSize: '10px', lineHeight: 1 }}>
+                                <Text type="secondary" style={{
+                                    fontSize: '10px',
+                                }}>
                                     Administrator
                                 </Text>
                             </div>

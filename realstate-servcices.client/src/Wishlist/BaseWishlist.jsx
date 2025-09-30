@@ -4,11 +4,6 @@ import { Layout, ConfigProvider } from 'antd';
 import WishlistPage from './WishlistPage';
 import { GlobalNavigation, Footer } from '../Navigation/index';
 
-
-console.log('GlobalNavigation component:', GlobalNavigation);  
-console.log('Footer component:', Footer); 
-
-
 const { Content } = Layout;
 
 const theme = {
@@ -22,14 +17,18 @@ const theme = {
 const BaseWishlist = () => {
     return (
         <ConfigProvider theme={theme}>
-            <Layout>
-                <GlobalNavigation /> 
-                <Content>
+            <Layout style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
+            }}>
+                <GlobalNavigation />
+                <Content style={{ background: 'transparent' }}>
                     <WishlistPage />
                 </Content>
-                <Footer />  
+                <Footer />
             </Layout>
         </ConfigProvider>
     );
 };
+
 export default BaseWishlist;
