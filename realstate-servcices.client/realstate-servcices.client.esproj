@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <JavaScriptTestRoot>src\</JavaScriptTestRoot>
+    <JavaScriptTestFramework>Vitest</JavaScriptTestFramework>
+    <!-- Allows the build (or compile) script located on package.json to run on Build -->
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+    <!-- Folder where production build objects will be placed -->
+    <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="src\Employeesportal\AgentPortal\Conversation\" />
+    <Folder Include="src\Employeesportal\AgentPortal\Appointment\" />
+    <Folder Include="src\Employeesportal\AgentPortal\Properties\" />
+    <Folder Include="src\Employeesportal\SuperAdminPortal\Conversation\" />
+    <Folder Include="src\LandingPage\Services\" />
+    <Folder Include="src\Property\Services\" />
+    <Folder Include="src\Scheduling\NewFolder\" />
+    <Folder Include="src\Accounts\Services\" />
+    <Folder Include="src\Wishlist\Services\" />
+  </ItemGroup>
+</Project>

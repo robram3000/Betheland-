@@ -1,0 +1,28 @@
+@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7074
+@Realstate_servcices.Server_HostAddress_HTTP = http://localhost:1452
+@ContentType = application/json
+
+### Health Check (HTTP)
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/health
+Accept: {{ContentType}}
+
+### Health Check (HTTPS)
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/health
+Accept: {{ContentType}}
+
+### Generate OTP (HTTPS)
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/generate
+Content-Type: {{ContentType}}
+
+{
+  "email": "robram3000@gmail.com"
+}
+
+### Verify OTP (HTTPS)
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/verify
+Content-Type: {{ContentType}}
+
+{
+  "email": "user@example.com",
+  "otpCode": "123456"
+}
