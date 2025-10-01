@@ -43,7 +43,7 @@ namespace Realstate_servcices.Server.Entity.Member
 
         [Required]
         [MaxLength(20)]
-        public string status { get; set; } = "Pending"; 
+        public string status { get; set; } = "Active"; 
 
 
         public virtual Client? Client { get; set; }

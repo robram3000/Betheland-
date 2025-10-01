@@ -1,6 +1,4 @@
 import BethelandIcon from '../assets/Betheland.png';
-
-// AuthPage.jsx
 import React, { useState } from 'react';
 import {
     Card,
@@ -12,7 +10,8 @@ import {
     message,
     Layout,
     ConfigProvider,
-    Spin
+    Spin,
+    Alert
 } from 'antd';
 import {
     UserOutlined,
@@ -29,6 +28,7 @@ const AuthPage = () => {
     const [showSpinner, setShowSpinner] = useState(false);
     const [form] = Form.useForm();
     const navigate = useNavigate();
+    const [error, setError] = useState('');
 
     const theme = {
         token: {
@@ -40,19 +40,26 @@ const AuthPage = () => {
     const onFinish = async (values) => {
         setShowSpinner(true);
         setLoading(true);
+        setError('');
 
         try {
+            console.log('Attempting login with:', values.usernameOrEmail);
             const result = await authService.login(values.usernameOrEmail, values.password);
+            console.log('Login result:', result);
 
             if (result.success) {
                 message.success('Welcome back to BeTheLand!');
                 navigate('/properties');
             } else {
-                message.error(result.message || 'Invalid credentials. Please try again.');
+                const errorMsg = result.message || 'Invalid credentials. Please try again.';
+                setError(errorMsg);
+                message.error(errorMsg);
             }
         } catch (error) {
-            console.error('Login error:', error);
-            message.error('Something went wrong. Please try again.');
+            console.error('Login catch error:', error);
+            const errorMsg = error?.message || 'Something went wrong. Please try again.';
+            setError(errorMsg);
+            message.error(errorMsg);
         } finally {
             setLoading(false);
             setShowSpinner(false);
@@ -178,19 +185,30 @@ const AuthPage = () => {
                                 alt="BeTheLand"
                                 style={{
                                     height: '180px',
-                                 
                                     objectFit: 'contain'
                                 }}
                             />
                             <Text style={{
                                 color: '#64748b',
                                 fontSize: '16px',
-                               
                                 display: 'block'
                             }}>
                                 Sign in to your account
                             </Text>
                         </div>
+
+                        {error && (
+                            <Alert
+                                message="Login Error"
+                                description={error}
+                                type="error"
+                                showIcon
+                                style={{
+                                    marginBottom: '16px',
+                                    borderRadius: '8px'
+                                }}
+                            />
+                        )}
 
                         <Form
                             form={form}
@@ -198,6 +216,7 @@ const AuthPage = () => {
                             onFinish={onFinish}
                             layout="vertical"
                             size="large"
+                            disabled={loading}
                         >
                             <Form.Item
                                 name="usernameOrEmail"
@@ -208,6 +227,7 @@ const AuthPage = () => {
                                 <Input
                                     prefix={<UserOutlined style={{ color: '#64748b' }} />}
                                     placeholder="Username or email"
+                                    disabled={loading}
                                 />
                             </Form.Item>
 
@@ -218,15 +238,17 @@ const AuthPage = () => {
                                 <Input.Password
                                     prefix={<LockOutlined style={{ color: '#64748b' }} />}
                                     placeholder="Password"
+                                    disabled={loading}
                                 />
                             </Form.Item>
 
                             <Form.Item>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox>Remember me</Checkbox>
+                                    <Checkbox disabled={loading}>Remember me</Checkbox>
                                     <Link
                                         style={{ fontSize: '14px' }}
                                         onClick={handleForgotPassword}
+                                        disabled={loading}
                                     >
                                         Forgot password?
                                     </Link>
@@ -246,7 +268,7 @@ const AuthPage = () => {
                                         fontWeight: 600
                                     }}
                                 >
-                                    Sign In
+                                    {loading ? 'Signing In...' : 'Sign In'}
                                 </Button>
                             </Form.Item>
 
@@ -256,6 +278,7 @@ const AuthPage = () => {
                                     <Link
                                         style={{ fontWeight: 600 }}
                                         onClick={handleSignUp}
+                                        disabled={loading}
                                     >
                                         Sign up
                                     </Link>

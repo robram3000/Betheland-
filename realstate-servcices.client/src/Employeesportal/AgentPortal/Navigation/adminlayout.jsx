@@ -21,7 +21,7 @@ const AgentLayout = ({ children }) => {
             theme={{
                 token: {
                     borderRadius: 8,
-                    colorPrimary: '#1a365d', // Dark blue color
+                    colorPrimary: '#1a365d', 
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },

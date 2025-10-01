@@ -27,6 +27,9 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 City = request.City,
                 Street = request.Street,
                 ZipCode = request.ZipCode,
+                MiddleName = request.MiddleName,
+                Suffix = request.Suffix,
+                Gender = request.Gender,
                 DateRegistered = DateTime.UtcNow
             };
 
@@ -70,7 +73,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             client.Street = request.Street;
             client.ZipCode = request.ZipCode;
 
-            // Update BaseMember's UpdatedAt
             var baseMember = await _context.BaseMembers.FindAsync(client.BaseMemberId);
             if (baseMember != null)
             {

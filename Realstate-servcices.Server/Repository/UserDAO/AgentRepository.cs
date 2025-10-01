@@ -64,7 +64,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             agent.CellPhoneNo = request.CellPhoneNo;
             agent.LicenseNumber = request.LicenseNumber;
 
-            // Update BaseMember's UpdatedAt
             var baseMember = await _context.BaseMembers.FindAsync(agent.BaseMemberId);
             if (baseMember != null)
             {

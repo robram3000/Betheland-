@@ -96,7 +96,6 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
         return menuItem;
     };
 
-    // Set selected key based on current path
     React.useEffect(() => {
         const currentPath = location.pathname;
         const currentItem = navigationItems.find(item =>

@@ -24,7 +24,7 @@ namespace Realstate_servcices.Server.Repository.OTP
             }
             catch (Exception ex)
             {
-                // Log the exception
+           
                 Console.WriteLine($"Error saving OTP record: {ex.Message}");
                 return false;
             }

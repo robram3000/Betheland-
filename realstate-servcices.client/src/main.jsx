@@ -13,9 +13,12 @@ import BaseWishlist from './Wishlist/BaseWishlist.jsx'
 import BaseChat from './Chat/BaseChat.jsx'
 import { BaseSettings, BaseProfile } from './Accounts/index.jsx'
 import EmployeePortal from './Employeesportal/EmployeePortal.jsx'
-import AdminLayout from './Employeesportal/SuperAdminPortal/Navigation/adminlayout.jsx'
+import SuperAdminLayout from './Employeesportal/SuperAdminPortal/Navigation/adminlayout.jsx'
+import AdminLayout from './Employeesportal/AdminPortal/Navigation/adminlayout.jsx'
 import BaseScheduling from './Scheduling/BaseScheduling.jsx'
 import PropertyManagementPage from './Employeesportal/AgentPortal/Properties/PropertyManagementPage.jsx'
+
+import ScheduleManagementPage from './Employeesportal/AgentPortal/Appointment/ScheduleManagementPage.jsx'
 import AgentLayout from './Employeesportal/AgentPortal/Navigation/adminlayout.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -51,14 +54,17 @@ createRoot(document.getElementById('root')).render(
 
                 <Route path="/employeeportal" element={<EmployeePortal />} />
           
-                <Route path = "/portal/admin">
-                    <Route index element={<AdminLayout />} />
-
+                <Route path = "/portal/super-admin">
+                    <Route index element={<SuperAdminLayout />} />
                 </Route>
-                {/* Agent Routes - Fixed nested routes */}
+                <Route path="/portal/admin">
+                    <Route index element={<SuperAdminLayout />} />
+                </Route>
+         
                 <Route path="/portal/agent">
                     <Route index element={<AgentLayout />} />
                     <Route path="all-properties" element={<PropertyManagementPage />} />
+                    <Route path="all-schedule" element={<ScheduleManagementPage />} />
                 </Route>
 
                 {/* Fallback route */}

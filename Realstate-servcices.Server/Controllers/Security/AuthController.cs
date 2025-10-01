@@ -64,28 +64,5 @@ namespace Realstate_servcices.Server.Controllers.Security
                 return StatusCode(500, new { message = "An internal error occurred." });
             }
         }
-
-        [HttpPost("validate-reset-request")]
-        public async Task<IActionResult> ValidateResetRequest([FromBody] ValidateResetRequest request)
-        {
-            try
-            {
-                var result = await _passwordResetService.ValidateResetRequestAsync(request.Email, request.OTPCode);
-
-                if (!result.Success)
-                {
-                    return BadRequest(new { message = result.Message });
-                }
-
-                return Ok(new { message = result.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in ValidateResetRequest for email: {Email}", request.Email);
-                return StatusCode(500, new { message = "An internal error occurred." });
-            }
-        }
     }
-
-  
 }

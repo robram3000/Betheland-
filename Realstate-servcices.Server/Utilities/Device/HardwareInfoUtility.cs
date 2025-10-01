@@ -45,7 +45,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+                
             }
             return "Unknown";
         }
@@ -156,7 +156,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+               
             }
             return 0;
         }
@@ -177,7 +177,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+                
             }
             return 0;
         }

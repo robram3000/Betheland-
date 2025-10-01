@@ -27,25 +27,35 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
     (response) => {
+        // Directly return the data for successful responses
         return response.data;
     },
     (error) => {
+        console.error('API Error:', error);
+
         if (error.response?.status === 401) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
-            window.location.href = '/login';
+            localStorage.removeItem('refreshToken');
+        
         }
 
+        // Extract error message from various possible locations
         const errorMessage = error.response?.data?.message ||
             error.response?.data?.Message ||
+            error.response?.data?.error ||
             error.message ||
             'An error occurred';
 
-        return Promise.reject({
+        // Create a clean error object
+        const cleanError = {
             message: errorMessage,
             status: error.response?.status,
-            data: error.response?.data
-        });
+            data: error.response?.data,
+            originalError: error
+        };
+
+        return Promise.reject(cleanError);
     }
 );
 

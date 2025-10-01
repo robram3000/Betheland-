@@ -1,5 +1,6 @@
-﻿using Realstate_servcices.Server.Dto.Register;
+﻿using Microsoft.Extensions.Logging;
 using Realstate_servcices.Server.Dto.OTP;
+using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.ProfileCreation;
@@ -12,22 +13,26 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         private readonly IBaseMemberRepository _baseMemberRepository;
         private readonly IClientRepository _clientRepository;
         private readonly IOTPService _otpService;
-
+        private readonly ILogger<ClientService> _logger;
         public ClientService(
             IBaseMemberRepository baseMemberRepository,
             IClientRepository clientRepository,
-            IOTPService otpService)
+            IOTPService otpService, ILogger<ClientService> logger
+             
+            )
         {
             _baseMemberRepository = baseMemberRepository;
             _clientRepository = clientRepository;
-            _otpService = otpService;
+            _otpService = otpService; 
+            _logger = logger;
         }
 
         public async Task<RegisterResponse> CreateClientAsync(ClientRegisterRequest request)
         {
             try
             {
-             
+               
+
                 if (await _baseMemberRepository.EmailExistsAsync(request.Email))
                 {
                     return new RegisterResponse { Success = false, Message = "Email already exists" };
@@ -38,14 +43,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                     return new RegisterResponse { Success = false, Message = "Username already exists" };
                 }
 
-                // Hash password
+      
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-                // Create BaseMember
                 var baseMember = await _baseMemberRepository.CreateBaseMemberAsync(
                     request.Email, request.Username, passwordHash, "Client");
 
-                // Create Client
                 var client = await _clientRepository.CreateClientAsync(request, baseMember.Id);
 
                 return new RegisterResponse

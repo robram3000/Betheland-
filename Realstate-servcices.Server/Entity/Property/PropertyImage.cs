@@ -19,7 +19,7 @@ namespace Realstate_servcices.Server.Entity.Property
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation property
+  
         [ForeignKey("PropertyId")]
         public virtual Property Property { get; set; } = null!;
     }

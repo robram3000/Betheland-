@@ -138,6 +138,7 @@ namespace Realstate_servcices.Server.Migrations
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ListedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Amenities = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "[]"),
                     BaseMemberId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>

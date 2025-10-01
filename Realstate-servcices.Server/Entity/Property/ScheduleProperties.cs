@@ -23,11 +23,11 @@ namespace Realstate_servcices.Server.Entity.Property
         public int ClientId { get; set; }
 
         [Required]
-        public DateTime ScheduleTime { get; set; } // Combined date and time
+        public DateTime ScheduleTime { get; set; } 
 
         [Required]
         [MaxLength(20)]
-        public string Status { get; set; } = "Scheduled"; // Scheduled, Completed, Cancelled
+        public string Status { get; set; } = "Scheduled";
 
         [MaxLength(500)]
         public string? Notes { get; set; }
@@ -37,7 +37,7 @@ namespace Realstate_servcices.Server.Entity.Property
 
         public DateTime? UpdatedAt { get; set; }
 
-        // Navigation properties
+ 
         [ForeignKey("PropertyId")]
         public virtual Property Property { get; set; } = null!;
 

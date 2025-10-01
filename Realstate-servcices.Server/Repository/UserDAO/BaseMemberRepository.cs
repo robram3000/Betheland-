@@ -54,7 +54,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             return await _context.BaseMembers.AnyAsync(b => b.Username == username);
         }
 
-        // New methods for login functionality
         public async Task<BaseMember?> FindByEmailAsync(string email)
         {
             return await _context.BaseMembers
@@ -79,14 +78,25 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 .FirstOrDefaultAsync(bm => bm.Email == email);
         }
 
-        public async Task UpdatePasswordAsync(int id, string newPasswordHash)
+        // Updated to return bool
+        public async Task<bool> UpdatePasswordAsync(int id, string newPasswordHash)
         {
-            var baseMember = await _context.BaseMembers.FindAsync(id);
-            if (baseMember != null)
+            try
             {
+                var baseMember = await _context.BaseMembers.FindAsync(id);
+                if (baseMember == null)
+                    return false;
+
                 baseMember.PasswordHash = newPasswordHash;
                 baseMember.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                Console.WriteLine($"Error updating password: {ex.Message}");
+                return false;
             }
         }
     }

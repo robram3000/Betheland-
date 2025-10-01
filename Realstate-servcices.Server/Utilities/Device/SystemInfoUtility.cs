@@ -35,7 +35,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+               
             }
             return "Unknown Windows Version";
         }
@@ -57,7 +57,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+                
             }
             return DateTime.MinValue;
         }
@@ -100,7 +100,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+                
             }
             return "Unknown";
         }
@@ -138,7 +138,7 @@ namespace Realstate_servcices.Server.Utilities.Device
             }
             catch
             {
-                // Fallback if WMI is not available
+                
             }
             return "Unknown";
         }

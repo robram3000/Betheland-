@@ -1,4 +1,4 @@
-﻿// IBaseMemberRepository.cs
+﻿
 using Realstate_servcices.Server.Entity.Member;
 
 namespace Realstate_servcices.Server.Repository.UserDAO
@@ -10,12 +10,11 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         Task<bool> EmailExistsAsync(string email);
         Task<bool> UsernameExistsAsync(string username);
 
-        // Add these methods for login functionality
         Task<BaseMember?> FindByEmailAsync(string email);
         Task<BaseMember?> FindByUsernameAsync(string username);
         Task<BaseMember?> FindByUsernameOrEmailAsync(string usernameOrEmail);
 
         Task<BaseMember?> GetBaseMemberByEmailAsync(string email);
-        Task UpdatePasswordAsync(int id, string newPasswordHash);
+        Task<bool> UpdatePasswordAsync(int id, string newPasswordHash);
     }
 }

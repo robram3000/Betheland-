@@ -20,13 +20,13 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
         {
             _configuration = configuration;
 
-            // Use the correct configuration path
+   
             _smtpServer = _configuration["SmtpSettings:Host"] ?? throw new ArgumentNullException("SmtpSettings:Host is missing in configuration");
             _smtpPort = _configuration.GetValue<int>("SmtpSettings:Port", 587);
             _smtpUsername = _configuration["SmtpSettings:Email"] ?? throw new ArgumentNullException("SmtpSettings:Email is missing in configuration");
             _smtpPassword = _configuration["SmtpSettings:Password"] ?? throw new ArgumentNullException("SmtpSettings:Password is missing in configuration");
             _enableSsl = _configuration.GetValue<bool>("SmtpSettings:EnableSsl", true);
-            _fromEmail = _configuration["SmtpSettings:FromEmail"] ?? _smtpUsername; // Fixed: Use FromEmail instead of Email
+            _fromEmail = _configuration["SmtpSettings:FromEmail"] ?? _smtpUsername; 
             _fromName = _configuration["SmtpSettings:FromName"] ?? "RealState Services";
         }
 
@@ -61,7 +61,7 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
             }
             catch (Exception ex)
             {
-                // Log the exception
+              
                 Console.WriteLine($"Error sending email: {ex.Message}");
                 return false;
             }
@@ -85,7 +85,7 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                         message.Body = body;
                         message.IsBodyHtml = false;
 
-                        // Add attachment
+
                         using (var stream = new MemoryStream(attachment))
                         {
                             var attachmentItem = new Attachment(stream, attachmentName);

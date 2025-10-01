@@ -67,7 +67,7 @@ const ChangePassword = () => {
                 throw new Error('Session expired. Please start the password reset process again.');
             }
 
-            // Reset password using the service
+            // Reset password using the service - OTP will be verified in backend
             const result = await forgotPasswordService.resetPassword(
                 email,
                 values.password,
@@ -89,6 +89,7 @@ const ChangePassword = () => {
                 }, 2000);
             }
         } catch (error) {
+            console.error('Password reset error in component:', error);
             message.error(error.message || 'Password reset failed. Please try again.');
         } finally {
             setLoading(false);

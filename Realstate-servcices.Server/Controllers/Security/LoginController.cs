@@ -17,86 +17,120 @@ namespace Realstate_servcices.Server.Controllers.Security
         private readonly IBaseMemberRepository _baseMemberRepository;
         private readonly IClientRepository _clientRepository;
         private readonly IJwtService _jwtService;
+        private readonly ILogger<LoginController> _logger;
 
         public LoginController(
             IBaseMemberRepository baseMemberRepository,
             IClientRepository clientRepository,
-            IJwtService jwtService)
+            IJwtService jwtService,
+            ILogger<LoginController> logger)
         {
             _baseMemberRepository = baseMemberRepository;
             _clientRepository = clientRepository;
             _jwtService = jwtService;
+            _logger = logger;
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+        public async Task<ActionResult> Login([FromBody] LoginRequest request)
         {
             try
             {
                 // Validate input
-                if (string.IsNullOrEmpty(request.UsernameOrEmail) || string.IsNullOrEmpty(request.Password))
+                if (string.IsNullOrWhiteSpace(request.UsernameOrEmail) || string.IsNullOrWhiteSpace(request.Password))
                 {
-                    return BadRequest(new { message = "Username/email and password are required" });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Username/email and password are required"
+                    });
                 }
 
-                // Find user by username or email using the repository method
                 var baseMember = await _baseMemberRepository.FindByUsernameOrEmailAsync(request.UsernameOrEmail);
                 if (baseMember == null)
                 {
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid credentials"
+                    });
                 }
 
-                // Verify password
-                if (!BCrypt.Net.BCrypt.Verify(request.Password, baseMember.PasswordHash))
+                // Verify password with null check
+                if (string.IsNullOrEmpty(baseMember.PasswordHash) ||
+                    !BCrypt.Net.BCrypt.Verify(request.Password, baseMember.PasswordHash))
                 {
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid credentials"
+                    });
                 }
 
                 // Check if user is active
                 if (baseMember.status != "Active")
                 {
-                    return Unauthorized(new { message = "Account is not active. Please contact administrator." });
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Account is not active. Please contact administrator."
+                    });
                 }
 
-                // Generate claims with null checks
+                // Generate claims with comprehensive null checks
                 var claims = new List<Claim>
                 {
-                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString()),
-                    new Claim(ClaimTypes.Email, baseMember.Email ?? string.Empty),
-                    new Claim(ClaimTypes.Name, baseMember.Username ?? string.Empty),
-                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client")
+                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
+                    new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
+                    new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
+                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
+                    new Claim("userId", baseMember.Id.ToString() ?? "")
                 };
 
                 var accessToken = _jwtService.GenerateAccessToken(claims);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
-                var response = new AuthResponse
+                var response = new
                 {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                    TokenType = "Bearer",
-                    UserId = baseMember.Id.ToString(),
-                    Email = baseMember.Email,
-                    UserType = baseMember.Role
+                    success = true,
+                    accessToken = accessToken,
+                    refreshToken = refreshToken,
+                    expiresAt = DateTime.UtcNow.AddMinutes(60),
+                    tokenType = "Bearer",
+                    userId = baseMember.Id.ToString(),
+                    email = baseMember.Email,
+                    userType = baseMember.Role,
+                    message = "Login successful"
                 };
 
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred during login", error = ex.Message });
+                // Log the exception
+                _logger.LogError(ex, "Login error for user: {Username}", request.UsernameOrEmail);
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred during login",
+                    error = ex.Message
+                });
             }
         }
 
         [HttpPost("refresh-token")]
-        public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] RefreshTokenRequest request)
+        public async Task<ActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
             try
             {
                 if (string.IsNullOrEmpty(request.AccessToken) || string.IsNullOrEmpty(request.RefreshToken))
                 {
-                    return BadRequest(new { message = "Access token and refresh token are required" });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Access token and refresh token are required"
+                    });
                 }
 
                 var principal = _jwtService.GetPrincipalFromExpiredToken(request.AccessToken);
@@ -104,14 +138,22 @@ namespace Realstate_servcices.Server.Controllers.Security
 
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return Unauthorized(new { message = "Invalid token" });
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid token"
+                    });
                 }
 
                 // Get user from database to verify they still exist
                 var baseMember = await _baseMemberRepository.FindByUsernameOrEmailAsync(userId);
                 if (baseMember == null)
                 {
-                    return Unauthorized(new { message = "User not found" });
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "User not found"
+                    });
                 }
 
                 // Generate new claims with null checks
@@ -126,26 +168,38 @@ namespace Realstate_servcices.Server.Controllers.Security
                 var newAccessToken = _jwtService.GenerateAccessToken(newClaims);
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
 
-                var response = new AuthResponse
+                var response = new
                 {
-                    AccessToken = newAccessToken,
-                    RefreshToken = newRefreshToken,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                    TokenType = "Bearer",
-                    UserId = baseMember.Id.ToString(),
-                    Email = baseMember.Email,
-                    UserType = baseMember.Role
+                    success = true,
+                    accessToken = newAccessToken,
+                    refreshToken = newRefreshToken,
+                    expiresAt = DateTime.UtcNow.AddMinutes(60),
+                    tokenType = "Bearer",
+                    userId = baseMember.Id.ToString(),
+                    email = baseMember.Email,
+                    userType = baseMember.Role,
+                    message = "Token refreshed successfully"
                 };
 
                 return Ok(response);
             }
             catch (SecurityTokenException ex)
             {
-                return Unauthorized(new { message = "Invalid token", error = ex.Message });
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Invalid token",
+                    error = ex.Message
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred during token refresh", error = ex.Message });
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred during token refresh",
+                    error = ex.Message
+                });
             }
         }
 
@@ -155,7 +209,11 @@ namespace Realstate_servcices.Server.Controllers.Security
         {
             // In a real application, you might want to blacklist the token
             // or remove it from a valid tokens list
-            return Ok(new { message = "Logged out successfully" });
+            return Ok(new
+            {
+                success = true,
+                message = "Logged out successfully"
+            });
         }
     }
 }

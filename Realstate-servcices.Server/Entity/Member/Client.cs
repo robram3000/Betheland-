@@ -55,12 +55,11 @@ namespace Realstate_servcices.Server.Entity.member
         [Required]
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
+
         [ForeignKey("BaseMemberId")]
         public virtual BaseMember BaseMember { get; set; } = null!;
         public virtual ICollection<Property.Property>? Properties { get; set; }
 
-        // Add this line for ScheduleProperties navigation
         public virtual ICollection<Property.ScheduleProperties>? ScheduleProperties { get; set; }
 
         public virtual ICollection<Wishlist>? Wishlists { get; set; }

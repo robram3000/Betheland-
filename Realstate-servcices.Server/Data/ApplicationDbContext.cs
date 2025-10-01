@@ -17,20 +17,18 @@ namespace Realstate_servcices.Server.Data
         public DbSet<Agent> Agents { get; set; }
         public DbSet<Client> Clients { get; set; }
 
-        // Property entities
         public DbSet<Property> Properties { get; set; }
         public DbSet<PropertyImage> PropertyImages { get; set; }
         public DbSet<ScheduleProperties> ScheduleProperties { get; set; }
-        public DbSet<Wishlist> Wishlists { get; set; } // Added Wishlist DbSet
+        public DbSet<Wishlist> Wishlists { get; set; } 
 
-        // OTP entity
         public DbSet<OTPRecord> OTPRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure OTPRecord
+        
             modelBuilder.Entity<OTPRecord>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -42,7 +40,7 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.CreatedAt);
             });
 
-            // Configure BaseMember
+       
             modelBuilder.Entity<BaseMember>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -55,7 +53,7 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.Username).IsUnique();
             });
 
-            // Configure Agent
+        
             modelBuilder.Entity<Agent>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -71,7 +69,7 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure Client
+       
             modelBuilder.Entity<Client>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -90,7 +88,7 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure Property
+
             modelBuilder.Entity<Property>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -106,6 +104,9 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("available");
 
+                // Add this line for Amenities
+                entity.Property(e => e.Amenities).IsRequired().HasDefaultValue("[]");
+
                 // Relationships
                 entity.HasOne(p => p.Owner)
                       .WithMany(c => c.Properties)
@@ -118,7 +119,7 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // Configure PropertyImage
+
             modelBuilder.Entity<PropertyImage>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -131,7 +132,7 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure ScheduleProperties
+        
             modelBuilder.Entity<ScheduleProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -156,14 +157,14 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Configure Wishlist - ADDED
+       
             modelBuilder.Entity<Wishlist>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.AddedDate).IsRequired();
 
-                // Unique constraint to prevent duplicate wishlist entries
+           
                 entity.HasIndex(w => new { w.ClientId, w.PropertyId })
                       .IsUnique();
 

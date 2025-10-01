@@ -136,6 +136,12 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<int?>("AgentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Amenities")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]");
+
                     b.Property<int>("AreaSqft")
                         .HasColumnType("int");
 

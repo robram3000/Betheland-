@@ -1,7 +1,5 @@
 ﻿using Realstate_servcices.Server.Dto.Auth;
-using Realstate_servcices.Server.Dto.OTP;
 using Realstate_servcices.Server.Repository.UserDAO;
-using Realstate_servcices.Server.Services.SMTP.interfaces;
 
 namespace Realstate_servcices.Server.Services.Authentication
 {
@@ -9,22 +7,18 @@ namespace Realstate_servcices.Server.Services.Authentication
     {
         Task<PasswordResetResponse> VerifyEmailForPasswordResetAsync(VerifyEmailRequest request);
         Task<PasswordResetResponse> ResetPasswordAsync(ResetPasswordRequest request);
-        Task<PasswordResetResponse> ValidateResetRequestAsync(string email, string otpCode);
     }
 
     public class PasswordResetService : IPasswordResetService
     {
         private readonly IBaseMemberRepository _baseMemberRepository;
-        private readonly IOTPService _otpService;
         private readonly ILogger<PasswordResetService> _logger;
 
         public PasswordResetService(
             IBaseMemberRepository baseMemberRepository,
-            IOTPService otpService,
             ILogger<PasswordResetService> logger)
         {
             _baseMemberRepository = baseMemberRepository;
-            _otpService = otpService;
             _logger = logger;
         }
 
@@ -32,7 +26,6 @@ namespace Realstate_servcices.Server.Services.Authentication
         {
             try
             {
-                // Validate email input
                 if (string.IsNullOrWhiteSpace(request.Email))
                 {
                     return new PasswordResetResponse
@@ -42,7 +35,6 @@ namespace Realstate_servcices.Server.Services.Authentication
                     };
                 }
 
-                // Check if email exists in database
                 var member = await _baseMemberRepository.FindByEmailAsync(request.Email);
 
                 if (member == null)
@@ -54,7 +46,6 @@ namespace Realstate_servcices.Server.Services.Authentication
                     };
                 }
 
-                // Check if account is active/verified
                 if (member.status != "Active" && member.status != "Verified")
                 {
                     return new PasswordResetResponse
@@ -82,82 +73,22 @@ namespace Realstate_servcices.Server.Services.Authentication
             }
         }
 
-        public async Task<PasswordResetResponse> ValidateResetRequestAsync(string email, string otpCode)
-        {
-            try
-            {
-                // Verify OTP
-                var otpRequest = new VerifyOTPRequest
-                {
-                    Email = email,
-                    OTPCode = otpCode
-                };
-
-                var otpResult = await _otpService.VerifyOTPAsync(otpRequest);
-
-                if (!otpResult.Success)
-                {
-                    return new PasswordResetResponse
-                    {
-                        Success = false,
-                        Message = otpResult.Message
-                    };
-                }
-
-                // Verify user exists and is active
-                var member = await _baseMemberRepository.FindByEmailAsync(email);
-                if (member == null)
-                {
-                    return new PasswordResetResponse
-                    {
-                        Success = false,
-                        Message = "User not found."
-                    };
-                }
-
-                if (member.status != "Active" && member.status != "Verified")
-                {
-                    return new PasswordResetResponse
-                    {
-                        Success = false,
-                        Message = "Account is not active."
-                    };
-                }
-
-                return new PasswordResetResponse
-                {
-                    Success = true,
-                    Message = "Reset request validated successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating reset request: {Email}", email);
-                return new PasswordResetResponse
-                {
-                    Success = false,
-                    Message = "An error occurred while validating reset request."
-                };
-            }
-        }
-
         public async Task<PasswordResetResponse> ResetPasswordAsync(ResetPasswordRequest request)
         {
             try
             {
-                // Validate input
+                // Validate required fields
                 if (string.IsNullOrWhiteSpace(request.Email) ||
-                    string.IsNullOrWhiteSpace(request.NewPassword) ||
-                    string.IsNullOrWhiteSpace(request.OTPCode))
+                    string.IsNullOrWhiteSpace(request.NewPassword))
                 {
                     return new PasswordResetResponse
                     {
                         Success = false,
-                        Message = "All fields are required."
+                        Message = "Email and new password are required."
                     };
                 }
 
-                // Validate passwords match
+                // Validate password confirmation
                 if (request.NewPassword != request.ConfirmPassword)
                 {
                     return new PasswordResetResponse
@@ -178,14 +109,7 @@ namespace Realstate_servcices.Server.Services.Authentication
                     };
                 }
 
-                // Validate the reset request (OTP and user status)
-                var validationResult = await ValidateResetRequestAsync(request.Email, request.OTPCode);
-                if (!validationResult.Success)
-                {
-                    return validationResult;
-                }
-
-                // Find user by email
+                // Validate user exists and is active
                 var member = await _baseMemberRepository.FindByEmailAsync(request.Email);
                 if (member == null)
                 {
@@ -196,18 +120,37 @@ namespace Realstate_servcices.Server.Services.Authentication
                     };
                 }
 
-                // Hash new password using BCrypt (same as in ClientService)
+                if (member.status != "Active" && member.status != "Verified")
+                {
+                    return new PasswordResetResponse
+                    {
+                        Success = false,
+                        Message = "Account is not active. Please contact support."
+                    };
+                }
+
+                // Hash the new password
                 var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
 
                 // Update password in database
-                await _baseMemberRepository.UpdatePasswordAsync(member.Id, newPasswordHash);
+                var updateResult = await _baseMemberRepository.UpdatePasswordAsync(member.Id, newPasswordHash);
+
+                if (!updateResult)
+                {
+                    _logger.LogError("Failed to update password in database for user: {Email}", request.Email);
+                    return new PasswordResetResponse
+                    {
+                        Success = false,
+                        Message = "Failed to update password. Please try again."
+                    };
+                }
 
                 _logger.LogInformation("Password reset successfully for user: {Email}", request.Email);
 
                 return new PasswordResetResponse
                 {
                     Success = true,
-                    Message = "Password reset successfully."
+                    Message = "Password reset successfully. You can now login with your new password."
                 };
             }
             catch (Exception ex)
@@ -216,7 +159,7 @@ namespace Realstate_servcices.Server.Services.Authentication
                 return new PasswordResetResponse
                 {
                     Success = false,
-                    Message = "An error occurred while resetting password."
+                    Message = "An error occurred while resetting password. Please try again."
                 };
             }
         }
@@ -238,13 +181,7 @@ namespace Realstate_servcices.Server.Services.Authentication
             if (!password.Any(char.IsDigit))
                 return (false, "Password must contain at least one number.");
 
-            // Optional: Add special character requirement
-            // if (!password.Any(ch => !char.IsLetterOrDigit(ch)))
-            //     return (false, "Password must contain at least one special character.");
-
             return (true, string.Empty);
         }
     }
-
-
 }

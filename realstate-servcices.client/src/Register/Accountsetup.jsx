@@ -48,8 +48,7 @@ const AccountSetup = () => {
         },
     };
 
-    // In the onFinish function of AccountSetup.jsx, update the registrationData to only include what's actually in the form:
-
+    // In the onFinish function of AccountSetup.jsx - UPDATED VERSION:
     const onFinish = async (values) => {
         setShowSpinner(true);
         setLoading(true);
@@ -59,52 +58,77 @@ const AccountSetup = () => {
             const email = localStorage.getItem('verificationEmail');
             const otpCode = localStorage.getItem('otpCode');
 
-            console.log('Registration Data:', {
-                email: email,
-                otpCode: otpCode,
-                username: values.username
+            // Get all basic info from localStorage
+            const basicInfo = {
+                firstName: localStorage.getItem('basicInfo_firstName'),
+                middleName: localStorage.getItem('basicInfo_middleName'),
+                lastName: localStorage.getItem('basicInfo_lastName'),
+                suffix: localStorage.getItem('basicInfo_suffix'),
+                phone: localStorage.getItem('basicInfo_phone'),
+                gender: localStorage.getItem('basicInfo_gender')
+            };
+
+            console.log('📦 All localStorage data:', {
+                email,
+                otpCode,
+                basicInfo
             });
 
-            // Combine all registration data
+            // Combine all registration data with ALL basic information
             const registrationData = {
                 email: email,
                 username: values.username,
                 password: values.password,
-                firstName: localStorage.getItem('basicInfo_firstName') || '',
-                lastName: localStorage.getItem('basicInfo_lastName') || '',
-                cellPhoneNo: localStorage.getItem('basicInfo_phone') || '',
-                gender: localStorage.getItem('basicInfo_gender') || '',
+                firstName: basicInfo.firstName || '',
+                middleName: basicInfo.middleName || '',
+                lastName: basicInfo.lastName || '',
+                suffix: basicInfo.suffix || '',
+                cellPhoneNo: basicInfo.phone || '',
+                gender: basicInfo.gender || '',
                 country: '',
                 city: '',
                 street: '',
                 zipCode: '',
-                otpCode: otpCode // Ensure this is correctly set
+                otpCode: otpCode
             };
+
+            console.log('🚀 Sending to API:', registrationData);
 
             // Call registration API
             const result = await RegisterAccountServices.registerClient(registrationData);
+
+            console.log('✅ API Response:', result);
 
             if (result.success) {
                 setCompleted(true);
                 message.success('Account setup completed successfully! Welcome to BeTheLand Real Estate!');
 
-                // Clear local storage
-                localStorage.removeItem('verificationEmail');
-                localStorage.removeItem('otpVerified');
-                localStorage.removeItem('otpCode');
-                localStorage.removeItem('basicInfo_firstName');
-                localStorage.removeItem('basicInfo_lastName');
-                localStorage.removeItem('basicInfo_phone');
-                localStorage.removeItem('basicInfo_gender');
+                // Clear ALL local storage data
+                const keysToRemove = [
+                    'verificationEmail',
+                    'otpVerified',
+                    'otpCode',
+                    'basicInfo_firstName',
+                    'basicInfo_middleName',
+                    'basicInfo_lastName',
+                    'basicInfo_suffix',
+                    'basicInfo_phone',
+                    'basicInfo_gender'
+                ];
+
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+
+                console.log('🧹 Cleared localStorage');
 
                 setTimeout(() => {
                     navigate('/login');
                 }, 2000);
             } else {
+                console.error('❌ Registration failed:', result.message);
                 message.error(result.message || 'Registration failed. Please try again.');
             }
         } catch (error) {
-            console.error('Registration error:', error);
+            console.error('💥 Registration error:', error);
             message.error('Something went wrong. Please try again.');
         } finally {
             setLoading(false);

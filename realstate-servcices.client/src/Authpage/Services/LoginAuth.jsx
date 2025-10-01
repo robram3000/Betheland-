@@ -10,7 +10,8 @@ class AuthService {
                 password
             });
 
-            if (response && response.accessToken) {
+            // Check if response has success flag and accessToken
+            if (response && response.success && response.accessToken) {
                 // Store tokens
                 localStorage.setItem('authToken', response.accessToken);
                 localStorage.setItem('refreshToken', response.refreshToken);
@@ -23,7 +24,15 @@ class AuthService {
                 return {
                     success: true,
                     data: response,
-                    message: 'Login successful'
+                    message: response.message || 'Login successful'
+                };
+            }
+
+            // If response has success: false
+            if (response && response.success === false) {
+                return {
+                    success: false,
+                    message: response.message || 'Login failed'
                 };
             }
 
@@ -34,9 +43,15 @@ class AuthService {
 
         } catch (error) {
             console.error('Login error:', error);
+
+            // Handle axios error response structure
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Login failed. Please try again.';
+
             return {
                 success: false,
-                message: error.message || 'Login failed. Please try again.'
+                message: errorMessage
             };
         }
     }
@@ -98,15 +113,26 @@ class AuthService {
     // Forgot password
     async forgotPassword(email) {
         try {
-            await api.post('/Login/forgot-password', { email });
-            return {
-                success: true,
-                message: 'Password reset instructions sent to your email'
-            };
-        } catch (error) {
+            const response = await api.post('/Login/forgot-password', { email });
+
+            if (response && response.success) {
+                return {
+                    success: true,
+                    message: response.message || 'Password reset instructions sent to your email'
+                };
+            }
+
             return {
                 success: false,
-                message: error.message || 'Failed to send reset instructions'
+                message: response?.message || 'Failed to send reset instructions'
+            };
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Failed to send reset instructions';
+            return {
+                success: false,
+                message: errorMessage
             };
         }
     }
@@ -114,20 +140,30 @@ class AuthService {
     // Reset password
     async resetPassword(token, newPassword, confirmPassword) {
         try {
-            await api.post('/Login/reset-password', {
+            const response = await api.post('/Login/reset-password', {
                 token,
                 newPassword,
                 confirmPassword
             });
 
-            return {
-                success: true,
-                message: 'Password reset successfully'
-            };
-        } catch (error) {
+            if (response && response.success) {
+                return {
+                    success: true,
+                    message: response.message || 'Password reset successfully'
+                };
+            }
+
             return {
                 success: false,
-                message: error.message || 'Failed to reset password'
+                message: response?.message || 'Failed to reset password'
+            };
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Failed to reset password';
+            return {
+                success: false,
+                message: errorMessage
             };
         }
     }
@@ -135,19 +171,29 @@ class AuthService {
     // Change password (for authenticated users)
     async changePassword(currentPassword, newPassword) {
         try {
-            await api.post('/Login/change-password', {
+            const response = await api.post('/Login/change-password', {
                 currentPassword,
                 newPassword
             });
 
-            return {
-                success: true,
-                message: 'Password changed successfully'
-            };
-        } catch (error) {
+            if (response && response.success) {
+                return {
+                    success: true,
+                    message: response.message || 'Password changed successfully'
+                };
+            }
+
             return {
                 success: false,
-                message: error.message || 'Failed to change password'
+                message: response?.message || 'Failed to change password'
+            };
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Failed to change password';
+            return {
+                success: false,
+                message: errorMessage
             };
         }
     }
@@ -155,15 +201,26 @@ class AuthService {
     // Verify email
     async verifyEmail(token) {
         try {
-            await api.post('/Login/verify-email', { token });
-            return {
-                success: true,
-                message: 'Email verified successfully'
-            };
-        } catch (error) {
+            const response = await api.post('/Login/verify-email', { token });
+
+            if (response && response.success) {
+                return {
+                    success: true,
+                    message: response.message || 'Email verified successfully'
+                };
+            }
+
             return {
                 success: false,
-                message: error.message || 'Failed to verify email'
+                message: response?.message || 'Failed to verify email'
+            };
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Failed to verify email';
+            return {
+                success: false,
+                message: errorMessage
             };
         }
     }
@@ -176,24 +233,32 @@ class AuthService {
                 throw new Error('No refresh token available');
             }
 
+            const currentToken = localStorage.getItem('authToken');
             const response = await api.post('/Login/refresh-token', {
-                refreshToken
+                accessToken: currentToken,
+                refreshToken: refreshToken
             });
 
-            if (response.accessToken) {
+            if (response && response.success && response.accessToken) {
                 localStorage.setItem('authToken', response.accessToken);
+                if (response.refreshToken) {
+                    localStorage.setItem('refreshToken', response.refreshToken);
+                }
                 return {
                     success: true,
-                    message: 'Token refreshed successfully'
+                    message: response.message || 'Token refreshed successfully'
                 };
             }
 
-            throw new Error('Invalid response from refresh token endpoint');
+            throw new Error(response?.message || 'Invalid response from refresh token endpoint');
         } catch (error) {
             this.logout();
+            const errorMessage = error?.response?.data?.message ||
+                error?.message ||
+                'Token refresh failed';
             return {
                 success: false,
-                message: error.message || 'Token refresh failed'
+                message: errorMessage
             };
         }
     }

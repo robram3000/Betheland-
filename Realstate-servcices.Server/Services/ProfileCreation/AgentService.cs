@@ -20,7 +20,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         {
             try
             {
-                // Check if email or username already exists
+  
                 if (await _baseMemberRepository.EmailExistsAsync(request.Email))
                 {
                     return new RegisterResponse { Success = false, Message = "Email already exists" };
@@ -31,14 +31,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                     return new RegisterResponse { Success = false, Message = "Username already exists" };
                 }
 
-                // Hash password (in a real application, use proper hashing)
+
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-                // Create BaseMember
                 var baseMember = await _baseMemberRepository.CreateBaseMemberAsync(
                     request.Email, request.Username, passwordHash, "Agent");
 
-                // Create Agent
                 var agent = await _agentRepository.CreateAgentAsync(request, baseMember.Id);
 
                 return new RegisterResponse

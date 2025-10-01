@@ -78,7 +78,8 @@ namespace Realstate_servcices.Server.Entity.Property
 
         public DateTime ListedDate { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
+        public string Amenities { get; set; } = "[]";
+
         [ForeignKey("OwnerId")]
         public virtual Client Owner { get; set; } = null!;
 
@@ -87,7 +88,7 @@ namespace Realstate_servcices.Server.Entity.Property
 
         public virtual ICollection<PropertyImage>? PropertyImages { get; set; }
 
-        // Add this line for ScheduleProperties navigation - MAKE SURE THIS IS ADDED
+
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
 
         public virtual ICollection<Wishlist>? Wishlists { get; set; }

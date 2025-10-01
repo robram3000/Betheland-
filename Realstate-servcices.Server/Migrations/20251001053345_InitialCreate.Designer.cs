@@ -12,7 +12,7 @@ using Realstate_servcices.Server.Data;
 namespace Realstate_servcices.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250929083400_InitialCreate")]
+    [Migration("20251001053345_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -138,6 +138,12 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Property<int?>("AgentId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Amenities")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]");
 
                     b.Property<int>("AreaSqft")
                         .HasColumnType("int");

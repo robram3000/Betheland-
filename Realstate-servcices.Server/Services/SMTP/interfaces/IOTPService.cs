@@ -6,6 +6,8 @@ namespace Realstate_servcices.Server.Services.SMTP.interfaces
     {
         Task<OTPResponse> GenerateAndSendOTPAsync(GenerateOTPRequest request);
         Task<OTPResponse> VerifyOTPAsync(VerifyOTPRequest request , bool allowReuseForRegistration = false);
-        Task<OTPResponse> ResendOTPAsync(ResendOTPRequest request); 
+        Task<OTPResponse> ResendOTPAsync(ResendOTPRequest request);
+        Task<OTPResponse> VerifyPasswordResetOTPAsync(VerifyOTPRequest request); // Add this
+        Task<bool> MarkOTPAsUsedAsync(string email, string otpCode);
     }
 }

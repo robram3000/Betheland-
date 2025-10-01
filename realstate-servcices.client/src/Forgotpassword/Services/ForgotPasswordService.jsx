@@ -77,10 +77,10 @@ export const forgotPasswordService = {
      */
     resetPassword: async (email, newPassword, confirmPassword, otpCode) => {
         try {
-            // First verify the OTP again for security
-            await otpService.verifyOTP(email, otpCode);
+            // Don't verify OTP here - it will be verified during the actual reset
+            // The OTP verification should happen in the backend during password reset
 
-            // If OTP is valid, proceed with password reset
+            // Proceed with password reset directly
             const response = await api.post('/Auth/reset-password', {
                 email,
                 newPassword,
@@ -95,6 +95,12 @@ export const forgotPasswordService = {
             };
         } catch (error) {
             console.error('Password reset error:', error);
+            console.error('Error details:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
+            });
+
             const errorMessage = error.response?.data?.message || error.message || 'Failed to reset password';
             throw {
                 success: false,

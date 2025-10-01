@@ -5,7 +5,7 @@ import GlobalAdminTopbar from './GlobalAdminTopbar';
 
 const { Content } = Layout;
 
-const AdminLayout = ({ children }) => {
+const SuperAdminLayout = ({ children }) => {
     const [collapsed, setCollapsed] = useState(false);
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -56,4 +56,4 @@ const AdminLayout = ({ children }) => {
     );
 };
 
-export default AdminLayout;
+export default SuperAdminLayout;

@@ -25,7 +25,7 @@ namespace Realstate_servcices.Server.Entity.Property
         [MaxLength(500)]
         public string? Notes { get; set; }
 
-        // Navigation properties
+
         [ForeignKey("ClientId")]
         public virtual Client Client { get; set; } = null!;
 

@@ -1,4 +1,4 @@
-﻿// OTPService.cs - Updated without AttemptCount
+﻿// OTPService.cs - Fixed version
 using Realstate_servcices.Server.Dto.OTP;
 using Realstate_servcices.Server.Entity.OTP;
 using Realstate_servcices.Server.Repository.OTP;
@@ -11,8 +11,6 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
         private readonly IOTPRepository _otpRepository;
         private readonly IEmailService _emailService;
         private readonly Random _random;
-
-        // Configuration constants
         private readonly int _otpExpiryMinutes = 10;
         private readonly int _resendCooldownSeconds = 30;
         private readonly int _maxOTPAttemptsPerHour = 5;
@@ -29,7 +27,7 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
         {
             try
             {
-                // Validate email format
+                // Existing validation code remains the same...
                 if (!IsValidEmail(request.Email))
                 {
                     return new OTPResponse
@@ -39,7 +37,6 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // Check OTP generation limits
                 var recentAttempts = await _otpRepository.GetOTPCountLastHourAsync(request.Email);
                 if (recentAttempts >= _maxOTPAttemptsPerHour)
                 {
@@ -50,14 +47,11 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // Invalidate previous OTPs for this email
                 await _otpRepository.InvalidatePreviousOTPsAsync(request.Email);
 
-                // Generate 6-digit OTP
                 var otpCode = GenerateOTP(_otpLength);
                 var expirationTime = DateTime.UtcNow.AddMinutes(_otpExpiryMinutes);
 
-                // Create OTP record
                 var otpRecord = new OTPRecord
                 {
                     Email = request.Email.ToLower(),
@@ -65,10 +59,8 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     ExpirationTime = expirationTime,
                     IsUsed = false,
                     CreatedAt = DateTime.UtcNow
-                    // Removed AttemptCount
                 };
 
-                // Save to database
                 var saveResult = await _otpRepository.SaveOTPRecordAsync(otpRecord);
                 if (!saveResult)
                 {
@@ -79,7 +71,6 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // Send OTP via email
                 var emailSent = await SendOTPEmailAsync(request.Email, otpCode);
 
                 if (!emailSent)
@@ -112,11 +103,14 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
         {
             try
             {
-                // Get the latest valid OTP record
+                Console.WriteLine($"Verifying OTP for: {request.Email}, Code: {request.OTPCode}, AllowReuse: {allowReuseForRegistration}");
+
+                // FIX: Use case-insensitive search and ensure we're getting the latest record
                 var otpRecord = await _otpRepository.GetLatestValidOTPRecordAsync(request.Email.ToLower());
 
                 if (otpRecord == null)
                 {
+                    Console.WriteLine($"No valid OTP record found for: {request.Email}");
                     return new OTPResponse
                     {
                         Success = false,
@@ -124,13 +118,26 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
+                Console.WriteLine($"Found OTP record: Code={otpRecord.OTPCode}, Expires={otpRecord.ExpirationTime}, Used={otpRecord.IsUsed}, Email={otpRecord.Email}");
+
+                // Check if OTP is already used (only for non-reuse cases)
+                if (otpRecord.IsUsed && !allowReuseForRegistration)
+                {
+                    return new OTPResponse
+                    {
+                        Success = false,
+                        Message = "OTP has already been used. Please request a new OTP."
+                    };
+                }
+
                 // Check if OTP is expired
                 if (DateTime.UtcNow > otpRecord.ExpirationTime)
                 {
-                    // Mark as used
+                    // Mark as used when expired
                     otpRecord.IsUsed = true;
                     await _otpRepository.UpdateOTPRecordAsync(otpRecord);
 
+                    Console.WriteLine($"OTP expired for: {request.Email}");
                     return new OTPResponse
                     {
                         Success = false,
@@ -138,9 +145,10 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // Check if OTP matches
-                if (otpRecord.OTPCode != request.OTPCode)
+                // Verify OTP code (case-sensitive comparison)
+                if (otpRecord.OTPCode != request.OTPCode.Trim())
                 {
+                    Console.WriteLine($"OTP code mismatch for: {request.Email}. Expected: {otpRecord.OTPCode}, Received: {request.OTPCode}");
                     return new OTPResponse
                     {
                         Success = false,
@@ -148,12 +156,18 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // For registration flow, don't mark as used immediately if allowReuseForRegistration is true
+                // FIX: For password reset flow (allowReuseForRegistration=true), we don't mark as used immediately
+                // This allows the same OTP to be used for both verification and password reset
                 if (!allowReuseForRegistration)
                 {
-                    // OTP is valid - mark as used
+                    // For registration flow, mark as used immediately
                     otpRecord.IsUsed = true;
                     await _otpRepository.UpdateOTPRecordAsync(otpRecord);
+                    Console.WriteLine($"OTP marked as used for: {request.Email}");
+                }
+                else
+                {
+                    Console.WriteLine($"OTP verified but not marked as used (password reset flow) for: {request.Email}");
                 }
 
                 return new OTPResponse
@@ -164,6 +178,7 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Exception in VerifyOTPAsync for {request.Email}: {ex.Message}");
                 return new OTPResponse
                 {
                     Success = false,
@@ -172,11 +187,40 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
             }
         }
 
+        // Add a specific method for password reset OTP verification
+        public async Task<OTPResponse> VerifyPasswordResetOTPAsync(VerifyOTPRequest request)
+        {
+            // Use allowReuseForRegistration = true for password reset
+            return await VerifyOTPAsync(request, allowReuseForRegistration: true);
+        }
+
+        // Add method to mark OTP as used (for password reset completion)
+        public async Task<bool> MarkOTPAsUsedAsync(string email, string otpCode)
+        {
+            try
+            {
+                var otpRecord = await _otpRepository.GetLatestValidOTPRecordAsync(email.ToLower());
+
+                if (otpRecord != null && otpRecord.OTPCode == otpCode && !otpRecord.IsUsed)
+                {
+                    otpRecord.IsUsed = true;
+                    return await _otpRepository.UpdateOTPRecordAsync(otpRecord);
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error marking OTP as used: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task<OTPResponse> ResendOTPAsync(ResendOTPRequest request)
         {
             try
             {
-                // Validate email format
+                // Existing resend logic remains the same...
                 if (!IsValidEmail(request.Email))
                 {
                     return new OTPResponse
@@ -186,12 +230,10 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
                     };
                 }
 
-                // Check if there's an existing valid OTP that can be reused
                 var existingOtp = await _otpRepository.GetLatestValidOTPRecordAsync(request.Email.ToLower());
 
                 if (existingOtp != null && DateTime.UtcNow < existingOtp.ExpirationTime.AddMinutes(-5))
                 {
-                    // Resend the same OTP if it's still in the first 5 minutes
                     var emailSent = await SendOTPEmailAsync(request.Email, existingOtp.OTPCode);
 
                     if (emailSent)

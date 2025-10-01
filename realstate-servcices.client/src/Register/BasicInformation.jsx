@@ -44,20 +44,20 @@ const BasicInformation = () => {
         },
     };
 
-    // In the onFinish function of BasicInformation.jsx:
     const onFinish = async (values) => {
         setShowSpinner(true);
         setLoading(true);
 
         try {
-            // Store basic information in localStorage for final registration
-            // ONLY store what's actually collected in the form
+            // Store all form data including middle name and suffix
             localStorage.setItem('basicInfo_firstName', values.firstName);
+            localStorage.setItem('basicInfo_middleName', values.middleName || '');
             localStorage.setItem('basicInfo_lastName', values.lastName);
+            localStorage.setItem('basicInfo_suffix', values.suffix || '');
             localStorage.setItem('basicInfo_phone', values.phone);
             localStorage.setItem('basicInfo_gender', values.gender);
 
-            // Remove these or don't set them at all since they're not in the form
+            // Clean up any address fields that might exist from previous sessions
             localStorage.removeItem('basicInfo_country');
             localStorage.removeItem('basicInfo_city');
             localStorage.removeItem('basicInfo_street');
@@ -351,8 +351,7 @@ const BasicInformation = () => {
                                     placeholder="Select suffix"
                                     size="large"
                                     style={{
-                                        borderRadius: '8px',
-                                        height: '48px'
+                                        borderRadius: '8px'
                                     }}
                                     allowClear
                                 >
@@ -364,17 +363,24 @@ const BasicInformation = () => {
                                 </Select>
                             </Form.Item>
 
-                            {/* Phone Number Field */}
+                            {/* Phone Number Field - FIXED WITH VALIDATION */}
                             <Form.Item
                                 name="phone"
                                 label="Phone Number"
                                 tooltip="Verified agents will contact you at this number"
-                                rules={[{ required: true, message: 'Please input your phone number!' }]}
+                                rules={[
+                                    { required: true, message: 'Please input your phone number!' },
+                                    {
+                                        pattern: /^[0-9]{11}$/,
+                                        message: 'Phone number must be exactly 11 digits!'
+                                    }
+                                ]}
                             >
                                 <Input
                                     prefix={<PhoneOutlined style={{ color: '#64748b' }} />}
-                                    placeholder="Enter your phone number"
+                                    placeholder="Enter your 11-digit phone number"
                                     size="large"
+                                    maxLength={11}
                                     style={{
                                         borderRadius: '8px',
                                         height: '48px'
@@ -393,8 +399,7 @@ const BasicInformation = () => {
                                     placeholder="Select your gender"
                                     size="large"
                                     style={{
-                                        borderRadius: '8px',
-                                        height: '48px'
+                                        borderRadius: '8px'
                                     }}
                                 >
                                     <Option value="male">Male</Option>

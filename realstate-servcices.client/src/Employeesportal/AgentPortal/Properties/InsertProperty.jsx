@@ -140,7 +140,7 @@ const InsertProperty = ({
                 }}
             >
                 <Row gutter={[24, 16]}>
-                    {/* Basic Information */}
+             
                     <Col span={24}>
                         <Divider orientation="left">Basic Information</Divider>
                     </Col>
@@ -189,7 +189,7 @@ const InsertProperty = ({
                         </Form.Item>
                     </Col>
 
-                    {/* Price & Details */}
+ 
                     <Col span={24}>
                         <Divider orientation="left">Price & Details</Divider>
                     </Col>
@@ -323,7 +323,7 @@ const InsertProperty = ({
                         </Form.Item>
                     </Col>
 
-                    {/* Images Upload */}
+         
                     <Col span={24}>
                         <Divider orientation="left">Property Images</Divider>
 
@@ -333,7 +333,7 @@ const InsertProperty = ({
                                 fileList={imageList}
                                 onChange={handleImageUpload}
                                 onRemove={handleImageRemove}
-                                beforeUpload={() => false} // Prevent auto upload
+                                beforeUpload={() => false} 
                                 accept="image/*"
                                 multiple
                             >
@@ -363,7 +363,7 @@ const InsertProperty = ({
                         )}
                     </Col>
 
-                    {/* Status & Additional Info */}
+ 
                     <Col span={24}>
                         <Divider orientation="left">Status & Additional Information</Divider>
                     </Col>
@@ -451,7 +451,7 @@ const InsertProperty = ({
                             htmlType="submit"
                             loading={loading}
                             icon={<PlusOutlined />}
-                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }} // Dark blue color
+                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }} 
                         >
                             {isEdit ? 'Update Property' : 'Add Property'}
                         </Button>
