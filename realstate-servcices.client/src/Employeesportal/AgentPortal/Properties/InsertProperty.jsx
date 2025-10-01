@@ -1,5 +1,4 @@
-﻿// InsertProperty.jsx
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     Form,
     Input,
@@ -20,6 +19,7 @@ import {
 import {
     PlusOutlined,
     UploadOutlined,
+    EyeOutlined,
 } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -34,7 +34,6 @@ const InsertProperty = ({
 }) => {
     const [form] = Form.useForm();
     const [imageList, setImageList] = useState([]);
-    const [mainImageIndex, setMainImageIndex] = useState(0);
     const [amenities, setAmenities] = useState([]);
     const [amenityInput, setAmenityInput] = useState('');
     const [previewVisible, setPreviewVisible] = useState(false);
@@ -134,6 +133,8 @@ const InsertProperty = ({
                 status: initialValues.status,
                 latitude: initialValues.latitude,
                 longitude: initialValues.longitude,
+                ownerId: initialValues.ownerId,
+                agentId: initialValues.agentId,
             });
 
             // Set amenities if editing
@@ -154,129 +155,86 @@ const InsertProperty = ({
                     status: 'done',
                     url: img.imageUrl,
                 })));
-
-                if (initialValues.mainImage) {
-                    const mainIndex = initialValues.propertyImages.findIndex(
-                        img => img.imageUrl === initialValues.mainImage
-                    );
-                    if (mainIndex !== -1) {
-                        setMainImageIndex(mainIndex);
-                    }
-                }
             }
         } else {
+            // Set default values for new property
+            form.setFieldsValue({
+                status: 'available',
+                type: 'house',
+                bedrooms: 1,
+                bathrooms: 1,
+                propertyAge: 0,
+                propertyFloor: 1,
+                areaSqft: 0,
+                price: 0,
+                // Add default ownerId and agentId if needed
+                ownerId: 1, // You might want to get this from user context
+                agentId: 1, // You might want to get this from user context
+            });
             setAmenities([]);
             setImageList([]);
-            setMainImageIndex(0);
         }
     }, [initialValues, isEdit, form]);
 
-    // Handler for city search
-    const handleCitySearch = (value) => {
-        if (value) {
-            const filteredOptions = cityOptions.filter(option =>
-                option.value.toLowerCase().includes(value.toLowerCase())
-            );
-            setCityOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
-        } else {
-            // Reset to default options when empty
-            setCityOptions([
-                { value: 'Manila' },
-                { value: 'Quezon City' },
-                { value: 'Makati' },
-                { value: 'Taguig' },
-                { value: 'Pasig' },
-            ]);
-        }
-    };
-
-    // Handler for state search
-    const handleStateSearch = (value) => {
-        if (value) {
-            const filteredOptions = stateOptions.filter(option =>
-                option.value.toLowerCase().includes(value.toLowerCase())
-            );
-            setStateOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
-        } else {
-            setStateOptions([
-                { value: 'Metro Manila' },
-                { value: 'Cavite' },
-                { value: 'Laguna' },
-                { value: 'Rizal' },
-                { value: 'Bulacan' },
-            ]);
-        }
-    };
-
-    // Handler for zip code search
-    const handleZipCodeSearch = (value) => {
-        if (value) {
-            const filteredOptions = zipCodeOptions.filter(option =>
-                option.value.includes(value)
-            );
-            setZipCodeOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
-        } else {
-            setZipCodeOptions([
-                { value: '1000' },
-                { value: '1001' },
-                { value: '1002' },
-                { value: '1003' },
-                { value: '1004' },
-            ]);
-        }
-    };
-
     const handleSubmit = async (values) => {
         try {
+            // Format the data according to API expectations
             const submitData = {
-                ...values,
-                propertyImages: imageList.map(img => ({ imageUrl: img.url })),
-                mainImage: imageList[mainImageIndex]?.url || '',
+                title: values.title,
+                description: values.description,
+                type: values.type,
+                price: Number(values.price),
+                propertyAge: Number(values.propertyAge) || 0,
+                propertyFloor: Number(values.propertyFloor) || 1,
+                bedrooms: Number(values.bedrooms),
+                bathrooms: Number(values.bathrooms),
+                areaSqft: Number(values.areaSqft),
+                address: values.address,
+                city: values.city,
+                state: values.state,
+                zipCode: values.zipCode,
+                latitude: values.latitude ? Number(values.latitude) : null,
+                longitude: values.longitude ? Number(values.longitude) : null,
+                status: values.status,
+                ownerId: values.ownerId || 1, // Default or from context
+                agentId: values.agentId || 1, // Default or from context
                 amenities: JSON.stringify(amenities),
+                listedDate: new Date().toISOString(),
             };
+
+            console.log('Submitting data:', submitData); // For debugging
 
             if (onSubmit) {
                 await onSubmit(submitData);
-                message.success(`Property ${isEdit ? 'updated' : 'created'} successfully!`);
-                if (!isEdit) {
-                    form.resetFields();
-                    setImageList([]);
-                    setMainImageIndex(0);
-                    setAmenities([]);
-                }
             }
         } catch (error) {
+            console.error('Form submission error:', error);
             message.error(`Failed to ${isEdit ? 'update' : 'create'} property: ${error.message}`);
         }
     };
 
     const handleImageUpload = (info) => {
-        const { file } = info;
+        let fileList = [...info.fileList];
 
-        if (file.status === 'uploading') {
-            return;
-        }
+        // Limit to 10 files
+        fileList = fileList.slice(-10);
 
-        if (file.status === 'done') {
-            const newImage = {
-                uid: file.uid,
-                name: file.name,
-                status: 'done',
-                url: URL.createObjectURL(file.originFileObj),
-                originFileObj: file.originFileObj,
-            };
-            setImageList(prev => [...prev, newImage]);
-            message.success(`${file.name} file uploaded successfully`);
-        } else if (file.status === 'error') {
-            message.error(`${file.name} file upload failed.`);
-        }
+        // Handle file status
+        fileList = fileList.map(file => {
+            if (file.status === 'done') {
+                // For demo purposes, create a blob URL
+                if (file.originFileObj) {
+                    file.url = URL.createObjectURL(file.originFileObj);
+                }
+            }
+            return file;
+        });
+
+        setImageList(fileList);
     };
 
     const handleImageRemove = (file) => {
         setImageList(prev => prev.filter(img => img.uid !== file.uid));
-        if (mainImageIndex >= imageList.length - 1) {
-            setMainImageIndex(0);
-        }
     };
 
     const handlePreview = async (file) => {
@@ -320,6 +278,8 @@ const InsertProperty = ({
                     propertyFloor: 1,
                     areaSqft: 0,
                     price: 0,
+                    ownerId: 1,
+                    agentId: 1,
                 }}
             >
                 <Row gutter={[24, 16]}>
@@ -391,6 +351,7 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                step={1000}
                                 formatter={value => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                 parser={value => value.replace(/\₱\s?|(,*)/g, '')}
                                 placeholder="Enter price"
@@ -407,6 +368,7 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                max={20}
                                 placeholder="0"
                             />
                         </Form.Item>
@@ -421,6 +383,7 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                max={20}
                                 step={0.5}
                                 placeholder="0.0"
                             />
@@ -436,6 +399,7 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                step={10}
                                 placeholder="0"
                             />
                         </Form.Item>
@@ -449,6 +413,7 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                max={100}
                                 placeholder="Years"
                             />
                         </Form.Item>
@@ -463,12 +428,13 @@ const InsertProperty = ({
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
+                                max={100}
                                 placeholder="Floor"
                             />
                         </Form.Item>
                     </Col>
 
-                    {/* Location Information with Textbox-Dropdown */}
+                    {/* Location Information */}
                     <Col span={24}>
                         <Divider orientation="left">Location Information</Divider>
                     </Col>
@@ -486,7 +452,6 @@ const InsertProperty = ({
                         </Form.Item>
                     </Col>
 
-                    {/* City with AutoComplete */}
                     <Col xs={24} lg={8}>
                         <Form.Item
                             name="city"
@@ -498,7 +463,14 @@ const InsertProperty = ({
                         >
                             <AutoComplete
                                 options={cityOptions}
-                                onSearch={handleCitySearch}
+                                onSearch={(value) => {
+                                    if (value) {
+                                        const filteredOptions = cityOptions.filter(option =>
+                                            option.value.toLowerCase().includes(value.toLowerCase())
+                                        );
+                                        setCityOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
+                                    }
+                                }}
                                 placeholder="Type or select city"
                                 filterOption={false}
                             >
@@ -507,7 +479,6 @@ const InsertProperty = ({
                         </Form.Item>
                     </Col>
 
-                    {/* State with AutoComplete */}
                     <Col xs={24} lg={8}>
                         <Form.Item
                             name="state"
@@ -519,7 +490,14 @@ const InsertProperty = ({
                         >
                             <AutoComplete
                                 options={stateOptions}
-                                onSearch={handleStateSearch}
+                                onSearch={(value) => {
+                                    if (value) {
+                                        const filteredOptions = stateOptions.filter(option =>
+                                            option.value.toLowerCase().includes(value.toLowerCase())
+                                        );
+                                        setStateOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
+                                    }
+                                }}
                                 placeholder="Type or select state"
                                 filterOption={false}
                             >
@@ -528,7 +506,6 @@ const InsertProperty = ({
                         </Form.Item>
                     </Col>
 
-                    {/* ZIP Code with AutoComplete */}
                     <Col xs={24} lg={8}>
                         <Form.Item
                             name="zipCode"
@@ -540,7 +517,14 @@ const InsertProperty = ({
                         >
                             <AutoComplete
                                 options={zipCodeOptions}
-                                onSearch={handleZipCodeSearch}
+                                onSearch={(value) => {
+                                    if (value) {
+                                        const filteredOptions = zipCodeOptions.filter(option =>
+                                            option.value.includes(value)
+                                        );
+                                        setZipCodeOptions(filteredOptions.length > 0 ? filteredOptions : [{ value }]);
+                                    }
+                                }}
                                 placeholder="Type or select ZIP code"
                                 filterOption={false}
                             >
@@ -613,7 +597,7 @@ const InsertProperty = ({
 
                         <Form.Item
                             label="Upload Images (Max 10 images)"
-                            extra="Click on images to preview. First image will be used as main image by default."
+                            extra="Note: Image upload functionality needs backend integration for file storage"
                         >
                             <Upload
                                 listType="picture-card"
@@ -621,75 +605,16 @@ const InsertProperty = ({
                                 onPreview={handlePreview}
                                 onChange={handleImageUpload}
                                 onRemove={handleImageRemove}
-                                beforeUpload={() => false}
+                                beforeUpload={() => false} // Prevent automatic upload
                                 accept="image/*"
                                 multiple
-                                maxCount={10}
                             >
                                 {imageList.length >= 10 ? null : uploadButton}
                             </Upload>
                         </Form.Item>
-
-                        {imageList.length > 0 && (
-                            <Form.Item label="Set Main Image">
-                                <div style={{ marginBottom: 16 }}>
-                                    <span style={{ color: '#666', fontSize: '12px' }}>
-                                        Select which image should be displayed as the main property image
-                                    </span>
-                                </div>
-                                <Select
-                                    value={mainImageIndex}
-                                    onChange={setMainImageIndex}
-                                    style={{ width: 200 }}
-                                >
-                                    {imageList.map((img, index) => (
-                                        <Option key={index} value={index}>
-                                            <Space>
-                                                <img
-                                                    src={img.url}
-                                                    alt={`Thumb ${index + 1}`}
-                                                    style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        objectFit: 'cover',
-                                                        borderRadius: 2
-                                                    }}
-                                                />
-                                                Image {index + 1}
-                                            </Space>
-                                        </Option>
-                                    ))}
-                                </Select>
-
-                                {/* Main Image Preview */}
-                                <div style={{ marginTop: 16 }}>
-                                    <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                                        Main Image Preview:
-                                    </div>
-                                    <div
-                                        style={{
-                                            border: '2px solid #1890ff',
-                                            borderRadius: 8,
-                                            padding: 8,
-                                            display: 'inline-block'
-                                        }}
-                                    >
-                                        <img
-                                            src={imageList[mainImageIndex]?.url}
-                                            alt="Main preview"
-                                            style={{
-                                                width: 200,
-                                                height: 150,
-                                                objectFit: 'cover',
-                                                borderRadius: 4
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </Form.Item>
-                        )}
                     </Col>
 
+                    {/* Status & Additional Information */}
                     <Col span={24}>
                         <Divider orientation="left">Status & Additional Information</Divider>
                     </Col>
@@ -714,6 +639,18 @@ const InsertProperty = ({
                                     </Option>
                                 ))}
                             </Select>
+                        </Form.Item>
+                    </Col>
+
+                    {/* Hidden fields for ownerId and agentId */}
+                    <Col xs={24} lg={8} style={{ display: 'none' }}>
+                        <Form.Item name="ownerId" hidden>
+                            <Input />
+                        </Form.Item>
+                    </Col>
+                    <Col xs={24} lg={8} style={{ display: 'none' }}>
+                        <Form.Item name="agentId" hidden>
+                            <Input />
                         </Form.Item>
                     </Col>
 

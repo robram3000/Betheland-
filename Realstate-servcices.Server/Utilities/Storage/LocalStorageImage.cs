@@ -21,30 +21,26 @@ namespace Realstate_servcices.Server.Utilities.Storage
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File is empty");
 
-            // Validate file type
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
             if (!allowedExtensions.Contains(fileExtension))
                 throw new ArgumentException("Invalid file type");
 
-            // Validate file size (max 10MB)
             if (file.Length > 10 * 1024 * 1024)
                 throw new ArgumentException("File size too large. Maximum size is 10MB.");
 
-            // Create unique filename
+
             var fileName = $"{Guid.NewGuid()}{fileExtension}";
             var relativePath = Path.Combine(BaseUploadPath, folderPath, fileName);
 
-            // CORRECT: Use wwwroot path
             var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
 
-            // Ensure directory exists
             var directory = Path.GetDirectoryName(fullPath);
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory!);
 
-            // Save file
+
             using (var stream = new FileStream(fullPath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
@@ -85,10 +81,8 @@ namespace Realstate_servcices.Server.Utilities.Storage
                 if (string.IsNullOrEmpty(imageUrl))
                     return false;
 
-                // Remove leading slash if present and get full path
                 var relativePath = imageUrl.TrimStart('/');
 
-                // CORRECT: Use wwwroot path
                 var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
 
                 if (File.Exists(fullPath))
@@ -115,7 +109,7 @@ namespace Realstate_servcices.Server.Utilities.Storage
 
             var relativePath = imageUrl.TrimStart('/');
 
-            // CORRECT: Use wwwroot path
+
             return Path.Combine(_environment.WebRootPath, relativePath);
         }
     }

@@ -40,7 +40,6 @@
     <Folder Include="Controllers\Scheduling\" />
     <Folder Include="Entity\Conversation\" />
     <Folder Include="Entity\Authlog\" />
-    <Folder Include="Entity\Scheduling\" />
     <Folder Include="Repository\ContentLandingPage\" />
   </ItemGroup>
 

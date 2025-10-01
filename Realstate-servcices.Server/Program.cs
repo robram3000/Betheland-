@@ -5,10 +5,12 @@ using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
+using Realstate_servcices.Server.Repository.ScheduleDao;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
+using Realstate_servcices.Server.Services.Scheduling;
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
 using Realstate_servcices.Server.Services.SMTP.rollout;
@@ -64,6 +66,9 @@ builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<ICreatePropertyRepository, CreatePropertyRepository>();
 builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>(); // This depends on IWebHostEnvironment
 builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
+
+builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
+builder.Services.AddScoped<IScheduleServices, ScheduleServices>();
 
 // The rest of your configuration remains the same...
 builder.Services.AddAuthentication(options =>
