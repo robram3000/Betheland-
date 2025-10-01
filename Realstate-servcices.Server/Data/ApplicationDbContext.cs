@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.member;
-using Realstate_servcices.Server.Entity.Property;
 using Realstate_servcices.Server.Entity.OTP;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Data
 {
@@ -17,7 +18,7 @@ namespace Realstate_servcices.Server.Data
         public DbSet<Agent> Agents { get; set; }
         public DbSet<Client> Clients { get; set; }
 
-        public DbSet<Property> Properties { get; set; }
+        public DbSet<PropertyHouse> Properties { get; set; }
         public DbSet<PropertyImage> PropertyImages { get; set; }
         public DbSet<ScheduleProperties> ScheduleProperties { get; set; }
         public DbSet<Wishlist> Wishlists { get; set; } 
@@ -89,7 +90,7 @@ namespace Realstate_servcices.Server.Data
             });
 
 
-            modelBuilder.Entity<Property>(entity =>
+            modelBuilder.Entity<PropertyHouse>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);

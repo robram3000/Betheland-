@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Realstate_servcices.Server.Entity.Property
+namespace Realstate_servcices.Server.Entity.Properties
 {
     public class Wishlist
     {
@@ -30,6 +30,6 @@ namespace Realstate_servcices.Server.Entity.Property
         public virtual Client Client { get; set; } = null!;
 
         [ForeignKey("PropertyId")]
-        public virtual Property Property { get; set; } = null!;
+        public virtual PropertyHouse Property { get; set; } = null!;
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Realstate_servcices.Server.Entity.member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Entity.Member
 {
@@ -48,6 +49,6 @@ namespace Realstate_servcices.Server.Entity.Member
 
         public virtual Client? Client { get; set; }
         public virtual Agent? Agent { get; set; }
-        public virtual ICollection<Property.Property>? Properties { get; set; }
+        public virtual ICollection<PropertyHouse>? Properties { get; set; }
     }
 }

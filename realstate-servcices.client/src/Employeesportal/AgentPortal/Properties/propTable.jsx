@@ -1,4 +1,4 @@
-﻿// propTable.jsx
+﻿// Updated propTable.jsx with real service integration
 import React, { useState, useEffect } from 'react';
 import {
     Button,
@@ -8,10 +8,8 @@ import {
     Row,
     Col,
     Statistic,
-    Flex,
     Typography,
-    Table,
-    Card // Add Card to the imports
+    Card
 } from 'antd';
 import {
     PlusOutlined,
@@ -20,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import BaseTableProperty from './BaseTableProperty';
 import InsertProperty from './InsertProperty';
+import propertyService from './Services/propertyService';
 
 const { Title, Text } = Typography;
 
@@ -30,94 +29,6 @@ const PropTable = () => {
     const [editingProperty, setEditingProperty] = useState(null);
     const [selectedRows, setSelectedRows] = useState([]);
 
-    // Mock data - replace with actual API calls
-    const mockProperties = [
-        {
-            id: 1,
-            propertyNo: 'PROP-001-ABC123',
-            title: 'Beautiful Modern House in Downtown',
-            description: 'A stunning modern house with panoramic city views...',
-            type: 'house',
-            price: 750000,
-            propertyAge: 5,
-            propertyFloor: 2,
-            bedrooms: 4,
-            bathrooms: 3.5,
-            areaSqft: 2800,
-            address: '123 Main Street',
-            city: 'New York',
-            state: 'NY',
-            zipCode: '10001',
-            latitude: 40.7128,
-            longitude: -74.0060,
-            status: 'available',
-            ownerId: '101',
-            agentId: '201',
-            listedDate: '2024-01-15',
-            mainImage: '/house1.jpg',
-            propertyImages: [
-                { imageUrl: '/house1-1.jpg' },
-                { imageUrl: '/house1-2.jpg' },
-            ],
-        },
-        {
-            id: 2,
-            propertyNo: 'PROP-002-DEF456',
-            title: 'Luxury Apartment with Pool',
-            description: 'Spacious luxury apartment with resort-style amenities...',
-            type: 'apartment',
-            price: 250000,
-            propertyAge: 2,
-            propertyFloor: 15,
-            bedrooms: 2,
-            bathrooms: 2,
-            areaSqft: 1200,
-            address: '456 Park Avenue',
-            city: 'Los Angeles',
-            state: 'CA',
-            zipCode: '90001',
-            latitude: 34.0522,
-            longitude: -118.2437,
-            status: 'sold',
-            ownerId: '102',
-            agentId: '202',
-            listedDate: '2024-01-10',
-            mainImage: '/apartment1.jpg',
-            propertyImages: [
-                { imageUrl: '/apartment1-1.jpg' },
-                { imageUrl: '/apartment1-2.jpg' },
-            ],
-        },
-        {
-            id: 3,
-            propertyNo: 'PROP-003-GHI789',
-            title: 'Cozy Studio in City Center',
-            description: 'Perfect studio apartment for young professionals...',
-            type: 'condo',
-            price: 180000,
-            propertyAge: 1,
-            propertyFloor: 8,
-            bedrooms: 1,
-            bathrooms: 1,
-            areaSqft: 650,
-            address: '789 Downtown Blvd',
-            city: 'Chicago',
-            state: 'IL',
-            zipCode: '60007',
-            latitude: 41.8781,
-            longitude: -87.6298,
-            status: 'pending',
-            ownerId: '103',
-            agentId: null,
-            listedDate: '2024-01-20',
-            mainImage: '/studio1.jpg',
-            propertyImages: [
-                { imageUrl: '/studio1-1.jpg' },
-                { imageUrl: '/studio1-2.jpg' },
-            ],
-        },
-    ];
-
     useEffect(() => {
         loadProperties();
     }, []);
@@ -125,13 +36,11 @@ const PropTable = () => {
     const loadProperties = async () => {
         setLoading(true);
         try {
-            // Simulate API call
-            setTimeout(() => {
-                setProperties(mockProperties);
-                setLoading(false);
-            }, 1000);
+            const data = await propertyService.getAllProperties();
+            setProperties(data);
         } catch (error) {
-            message.error('Failed to load properties');
+            message.error('Failed to load properties: ' + error.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -148,11 +57,11 @@ const PropTable = () => {
 
     const handleDelete = async (propertyId) => {
         try {
-            // Simulate API call
+            await propertyService.deleteProperty(propertyId);
             setProperties(prev => prev.filter(prop => prop.id !== propertyId));
             message.success('Property deleted successfully');
         } catch (error) {
-            message.error('Failed to delete property');
+            message.error('Failed to delete property: ' + error.message);
         }
     };
 
@@ -165,7 +74,7 @@ const PropTable = () => {
                     <Row gutter={[16, 16]}>
                         <Col span={12}>
                             <img
-                                src={property.mainImage}
+                                src={property.mainImage || property.propertyImages?.[0]?.imageUrl || '/default-property.jpg'}
                                 alt={property.title}
                                 style={{ width: '100%', borderRadius: '8px' }}
                             />
@@ -197,30 +106,23 @@ const PropTable = () => {
     const handleSubmit = async (formData) => {
         setLoading(true);
         try {
-            // Simulate API call
             if (editingProperty) {
                 // Update existing property
+                const updatedProperty = await propertyService.updateProperty(editingProperty.id, formData);
                 setProperties(prev => prev.map(prop =>
-                    prop.id === editingProperty.id
-                        ? { ...formData, id: editingProperty.id }
-                        : prop
+                    prop.id === editingProperty.id ? updatedProperty : prop
                 ));
                 message.success('Property updated successfully');
             } else {
                 // Create new property
-                const newProperty = {
-                    ...formData,
-                    id: Math.max(...properties.map(p => p.id)) + 1,
-                    propertyNo: `PROP-${String(properties.length + 1).padStart(3, '0')}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-                    listedDate: new Date().toISOString().split('T')[0],
-                };
+                const newProperty = await propertyService.createProperty(formData);
                 setProperties(prev => [...prev, newProperty]);
                 message.success('Property created successfully');
             }
             setModalVisible(false);
             setEditingProperty(null);
         } catch (error) {
-            message.error(`Failed to ${editingProperty ? 'update' : 'create'} property`);
+            message.error(`Failed to ${editingProperty ? 'update' : 'create'} property: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -286,7 +188,7 @@ const PropTable = () => {
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleCreate}
-                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }} // Dark blue color
+                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }}
                         >
                             Add Property
                         </Button>
@@ -301,7 +203,7 @@ const PropTable = () => {
                         <Statistic
                             title="Total Properties"
                             value={stats.total}
-                            valueStyle={{ color: '#1a365d' }} // Dark blue color
+                            valueStyle={{ color: '#1a365d' }}
                         />
                     </Card>
                 </Col>
@@ -329,7 +231,7 @@ const PropTable = () => {
                             title="Total Value"
                             value={stats.totalValue}
                             prefix="₱"
-                            valueStyle={{ color: '#1a365d' }} // Dark blue color
+                            valueStyle={{ color: '#1a365d' }}
                         />
                     </Card>
                 </Col>

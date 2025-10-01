@@ -1,10 +1,10 @@
 ﻿using Realstate_servcices.Server.Entity.member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Realstate_servcices.Server.Entity.Property
+using Realstate_servcices.Server.Entity.Properties;
+namespace Realstate_servcices.Server.Entity.Properties
 {
-    public class Property
+    public class PropertyHouse
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -84,7 +84,7 @@ namespace Realstate_servcices.Server.Entity.Property
         public virtual Client Owner { get; set; } = null!;
 
         [ForeignKey("AgentId")]
-        public virtual Agent? Agent { get; set; }
+        public virtual Agent? Agent { get; set; } 
 
         public virtual ICollection<PropertyImage>? PropertyImages { get; set; }
 

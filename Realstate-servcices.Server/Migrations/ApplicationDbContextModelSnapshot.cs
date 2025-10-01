@@ -120,7 +120,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("OTPRecords");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.Property", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyHouse", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -231,7 +231,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("Properties");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.PropertyImage", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyImage", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -257,7 +257,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("PropertyImages");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.ScheduleProperties", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.ScheduleProperties", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -308,7 +308,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("ScheduleProperties");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.Wishlist", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.Wishlist", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -475,7 +475,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("Clients");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.Property", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyHouse", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
                         .WithMany("Properties")
@@ -497,9 +497,9 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Owner");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.PropertyImage", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyImage", b =>
                 {
-                    b.HasOne("Realstate_servcices.Server.Entity.Property.Property", "Property")
+                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
                         .WithMany("PropertyImages")
                         .HasForeignKey("PropertyId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -508,7 +508,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Property");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.ScheduleProperties", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.ScheduleProperties", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
                         .WithMany("ScheduleProperties")
@@ -522,7 +522,7 @@ namespace Realstate_servcices.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Realstate_servcices.Server.Entity.Property.Property", "Property")
+                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
                         .WithMany("ScheduleProperties")
                         .HasForeignKey("PropertyId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -535,7 +535,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Property");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.Wishlist", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.Wishlist", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
                         .WithMany("Wishlists")
@@ -543,7 +543,7 @@ namespace Realstate_servcices.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Realstate_servcices.Server.Entity.Property.Property", "Property")
+                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
                         .WithMany("Wishlists")
                         .HasForeignKey("PropertyId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -585,7 +585,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Properties");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Property.Property", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyHouse", b =>
                 {
                     b.Navigation("PropertyImages");
 

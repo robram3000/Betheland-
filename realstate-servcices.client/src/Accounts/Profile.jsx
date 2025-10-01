@@ -1,6 +1,6 @@
-// profile.jsx
-import React, { useState } from 'react';
-import { Card, Avatar, Descriptions, Button, Tag, Divider, Tabs, Form, Input, Modal, message, Alert } from 'antd';
+// Profile.jsx
+import React, { useState, useEffect } from 'react';
+import { Card, Avatar, Descriptions, Button, Tag, Divider, Tabs, Form, Input, Modal, message, Alert, Spin } from 'antd';
 import {
     UserOutlined,
     MailOutlined,
@@ -17,6 +17,9 @@ import {
     CloseOutlined
 } from '@ant-design/icons';
 
+import { useUser } from '../Authpage/Services/UserContextService';
+import useProfile from './Services/useProfile';
+
 const { TabPane } = Tabs;
 
 const ProfilePage = () => {
@@ -28,33 +31,61 @@ const ProfilePage = () => {
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [editingField, setEditingField] = useState(null);
     const [tempValues, setTempValues] = useState({});
+    const [profileData, setProfileData] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // Mock user data - Fields marked as READONLY should not be modifiable by users
-    const userData = {
-        // READONLY FIELDS (System-managed)
-        id: 12345,
-        baseMemberNo: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        username: 'johndoe_2023',
-        role: 'User', // Changed from 'Premium User'
-        status: 'Active',
-        createdAt: 'January 15, 2023',
-        updatedAt: 'February 20, 2024',
+    // Use the UserContext and Profile hooks
+    const { user, profile: contextProfile } = useUser();
+    const {
+        loading: profileLoading,
+        updating,
+        getProfile,
+        updateProfile,
+        updateField,
+        changePassword,
+        verifyOtp,
+        resendOtp
+    } = useProfile();
 
-        // MODIFIABLE FIELDS (User can change)
-        email: 'john.doe@example.com',
-        firstName: 'John',
-        middleName: 'Michael',
-        lastName: 'Doe',
-        suffix: 'Jr.',
-        cellPhoneNo: '+1 (555) 123-4567',
-        country: 'USA',
-        city: 'New York',
-        street: '123 Main Street',
-        zipCode: '10001',
-        profilePictureUrl: null
-    };
+    // Fetch profile data when component mounts
+    useEffect(() => {
+        const fetchProfileData = async () => {
+            try {
+                setLoading(true);
+                const result = await getProfile();
+                if (result.success) {
+                    setProfileData(result.data);
+                    // Set form initial values with real data
+                    profileForm.setFieldsValue({
+                        email: result.data.email,
+                        firstName: result.data.firstName,
+                        middleName: result.data.middleName,
+                        lastName: result.data.lastName,
+                        suffix: result.data.suffix,
+                        cellPhoneNo: result.data.cellPhoneNo,
+                        country: result.data.country,
+                        city: result.data.city,
+                        street: result.data.street,
+                        zipCode: result.data.zipCode
+                    });
+                } else {
+                    message.error(result.message || 'Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+                message.error('Failed to load profile data');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const onProfileFinish = (values) => {
+        if (user) {
+            fetchProfileData();
+        }
+    }, [user, getProfile, profileForm]);
+
+    // Update onProfileFinish to use real API
+    const onProfileFinish = async (values) => {
         console.log('Profile update:', values);
 
         // Filter only modifiable fields for submission
@@ -71,36 +102,41 @@ const ProfilePage = () => {
             zipCode: values.zipCode
         };
 
-        console.log('Submitting modifiable data:', modifiableData);
-        message.success('Profile updated successfully!');
-        // Handle profile update API call with only modifiable data
+        const result = await updateProfile(modifiableData);
+        if (result.success) {
+            // Update local state with new data
+            setProfileData(prev => ({ ...prev, ...modifiableData }));
+        }
     };
 
-    const onPasswordFinish = (values) => {
+    // Update onPasswordFinish to use real API
+    const onPasswordFinish = async (values) => {
         console.log('Password change initiated:', values);
         setIsChangingPassword(true);
-        // In real app, this would trigger OTP sending to email/phone
-        showOtpModal();
+
+        const result = await changePassword(values);
+        if (result.success) {
+            showOtpModal();
+        } else {
+            setIsChangingPassword(false);
+        }
     };
 
     const showOtpModal = () => {
         setIsOtpModalVisible(true);
-        // Simulate sending OTP
         message.info('OTP sent to your registered email/phone');
     };
 
-    const handleOtpSubmit = (values) => {
+    const handleOtpSubmit = async (values) => {
         console.log('OTP verification:', values);
 
-        // Simulate OTP verification
-        if (values.otp === '123456') {
+        const result = await verifyOtp(values);
+        if (result.success) {
             message.success('Password changed successfully!');
             setIsOtpModalVisible(false);
             setIsChangingPassword(false);
             passwordForm.resetFields();
             otpForm.resetFields();
-        } else {
-            message.error('Invalid OTP. Please try again.');
         }
     };
 
@@ -110,16 +146,20 @@ const ProfilePage = () => {
         otpForm.resetFields();
     };
 
-    const resendOtp = () => {
-        message.info('New OTP sent to your registered email/phone');
+    const handleResendOtp = async () => {
+        const result = await resendOtp();
+        if (result.success) {
+            message.info('New OTP sent to your registered email/phone');
+        }
     };
 
     // Helper to get full name
     const getFullName = () => {
-        return `${userData.firstName} ${userData.middleName ? userData.middleName + ' ' : ''}${userData.lastName}${userData.suffix ? ' ' + userData.suffix : ''}`;
+        if (!profileData) return 'Loading...';
+        return `${profileData.firstName || ''} ${profileData.middleName ? profileData.middleName + ' ' : ''}${profileData.lastName || ''}${profileData.suffix ? ' ' + profileData.suffix : ''}`.trim();
     };
 
-    // Edit field functions
+    // Edit field functions - updated to use API
     const startEditing = (fieldName, currentValue) => {
         setEditingField(fieldName);
         setTempValues({
@@ -128,19 +168,25 @@ const ProfilePage = () => {
         });
     };
 
-    const saveField = (fieldName) => {
+    const saveField = async (fieldName) => {
         const newValue = tempValues[fieldName];
         console.log(`Saving ${fieldName}:`, newValue);
 
-        // Update form values
-        const currentValues = profileForm.getFieldsValue();
-        profileForm.setFieldsValue({
-            ...currentValues,
-            [fieldName]: newValue
-        });
+        const result = await updateField(fieldName, newValue);
+        if (result.success) {
+            // Update form values
+            const currentValues = profileForm.getFieldsValue();
+            profileForm.setFieldsValue({
+                ...currentValues,
+                [fieldName]: newValue
+            });
 
-        // In real app, you would make API call here to update the specific field
-        message.success(`${fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} updated successfully!`);
+            // Update local state
+            setProfileData(prev => ({
+                ...prev,
+                [fieldName]: newValue
+            }));
+        }
 
         setEditingField(null);
         setTempValues({});
@@ -158,6 +204,23 @@ const ProfilePage = () => {
         });
     };
 
+    // Loading state
+    if (loading || profileLoading) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '400px'
+            }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    // Use real data from backend or fallback to context data
+    const displayData = profileData || contextProfile || {};
+
     // Editable Field Component
     const EditableField = ({ fieldName, label, value, icon: Icon, type = 'text', rules = [] }) => {
         const isEditing = editingField === fieldName;
@@ -169,7 +232,7 @@ const ProfilePage = () => {
                 alignItems: 'center',
                 gap: '8px',
                 padding: '8px 0',
-                borderBottom: '1px solid #d9d9d9' // Changed to gray
+                borderBottom: '1px solid #d9d9d9'
             }}>
                 <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
@@ -224,6 +287,7 @@ const ProfilePage = () => {
                             onClick={() => saveField(fieldName)}
                             style={{ color: '#52c41a' }}
                             size="small"
+                            loading={updating}
                         />
                         <Button
                             type="text"
@@ -279,7 +343,7 @@ const ProfilePage = () => {
                         </Form.Item>
 
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <Button type="link" onClick={resendOtp}>
+                            <Button type="link" onClick={handleResendOtp}>
                                 Resend OTP
                             </Button>
                         </div>
@@ -308,7 +372,7 @@ const ProfilePage = () => {
                     boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.06)',
                     borderRadius: '16px',
                     overflow: 'hidden',
-                    border: '1px solid #d9d9d9' // Added gray border
+                    border: '1px solid #d9d9d9'
                 }}
                 bordered={false}
             >
@@ -320,12 +384,12 @@ const ProfilePage = () => {
                     background: 'linear-gradient(135deg, #1B3C53 0%, #2D5A7A 100%)',
                     color: 'white',
                     margin: '-24px -24px 0 -24px',
-                    borderBottom: '1px solid #d9d9d9' // Added gray border
+                    borderBottom: '1px solid #d9d9d9'
                 }}>
                     <Avatar
                         size={80}
                         icon={<UserOutlined />}
-                        src={userData.profilePictureUrl}
+                        src={displayData.profilePictureUrl}
                         style={{
                             backgroundColor: 'rgba(255,255,255,0.2)',
                             border: '3px solid rgba(255,255,255,0.3)'
@@ -350,10 +414,10 @@ const ProfilePage = () => {
                                     fontWeight: '500'
                                 }}
                             >
-                                {userData.status}
+                                {displayData.status || 'Active'}
                             </Tag>
-                            <span style={{ opacity: 0.9 }}>{userData.role}</span>
-                            <span style={{ opacity: 0.7, fontSize: '12px' }}>@{userData.username}</span>
+                            <span style={{ opacity: 0.9 }}>{displayData.role || user?.userType || 'User'}</span>
+                            <span style={{ opacity: 0.7, fontSize: '12px' }}>@{displayData.username || user?.username}</span>
                         </div>
                     </div>
                 </div>
@@ -379,19 +443,6 @@ const ProfilePage = () => {
                                         form={profileForm}
                                         layout="vertical"
                                         onFinish={onProfileFinish}
-                                        initialValues={{
-                                            // Modifiable fields
-                                            email: userData.email,
-                                            firstName: userData.firstName,
-                                            middleName: userData.middleName,
-                                            lastName: userData.lastName,
-                                            suffix: userData.suffix,
-                                            cellPhoneNo: userData.cellPhoneNo,
-                                            country: userData.country,
-                                            city: userData.city,
-                                            street: userData.street,
-                                            zipCode: userData.zipCode
-                                        }}
                                     >
                                         <div style={{
                                             display: 'grid',
@@ -401,10 +452,9 @@ const ProfilePage = () => {
                                         }}>
                                             {/* Personal Information */}
                                             <div style={{
-                                            
                                                 padding: '20px',
                                                 borderRadius: '8px',
-                                                border: '1px solid #d9d9d9' // Changed to gray
+                                                border: '1px solid #d9d9d9'
                                             }}>
                                                 <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
                                                     <UserOutlined style={{ marginRight: '8px' }} />
@@ -414,7 +464,7 @@ const ProfilePage = () => {
                                                 <EditableField
                                                     fieldName="firstName"
                                                     label="First Name"
-                                                    value={userData.firstName}
+                                                    value={displayData.firstName}
                                                     icon={UserOutlined}
                                                     rules={[{ required: true, message: 'First name is required' }]}
                                                 />
@@ -422,26 +472,26 @@ const ProfilePage = () => {
                                                 <EditableField
                                                     fieldName="middleName"
                                                     label="Middle Name"
-                                                    value={userData.middleName}
+                                                    value={displayData.middleName}
                                                 />
 
                                                 <EditableField
                                                     fieldName="lastName"
                                                     label="Last Name"
-                                                    value={userData.lastName}
+                                                    value={displayData.lastName}
                                                     rules={[{ required: true, message: 'Last name is required' }]}
                                                 />
 
                                                 <EditableField
                                                     fieldName="suffix"
                                                     label="Suffix"
-                                                    value={userData.suffix}
+                                                    value={displayData.suffix}
                                                 />
 
                                                 <EditableField
                                                     fieldName="cellPhoneNo"
                                                     label="Phone Number"
-                                                    value={userData.cellPhoneNo}
+                                                    value={displayData.cellPhoneNo}
                                                     icon={PhoneOutlined}
                                                     rules={[{ required: true, message: 'Phone number is required' }]}
                                                 />
@@ -449,10 +499,9 @@ const ProfilePage = () => {
 
                                             {/* Address Information */}
                                             <div style={{
-                                    
                                                 padding: '20px',
                                                 borderRadius: '8px',
-                                                border: '1px solid #d9d9d9' // Changed to gray
+                                                border: '1px solid #d9d9d9'
                                             }}>
                                                 <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
                                                     <MailOutlined style={{ marginRight: '8px' }} />
@@ -462,25 +511,25 @@ const ProfilePage = () => {
                                                 <EditableField
                                                     fieldName="country"
                                                     label="Country"
-                                                    value={userData.country}
+                                                    value={displayData.country}
                                                 />
 
                                                 <EditableField
                                                     fieldName="city"
                                                     label="City"
-                                                    value={userData.city}
+                                                    value={displayData.city}
                                                 />
 
                                                 <EditableField
                                                     fieldName="street"
                                                     label="Street Address"
-                                                    value={userData.street}
+                                                    value={displayData.street}
                                                 />
 
                                                 <EditableField
                                                     fieldName="zipCode"
                                                     label="Zip Code"
-                                                    value={userData.zipCode}
+                                                    value={displayData.zipCode}
                                                 />
                                             </div>
                                         </div>
@@ -490,6 +539,7 @@ const ProfilePage = () => {
                                                 type="primary"
                                                 htmlType="submit"
                                                 size="large"
+                                                loading={updating}
                                                 style={{
                                                     backgroundColor: '#1B3C53',
                                                     borderColor: '#1B3C53',
@@ -502,8 +552,27 @@ const ProfilePage = () => {
                                         </Form.Item>
                                     </Form>
 
-                                    <Divider style={{ borderColor: '#d9d9d9' }} /> {/* Changed to gray */}
+                                    <Divider style={{ borderColor: '#d9d9d9' }} />
 
+                                    {/* Read-only fields (System-managed) */}
+                                    <div style={{
+                                        background: '#f9f9f9',
+                                        padding: '20px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #d9d9d9'
+                                    }}>
+                                        <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
+                                            <IdcardOutlined style={{ marginRight: '8px' }} />
+                                            System Information (Read-only)
+                                        </h3>
+                                        <Descriptions column={1} size="small">
+                                            <Descriptions.Item label="User ID">{displayData.id || user?.userId}</Descriptions.Item>
+                                            <Descriptions.Item label="Member Number">{displayData.baseMemberNo}</Descriptions.Item>
+                                            <Descriptions.Item label="Username">{displayData.username || user?.username}</Descriptions.Item>
+                                            <Descriptions.Item label="Account Created">{displayData.createdAt}</Descriptions.Item>
+                                            <Descriptions.Item label="Last Updated">{displayData.updatedAt}</Descriptions.Item>
+                                        </Descriptions>
+                                    </div>
                                 </div>
                             )
                         },
@@ -522,7 +591,7 @@ const ProfilePage = () => {
                                         padding: '16px',
                                         borderRadius: '8px',
                                         marginBottom: '24px',
-                                        border: '1px solid #d9d9d9' 
+                                        border: '1px solid #d9d9d9'
                                     }}>
                                         <SafetyOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
                                         For security, OTP verification is required to change your password.

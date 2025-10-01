@@ -13,7 +13,6 @@
     <Folder Include="src\LandingPage\Services\" />
     <Folder Include="src\Property\Services\" />
     <Folder Include="src\Scheduling\NewFolder\" />
-    <Folder Include="src\Accounts\Services\" />
     <Folder Include="src\Wishlist\Services\" />
   </ItemGroup>
 </Project>

@@ -177,6 +177,7 @@ namespace Realstate_servcices.Server.Controllers.Security
                     tokenType = "Bearer",
                     userId = baseMember.Id.ToString(),
                     email = baseMember.Email,
+                    username = baseMember.Username,
                     userType = baseMember.Role,
                     message = "Token refreshed successfully"
                 };

@@ -1,18 +1,24 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Realstate_servcices.Server.Data; // Add this
+using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Repository.OTP;
+using Realstate_servcices.Server.Repository.Properties;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.ProfileCreation;
+using Realstate_servcices.Server.Services.PropertyCreation;
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
 using Realstate_servcices.Server.Services.SMTP.rollout;
+using Realstate_servcices.Server.Utilities.Storage;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add IWebHostEnvironment - This is automatically available in WebApplication.Builder
+// The issue might be elsewhere, let's check the registration order
 
 // Configure CORS
 var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"] ?? "https://localhost:52090";
@@ -33,7 +39,7 @@ builder.WebHost.UseUrls("https://localhost:7074", "http://localhost:5015");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// JWT Configuration - must come before services that use it
+// JWT Configuration
 builder.Services.Configure<JwtConfig>(builder.Configuration.GetSection("JwtConfig"));
 
 // Add JWT Service
@@ -54,9 +60,12 @@ builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 
+// Property services - Make sure these are registered AFTER IWebHostEnvironment is available
+builder.Services.AddScoped<ICreatePropertyRepository, CreatePropertyRepository>();
+builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>(); // This depends on IWebHostEnvironment
+builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
 
-
-// Add JWT Authentication
+// The rest of your configuration remains the same...
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -76,10 +85,10 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
-        RequireExpirationTime = false, // Set to true if you want to require expiration
+        RequireExpirationTime = false,
         ValidIssuer = builder.Configuration["JwtConfig:Issuer"],
         ValidAudience = builder.Configuration["JwtConfig:Audience"],
-        ClockSkew = TimeSpan.Zero // Remove delay of token when expire
+        ClockSkew = TimeSpan.Zero
     };
 });
 
@@ -90,7 +99,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(); // This is important for LocalStorageImage to work
 
 if (app.Environment.IsDevelopment())
 {
@@ -99,14 +108,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// CORS must come before Authentication and Authorization
 app.UseCors("BethelandPolicy");
-
-// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 app.MapFallbackToFile("/index.html");
 

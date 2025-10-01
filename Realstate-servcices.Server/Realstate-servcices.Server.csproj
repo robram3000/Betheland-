@@ -38,7 +38,6 @@
 
   <ItemGroup>
     <Folder Include="Controllers\Scheduling\" />
-    <Folder Include="Controllers\Property\" />
     <Folder Include="Entity\Conversation\" />
     <Folder Include="Entity\Authlog\" />
     <Folder Include="Entity\Scheduling\" />

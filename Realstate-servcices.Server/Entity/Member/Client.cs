@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Realstate_servcices.Server.Entity.Member;
-using Realstate_servcices.Server.Entity.Property;
+using Realstate_servcices.Server.Entity.Properties;
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -58,9 +59,9 @@ namespace Realstate_servcices.Server.Entity.member
 
         [ForeignKey("BaseMemberId")]
         public virtual BaseMember BaseMember { get; set; } = null!;
-        public virtual ICollection<Property.Property>? Properties { get; set; }
+        public virtual ICollection<PropertyHouse>? Properties { get; set; }
 
-        public virtual ICollection<Property.ScheduleProperties>? ScheduleProperties { get; set; }
+        public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
 
         public virtual ICollection<Wishlist>? Wishlists { get; set; }
     }

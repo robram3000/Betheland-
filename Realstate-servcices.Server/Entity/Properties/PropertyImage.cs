@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Realstate_servcices.Server.Entity.Property
+namespace Realstate_servcices.Server.Entity.Properties
 {
     public class PropertyImage
     {
@@ -21,6 +21,6 @@ namespace Realstate_servcices.Server.Entity.Property
 
   
         [ForeignKey("PropertyId")]
-        public virtual Property Property { get; set; } = null!;
+        public virtual PropertyHouse Property { get; set; } = null!;
     }
 }
