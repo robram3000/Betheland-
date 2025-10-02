@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://localhost:7074/api',
+    baseURL: '/api',
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json',
@@ -31,7 +31,7 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
-            window.location.href = '/login';
+            window.location.href = '/login'; 
         }
 
         const errorMessage = error.response?.data?.message ||

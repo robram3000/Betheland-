@@ -25,7 +25,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("BethelandPolicy", policy =>
     {
         policy.WithOrigins(
-            "https://localhost:7074",
+            "https://localhost:7075",
             "http://localhost:5173",
             "https://localhost:5173",
             "http://localhost:5174",

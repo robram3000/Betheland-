@@ -176,8 +176,37 @@ const InsertProperty = ({
         }
     }, [initialValues, isEdit, form]);
 
+    const validateCoordinates = (values) => {
+        const errors = [];
+
+        if (values.latitude && (values.latitude < -90 || values.latitude > 90)) {
+            errors.push('Latitude must be between -90 and 90');
+        }
+
+        if (values.longitude && (values.longitude < -180 || values.longitude > 180)) {
+            errors.push('Longitude must be between -180 and 180');
+        }
+
+        if (values.bathrooms && (values.bathrooms < 0 || values.bathrooms > 99.9)) {
+            errors.push('Bathrooms must be between 0 and 99.9');
+        }
+
+        if (values.price && values.price > 9999999999.99) {
+            errors.push('Price cannot exceed 9,999,999,999.99');
+        }
+
+        return errors;
+    };
+
     const handleSubmit = async (values) => {
         try {
+            // Validate coordinates and other decimal fields
+            const validationErrors = validateCoordinates(values);
+            if (validationErrors.length > 0) {
+                validationErrors.forEach(error => message.error(error));
+                return;
+            }
+
             // Format the data according to API expectations
             const submitData = {
                 title: values.title,
@@ -345,7 +374,17 @@ const InsertProperty = ({
                         <Form.Item
                             name="price"
                             label="Price (₱)"
-                            rules={[{ required: true, message: 'Please enter price' }]}
+                            rules={[
+                                { required: true, message: 'Please enter price' },
+                                {
+                                    validator: (_, value) => {
+                                        if (value && value > 9999999999.99) {
+                                            return Promise.reject(new Error('Price cannot exceed 9,999,999,999.99'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
@@ -362,7 +401,10 @@ const InsertProperty = ({
                         <Form.Item
                             name="bedrooms"
                             label="Bedrooms"
-                            rules={[{ required: true, message: 'Please enter number of bedrooms' }]}
+                            rules={[
+                                { required: true, message: 'Please enter number of bedrooms' },
+                                { type: 'number', min: 0, max: 20, message: 'Bedrooms must be between 0 and 20' }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
@@ -377,12 +419,22 @@ const InsertProperty = ({
                         <Form.Item
                             name="bathrooms"
                             label="Bathrooms"
-                            rules={[{ required: true, message: 'Please enter number of bathrooms' }]}
+                            rules={[
+                                { required: true, message: 'Please enter number of bathrooms' },
+                                {
+                                    validator: (_, value) => {
+                                        if (value && (value < 0 || value > 99.9)) {
+                                            return Promise.reject(new Error('Bathrooms must be between 0 and 99.9'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
                                 min={0}
-                                max={20}
+                                max={99.9}
                                 step={0.5}
                                 placeholder="0.0"
                             />
@@ -393,7 +445,10 @@ const InsertProperty = ({
                         <Form.Item
                             name="areaSqft"
                             label="Area (sqft)"
-                            rules={[{ required: true, message: 'Please enter area' }]}
+                            rules={[
+                                { required: true, message: 'Please enter area' },
+                                { type: 'number', min: 0, message: 'Area must be positive' }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
@@ -408,6 +463,9 @@ const InsertProperty = ({
                         <Form.Item
                             name="propertyAge"
                             label="Property Age (Years)"
+                            rules={[
+                                { type: 'number', min: 0, max: 100, message: 'Property age must be between 0 and 100 years' }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
@@ -422,7 +480,10 @@ const InsertProperty = ({
                         <Form.Item
                             name="propertyFloor"
                             label="Floor"
-                            rules={[{ required: true, message: 'Please enter floor number' }]}
+                            rules={[
+                                { required: true, message: 'Please enter floor number' },
+                                { type: 'number', min: 0, max: 100, message: 'Floor must be between 0 and 100' }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
@@ -658,11 +719,24 @@ const InsertProperty = ({
                         <Form.Item
                             name="latitude"
                             label="Latitude (Optional)"
+                            rules={[
+                                {
+                                    validator: (_, value) => {
+                                        if (!value) return Promise.resolve();
+                                        if (value < -90 || value > 90) {
+                                            return Promise.reject(new Error('Latitude must be between -90 and 90'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
                                 step={0.0000001}
-                                placeholder="e.g., 40.7128"
+                                placeholder="e.g., 14.5995 (Manila)"
+                                min={-90}
+                                max={90}
                             />
                         </Form.Item>
                     </Col>
@@ -671,11 +745,24 @@ const InsertProperty = ({
                         <Form.Item
                             name="longitude"
                             label="Longitude (Optional)"
+                            rules={[
+                                {
+                                    validator: (_, value) => {
+                                        if (!value) return Promise.resolve();
+                                        if (value < -180 || value > 180) {
+                                            return Promise.reject(new Error('Longitude must be between -180 and 180'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+                                }
+                            ]}
                         >
                             <InputNumber
                                 style={{ width: '100%' }}
                                 step={0.0000001}
-                                placeholder="e.g., -74.0060"
+                                placeholder="e.g., 120.9842 (Manila)"
+                                min={-180}
+                                max={180}
                             />
                         </Form.Item>
                     </Col>
