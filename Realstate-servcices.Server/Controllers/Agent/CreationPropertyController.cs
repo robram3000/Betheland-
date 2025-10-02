@@ -1,19 +1,16 @@
-﻿
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Property;
-
-using Realstate_servcices.Server.Repository.Property;
 using Realstate_servcices.Server.Services.PropertyCreation;
 
 namespace Realstate_servcices.Server.Controllers.Agent
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CreatePropertyController : ControllerBase
+    public class CreationPropertyController : ControllerBase
     {
         private readonly ICreatePropertyService _propertyService;
 
-        public CreatePropertyController(ICreatePropertyService propertyService)
+        public CreationPropertyController(ICreatePropertyService propertyService)
         {
             _propertyService = propertyService;
         }
@@ -53,6 +50,7 @@ namespace Realstate_servcices.Server.Controllers.Agent
 
             return Ok(result);
         }
+
         [HttpGet("owner/{ownerId}")]
         public async Task<ActionResult<PropertiesResponse>> GetPropertiesByOwner(int ownerId)
         {
@@ -93,5 +91,40 @@ namespace Realstate_servcices.Server.Controllers.Agent
             return Ok(result);
         }
 
+        [HttpGet("status/{status}")]
+        public async Task<ActionResult<PropertiesResponse>> GetPropertiesByStatus(string status)
+        {
+            try
+            {
+                var result = await _propertyService.GetPropertiesByStatusAsync(status);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new PropertiesResponse
+                {
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("search")]
+        public async Task<ActionResult<PropertiesResponse>> SearchProperties([FromQuery] string q)
+        {
+            try
+            {
+                var result = await _propertyService.SearchPropertiesAsync(q);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new PropertiesResponse
+                {
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+        }
     }
 }

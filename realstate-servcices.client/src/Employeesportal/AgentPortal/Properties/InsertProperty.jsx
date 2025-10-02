@@ -196,13 +196,12 @@ const InsertProperty = ({
                 latitude: values.latitude ? Number(values.latitude) : null,
                 longitude: values.longitude ? Number(values.longitude) : null,
                 status: values.status,
-                ownerId: values.ownerId || 1, // Default or from context
-                agentId: values.agentId || 1, // Default or from context
+                ownerId: values.ownerId || 1,
+                agentId: values.agentId || 1,
                 amenities: JSON.stringify(amenities),
-                listedDate: new Date().toISOString(),
             };
 
-            console.log('Submitting data:', submitData); // For debugging
+            console.log('Submitting data:', submitData);
 
             if (onSubmit) {
                 await onSubmit(submitData);

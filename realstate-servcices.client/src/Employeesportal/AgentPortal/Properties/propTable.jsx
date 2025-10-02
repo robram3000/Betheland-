@@ -1,4 +1,4 @@
-﻿// Updated propTable.jsx with real service integration
+﻿// Updated propTable.jsx with proper data handling
 import React, { useState, useEffect } from 'react';
 import {
     Button,
@@ -36,10 +36,34 @@ const PropTable = () => {
     const loadProperties = async () => {
         setLoading(true);
         try {
-            const data = await propertyService.getAllProperties();
-            setProperties(data);
+            const response = await propertyService.getAllProperties();
+
+            // Handle different response structures
+            let propertiesData = [];
+
+            if (Array.isArray(response)) {
+                // If response is directly an array
+                propertiesData = response;
+            } else if (response && Array.isArray(response.properties)) {
+                // If response has a properties array (from PropertiesResponse)
+                propertiesData = response.properties;
+            } else if (response && response.data && Array.isArray(response.data.properties)) {
+                // If response is Axios response with data property
+                propertiesData = response.data.properties;
+            } else if (response && response.success && Array.isArray(response.properties)) {
+                // If response has success flag and properties array
+                propertiesData = response.properties;
+            } else {
+                console.warn('Unexpected response format:', response);
+                propertiesData = [];
+            }
+
+            console.log('Loaded properties:', propertiesData);
+            setProperties(propertiesData);
         } catch (error) {
+            console.error('Error loading properties:', error);
             message.error('Failed to load properties: ' + error.message);
+            setProperties([]); // Ensure properties is always an array
         } finally {
             setLoading(false);
         }
@@ -74,7 +98,7 @@ const PropTable = () => {
                     <Row gutter={[16, 16]}>
                         <Col span={12}>
                             <img
-                                src={property.mainImage || property.propertyImages?.[0]?.imageUrl || '/default-property.jpg'}
+                                src={property.mainImage || (property.propertyImages && property.propertyImages[0]?.imageUrl) || '/default-property.jpg'}
                                 alt={property.title}
                                 style={{ width: '100%', borderRadius: '8px' }}
                             />
@@ -106,16 +130,18 @@ const PropTable = () => {
     const handleSubmit = async (formData) => {
         setLoading(true);
         try {
+            let result;
             if (editingProperty) {
                 // Update existing property
-                const updatedProperty = await propertyService.updateProperty(editingProperty.id, formData);
+                result = await propertyService.updateProperty(editingProperty.id, formData);
                 setProperties(prev => prev.map(prop =>
-                    prop.id === editingProperty.id ? updatedProperty : prop
+                    prop.id === editingProperty.id ? (result.property || result) : prop
                 ));
                 message.success('Property updated successfully');
             } else {
                 // Create new property
-                const newProperty = await propertyService.createProperty(formData);
+                result = await propertyService.createProperty(formData);
+                const newProperty = result.property || result;
                 setProperties(prev => [...prev, newProperty]);
                 message.success('Property created successfully');
             }
@@ -150,12 +176,13 @@ const PropTable = () => {
         },
     };
 
+    // Safe statistics calculation
     const stats = {
-        total: properties.length,
-        available: properties.filter(p => p.status === 'available').length,
-        sold: properties.filter(p => p.status === 'sold').length,
-        pending: properties.filter(p => p.status === 'pending').length,
-        totalValue: properties.reduce((sum, prop) => sum + prop.price, 0),
+        total: Array.isArray(properties) ? properties.length : 0,
+        available: Array.isArray(properties) ? properties.filter(p => p.status === 'available').length : 0,
+        sold: Array.isArray(properties) ? properties.filter(p => p.status === 'sold').length : 0,
+        pending: Array.isArray(properties) ? properties.filter(p => p.status === 'pending').length : 0,
+        totalValue: Array.isArray(properties) ? properties.reduce((sum, prop) => sum + (prop.price || 0), 0) : 0,
     };
 
     return (
@@ -239,7 +266,7 @@ const PropTable = () => {
 
             {/* Property Table */}
             <BaseTableProperty
-                dataSource={properties}
+                dataSource={Array.isArray(properties) ? properties : []}
                 loading={loading}
                 onEdit={handleEdit}
                 onDelete={handleDelete}

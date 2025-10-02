@@ -18,29 +18,16 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             _imageStorage = imageStorage;
         }
 
-        public async Task<PropertyResponse> CreatePropertyAsync(CreatePropertyRequest request, List<IFormFile> imageFiles = null)
+        public async Task<PropertyResponse> CreatePropertyAsync(CreatePropertyRequest request)
         {
             try
             {
                 var property = MapToEntity(request.Property);
 
-                // Handle image file uploads
-                List<string> imageUrls = new List<string>();
-
-                if (imageFiles != null && imageFiles.Any())
+                // Handle direct image URLs if provided
+                if (request.ImageUrls != null && request.ImageUrls.Any())
                 {
-                    imageUrls = await _imageStorage.UploadMultipleImagesAsync(imageFiles);
-                }
-
-                // Also include any direct URLs if provided
-                if (request.ImageUrls != null)
-                {
-                    imageUrls.AddRange(request.ImageUrls);
-                }
-
-                if (imageUrls.Any())
-                {
-                    property.PropertyImages = imageUrls.Select(url => new PropertyImage
+                    property.PropertyImages = request.ImageUrls.Select(url => new PropertyImage
                     {
                         ImageUrl = url,
                         CreatedAt = DateTime.UtcNow
@@ -281,6 +268,58 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             try
             {
                 var properties = await _propertyRepository.GetPropertiesByAgentIdAsync(agentId);
+                var propertyDtos = properties.Select(MapToDto).ToList();
+
+                return new PropertiesResponse
+                {
+                    Success = true,
+                    Message = "Properties retrieved successfully",
+                    Properties = propertyDtos,
+                    TotalCount = propertyDtos.Count
+                };
+            }
+            catch (Exception ex)
+            {
+                return new PropertiesResponse
+                {
+                    Success = false,
+                    Message = $"Failed to retrieve properties: {ex.Message}",
+                    Properties = new List<PropertyDto>()
+                };
+            }
+        }
+
+        public async Task<PropertiesResponse> GetPropertiesByStatusAsync(string status)
+        {
+            try
+            {
+                var properties = await _propertyRepository.GetPropertiesByStatusAsync(status);
+                var propertyDtos = properties.Select(MapToDto).ToList();
+
+                return new PropertiesResponse
+                {
+                    Success = true,
+                    Message = "Properties retrieved successfully",
+                    Properties = propertyDtos,
+                    TotalCount = propertyDtos.Count
+                };
+            }
+            catch (Exception ex)
+            {
+                return new PropertiesResponse
+                {
+                    Success = false,
+                    Message = $"Failed to retrieve properties: {ex.Message}",
+                    Properties = new List<PropertyDto>()
+                };
+            }
+        }
+
+        public async Task<PropertiesResponse> SearchPropertiesAsync(string searchTerm)
+        {
+            try
+            {
+                var properties = await _propertyRepository.SearchPropertiesAsync(searchTerm);
                 var propertyDtos = properties.Select(MapToDto).ToList();
 
                 return new PropertiesResponse

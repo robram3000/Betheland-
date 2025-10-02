@@ -19,23 +19,28 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add IWebHostEnvironment - This is automatically available in WebApplication.Builder
-// The issue might be elsewhere, let's check the registration order
-
 // Configure CORS
-var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"] ?? "https://localhost:52090";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BethelandPolicy", policy =>
     {
-        policy.WithOrigins("https://localhost:7074", "https://localhost:52090", "http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.WithOrigins(
+            "https://localhost:7074",
+            "http://localhost:5173",
+            "https://localhost:5173",
+            "http://localhost:5174",
+            "https://localhost:5174",
+            "https://localhost:52090",
+            "https://localhost:64324" 
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
-builder.WebHost.UseUrls("https://localhost:7074", "http://localhost:5015");
+// Use different ports to avoid conflict
+builder.WebHost.UseUrls("https://localhost:7075", "http://localhost:5016");
 
 // Add DbContext with SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -62,15 +67,15 @@ builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 
-// Property services - Make sure these are registered AFTER IWebHostEnvironment is available
+// Property services
 builder.Services.AddScoped<ICreatePropertyRepository, CreatePropertyRepository>();
-builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>(); // This depends on IWebHostEnvironment
+builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>();
 builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
 
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleServices, ScheduleServices>();
 
-// The rest of your configuration remains the same...
+// Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -103,8 +108,16 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Ensure wwwroot directory exists
+var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(webRootPath))
+{
+    Directory.CreateDirectory(webRootPath);
+    Console.WriteLine($"Created wwwroot directory at: {webRootPath}");
+}
+
 app.UseDefaultFiles();
-app.UseStaticFiles(); // This is important for LocalStorageImage to work
+app.UseStaticFiles();
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,6 +1,4 @@
-﻿
-
-using Realstate_servcices.Server.Entity.Properties; 
+﻿using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Repository.Properties
 {

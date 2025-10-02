@@ -2,51 +2,23 @@
   "profiles": {
     "Realstate_servcices.Server": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false, // ← Change to false
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "https://localhost:52090;http://localhost:52091", // Changed here
+      "applicationUrl": "https://localhost:7075;http://localhost:5016",
       "dotnetRunMessages": true
     },
-    "https": {
+    "WithReact": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "launchUrl": "swagger",
-      "applicationUrl": "https://localhost:52090;http://localhost:52091", // Changed here
+      "launchBrowser": false, // ← Change to false
+      "launchUrl": "https://localhost:5173",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.SpaProxy"
-      }
-    },
-    "WSL": {
-      "commandName": "WSL2",
-      "launchBrowser": true,
-      "launchUrl": "https://localhost:7074",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "https://localhost:7074;http://localhost:5015"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "distributionName": ""
-    }
-  },
-  "$schema": "http://json.schemastore.org/launchsettings.json",
-  "IIS Express": {
-    "commandName": "IISExpress",
-    "launchBrowser": true,
-    "launchUrl": "swagger",
-    "environmentVariables": {
-      "ASPNETCORE_ENVIRONMENT": "Development",
-      "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.SpaProxy"
-    }
-  },
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:6835",
-      "sslPort": 44386
+      "applicationUrl": "https://localhost:7075;http://localhost:5016",
+      "dotnetRunMessages": true,
+      "nativeDebugging": false
     }
   }
 }
