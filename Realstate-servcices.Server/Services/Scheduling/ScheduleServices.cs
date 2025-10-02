@@ -1,5 +1,6 @@
-﻿using Realstate_servcices.Server.Entity.Properties;
-using Realstate_servcices.Server.Entity.Scheduling;
+﻿using Realstate_servcices.Server.Dto.Property;
+using Realstate_servcices.Server.Dto.Scheduling;
+using Realstate_servcices.Server.Entity.Properties;
 using Realstate_servcices.Server.Repository.ScheduleDao;
 
 namespace Realstate_servcices.Server.Services.Scheduling
@@ -166,20 +167,16 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 Property = schedule.Property != null ? new PropertyHouseDto
                 {
                     Id = schedule.Property.Id,
-                    Title = schedule.Property.Title, // Adjust based on your PropertyHouse entity
-                    Address = schedule.Property.Address // Adjust based on your PropertyHouse entity
+                    Title = schedule.Property.Title, 
+                    Address = schedule.Property.Address 
                 } : null,
                 Agent = schedule.Agent != null ? new AgentDto
                 {
-                    Id = schedule.Agent.Id,
-                    Name = schedule.Agent.Name, // Adjust based on your Agent entity
-                    Email = schedule.Agent.Email // Adjust based on your Agent entity
+                    
                 } : null,
                 Client = schedule.Client != null ? new ClientDto
                 {
-                    Id = schedule.Client.Id,
-                    Name = schedule.Client.Name, // Adjust based on your Client entity
-                    Email = schedule.Client.Email // Adjust based on your Client entity
+                   
                 } : null
             };
         }

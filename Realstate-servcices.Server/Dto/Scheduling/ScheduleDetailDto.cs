@@ -1,4 +1,6 @@
-﻿namespace Realstate_servcices.Server.Dto.Scheduling
+﻿using Realstate_servcices.Server.Dto.Property;
+
+namespace Realstate_servcices.Server.Dto.Scheduling
 {
     public class ScheduleDetailDto
     {

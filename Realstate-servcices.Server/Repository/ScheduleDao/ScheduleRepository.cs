@@ -1,4 +1,6 @@
-﻿using Realstate_servcices.Server.Data;
+﻿// ScheduleRepository.cs
+using Microsoft.EntityFrameworkCore;
+using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Repository.ScheduleDao

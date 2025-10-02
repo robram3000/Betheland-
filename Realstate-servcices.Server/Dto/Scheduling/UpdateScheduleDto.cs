@@ -1,4 +1,4 @@
-﻿namespace Realstate_servcices.Server.Entity.Scheduling
+﻿namespace Realstate_servcices.Server.Dto.Scheduling
 {
     public class UpdateScheduleDto
     {
