@@ -175,7 +175,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("decimal(11,8)");
 
-                    b.Property<int>("OwnerId")
+                    b.Property<int?>("OwnerId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Price")
@@ -489,8 +489,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Owner")
                         .WithMany("Properties")
                         .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Agent");
 

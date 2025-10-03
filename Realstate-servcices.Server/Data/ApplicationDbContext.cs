@@ -104,15 +104,17 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.Latitude).HasColumnType("decimal(10,8)");
                 entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("available");
-
-                // Add this line for Amenities
                 entity.Property(e => e.Amenities).IsRequired().HasDefaultValue("[]");
+
+                // FIX: Ensure OwnerId is configured as nullable
+                entity.Property(e => e.OwnerId).IsRequired(false); // This allows NULL in database
 
                 // Relationships
                 entity.HasOne(p => p.Owner)
                       .WithMany(c => c.Properties)
                       .HasForeignKey(p => p.OwnerId)
-                      .OnDelete(DeleteBehavior.Restrict);
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(false);
 
                 entity.HasOne(p => p.Agent)
                       .WithMany(a => a.Properties)

@@ -11,8 +11,9 @@ namespace Realstate_servcices.Server.Repository.Properties
         Task<IEnumerable<PropertyHouse>> GetAllPropertiesAsync();
         Task<IEnumerable<PropertyHouse>> GetPropertiesByOwnerIdAsync(int ownerId);
         Task<IEnumerable<PropertyHouse>> GetPropertiesByAgentIdAsync(int agentId);
-        Task<bool> PropertyExistsAsync(int id);
         Task<IEnumerable<PropertyHouse>> GetPropertiesByStatusAsync(string status);
         Task<IEnumerable<PropertyHouse>> SearchPropertiesAsync(string searchTerm);
+        Task<bool> PropertyExistsAsync(int id);
+        Task<bool> OwnerExistsAsync(int ownerId); 
     }
 }

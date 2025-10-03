@@ -110,6 +110,33 @@ const BaseTableProperty = ({
         }).format(amount);
     };
 
+    // Helper function to process image URLs
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//')) {
+            return url;
+        }
+
+        // If it starts with /uploads, make it absolute
+        if (url.startsWith('/uploads/')) {
+            return url;
+        }
+
+        // If it's a relative path from wwwroot, prepend with /
+        if (url.startsWith('uploads/')) {
+            return '/' + url;
+        }
+
+        // If it's just a filename, assume it's in the default location
+        if (url.includes('.')) {
+            return '/uploads/properties/' + url;
+        }
+
+        return '/default-property.jpg';
+    };
+
     const columns = [
         {
             title: 'Property No',
@@ -133,10 +160,13 @@ const BaseTableProperty = ({
                 <Image
                     width={50}
                     height={40}
-                    src={url || '/default-property.jpg'}
+                    src={processImageUrl(url)}
                     alt="Property"
                     style={{ objectFit: 'cover', borderRadius: '4px' }}
                     fallback="/default-property.jpg"
+                    preview={{
+                        src: processImageUrl(url),
+                    }}
                 />
             ),
         },

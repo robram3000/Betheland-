@@ -1,5 +1,4 @@
-// services/propertyService.js
-import axios from 'axios';
+﻿import axios from 'axios';
 
 const api = axios.create({
     baseURL: '/api',
@@ -22,11 +21,24 @@ api.interceptors.request.use(
     }
 );
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', error.response?.data || error.message);
+        return Promise.reject(error);
+    }
+);
+
 export const propertyService = {
     // Get all properties
     getAllProperties: async () => {
         try {
             const response = await api.get('/CreationProperty');
+            // Handle nested response structure
+            if (response.data && response.data.properties) {
+                return response.data.properties;
+            }
             return response.data;
         } catch (error) {
             throw new Error(`Failed to fetch properties: ${error.response?.data?.message || error.message}`);
@@ -46,32 +58,33 @@ export const propertyService = {
         }
     },
 
-    // Create new property
+    // Create new property (JSON)
     createProperty: async (propertyData) => {
         try {
-            // Format the data to match backend expectation
             const requestData = {
-                property: {
-                    title: propertyData.title,
-                    description: propertyData.description,
-                    type: propertyData.type,
-                    price: propertyData.price,
-                    propertyAge: propertyData.propertyAge,
-                    propertyFloor: propertyData.propertyFloor,
-                    bedrooms: propertyData.bedrooms,
-                    bathrooms: propertyData.bathrooms,
-                    areaSqft: propertyData.areaSqft,
-                    address: propertyData.address,
-                    city: propertyData.city,
-                    state: propertyData.state,
-                    zipCode: propertyData.zipCode,
-                    latitude: propertyData.latitude,
-                    longitude: propertyData.longitude,
-                    status: propertyData.status,
-                    ownerId: propertyData.ownerId,
-                    agentId: propertyData.agentId,
-                    amenities: propertyData.amenities
-                }
+                Property: {
+                    Title: propertyData.title,
+                    Description: propertyData.description,
+                    Type: propertyData.type,
+                    Price: parseFloat(propertyData.price),
+                    PropertyAge: parseInt(propertyData.propertyAge) || 0,
+                    PropertyFloor: parseInt(propertyData.propertyFloor) || 1,
+                    Bedrooms: parseInt(propertyData.bedrooms),
+                    Bathrooms: parseFloat(propertyData.bathrooms),
+                    AreaSqft: parseInt(propertyData.areaSqft),
+                    Address: propertyData.address,
+                    City: propertyData.city,
+                    State: propertyData.state,
+                    ZipCode: propertyData.zipCode,
+                    Latitude: propertyData.latitude ? parseFloat(propertyData.latitude) : null,
+                    Longitude: propertyData.longitude ? parseFloat(propertyData.longitude) : null,
+                    Status: propertyData.status,
+                    Amenities: propertyData.amenities || "[]",
+                    OwnerId: propertyData.ownerId || null,
+                    AgentId: propertyData.agentId || null,
+                    ListedDate: new Date().toISOString()
+                },
+                ImageUrls: propertyData.imageUrls || []
             };
 
             console.log('Sending property data:', requestData);
@@ -85,32 +98,54 @@ export const propertyService = {
         }
     },
 
-    // Update property
+    // Create property with images (multipart) - FIXED
+    createPropertyWithImages: async (formData) => {
+        try {
+            console.log('Creating property with images...');
+
+            const response = await api.post('/CreationProperty/with-images', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                timeout: 60000, // Increase timeout for file uploads
+            });
+
+            console.log('Property created successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating property with images:', error);
+            const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0] || error.message;
+            throw new Error(`Failed to create property with images: ${errorMessage}`);
+        }
+    },
+
+    // Update property (JSON)
     updateProperty: async (id, propertyData) => {
         try {
             const requestData = {
-                property: {
-                    id: id,
-                    title: propertyData.title,
-                    description: propertyData.description,
-                    type: propertyData.type,
-                    price: propertyData.price,
-                    propertyAge: propertyData.propertyAge,
-                    propertyFloor: propertyData.propertyFloor,
-                    bedrooms: propertyData.bedrooms,
-                    bathrooms: propertyData.bathrooms,
-                    areaSqft: propertyData.areaSqft,
-                    address: propertyData.address,
-                    city: propertyData.city,
-                    state: propertyData.state,
-                    zipCode: propertyData.zipCode,
-                    latitude: propertyData.latitude,
-                    longitude: propertyData.longitude,
-                    status: propertyData.status,
-                    ownerId: propertyData.ownerId,
-                    agentId: propertyData.agentId,
-                    amenities: propertyData.amenities
-                }
+                Property: {
+                    Id: parseInt(id),
+                    Title: propertyData.title,
+                    Description: propertyData.description,
+                    Type: propertyData.type,
+                    Price: parseFloat(propertyData.price),
+                    PropertyAge: parseInt(propertyData.propertyAge) || 0,
+                    PropertyFloor: parseInt(propertyData.propertyFloor) || 1,
+                    Bedrooms: parseInt(propertyData.bedrooms),
+                    Bathrooms: parseFloat(propertyData.bathrooms),
+                    AreaSqft: parseInt(propertyData.areaSqft),
+                    Address: propertyData.address,
+                    City: propertyData.city,
+                    State: propertyData.state,
+                    ZipCode: propertyData.zipCode,
+                    Latitude: propertyData.latitude ? parseFloat(propertyData.latitude) : null,
+                    Longitude: propertyData.longitude ? parseFloat(propertyData.longitude) : null,
+                    Status: propertyData.status,
+                    Amenities: propertyData.amenities || "[]",
+                    OwnerId: propertyData.ownerId || null,
+                    AgentId: propertyData.agentId || null
+                },
+                ImageUrls: propertyData.imageUrls || []
             };
 
             const response = await api.put(`/CreationProperty/${id}`, requestData);
@@ -123,6 +158,27 @@ export const propertyService = {
                 throw new Error('Property not found');
             }
             throw new Error(`Failed to update property: ${error.response?.data?.message || error.message}`);
+        }
+    },
+
+    // Update property with images (multipart)
+    updatePropertyWithImages: async (id, formData) => {
+        try {
+            console.log('Updating property with images...');
+
+            const response = await api.put(`/CreationProperty/with-images/${id}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                timeout: 60000,
+            });
+
+            console.log('Property updated successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating property with images:', error);
+            const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0] || error.message;
+            throw new Error(`Failed to update property with images: ${errorMessage}`);
         }
     },
 
@@ -178,6 +234,31 @@ export const propertyService = {
             return response.data;
         } catch (error) {
             throw new Error(`Failed to fetch owner properties: ${error.response?.data?.message || error.message}`);
+        }
+    },
+
+    // Upload images only
+    uploadImages: async (formData) => {
+        try {
+            const response = await api.post('/CreationProperty/upload-images', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                timeout: 60000,
+            });
+            return response.data;
+        } catch (error) {
+            throw new Error(`Failed to upload images: ${error.response?.data?.message || error.message}`);
+        }
+    },
+
+    // Delete image
+    deleteImage: async (imageUrl) => {
+        try {
+            const response = await api.delete(`/CreationProperty/image/${encodeURIComponent(imageUrl)}`);
+            return response.data;
+        } catch (error) {
+            throw new Error(`Failed to delete image: ${error.response?.data?.message || error.message}`);
         }
     }
 };

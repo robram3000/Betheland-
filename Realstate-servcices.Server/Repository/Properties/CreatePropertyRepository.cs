@@ -1,9 +1,6 @@
-﻿
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Properties;
-using Realstate_servcices.Server.Repository.Properties; 
 
 namespace Realstate_servcices.Server.Repository.Properties
 {
@@ -16,7 +13,6 @@ namespace Realstate_servcices.Server.Repository.Properties
         {
             _context = context;
             _logger = logger;
-
         }
 
         public async Task<PropertyHouse> CreatePropertyAsync(PropertyHouse property)
@@ -25,7 +21,6 @@ namespace Realstate_servcices.Server.Repository.Properties
             {
                 _logger.LogInformation("Creating new property with title: {Title}", property.Title);
 
-                // Generate new PropertyNo if not provided
                 if (property.PropertyNo == Guid.Empty)
                 {
                     property.PropertyNo = Guid.NewGuid();
@@ -34,10 +29,21 @@ namespace Realstate_servcices.Server.Repository.Properties
                 property.CreatedAt = DateTime.UtcNow;
                 property.UpdatedAt = DateTime.UtcNow;
 
-                // If listed date is not set, use current date
                 if (property.ListedDate == DateTime.MinValue)
                 {
                     property.ListedDate = DateTime.UtcNow;
+                }
+
+                // Ensure OwnerId is valid or null to avoid foreign key constraints
+                if (property.OwnerId <= 0)
+                {
+                    property.OwnerId = null;
+                }
+
+                // Ensure AgentId is valid or null
+                if (property.AgentId <= 0)
+                {
+                    property.AgentId = null;
                 }
 
                 _context.Properties.Add(property);
@@ -55,6 +61,21 @@ namespace Realstate_servcices.Server.Repository.Properties
             {
                 _logger.LogError(ex, "Error occurred while creating property");
                 throw new Exception($"Failed to create property: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<bool> OwnerExistsAsync(int ownerId)
+        {
+            try
+            {
+                return await _context.Clients
+                    .AsNoTracking()
+                    .AnyAsync(c => c.Id == ownerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while checking if owner exists with ID: {OwnerId}", ownerId);
+                throw new Exception($"Failed to check owner existence: {ex.Message}", ex);
             }
         }
 
@@ -152,7 +173,6 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 _logger.LogInformation("Property with ID {PropertyId} updated successfully", property.Id);
 
-                // Return the updated property with images
                 return await _context.Properties
                     .Include(p => p.PropertyImages)
                     .Include(p => p.Owner)

@@ -1,5 +1,4 @@
-﻿// Updated propTable.jsx with proper data handling
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     Button,
     Modal,
@@ -28,6 +27,7 @@ const PropTable = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [editingProperty, setEditingProperty] = useState(null);
     const [selectedRows, setSelectedRows] = useState([]);
+    const [formKey, setFormKey] = useState(Date.now()); // Add form key to force reset
 
     useEffect(() => {
         loadProperties();
@@ -42,40 +42,89 @@ const PropTable = () => {
             let propertiesData = [];
 
             if (Array.isArray(response)) {
-                // If response is directly an array
                 propertiesData = response;
             } else if (response && Array.isArray(response.properties)) {
-                // If response has a properties array (from PropertiesResponse)
                 propertiesData = response.properties;
             } else if (response && response.data && Array.isArray(response.data.properties)) {
-                // If response is Axios response with data property
                 propertiesData = response.data.properties;
             } else if (response && response.success && Array.isArray(response.properties)) {
-                // If response has success flag and properties array
                 propertiesData = response.properties;
             } else {
                 console.warn('Unexpected response format:', response);
                 propertiesData = [];
             }
 
-            console.log('Loaded properties:', propertiesData);
-            setProperties(propertiesData);
+            // Process images to ensure proper URLs
+            const processedProperties = propertiesData.map(property => ({
+                ...property,
+                mainImage: processImageUrl(property.mainImage),
+                propertyImages: Array.isArray(property.propertyImages)
+                    ? property.propertyImages.map(img => ({
+                        ...img,
+                        imageUrl: processImageUrl(img.imageUrl)
+                    }))
+                    : []
+            }));
+
+            console.log('Loaded properties:', processedProperties);
+            setProperties(processedProperties);
         } catch (error) {
             console.error('Error loading properties:', error);
             message.error('Failed to load properties: ' + error.message);
-            setProperties([]); // Ensure properties is always an array
+            setProperties([]);
         } finally {
             setLoading(false);
         }
     };
 
+    // Helper function to process image URLs
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//')) {
+            return url;
+        }
+
+        // If it starts with /uploads, make it absolute
+        if (url.startsWith('/uploads/')) {
+            return url;
+        }
+
+        // If it's a relative path from wwwroot, prepend with /
+        if (url.startsWith('uploads/')) {
+            return '/' + url;
+        }
+
+        // If it's just a filename, assume it's in the default location
+        if (url.includes('.')) {
+            return '/uploads/properties/' + url;
+        }
+
+        return '/default-property.jpg';
+    };
+
     const handleCreate = () => {
         setEditingProperty(null);
+        setFormKey(Date.now()); // Reset form key
         setModalVisible(true);
     };
 
     const handleEdit = (property) => {
-        setEditingProperty(property);
+        // Process property images before editing
+        const processedProperty = {
+            ...property,
+            mainImage: processImageUrl(property.mainImage),
+            propertyImages: Array.isArray(property.propertyImages)
+                ? property.propertyImages.map(img => ({
+                    ...img,
+                    imageUrl: processImageUrl(img.imageUrl)
+                }))
+                : []
+        };
+
+        setEditingProperty(processedProperty);
+        setFormKey(Date.now()); // Reset form key
         setModalVisible(true);
     };
 
@@ -100,7 +149,7 @@ const PropTable = () => {
                             <img
                                 src={property.mainImage || (property.propertyImages && property.propertyImages[0]?.imageUrl) || '/default-property.jpg'}
                                 alt={property.title}
-                                style={{ width: '100%', borderRadius: '8px' }}
+                                style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'cover' }}
                             />
                         </Col>
                         <Col span={12}>
@@ -127,26 +176,51 @@ const PropTable = () => {
         });
     };
 
-    const handleSubmit = async (formData) => {
+    const handleSubmit = async (formData, isMultipart = false) => {
         setLoading(true);
         try {
             let result;
             if (editingProperty) {
-                // Update existing property
-                result = await propertyService.updateProperty(editingProperty.id, formData);
-                setProperties(prev => prev.map(prop =>
-                    prop.id === editingProperty.id ? (result.property || result) : prop
-                ));
-                message.success('Property updated successfully');
+                if (isMultipart) {
+                    result = await propertyService.updatePropertyWithImages(editingProperty.id, formData);
+                } else {
+                    result = await propertyService.updateProperty(editingProperty.id, formData);
+                }
             } else {
-                // Create new property
-                result = await propertyService.createProperty(formData);
-                const newProperty = result.property || result;
-                setProperties(prev => [...prev, newProperty]);
-                message.success('Property created successfully');
+                if (isMultipart) {
+                    result = await propertyService.createPropertyWithImages(formData);
+                } else {
+                    result = await propertyService.createProperty(formData);
+                }
             }
+
+            // Handle response structure
+            const updatedProperty = result.property || result;
+
+            // Process images in the response
+            const processedProperty = {
+                ...updatedProperty,
+                mainImage: processImageUrl(updatedProperty.mainImage),
+                propertyImages: Array.isArray(updatedProperty.propertyImages)
+                    ? updatedProperty.propertyImages.map(img => ({
+                        ...img,
+                        imageUrl: processImageUrl(img.imageUrl)
+                    }))
+                    : []
+            };
+
+            if (editingProperty) {
+                setProperties(prev => prev.map(prop =>
+                    prop.id === editingProperty.id ? processedProperty : prop
+                ));
+            } else {
+                setProperties(prev => [...prev, processedProperty]);
+            }
+
             setModalVisible(false);
             setEditingProperty(null);
+            setFormKey(Date.now()); // Reset form for next use
+            message.success(`Property ${editingProperty ? 'updated' : 'created'} successfully!`);
         } catch (error) {
             message.error(`Failed to ${editingProperty ? 'update' : 'create'} property: ${error.message}`);
         } finally {
@@ -157,15 +231,14 @@ const PropTable = () => {
     const handleCancel = () => {
         setModalVisible(false);
         setEditingProperty(null);
+        setFormKey(Date.now()); // Reset form key
     };
 
     const handleExport = () => {
-        // Implement export functionality
         message.info('Export functionality to be implemented');
     };
 
     const handleImport = () => {
-        // Implement import functionality
         message.info('Import functionality to be implemented');
     };
 
@@ -176,7 +249,6 @@ const PropTable = () => {
         },
     };
 
-    // Safe statistics calculation
     const stats = {
         total: Array.isArray(properties) ? properties.length : 0,
         available: Array.isArray(properties) ? properties.filter(p => p.status === 'available').length : 0,
@@ -187,7 +259,6 @@ const PropTable = () => {
 
     return (
         <div style={{ padding: '24px' }}>
-            {/* Header Section */}
             <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
                 <Col>
                     <Title level={2} style={{ margin: 0, color: '#1a365d' }}>
@@ -223,7 +294,6 @@ const PropTable = () => {
                 </Col>
             </Row>
 
-            {/* Statistics */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={6}>
                     <Card>
@@ -264,7 +334,6 @@ const PropTable = () => {
                 </Col>
             </Row>
 
-            {/* Property Table */}
             <BaseTableProperty
                 dataSource={Array.isArray(properties) ? properties : []}
                 loading={loading}
@@ -281,7 +350,6 @@ const PropTable = () => {
                 }}
             />
 
-            {/* Add/Edit Property Modal */}
             <Modal
                 title={editingProperty ? "Edit Property" : "Add New Property"}
                 open={modalVisible}
@@ -289,8 +357,10 @@ const PropTable = () => {
                 footer={null}
                 width={1200}
                 style={{ top: 20 }}
+                destroyOnClose={true} // This ensures the form is destroyed when modal closes
             >
                 <InsertProperty
+                    key={formKey} // This forces a fresh form instance
                     initialValues={editingProperty}
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Realstate_servcices.Server.Data;
@@ -19,6 +20,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add logging services
+builder.Services.AddLogging();
+
 // Configure CORS
 builder.Services.AddCors(options =>
 {
@@ -31,7 +35,7 @@ builder.Services.AddCors(options =>
             "http://localhost:5174",
             "https://localhost:5174",
             "https://localhost:52090",
-            "https://localhost:64324" 
+            "https://localhost:64324"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
@@ -105,6 +109,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 104857600;
+});
 
 var app = builder.Build();
 

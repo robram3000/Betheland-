@@ -1,7 +1,8 @@
-// Services/UserContextService.jsx
+﻿// Services/UserContextService.jsx (Updated)
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from './LoginAuth';
-import profileService from '../../Accounts/Services/ProfileService';
+import SessionService from './SessionService';
+import { rolePermissions, canAccessFeature, routePermissions } from './PermissionConfig';
 
 const UserContext = createContext();
 
@@ -15,76 +16,100 @@ export const useUser = () => {
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [lastActivity, setLastActivity] = useState(Date.now());
+    const [userPermissions, setUserPermissions] = useState([]);
 
-    // Initialize user from localStorage and fetch fresh profile data
+    // Update permissions when user changes
+    useEffect(() => {
+        if (user) {
+            const userRole = user?.role || user?.userType;
+            const permissions = rolePermissions[userRole] || [];
+            setUserPermissions(permissions);
+        } else {
+            setUserPermissions([]);
+        }
+    }, [user]);
+
+    // Track user activity
+    useEffect(() => {
+        const updateActivity = () => setLastActivity(Date.now());
+
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        events.forEach(event => {
+            document.addEventListener(event, updateActivity);
+        });
+
+        return () => {
+            events.forEach(event => {
+                document.removeEventListener(event, updateActivity);
+            });
+        };
+    }, []);
+
+    // Initialize user from storage
     useEffect(() => {
         const initializeUser = async () => {
             setLoading(true);
 
-            // Get basic user info from auth service
+            // Check token validity first
+            if (!authService.isAuthenticated()) {
+                authService.logout();
+                setLoading(false);
+                return;
+            }
+
             const currentUser = authService.getCurrentUser();
 
-            if (currentUser && authService.isAuthenticated()) {
+            if (currentUser) {
                 setUser(currentUser);
 
-                // Fetch fresh profile data from API
-                try {
-                    const profileResult = await profileService.getProfile();
-                    if (profileResult.success) {
-                        setProfile(profileResult.data);
-                    } else {
-                        // Fallback to localStorage data if API fails
-                        const userData = localStorage.getItem('userData');
-                        if (userData) {
-                            setProfile(JSON.parse(userData));
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch profile:', error);
-                    // Fallback to localStorage data
-                    const userData = localStorage.getItem('userData');
-                    if (userData) {
+                // Set initial permissions
+                const userRole = currentUser?.role || currentUser?.userType;
+                setUserPermissions(rolePermissions[userRole] || []);
+
+                // Use stored profile data
+                const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
+                if (userData) {
+                    try {
                         setProfile(JSON.parse(userData));
+                    } catch (error) {
+                        console.error('Error parsing user data:', error);
                     }
                 }
             } else {
                 setUser(null);
                 setProfile(null);
+                setUserPermissions([]);
             }
 
             setLoading(false);
         };
 
         initializeUser();
+        SessionService.setupActivityListeners();
     }, []);
 
     // Update user profile
     const updateProfile = async (profileData) => {
         try {
-            const result = await profileService.updateProfile(profileData);
+            // Update local state
+            const updatedProfile = {
+                ...profile,
+                ...profileData
+            };
 
-            if (result.success) {
-                setProfile(prevProfile => ({
-                    ...prevProfile,
-                    ...profileData
-                }));
+            setProfile(updatedProfile);
 
-                // Update localStorage
-                const userData = localStorage.getItem('userData');
-                if (userData) {
-                    const parsedData = JSON.parse(userData);
-                    localStorage.setItem('userData', JSON.stringify({
-                        ...parsedData,
-                        ...profileData
-                    }));
-                }
+            // Update storage
+            const storage = user?.rememberMe ? localStorage : sessionStorage;
+            storage.setItem('userData', JSON.stringify(updatedProfile));
 
-                return result;
-            }
-
-            return result;
+            return {
+                success: true,
+                message: 'Profile updated successfully'
+            };
         } catch (error) {
             console.error('Update profile error:', error);
             return {
@@ -97,26 +122,21 @@ export const UserProvider = ({ children }) => {
     // Update specific profile field
     const updateProfileField = async (fieldName, value) => {
         try {
-            const result = await profileService.updateProfileField(fieldName, value);
+            const updatedProfile = {
+                ...profile,
+                [fieldName]: value
+            };
 
-            if (result.success) {
-                setProfile(prevProfile => ({
-                    ...prevProfile,
-                    [fieldName]: value
-                }));
+            setProfile(updatedProfile);
 
-                // Update localStorage
-                const userData = localStorage.getItem('userData');
-                if (userData) {
-                    const parsedData = JSON.parse(userData);
-                    localStorage.setItem('userData', JSON.stringify({
-                        ...parsedData,
-                        [fieldName]: value
-                    }));
-                }
-            }
+            // Update storage
+            const storage = user?.rememberMe ? localStorage : sessionStorage;
+            storage.setItem('userData', JSON.stringify(updatedProfile));
 
-            return result;
+            return {
+                success: true,
+                message: `${fieldName} updated successfully`
+            };
         } catch (error) {
             console.error('Update profile field error:', error);
             return {
@@ -126,11 +146,58 @@ export const UserProvider = ({ children }) => {
         }
     };
 
+    // Login function for context
+    const login = async (usernameOrEmail, password, rememberMe = false) => {
+        setLoading(true);
+        try {
+            const result = await authService.login(usernameOrEmail, password, rememberMe);
+
+            if (result.success) {
+                const currentUser = authService.getCurrentUser();
+                console.log("UserContext - Current User:", currentUser);
+
+                // Ensure role consistency
+                const normalizedUser = {
+                    ...currentUser,
+                    role: currentUser?.role || currentUser?.userType // Map userType to role
+                };
+
+                setUser(normalizedUser);
+
+                // Set permissions
+                const userRole = normalizedUser?.role;
+                setUserPermissions(rolePermissions[userRole] || []);
+
+                // Set profile from auth data
+                const userData = {
+                    userId: result.data.userId,
+                    email: result.data.email,
+                    userType: result.data.userType,
+                    username: result.data.username || '',
+                    role: result.data.userType // Ensure role is set
+                };
+                setProfile(userData);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Login error in context:', error);
+            return {
+                success: false,
+                message: 'Login failed'
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Logout user
     const logout = () => {
         authService.logout();
         setUser(null);
         setProfile(null);
+        setUserPermissions([]);
+        SessionService.cleanup();
     };
 
     // Refresh user data
@@ -141,45 +208,107 @@ export const UserProvider = ({ children }) => {
         if (currentUser && authService.isAuthenticated()) {
             setUser(currentUser);
 
-            try {
-                const profileResult = await profileService.getProfile();
-                if (profileResult.success) {
-                    setProfile(profileResult.data);
+            // Update permissions
+            const userRole = currentUser?.role || currentUser?.userType;
+            setUserPermissions(rolePermissions[userRole] || []);
+
+            // Refresh profile from storage
+            const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
+            if (userData) {
+                try {
+                    setProfile(JSON.parse(userData));
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
                 }
-            } catch (error) {
-                console.error('Failed to refresh profile:', error);
             }
         } else {
             setUser(null);
             setProfile(null);
+            setUserPermissions([]);
         }
 
         setLoading(false);
+    };
+
+    // Check session validity
+    const checkSession = async () => {
+        const isValid = await SessionService.validateSession();
+        if (!isValid) {
+            logout();
+        }
+        return isValid;
+    };
+
+    // Enhanced permission system
+    const hasRole = (role) => {
+        const userRole = user?.role || user?.userType;
+        return userRole === role;
+    };
+
+    const hasPermission = (permission) => {
+        if (!user) return false;
+        return userPermissions.includes('all') || userPermissions.includes(permission);
+    };
+
+    const hasAnyPermission = (permissions = []) => {
+        if (!user) return false;
+        return permissions.some(permission => hasPermission(permission));
+    };
+
+    const hasAllPermissions = (permissions = []) => {
+        if (!user) return false;
+        return permissions.every(permission => hasPermission(permission));
+    };
+
+    const canAccessRoute = (routePath) => {
+        if (!user) return false;
+
+        const allowedRoles = routePermissions[routePath] || [];
+        const userRole = user?.role || user?.userType;
+
+        console.log("🔐 Route Access Check:", {
+            route: routePath,
+            userRole: userRole,
+            allowedRoles: allowedRoles,
+            hasAccess: allowedRoles.includes(userRole)
+        });
+
+        return allowedRoles.includes(userRole);
     };
 
     const value = {
         user,
         profile,
         loading,
+        lastActivity,
+        userPermissions,
         isAuthenticated: !!user && authService.isAuthenticated(),
         updateProfile,
         updateProfileField,
+        login,
         logout,
         refreshUser,
-        hasRole: (role) => user?.role === role || user?.userType === role,
-        hasPermission: (permission) => {
-            // Implement permission checking logic based on user role/type
-            if (!user) return false;
+        checkSession,
 
-            const userPermissions = {
-                'Admin': ['all'],
-                'User': ['read', 'write_own'],
-                'Premium User': ['read', 'write_own', 'premium_features']
-            };
+        // Enhanced permission system
+        hasRole,
+        hasPermission,
+        hasAnyPermission,
+        hasAllPermissions,
+        canAccessRoute,
+        canAccessFeature: (feature) => canAccessFeature(user?.role || user?.userType, feature),
 
-            const permissions = userPermissions[user.role] || userPermissions[user.userType] || [];
-            return permissions.includes('all') || permissions.includes(permission);
-        }
+        // Quick role checks
+        isSuperAdmin: () => user?.role === 'SuperAdmin' || user?.userType === 'SuperAdmin',
+        isAdmin: () => user?.role === 'Admin' || user?.userType === 'Admin',
+        isAgent: () => user?.role === 'Agent' || user?.userType === 'Agent',
+        isClient: () => user?.role === 'Client' || user?.userType === 'Client',
+
+        // Quick permission checks for common features
+        canManageUsers: () => hasAnyPermission(['manage_users', 'all']),
+        canManageProperties: () => hasAnyPermission(['manage_properties', 'all']),
+        canViewAnalytics: () => hasAnyPermission(['view_analytics', 'all']),
+        canManageSystem: () => hasAnyPermission(['manage_system', 'all'])
     };
 
     return (

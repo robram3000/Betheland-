@@ -14,6 +14,29 @@ namespace Realstate_servcices.Server.Utilities.Storage
         {
             _environment = environment;
             _logger = logger;
+            EnsureDirectoriesExist();
+        }
+
+        private void EnsureDirectoriesExist()
+        {
+            try
+            {
+                var uploadsPath = Path.Combine(_environment.WebRootPath, BaseUploadPath);
+                var propertiesPath = Path.Combine(uploadsPath, "properties");
+
+                if (!Directory.Exists(uploadsPath))
+                    Directory.CreateDirectory(uploadsPath);
+
+                if (!Directory.Exists(propertiesPath))
+                    Directory.CreateDirectory(propertiesPath);
+
+                _logger.LogInformation("Upload directories created successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create upload directories");
+                throw;
+            }
         }
 
         public async Task<string> UploadImageAsync(IFormFile file, string folderPath = "properties")
@@ -21,56 +44,57 @@ namespace Realstate_servcices.Server.Utilities.Storage
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File is empty");
 
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-            if (!allowedExtensions.Contains(fileExtension))
-                throw new ArgumentException("Invalid file type");
+            if (string.IsNullOrEmpty(fileExtension) || !allowedExtensions.Contains(fileExtension))
+                throw new ArgumentException("Invalid file type. Allowed types: " + string.Join(", ", allowedExtensions));
 
             if (file.Length > 10 * 1024 * 1024)
                 throw new ArgumentException("File size too large. Maximum size is 10MB.");
 
-
-            var fileName = $"{Guid.NewGuid()}{fileExtension}";
-            var relativePath = Path.Combine(BaseUploadPath, folderPath, fileName);
-
-            var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
-
-            var directory = Path.GetDirectoryName(fullPath);
-            if (!Directory.Exists(directory))
-                Directory.CreateDirectory(directory!);
-
-
-            using (var stream = new FileStream(fullPath, FileMode.Create))
+            try
             {
-                await file.CopyToAsync(stream);
-            }
+                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                var relativePath = Path.Combine(BaseUploadPath, folderPath, fileName);
+                var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
 
-            _logger.LogInformation($"Image uploaded successfully: {relativePath}");
-            return $"/{relativePath.Replace('\\', '/')}";
+                var directory = Path.GetDirectoryName(fullPath);
+                if (!Directory.Exists(directory))
+                    Directory.CreateDirectory(directory!);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                _logger.LogInformation($"Image uploaded successfully: {relativePath}");
+                return $"/{relativePath.Replace('\\', '/')}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error uploading image: {file.FileName}");
+                throw new Exception($"Failed to upload image: {ex.Message}");
+            }
         }
 
         public async Task<List<string>> UploadMultipleImagesAsync(List<IFormFile> files, string folderPath = "properties")
         {
             var uploadedUrls = new List<string>();
+            var uploadTasks = new List<Task<string>>();
 
             foreach (var file in files)
             {
                 if (file.Length > 0)
                 {
-                    try
-                    {
-                        var url = await UploadImageAsync(file, folderPath);
-                        uploadedUrls.Add(url);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to upload image: {file.FileName}");
-                        throw;
-                    }
+                    uploadTasks.Add(UploadImageAsync(file, folderPath));
                 }
             }
 
+            var results = await Task.WhenAll(uploadTasks);
+            uploadedUrls.AddRange(results);
+
+            _logger.LogInformation($"Successfully uploaded {uploadedUrls.Count} images");
             return uploadedUrls;
         }
 
@@ -82,7 +106,6 @@ namespace Realstate_servcices.Server.Utilities.Storage
                     return false;
 
                 var relativePath = imageUrl.TrimStart('/');
-
                 var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
 
                 if (File.Exists(fullPath))
@@ -108,9 +131,40 @@ namespace Realstate_servcices.Server.Utilities.Storage
                 return string.Empty;
 
             var relativePath = imageUrl.TrimStart('/');
-
-
             return Path.Combine(_environment.WebRootPath, relativePath);
+        }
+
+        public List<string> GetImagesInFolder(string folderPath = "properties")
+        {
+            try
+            {
+                var folderFullPath = Path.Combine(_environment.WebRootPath, BaseUploadPath, folderPath);
+
+                if (!Directory.Exists(folderFullPath))
+                    return new List<string>();
+
+                var files = Directory.GetFiles(folderFullPath)
+                    .Where(f => IsImageFile(f))
+                    .Select(f => {
+                        var relativePath = Path.GetRelativePath(_environment.WebRootPath, f);
+                        return $"/{relativePath.Replace('\\', '/')}";
+                    })
+                    .ToList();
+
+                return files;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting images from folder: {folderPath}");
+                return new List<string>();
+            }
+        }
+
+        private bool IsImageFile(string filePath)
+        {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return allowedExtensions.Contains(extension);
         }
     }
 }

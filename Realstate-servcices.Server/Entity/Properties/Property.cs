@@ -65,8 +65,8 @@ namespace Realstate_servcices.Server.Entity.Properties
         [MaxLength(20)]
         public string Status { get; set; } = "available";
 
-        [Required]
-        public int OwnerId { get; set; }
+        // REMOVE [Required] and change to int?
+        public int? OwnerId { get; set; }  
 
         public int? AgentId { get; set; }
 
@@ -81,13 +81,12 @@ namespace Realstate_servcices.Server.Entity.Properties
         public string Amenities { get; set; } = "[]";
 
         [ForeignKey("OwnerId")]
-        public virtual Client Owner { get; set; } = null!;
+        public virtual Client? Owner { get; set; } 
 
         [ForeignKey("AgentId")]
-        public virtual Agent? Agent { get; set; } 
+        public virtual Agent? Agent { get; set; }
 
         public virtual ICollection<PropertyImage>? PropertyImages { get; set; }
-
 
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
 

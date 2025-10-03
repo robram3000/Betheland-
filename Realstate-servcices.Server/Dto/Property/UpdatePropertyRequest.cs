@@ -4,11 +4,7 @@ namespace Realstate_servcices.Server.Dto.Property
 {
     public class UpdatePropertyRequest
     {
-        [Required]
-        public PropertyDto Property { get; set; } = new();
-
-        public List<string>? ImageUrls { get; set; }
-
-        public string? MainImageUrl { get; set; }
+        public PropertyDto Property { get; set; } = new PropertyDto();
+        public List<string> ImageUrls { get; set; } = new List<string>();
     }
 }

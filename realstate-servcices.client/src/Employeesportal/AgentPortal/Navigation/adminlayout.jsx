@@ -21,7 +21,7 @@ const AgentLayout = ({ children }) => {
             theme={{
                 token: {
                     borderRadius: 8,
-                    colorPrimary: '#1a365d', 
+                    colorPrimary: '#1a365d',
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
@@ -37,17 +37,19 @@ const AgentLayout = ({ children }) => {
                             marginTop: 68,
                             transition: 'all 0.2s',
                             background: '#f5f5f5',
+                            padding: '0 24px', // Add horizontal padding
                         }}
                     >
                         <Content
                             style={{
                                 background: colorBgContainer,
-                                padding: '24px',
-                                margin: '24px',
+                                margin: '24px 0', 
                                 minHeight: 280,
                                 borderRadius: borderRadiusLG,
                                 boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                                 border: '1px solid #f0f0f0',
+                                maxWidth: '100%', 
+                                overflow: 'hidden', 
                             }}
                         >
                             {children}

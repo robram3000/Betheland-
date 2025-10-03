@@ -12,8 +12,8 @@ using Realstate_servcices.Server.Data;
 namespace Realstate_servcices.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251001133227_intialcreate")]
-    partial class intialcreate
+    [Migration("20251003094014_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -178,7 +178,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("decimal(11,8)");
 
-                    b.Property<int>("OwnerId")
+                    b.Property<int?>("OwnerId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Price")
@@ -492,8 +492,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Owner")
                         .WithMany("Properties")
                         .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Agent");
 

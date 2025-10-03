@@ -1,28 +1,18 @@
-@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7074
+@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7075
 @Realstate_servcices.Server_HostAddress_HTTP = http://localhost:1452
 @ContentType = application/json
 
 ### Health Check (HTTP)
-GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/health
-Accept: {{ContentType}}
-
-### Health Check (HTTPS)
-GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/health
-Accept: {{ContentType}}
-
-### Generate OTP (HTTPS)
-POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/generate
+### Test with invalid data - Register agent with existing username
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "robram3000@gmail.com"
-}
-
-### Verify OTP (HTTPS)
-POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/otp/verify
-Content-Type: {{ContentType}}
-
-{
-  "email": "user@example.com",
-  "otpCode": "123456"
+  "email": "roberto.ramirez@gmail.com",
+  "username": "Ram@3000",
+  "password": "Ramirez@2k13",
+  "firstName": "Roberto",
+  "lastName": "Ramirez",
+  "cellPhoneNo": "09666627948",
+  "licenseNumber": "LIC-123458"
 }

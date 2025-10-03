@@ -1,4 +1,4 @@
-import BethelandIcon from '../assets/Betheland.png';
+﻿import BethelandIcon from '../assets/Betheland.png';
 import React, { useState } from 'react';
 import {
     Card,
@@ -17,7 +17,8 @@ import {
     UserOutlined,
     LockOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUser } from './Services/UserContextService';
 import authService from './Services/LoginAuth';
 
 const { Title, Text, Link } = Typography;
@@ -28,7 +29,10 @@ const AuthPage = () => {
     const [showSpinner, setShowSpinner] = useState(false);
     const [form] = Form.useForm();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [error, setError] = useState('');
+
+    const { login: contextLogin } = useUser();
 
     const theme = {
         token: {
@@ -37,34 +41,106 @@ const AuthPage = () => {
         },
     };
 
-    const onFinish = async (values) => {
-        setShowSpinner(true);
-        setLoading(true);
-        setError('');
+    const getRedirectPath = (userRole) => {
+        console.log("🔍 getRedirectPath received:", userRole);
 
-        try {
-            console.log('Attempting login with:', values.usernameOrEmail);
-            const result = await authService.login(values.usernameOrEmail, values.password);
-            console.log('Login result:', result);
+        // Handle different input formats
+        let role;
 
-            if (result.success) {
-                message.success('Welcome back to BeTheLand!');
-                navigate('/properties');
-            } else {
-                const errorMsg = result.message || 'Invalid credentials. Please try again.';
-                setError(errorMsg);
-                message.error(errorMsg);
-            }
-        } catch (error) {
-            console.error('Login catch error:', error);
-            const errorMsg = error?.message || 'Something went wrong. Please try again.';
-            setError(errorMsg);
-            message.error(errorMsg);
-        } finally {
-            setLoading(false);
-            setShowSpinner(false);
+        if (typeof userRole === 'object') {
+            // If it's a user object, try all possible role fields
+            role = userRole?.role || userRole?.userType || userRole?.roleType;
+            console.log("📦 Extracted role from object:", role);
+        } else {
+            // If it's already a string
+            role = userRole;
+            console.log("📝 Using string role:", role);
+        }
+
+        // Normalize role names (case-insensitive)
+        const normalizedRole = role?.toString().toLowerCase();
+        console.log("🔄 Normalized role:", normalizedRole);
+
+        switch (normalizedRole) {
+            case 'agent':
+            case 'realestateagent':
+                console.log("🎯 Redirecting to Agent portal");
+                return '/portal/agent/all-properties';
+
+            case 'admin':
+            case 'administrator':
+                console.log("🎯 Redirecting to Admin portal");
+                return '/portal/admin';
+
+            case 'superadmin':
+            case 'super_admin':
+            case 'super administrator':
+                console.log("🎯 Redirecting to Super Admin portal");
+                return '/portal/super-admin';
+
+            case 'client':
+            case 'customer':
+            case 'buyer':
+                console.log("🎯 Redirecting to Client properties");
+                return '/properties';
+
+            default:
+                console.warn("⚠️ Unknown role, defaulting to properties:", normalizedRole);
+                return '/properties';
         }
     };
+
+   // AuthPage.jsx (Updated navigation section)
+const onFinish = async (values) => {
+    setShowSpinner(true);
+    setLoading(true);
+    setError('');
+
+    try {
+        console.log('🔐 Attempting login with:', values.usernameOrEmail);
+
+        const result = await contextLogin(values.usernameOrEmail, values.password, values.rememberMe);
+        console.log('📨 Login result:', result);
+
+        if (result.success) {
+            message.success('Welcome back to BeTheLand!');
+
+            // Get user data directly from the context
+            const currentUser = authService.getCurrentUser();
+            console.log("👤 Current User from authService:", currentUser);
+
+            // Use the user data from the login response directly
+            const userRole = result.data?.userType || currentUser?.role || currentUser?.userType;
+            console.log("🎭 Final determined role:", userRole);
+
+            const redirectPath = getRedirectPath(userRole);
+            console.log("📍 Redirect path determined:", redirectPath);
+
+            const returnUrl = searchParams.get('returnUrl');
+            console.log("📋 Return URL from params:", returnUrl);
+
+            const finalDestination = returnUrl || redirectPath;
+            console.log("🎯 Final destination:", finalDestination);
+
+            // Add a small delay to ensure context is updated
+            setTimeout(() => {
+                navigate(finalDestination, { replace: true });
+            }, 100);
+
+        } else {
+            setError(result.message || 'Login failed');
+            message.error(result.message || 'Login failed');
+        }
+    } catch (error) {
+        console.error('❌ Login catch error:', error);
+        const errorMsg = error?.message || 'Something went wrong. Please try again.';
+        setError(errorMsg);
+        message.error(errorMsg);
+    } finally {
+        setLoading(false);
+        setShowSpinner(false);
+    }
+};
 
     const handleForgotPassword = () => {
         navigate('/forgot-password/verify-email');
@@ -244,7 +320,9 @@ const AuthPage = () => {
 
                             <Form.Item>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox disabled={loading}>Remember me</Checkbox>
+                                    <Form.Item name="rememberMe" valuePropName="checked" noStyle>
+                                        <Checkbox disabled={loading}>Remember me</Checkbox>
+                                    </Form.Item>
                                     <Link
                                         style={{ fontSize: '14px' }}
                                         onClick={handleForgotPassword}
