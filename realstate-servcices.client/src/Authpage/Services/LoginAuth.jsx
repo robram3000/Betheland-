@@ -204,7 +204,7 @@ class AuthService {
                 username: payload.unique_name || payload.sub || user.username,
                 role: payload.role || user.userType,
                 expiresAt: new Date(payload.exp * 1000),
-                rememberMe: !!localStorage.getItem('authToken') // Check if using persistent storage
+                rememberMe: !!localStorage.getItem('authToken') 
             };
         } catch (error) {
             console.error('Error parsing user data:', error);

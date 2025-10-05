@@ -1,4 +1,3 @@
-// BaseTableProperty.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -13,7 +12,6 @@ import {
     Card,
     Input,
     Select,
-    DatePicker,
 } from 'antd';
 import {
     EditOutlined,
@@ -47,6 +45,41 @@ const BaseTableProperty = ({
     useEffect(() => {
         setFilteredData(dataSource);
     }, [dataSource]);
+
+    // Enhanced image URL processor - matches getUserProfileImage pattern
+    const processImageUrl = (url) => {
+        if (!url || url === 'string') {
+            console.log('No URL or invalid URL provided:', url);
+            return '/default-property.jpg';
+        }
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        // If it starts with /uploads, prepend the base URL like in getUserProfileImage
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        // If it's just a filename or relative path, construct the full URL
+        if (url.includes('.') && !url.startsWith('/')) {
+            const fullUrl = `https://localhost:7075/uploads/properties/${url}`;
+            console.log('Converted filename to full URL:', url, '->', fullUrl);
+            return fullUrl;
+        }
+
+        // If it's a relative path without leading slash, add base URL
+        if (url.startsWith('uploads/')) {
+            const fullUrl = `https://localhost:7075/${url}`;
+            console.log('Added base URL to relative path:', url, '->', fullUrl);
+            return fullUrl;
+        }
+
+        console.log('Using default image for URL:', url);
+        return '/default-property.jpg';
+    };
 
     const handleSearch = (value) => {
         setSearchText(value);
@@ -110,33 +143,6 @@ const BaseTableProperty = ({
         }).format(amount);
     };
 
-    // Helper function to process image URLs
-    const processImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-
-        // If it's already a full URL, return as is
-        if (url.startsWith('http') || url.startsWith('//')) {
-            return url;
-        }
-
-        // If it starts with /uploads, make it absolute
-        if (url.startsWith('/uploads/')) {
-            return url;
-        }
-
-        // If it's a relative path from wwwroot, prepend with /
-        if (url.startsWith('uploads/')) {
-            return '/' + url;
-        }
-
-        // If it's just a filename, assume it's in the default location
-        if (url.includes('.')) {
-            return '/uploads/properties/' + url;
-        }
-
-        return '/default-property.jpg';
-    };
-
     const columns = [
         {
             title: 'Property No',
@@ -156,19 +162,46 @@ const BaseTableProperty = ({
             dataIndex: 'mainImage',
             key: 'mainImage',
             width: 80,
-            render: (url) => (
-                <Image
-                    width={50}
-                    height={40}
-                    src={processImageUrl(url)}
-                    alt="Property"
-                    style={{ objectFit: 'cover', borderRadius: '4px' }}
-                    fallback="/default-property.jpg"
-                    preview={{
-                        src: processImageUrl(url),
-                    }}
-                />
-            ),
+            render: (url, record) => {
+                const imageUrl = processImageUrl(url);
+                console.log(`Rendering image for ${record.title}:`, imageUrl);
+
+                return (
+                    <Image
+                        width={50}
+                        height={40}
+                        src={imageUrl}
+                        alt="Property"
+                        style={{
+                            objectFit: 'cover',
+                            borderRadius: '4px',
+                            backgroundColor: '#f5f5f5'
+                        }}
+                        placeholder={
+                            <div style={{
+                                width: 50,
+                                height: 40,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#f5f5f5',
+                                borderRadius: '4px'
+                            }}>
+                                <span style={{ fontSize: '10px', color: '#999' }}>Loading...</span>
+                            </div>
+                        }
+                        fallback="/default-property.jpg"
+                        preview={{
+                            mask: <EyeOutlined />,
+                            src: imageUrl,
+                        }}
+                        onError={(e) => {
+                            console.error(`Failed to load image: ${imageUrl}`);
+                            e.target.src = '/default-property.jpg';
+                        }}
+                    />
+                );
+            },
         },
         {
             title: 'Title',
@@ -187,7 +220,7 @@ const BaseTableProperty = ({
             dataIndex: 'type',
             key: 'type',
             width: 100,
-            render: (type) => <Tag color="#1a365d">{type}</Tag>, // Dark blue color
+            render: (type) => <Tag color="#1a365d">{type?.charAt(0).toUpperCase() + type?.slice(1)}</Tag>,
         },
         {
             title: 'Price',
@@ -202,6 +235,7 @@ const BaseTableProperty = ({
             dataIndex: 'city',
             key: 'city',
             width: 120,
+            render: (city) => city || 'N/A',
         },
         {
             title: 'Status',
@@ -219,7 +253,7 @@ const BaseTableProperty = ({
             key: 'bedBath',
             width: 100,
             render: (_, record) => (
-                <span>{record.bedrooms} bed / {record.bathrooms} bath</span>
+                <span>{record.bedrooms || 0} bed / {record.bathrooms || 0} bath</span>
             ),
         },
         {
@@ -227,16 +261,16 @@ const BaseTableProperty = ({
             dataIndex: 'areaSqft',
             key: 'areaSqft',
             width: 100,
-            render: (area) => `${area?.toLocaleString()} sqft`,
-            sorter: (a, b) => a.areaSqft - b.areaSqft,
+            render: (area) => area ? `${area?.toLocaleString()} sqft` : 'N/A',
+            sorter: (a, b) => (a.areaSqft || 0) - (b.areaSqft || 0),
         },
         {
             title: 'Listed Date',
             dataIndex: 'listedDate',
             key: 'listedDate',
             width: 120,
-            render: (date) => dayjs(date).format('MMM DD, YYYY'),
-            sorter: (a, b) => dayjs(a.listedDate).unix() - dayjs(b.listedDate).unix(),
+            render: (date) => date ? dayjs(date).format('MMM DD, YYYY') : 'N/A',
+            sorter: (a, b) => dayjs(a.listedDate || 0).unix() - dayjs(b.listedDate || 0).unix(),
         },
         {
             title: 'Actions',
@@ -320,6 +354,8 @@ const BaseTableProperty = ({
                     <Option value="apartment">Apartment</Option>
                     <Option value="condo">Condo</Option>
                     <Option value="villa">Villa</Option>
+                    <Option value="townhouse">Townhouse</Option>
+                    <Option value="commercial">Commercial</Option>
                 </Select>
 
                 <Button
@@ -346,7 +382,7 @@ const BaseTableProperty = ({
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={onCreate}
-                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }} // Dark blue color
+                            style={{ backgroundColor: '#1a365d', borderColor: '#1a365d' }}
                         >
                             Add Property
                         </Button>

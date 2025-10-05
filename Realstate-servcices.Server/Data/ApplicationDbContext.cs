@@ -21,7 +21,7 @@ namespace Realstate_servcices.Server.Data
         public DbSet<PropertyHouse> Properties { get; set; }
         public DbSet<PropertyImage> PropertyImages { get; set; }
         public DbSet<ScheduleProperties> ScheduleProperties { get; set; }
-        public DbSet<Wishlist> Wishlists { get; set; } 
+        public DbSet<WishlistProperties> Wishlists { get; set; } 
 
         public DbSet<OTPRecord> OTPRecords { get; set; }
 
@@ -161,7 +161,7 @@ namespace Realstate_servcices.Server.Data
             });
 
        
-            modelBuilder.Entity<Wishlist>(entity =>
+            modelBuilder.Entity<WishlistProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Notes).HasMaxLength(500);

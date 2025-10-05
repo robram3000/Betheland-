@@ -1,329 +1,321 @@
-﻿// WishlistCard.jsx
+﻿// WishlistCard.jsx (fixed for the actual data structure)
 import React from 'react';
-import { Card, Tag, Typography, Space, Divider, Badge, Button } from 'antd';
+import { Card, Button, Space, Tag, Typography, Divider } from 'antd';
 import {
-    EnvironmentOutlined,
     HeartFilled,
-    StarFilled,
-    CalendarOutlined,
     DeleteOutlined,
-    EyeOutlined
+    CalendarOutlined,
+    EyeOutlined,
+    EnvironmentOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
-const WishlistCard = ({
-    property,
-    onRemoveFromWishlist,
-    onScheduleTour,
-    onViewDetails
-}) => {
-    const navigate = useNavigate();
+const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => {
+    // Use the property data directly (it's already flattened)
+    const propertyData = property;
 
-    const handleCardClick = () => {
-        if (onViewDetails) {
-            onViewDetails(property.id);
-        } else {
-            navigate(`/property/${property.id}`);
+    console.log('WishlistCard property data:', propertyData);
+
+    // Extract data from the flattened structure
+    const {
+        id,
+        propertyId,
+        propertyTitle = 'Unknown Property',
+        propertyAddress = 'Location not specified',
+        propertyPrice = 0,
+        propertyImages = [],
+        propertyStatus = 'available',
+        propertyType = 'Unknown'
+    } = propertyData || {};
+
+    // Calculate derived values
+    const displayId = propertyId || id;
+    const displayTitle = propertyTitle;
+    const displayLocation = propertyAddress;
+    const displayPrice = propertyPrice;
+    const displayStatus = propertyStatus;
+    const displayType = propertyType;
+
+    // Process image URL
+    const processImageUrl = (url) => {
+        if (!url || url === 'string') {
+            return '/default-property.jpg';
         }
+
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+
+        return '/default-property.jpg';
     };
 
-    const handleRemoveClick = (e) => {
-        e.stopPropagation();
-        if (onRemoveFromWishlist) {
-            onRemoveFromWishlist(property.id);
+    // Get the main image
+    const getMainImage = () => {
+        if (propertyImages && propertyImages.length > 0) {
+            return processImageUrl(propertyImages[0]);
         }
+        return '/default-property.jpg';
     };
 
-    const handleScheduleTour = (e) => {
-        e.stopPropagation();
-        if (onScheduleTour) {
-            onScheduleTour(property);
-        }
-    };
+    const displayImage = getMainImage();
 
+    // Format price in Philippine Peso
     const formatPesoPrice = (price) => {
-        if (price >= 1000000) {
-            return `₱${(price / 1000000).toFixed(1)}M`;
-        } else if (price >= 1000) {
-            return `₱${(price / 1000).toFixed(0)}K`;
+        if (!price && price !== 0) return 'Price on request';
+
+        const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+
+        if (numericPrice >= 1000000) {
+            return `₱${(numericPrice / 1000000).toFixed(1)}M`;
+        } else if (numericPrice >= 1000) {
+            return `₱${(numericPrice / 1000).toFixed(0)}K`;
         }
-        return `₱${price}`;
+        return `₱${numericPrice}`;
     };
 
-    const getTimeAgo = (dateAdded) => {
-        if (!dateAdded) return '';
-
-        const now = new Date();
-        const added = new Date(dateAdded);
-        const diffTime = Math.abs(now - added);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 1) return 'Added today';
-        if (diffDays < 7) return `Added ${diffDays} days ago`;
-        if (diffDays < 30) return `Added ${Math.floor(diffDays / 7)} weeks ago`;
-        return `Added ${Math.floor(diffDays / 30)} months ago`;
+    // Get status color and text
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'available':
+                return 'green';
+            case 'sold':
+                return 'red';
+            case 'pending':
+                return 'orange';
+            case 'rented':
+                return 'blue';
+            default:
+                return 'default';
+        }
     };
+
+    const getStatusText = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'available':
+                return 'Available';
+            case 'sold':
+                return 'Sold';
+            case 'pending':
+                return 'Pending';
+            case 'rented':
+                return 'Rented';
+            default:
+                return status || 'Available';
+        }
+    };
+
+    // Extract property features from the data (you may need to adjust these based on your actual data)
+    const bedrooms = 2; // You'll need to get this from your actual data
+    const bathrooms = 2; // You'll need to get this from your actual data
+    const areaSqft = 1200; // You'll need to get this from your actual data
 
     return (
-        <Badge.Ribbon
-            text="In Wishlist"
-            color="#10b981"
-            style={{ display: property.featured ? 'none' : 'block' }}
-        >
-            <Card
-                hoverable
-                style={{
-                    height: '100%',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    border: '2px solid #f0f9ff',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    position: 'relative'
-                }}
-                bodyStyle={{ padding: '20px' }}
-                cover={
-                    <div style={{ position: 'relative' }}>
-                        <img
-                            alt={property.title}
-                            src={property.image}
+        <Card
+            hoverable
+            style={{
+                width: '100%',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: '1px solid #e2e8f0',
+                height: '100%'
+            }}
+            cover={
+                <div style={{ position: 'relative', height: '200px', overflow: 'hidden' }}>
+                    <img
+                        alt={displayTitle}
+                        src={displayImage}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            cursor: 'pointer'
+                        }}
+                        onClick={onViewDetails}
+                        onError={(e) => {
+                            e.target.src = '/default-property.jpg';
+                        }}
+                    />
+                    {/* Wishlist Heart Badge */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '50%',
+                        width: '36px',
+                        height: '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backdropFilter: 'blur(4px)'
+                    }}>
+                        <HeartFilled style={{ color: '#ff4d4f', fontSize: '18px' }} />
+                    </div>
+
+                    {/* Property Type Tag */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '12px'
+                    }}>
+                        <Tag
+                            color="#1B3C53"
                             style={{
-                                height: '200px',
-                                objectFit: 'cover',
-                                width: '100%'
-                            }}
-                        />
-                        {/* Wishlist Badge */}
-                        <div
-                            style={{
-                                position: 'absolute',
-                                top: '12px',
-                                right: '12px',
-                                background: '#10b981',
-                                color: 'white',
-                                padding: '4px 8px',
+                                margin: 0,
                                 borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: '600'
+                                border: 'none',
+                                fontWeight: '500',
+                                color: 'white'
                             }}
                         >
-                            <HeartFilled style={{ marginRight: '4px' }} />
-                            Saved
-                        </div>
+                            {displayType}
+                        </Tag>
+                    </div>
 
-                        {/* Property Type Tag */}
+                    {/* Status Badge */}
+                    {displayStatus && displayStatus !== 'available' && (
                         <div style={{
                             position: 'absolute',
-                            top: '12px',
+                            bottom: '12px',
                             left: '12px'
                         }}>
                             <Tag
-                                color="#1B3C53"
+                                color={getStatusColor(displayStatus)}
                                 style={{
                                     margin: 0,
                                     borderRadius: '6px',
                                     border: 'none',
-                                    fontWeight: '500'
+                                    fontWeight: '500',
+                                    color: 'white'
                                 }}
                             >
-                                {property.propertyType}
+                                {getStatusText(displayStatus)}
                             </Tag>
                         </div>
+                    )}
+                </div>
+            }
+            actions={[
+                <Button
+                    type="text"
+                    icon={<EyeOutlined />}
+                    onClick={onViewDetails}
+                    style={{ width: '100%' }}
+                >
+                    Details
+                </Button>,
+                <Button
+                    type="text"
+                    icon={<CalendarOutlined />}
+                    onClick={onScheduleTour}
+                    disabled={displayStatus !== 'available'}
+                    style={{ width: '100%' }}
+                >
+                    Tour
+                </Button>,
+                <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={onRemove}
+                    style={{ width: '100%' }}
+                >
+                    Remove
+                </Button>
+            ]}
+        >
+            {/* Property Title */}
+            <Title level={5} style={{
+                margin: '0 0 8px 0',
+                lineHeight: '1.4',
+                color: '#1B3C53',
+                minHeight: '48px',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
+            }}>
+                {displayTitle}
+            </Title>
 
-                        {/* Rating */}
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '12px',
-                            left: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            backdropFilter: 'blur(4px)'
-                        }}>
-                            <StarFilled style={{ color: '#fbbf24', fontSize: '14px', marginRight: '4px' }} />
-                            <Text strong style={{ color: '#1B3C53', fontSize: '12px' }}>
-                                {property.rating}
-                            </Text>
-                        </div>
-
-                        {/* Added Date */}
-                        {property.dateAdded && (
-                            <div style={{
-                                position: 'absolute',
-                                bottom: '12px',
-                                right: '12px',
-                                background: 'rgba(255, 255, 255, 0.9)',
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                backdropFilter: 'blur(4px)'
-                            }}>
-                                <Text style={{ color: '#64748b', fontSize: '11px', fontWeight: '500' }}>
-                                    {getTimeAgo(property.dateAdded)}
-                                </Text>
-                            </div>
-                        )}
-                    </div>
-                }
-                onClick={handleCardClick}
-            >
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    {/* Title and Remove Button */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Title level={4} style={{
-                            margin: 0,
-                            fontSize: '16px',
-                            lineHeight: '1.4',
-                            color: '#1B3C53',
-                            fontWeight: '600',
-                            flex: 1,
-                            marginRight: '12px'
-                        }}>
-                            {property.title}
-                        </Title>
-
-                        <Button
-                            type="text"
-                            danger
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            onClick={handleRemoveClick}
-                            style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '6px'
-                            }}
-                        />
-                    </div>
-
-                    {/* Location */}
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <EnvironmentOutlined style={{ marginRight: '6px', color: '#64748b', fontSize: '12px' }} />
-                        <Text type="secondary" style={{ fontSize: '13px', color: '#64748b' }}>
-                            {property.location}
-                        </Text>
-                    </div>
-
-                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
-
-                    {/* Price */}
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <Title level={3} style={{
-                            margin: 0,
-                            color: '#1B3C53',
-                            fontSize: '20px',
-                            fontWeight: '700'
-                        }}>
-                            {formatPesoPrice(property.price)}
-                        </Title>
-                        <Text type="secondary" style={{ fontSize: '11px', color: '#64748b' }}>
-                            ₱{property.pricePerSqft?.toLocaleString()}/sq ft
-                        </Text>
-                    </Space>
-
-                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
-
-                    {/* Property Features */}
-                    <Space size="small" wrap>
-                        <Tag style={{
-                            background: '#f0f9ff',
-                            border: '1px solid #1B3C53',
-                            color: '#1B3C53',
-                            borderRadius: '6px',
-                            margin: 0,
-                            fontSize: '11px'
-                        }}>
-                            {property.bedrooms} beds
-                        </Tag>
-                        <Tag style={{
-                            background: '#f0f9ff',
-                            border: '1px solid #1B3C53',
-                            color: '#1B3C53',
-                            borderRadius: '6px',
-                            margin: 0,
-                            fontSize: '11px'
-                        }}>
-                            {property.bathrooms} baths
-                        </Tag>
-                        <Tag style={{
-                            background: '#f0f9ff',
-                            border: '1px solid #1B3C53',
-                            color: '#1B3C53',
-                            borderRadius: '6px',
-                            margin: 0,
-                            fontSize: '11px'
-                        }}>
-                            {property.squareFeet.toLocaleString()} sq ft
-                        </Tag>
-                    </Space>
-
-                    {/* Tags */}
-                    <Space size={[4, 8]} wrap style={{ marginTop: '8px' }}>
-                        {property.tags.slice(0, 2).map((tag, index) => (
-                            <Tag key={index} style={{
-                                background: '#f1f5f9',
-                                color: '#475569',
-                                border: 'none',
-                                borderRadius: '6px',
-                                margin: 0,
-                                fontSize: '10px',
-                                padding: '1px 6px'
-                            }}>
-                                {tag}
-                            </Tag>
-                        ))}
-                        {property.tags.length > 2 && (
-                            <Tag style={{
-                                background: 'transparent',
-                                color: '#64748b',
-                                border: '1px dashed #cbd5e1',
-                                borderRadius: '6px',
-                                margin: 0,
-                                fontSize: '10px',
-                                padding: '1px 6px'
-                            }}>
-                                +{property.tags.length - 2} more
-                            </Tag>
-                        )}
-                    </Space>
-
-                    {/* Action Buttons */}
-                    <Space size="small" style={{ width: '100%', marginTop: '12px' }}>
-                        <Button
-                            type="primary"
-                            icon={<CalendarOutlined />}
-                            onClick={handleScheduleTour}
-                            style={{
-                                flex: 1,
-                                borderRadius: '8px',
-                                background: '#1B3C53',
-                                borderColor: '#1B3C53',
-                                fontWeight: '600',
-                                fontSize: '13px'
-                            }}
-                        >
-                            Schedule Tour
-                        </Button>
-
-                        <Button
-                            icon={<EyeOutlined />}
-                            onClick={handleCardClick}
-                            style={{
-                                borderRadius: '8px',
-                                borderColor: '#1B3C53',
-                                color: '#1B3C53',
-                                fontWeight: '500',
-                                fontSize: '13px'
-                            }}
-                        >
-                            View
-                        </Button>
-                    </Space>
+            {/* Location */}
+            <div style={{ marginBottom: '12px' }}>
+                <Space>
+                    <EnvironmentOutlined style={{ color: '#8c8c8c', fontSize: '14px' }} />
+                    <Text type="secondary" style={{ fontSize: '14px' }}>
+                        {displayLocation}
+                    </Text>
                 </Space>
-            </Card>
-        </Badge.Ribbon>
+            </div>
+
+            {/* Property Details - You'll need to update these with actual data from your backend */}
+            <div style={{ marginBottom: '12px' }}>
+                <Space size="small" wrap>
+                    <Tag style={{
+                        background: '#f0f9ff',
+                        border: '1px solid #1B3C53',
+                        color: '#1B3C53',
+                        borderRadius: '6px',
+                        margin: 0,
+                        fontSize: '12px'
+                    }}>
+                        {bedrooms} bed
+                    </Tag>
+                    <Tag style={{
+                        background: '#f0f9ff',
+                        border: '1px solid #1B3C53',
+                        color: '#1B3C53',
+                        borderRadius: '6px',
+                        margin: 0,
+                        fontSize: '12px'
+                    }}>
+                        {bathrooms} bath
+                    </Tag>
+                    <Tag style={{
+                        background: '#f0f9ff',
+                        border: '1px solid #1B3C53',
+                        color: '#1B3C53',
+                        borderRadius: '6px',
+                        margin: 0,
+                        fontSize: '12px'
+                    }}>
+                        {areaSqft.toLocaleString()} sq ft
+                    </Tag>
+                </Space>
+            </div>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            {/* Price */}
+            <div style={{ textAlign: 'center' }}>
+                <Title level={4} style={{
+                    margin: 0,
+                    color: '#1B3C53',
+                    fontSize: '20px',
+                    fontWeight: '700'
+                }}>
+                    {formatPesoPrice(displayPrice)}
+                </Title>
+                {displayStatus === 'rented' && (
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                        /month
+                    </Text>
+                )}
+            </div>
+        </Card>
     );
 };
 

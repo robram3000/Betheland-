@@ -1,4 +1,3 @@
-// PropertyLocation.jsx (simplified - location only)
 import React from 'react';
 import { Row, Col, Typography, Card, Button } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
@@ -16,8 +15,33 @@ L.Icon.Default.mergeOptions({
 
 const { Title, Text } = Typography;
 
-const PropertyLocation = () => {
-    const position = [25.7617, -80.1918]; // Miami Beach coordinates
+const PropertyLocation = ({ property }) => {
+    if (!property) {
+        return <div>Loading location...</div>;
+    }
+
+    // Default coordinates (Manila)
+    const defaultPosition = [14.5995, 120.9842];
+
+    // Get coordinates from property data
+    const getCoordinates = () => {
+        if (property.latitude && property.longitude) {
+            return [parseFloat(property.latitude), parseFloat(property.longitude)];
+        }
+        return defaultPosition;
+    };
+
+    const position = getCoordinates();
+
+    const handleExploreNeighborhood = () => {
+        // Implement neighborhood exploration
+        console.log('Explore neighborhood');
+    };
+
+    const handleFullScreenMap = () => {
+        // Implement full screen map
+        console.log('Full screen map');
+    };
 
     return (
         <div style={{ padding: '40px 0', backgroundColor: '#ffffff' }}>
@@ -33,6 +57,7 @@ const PropertyLocation = () => {
                                     type="primary"
                                     size="small"
                                     style={{ background: '#1B3C53', borderColor: '#1B3C53' }}
+                                    onClick={handleFullScreenMap}
                                 >
                                     Full Screen
                                 </Button>
@@ -51,7 +76,8 @@ const PropertyLocation = () => {
                                     />
                                     <Marker position={position}>
                                         <Popup>
-                                            Luxury Villa with Ocean View <br /> Miami Beach, Florida
+                                            {property.title || 'Property'} <br />
+                                            {property.location || property.address || 'Location'}
                                         </Popup>
                                     </Marker>
                                 </MapContainer>
@@ -65,8 +91,18 @@ const PropertyLocation = () => {
                         >
                             <div style={{ marginBottom: '16px' }}>
                                 <EnvironmentOutlined style={{ marginRight: '8px', color: '#1B3C53' }} />
-                                <Text strong>Miami Beach, Florida</Text>
+                                <Text strong>{property.location || property.address || 'Location not specified'}</Text>
                             </div>
+                            {property.city && (
+                                <div style={{ marginBottom: '16px' }}>
+                                    <Text type="secondary">City: {property.city}</Text>
+                                </div>
+                            )}
+                            {property.neighborhood && (
+                                <div style={{ marginBottom: '16px' }}>
+                                    <Text type="secondary">Neighborhood: {property.neighborhood}</Text>
+                                </div>
+                            )}
                             <Button
                                 type="primary"
                                 block
@@ -75,6 +111,7 @@ const PropertyLocation = () => {
                                     background: '#1B3C53',
                                     borderColor: '#1B3C53'
                                 }}
+                                onClick={handleExploreNeighborhood}
                             >
                                 Explore Neighborhood
                             </Button>

@@ -1,5 +1,5 @@
-// WishlistPage.jsx (updated to use WishlistCard)
-import React, { useState, useEffect } from 'react';
+﻿// WishlistPage.jsx (updated)
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Row,
     Col,
@@ -14,45 +14,61 @@ import {
     DatePicker,
     Input,
     TimePicker,
-    Spin
+    Spin,
+    Alert
 } from 'antd';
-import { HeartFilled, DeleteOutlined } from '@ant-design/icons';
-import WishlistCard from './WishlistCard';
+import { HeartFilled, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { useWishlistData } from '../Property/Services/WishlistAdded';
+import WishlistCard from './WishlistCard'; // Import the fixed WishlistCard
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+const { confirm } = Modal;
 
 const WishlistPage = () => {
-    const [wishlistItems, setWishlistItems] = useState([]);
+    const {
+        wishlistItems,
+        loading,
+        error,
+        wishlistCount,
+        removeFromWishlistByProperty,
+        clearWishlist,
+        refreshWishlist,
+        isAuthenticated
+    } = useWishlistData();
+
     const [isScheduleModalVisible, setIsScheduleModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [scheduleForm] = Form.useForm();
+    const [initialLoad, setInitialLoad] = useState(true);
 
+    // Debug: Log the wishlist items to see the actual data structure
     useEffect(() => {
-        const loadWishlist = () => {
-            try {
-                setLoading(true);
-                const savedWishlist = localStorage.getItem('propertyWishlist');
-                if (savedWishlist) {
-                    const parsedWishlist = JSON.parse(savedWishlist);
-                    setWishlistItems(parsedWishlist);
-                }
-            } catch (error) {
-                console.error('Error loading wishlist:', error);
-                message.error('Failed to load wishlist');
-            } finally {
-                setLoading(false);
-            }
-        };
+        console.log('Wishlist Items:', wishlistItems);
+        console.log('Wishlist Count:', wishlistCount);
+    }, [wishlistItems, wishlistCount]);
 
-        loadWishlist();
-    }, []);
+    // Use useCallback to prevent unnecessary re-renders
+    const loadWishlistData = useCallback(async () => {
+        if (isAuthenticated && initialLoad) {
+            await refreshWishlist();
+            setInitialLoad(false);
+        }
+    }, [isAuthenticated, refreshWishlist, initialLoad]);
 
-    const handleRemoveFromWishlist = (propertyId) => {
-        const updatedWishlist = wishlistItems.filter(item => item.id !== propertyId);
-        setWishlistItems(updatedWishlist);
-        localStorage.setItem('propertyWishlist', JSON.stringify(updatedWishlist));
-        message.success('Property removed from wishlist');
+    // Refresh wishlist on component mount only once
+    useEffect(() => {
+        loadWishlistData();
+    }, [loadWishlistData]);
+
+    const handleRemoveFromWishlist = async (propertyId) => {
+        try {
+            await removeFromWishlistByProperty(propertyId);
+            message.success('Property removed from wishlist');
+        } catch (error) {
+            console.error('Error removing from wishlist:', error);
+            message.error('Failed to remove property from wishlist');
+        }
     };
 
     const handleScheduleTour = (property) => {
@@ -61,138 +77,227 @@ const WishlistPage = () => {
     };
 
     const handleViewDetails = (propertyId) => {
-        // Navigate to property details or show modal
-        window.location.href = `/property/${propertyId}`;
+        // Use navigate instead of window.location for better SPA experience
+        window.location.href = `/properties/view?id=${propertyId}`;
     };
 
-    const handleScheduleSubmit = (values) => {
-        setLoading(true);
-        setTimeout(() => {
-            message.success('Tour scheduled successfully!');
+    const handleScheduleSubmit = async (values) => {
+        try {
+            // Format the date and time
+            const scheduledDate = values.date.format('YYYY-MM-DD');
+            const scheduledTime = values.time.format('HH:mm');
+
+            console.log('Scheduling tour:', {
+                propertyId: selectedProperty.id,
+                propertyTitle: selectedProperty.title,
+                date: scheduledDate,
+                time: scheduledTime,
+                notes: values.notes
+            });
+
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            message.success('Tour scheduled successfully! We will contact you to confirm.');
             setIsScheduleModalVisible(false);
-            setLoading(false);
-        }, 1000);
+            scheduleForm.resetFields();
+        } catch (error) {
+            console.error('Error scheduling tour:', error);
+            message.error('Failed to schedule tour. Please try again.');
+        }
     };
 
-    const handleClearWishlist = () => {
-        Modal.confirm({
-            title: 'Clear Wishlist',
-            content: 'Are you sure you want to remove all properties from your wishlist?',
+    const showClearWishlistConfirm = () => {
+        confirm({
+            title: 'Clear Entire Wishlist?',
+            icon: <ExclamationCircleOutlined />,
+            content: 'This will remove all properties from your wishlist. This action cannot be undone.',
             okText: 'Yes, Clear All',
             okType: 'danger',
             cancelText: 'Cancel',
             onOk() {
-                setWishlistItems([]);
-                localStorage.removeItem('propertyWishlist');
-                message.success('Wishlist cleared');
-            }
+                handleClearWishlist();
+            },
         });
     };
 
-    if (loading) {
+    const handleClearWishlist = async () => {
+        try {
+            await clearWishlist();
+            message.success('Wishlist cleared successfully');
+        } catch (error) {
+            console.error('Error clearing wishlist:', error);
+            message.error('Failed to clear wishlist');
+        }
+    };
+
+    // Show loading state
+    if (loading && initialLoad) {
         return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '400px'
-            }}>
-                <Spin size="large" />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <Spin size="large" tip="Loading your wishlist..." />
+            </div>
+        );
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div style={{ padding: '20px' }}>
+                <Alert
+                    message="Error Loading Wishlist"
+                    description={error}
+                    type="error"
+                    showIcon
+                    action={
+                        <Button size="small" onClick={refreshWishlist}>
+                            Try Again
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
+
+    // Show empty state
+    if (wishlistCount === 0 && wishlistItems.length === 0 && !loading) {
+        return (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                        <div>
+                            <Title level={4} style={{ color: '#8c8c8c' }}>
+                                Your wishlist is empty
+                            </Title>
+                            <Text type="secondary">
+                                Start exploring properties and add them to your wishlist!
+                            </Text>
+                        </div>
+                    }
+                >
+                    <Button type="primary" href="/properties">
+                        Browse Properties
+                    </Button>
+                </Empty>
             </div>
         );
     }
 
     return (
-        <div style={{
-            padding: '40px 24px',
-            maxWidth: '1200px',
-            margin: '0 auto',
-            minHeight: '70vh'
-        }}>
-            <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: '32px' }}>
-                <Title level={1} style={{
-                    color: '#1B3C53',
-                    margin: 0,
-                    fontSize: '2.5rem',
-                    fontWeight: '700'
-                }}>
-                    My Wishlist
-                </Title>
-
-                <Space>
-                    <Text strong style={{ color: '#64748b', fontSize: '16px' }}>
-                        {wishlistItems.length} {wishlistItems.length === 1 ? 'property' : 'properties'} saved
-                    </Text>
-
-                    {wishlistItems.length > 0 && (
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={handleClearWishlist}
-                            style={{ color: '#ff4d4f' }}
-                        >
-                            Clear All
-                        </Button>
-                    )}
-                </Space>
-
-                <Divider style={{ margin: '16px 0', background: '#f1f5f9' }} />
-            </Space>
-
-            {wishlistItems.length === 0 ? (
-                <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description={
-                        <Space direction="vertical" size="small">
-                            <Text style={{ color: '#64748b', fontSize: '16px' }}>
-                                Your wishlist is empty
-                            </Text>
-                            <Text type="secondary" style={{ fontSize: '14px' }}>
-                                Start exploring properties and add them to your wishlist
-                            </Text>
-                        </Space>
-                    }
-                    style={{ marginTop: '80px', padding: '40px 0' }}
-                >
+        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+            {/* Header Section */}
+            <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
+                <Col>
+                    <Space>
+                        <HeartFilled style={{ fontSize: '24px', color: '#ff4d4f' }} />
+                        <Title level={2} style={{ margin: 0 }}>
+                            My Wishlist
+                        </Title>
+                        <Text type="secondary" style={{ fontSize: '16px' }}>
+                            ({wishlistCount} {wishlistCount === 1 ? 'property' : 'properties'})
+                        </Text>
+                    </Space>
+                </Col>
+                <Col>
                     <Button
                         type="primary"
-                        size="large"
-                        onClick={() => window.location.href = '/properties'}
-                        style={{
-                            background: '#1B3C53',
-                            borderColor: '#1B3C53',
-                            borderRadius: '8px',
-                            fontWeight: '600'
-                        }}
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={showClearWishlistConfirm}
+                        disabled={wishlistCount === 0}
                     >
-                        Browse Properties
+                        Clear All
                     </Button>
-                </Empty>
-            ) : (
-                <Row gutter={[24, 24]}>
-                    {wishlistItems.map(property => (
-                        <Col key={property.id} xs={24} sm={12} lg={8} xl={6}>
+                </Col>
+            </Row>
+
+            <Divider />
+
+            {/* Wishlist Items Grid */}
+            <Row gutter={[24, 24]}>
+                {wishlistItems.map((wishlistItem) => {
+                    console.log('Wishlist Item Structure:', wishlistItem);
+
+                    // Use the wishlistItem directly since it contains all property data
+                    const propertyData = wishlistItem;
+                    const propertyId = wishlistItem.propertyId;
+
+                    return (
+                        <Col key={wishlistItem.id} xs={24} sm={12} lg={8} xl={6}>
                             <WishlistCard
-                                property={property}
-                                onRemoveFromWishlist={handleRemoveFromWishlist}
-                                onScheduleTour={handleScheduleTour}
-                                onViewDetails={handleViewDetails}
+                                property={propertyData}
+                                onRemove={() => handleRemoveFromWishlist(propertyId)}
+                                onScheduleTour={() => handleScheduleTour(propertyData)}
+                                onViewDetails={() => handleViewDetails(propertyId)}
                             />
                         </Col>
-                    ))}
-                </Row>
-            )}
+                    );
+                })}
+            </Row>
 
-            {/* Schedule Tour Modal remains the same */}
+            {/* Schedule Tour Modal */}
             <Modal
-                title={<Space><HeartFilled style={{ color: '#1B3C53' }} />Schedule a Tour</Space>}
+                title={`Schedule Tour - ${selectedProperty?.title || 'Property'}`}
                 open={isScheduleModalVisible}
-                onCancel={() => setIsScheduleModalVisible(false)}
+                onCancel={() => {
+                    setIsScheduleModalVisible(false);
+                    scheduleForm.resetFields();
+                }}
                 footer={null}
                 width={500}
             >
-                {/* Modal content remains the same */}
+                <Form
+                    form={scheduleForm}
+                    layout="vertical"
+                    onFinish={handleScheduleSubmit}
+                >
+                    <Form.Item
+                        name="date"
+                        label="Preferred Date"
+                        rules={[{ required: true, message: 'Please select a date' }]}
+                    >
+                        <DatePicker style={{ width: '100%' }} />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="time"
+                        label="Preferred Time"
+                        rules={[{ required: true, message: 'Please select a time' }]}
+                    >
+                        <TimePicker
+                            style={{ width: '100%' }}
+                            format="HH:mm"
+                            minuteStep={15}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="notes"
+                        label="Additional Notes (Optional)"
+                    >
+                        <TextArea
+                            rows={4}
+                            placeholder="Any specific requirements or questions..."
+                        />
+                    </Form.Item>
+
+                    <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                        <Space>
+                            <Button
+                                onClick={() => {
+                                    setIsScheduleModalVisible(false);
+                                    scheduleForm.resetFields();
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="primary" htmlType="submit">
+                                Schedule Tour
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
             </Modal>
         </div>
     );

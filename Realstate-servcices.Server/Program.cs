@@ -1,20 +1,26 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
-using Realstate_servcices.Server.Repository.ScheduleDao;
+
+
 using Realstate_servcices.Server.Repository.UserDAO;
+using Realstate_servcices.Server.Repository.WishRepo;
 using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
-using Realstate_servcices.Server.Services.Scheduling;
+
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
 using Realstate_servcices.Server.Services.SMTP.rollout;
+using Realstate_servcices.Server.Services.Wishlist;
 using Realstate_servcices.Server.Utilities.Storage;
 using System.Text;
 
@@ -76,8 +82,12 @@ builder.Services.AddScoped<ICreatePropertyRepository, CreatePropertyRepository>(
 builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>();
 builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
 
-builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
-builder.Services.AddScoped<IScheduleServices, ScheduleServices>();
+//builder.Services.AddScoped<ISchedulePropertiesRepository, SchedulePropertiesRepository>();
+//builder.Services.AddScoped<ISchedulePropertiesService, SchedulePropertiesService>();
+builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
+builder.Services.AddScoped<IWishlistService, WishlistService>();
+
+
 
 // Authentication
 builder.Services.AddAuthentication(options =>
@@ -124,8 +134,16 @@ if (!Directory.Exists(webRootPath))
     Console.WriteLine($"Created wwwroot directory at: {webRootPath}");
 }
 
-app.UseDefaultFiles();
+
 app.UseStaticFiles();
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")),
+    RequestPath = "/uploads"
+});
+app.UseDefaultFiles();
 
 if (app.Environment.IsDevelopment())
 {

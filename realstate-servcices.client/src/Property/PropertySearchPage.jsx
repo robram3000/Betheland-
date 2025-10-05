@@ -1,9 +1,9 @@
-﻿// PropertySearchPage.jsx (updated with wishlist and scheduling functionality)
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Layout, Row, Col, Input, Button, Divider, Tag, Space, Typography, Modal, Form, DatePicker, TimePicker, InputNumber, message } from 'antd';
 import { SearchOutlined, FilterOutlined, CloseOutlined, HeartOutlined } from '@ant-design/icons';
 import PropertyFilterSidebar from './PropertyFilterSidebar';
 import PropertyCard from './PropertyCard';
+import { usePropertyData } from './Services/GetdataProperty';
 
 const { Content } = Layout;
 const { Text: AntText } = Typography;
@@ -19,64 +19,47 @@ const PropertySearchPage = () => {
         amenities: [],
         squareFeet: [0, 10000]
     });
+
     const [searchQuery, setSearchQuery] = useState('');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState(null);
-    const [wishlist, setWishlist] = useState(new Set());
     const [form] = Form.useForm();
 
-    // Enhanced mock property data with wishlist status
-    const [properties, setProperties] = useState([
-        {
-            id: 1,
-            title: "Luxury Ocean View Villa",
-            price: 12000000,
-            pricePerSqft: 25000,
-            location: "Miami Beach, Florida",
-            bedrooms: 5,
-            bathrooms: 3,
-            squareFeet: 4800,
-            propertyType: "Villa",
-            image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400&h=300&fit=crop",
-            rating: 4.5,
-            tags: ["Ocean View", "Pool", "Garden", "Luxury"],
-            featured: true,
-            isFavorite: false
-        },
-        {
-            id: 2,
-            title: "Modern Downtown Apartment",
-            price: 3500000,
-            pricePerSqft: 18000,
-            location: "Manila, Philippines",
-            bedrooms: 2,
-            bathrooms: 2,
-            squareFeet: 1200,
-            propertyType: "Apartment",
-            image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop",
-            rating: 4.2,
-            tags: ["City View", "Modern", "Convenient"],
-            featured: false,
-            isFavorite: false
-        },
-        {
-            id: 3,
-            title: "Cozy Family House",
-            price: 2800000,
-            pricePerSqft: 15000,
-            location: "Quezon City, Philippines",
-            bedrooms: 3,
-            bathrooms: 2,
-            squareFeet: 1800,
-            propertyType: "House",
-            image: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=300&fit=crop",
-            rating: 4.7,
-            tags: ["Family", "Garden", "Quiet"],
-            featured: true,
-            isFavorite: false
+    // Use property data context
+    const {
+        properties,
+        loading,
+        searchProperties,
+        toggleWishlist,
+        wishlistCount,
+        loadProperties
+    } = usePropertyData();
+
+    const [filteredProperties, setFilteredProperties] = useState([]);
+
+    // Load properties on component mount
+    useEffect(() => {
+        loadProperties();
+    }, []);
+
+    // Apply filters when properties or filters change
+    useEffect(() => {
+        applyFilters();
+    }, [properties, filters, searchQuery]);
+
+    const applyFilters = async () => {
+        try {
+            const searchFilters = {
+                searchQuery,
+                ...filters
+            };
+            const results = await searchProperties(searchFilters);
+            setFilteredProperties(results);
+        } catch (error) {
+            console.error('Error applying filters:', error);
         }
-    ]);
+    };
 
     const handleSearch = (value) => {
         setSearchQuery(value);
@@ -100,24 +83,7 @@ const PropertySearchPage = () => {
 
     // Wishlist functionality
     const handleAddToWishlist = (propertyId, isFavorite) => {
-        setProperties(prevProperties =>
-            prevProperties.map(property =>
-                property.id === propertyId
-                    ? { ...property, isFavorite }
-                    : property
-            )
-        );
-
-        setWishlist(prev => {
-            const newWishlist = new Set(prev);
-            if (isFavorite) {
-                newWishlist.add(propertyId);
-            } else {
-                newWishlist.delete(propertyId);
-            }
-            return newWishlist;
-        });
-
+        toggleWishlist(propertyId, isFavorite);
         message.success(isFavorite ? 'Added to wishlist!' : 'Removed from wishlist!');
     };
 
@@ -129,12 +95,10 @@ const PropertySearchPage = () => {
 
     const handleScheduleSubmit = async (values) => {
         try {
-            // Here you would typically send the data to your backend
             console.log('Scheduling tour:', {
                 property: selectedProperty,
                 schedule: values
             });
-
             message.success('Tour scheduled successfully! We will contact you soon.');
             setScheduleModalVisible(false);
             form.resetFields();
@@ -142,29 +106,6 @@ const PropertySearchPage = () => {
             message.error('Failed to schedule tour. Please try again.');
         }
     };
-
-    const filteredProperties = properties.filter(property => {
-        if (searchQuery && !property.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-            !property.location.toLowerCase().includes(searchQuery.toLowerCase())) {
-            return false;
-        }
-        if (property.price < filters.priceRange[0] || property.price > filters.priceRange[1]) {
-            return false;
-        }
-        if (filters.bedrooms && property.bedrooms < filters.bedrooms) {
-            return false;
-        }
-        if (filters.bathrooms && property.bathrooms < filters.bathrooms) {
-            return false;
-        }
-        if (filters.propertyType.length > 0 && !filters.propertyType.includes(property.propertyType)) {
-            return false;
-        }
-        if (property.squareFeet < filters.squareFeet[0] || property.squareFeet > filters.squareFeet[1]) {
-            return false;
-        }
-        return true;
-    });
 
     const activeFiltersCount = Object.values(filters).filter(filter =>
         Array.isArray(filter) ? filter.some(val => val > 0) : filter !== null && filter !== undefined && filter.length > 0
@@ -243,12 +184,12 @@ const PropertySearchPage = () => {
                                 style={{
                                     borderRadius: '12px',
                                     border: '1px solid #ff4d4f',
-                                    color: wishlist.size > 0 ? '#ff4d4f' : '#64748b',
+                                    color: wishlistCount > 0 ? '#ff4d4f' : '#64748b',
                                     background: 'white'
                                 }}
-                                onClick={() => message.info(`You have ${wishlist.size} properties in your wishlist`)}
+                                onClick={() => message.info(`You have ${wishlistCount} properties in your wishlist`)}
                             >
-                                Wishlist ({wishlist.size})
+                                Wishlist ({wishlistCount})
                             </Button>
                         </Col>
                     </Row>
@@ -347,7 +288,7 @@ const PropertySearchPage = () => {
                                 </Col>
                                 <Col>
                                     <AntText style={{ color: '#64748b' }}>
-                                        Wishlist: <AntText strong>{wishlist.size} properties</AntText>
+                                        Wishlist: <AntText strong>{wishlistCount} properties</AntText>
                                     </AntText>
                                 </Col>
                             </Row>
@@ -367,7 +308,7 @@ const PropertySearchPage = () => {
                         </Row>
 
                         {/* No Results State */}
-                        {filteredProperties.length === 0 && (
+                        {filteredProperties.length === 0 && !loading && (
                             <div style={{
                                 textAlign: 'center',
                                 padding: '80px 20px',
@@ -391,6 +332,22 @@ const PropertySearchPage = () => {
                                 >
                                     Clear all filters
                                 </Button>
+                            </div>
+                        )}
+
+                        {/* Loading State */}
+                        {loading && (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '80px 20px',
+                                color: '#64748b',
+                                background: 'white',
+                                borderRadius: '16px'
+                            }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏳</div>
+                                <h3 style={{ color: '#1B3C53', marginBottom: '8px' }}>
+                                    Loading properties...
+                                </h3>
                             </div>
                         )}
                     </Col>

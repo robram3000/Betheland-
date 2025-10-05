@@ -42,50 +42,47 @@ const AuthPage = () => {
     };
 
     const getRedirectPath = (userRole) => {
-        console.log("🔍 getRedirectPath received:", userRole);
-
-        // Handle different input formats
+      
         let role;
 
         if (typeof userRole === 'object') {
-            // If it's a user object, try all possible role fields
+           
             role = userRole?.role || userRole?.userType || userRole?.roleType;
-            console.log("📦 Extracted role from object:", role);
+           
         } else {
-            // If it's already a string
+           
             role = userRole;
-            console.log("📝 Using string role:", role);
+           0
         }
 
-        // Normalize role names (case-insensitive)
+     
         const normalizedRole = role?.toString().toLowerCase();
-        console.log("🔄 Normalized role:", normalizedRole);
+       
 
         switch (normalizedRole) {
             case 'agent':
             case 'realestateagent':
-                console.log("🎯 Redirecting to Agent portal");
+               
                 return '/portal/agent/all-properties';
 
             case 'admin':
             case 'administrator':
-                console.log("🎯 Redirecting to Admin portal");
+               
                 return '/portal/admin';
 
             case 'superadmin':
             case 'super_admin':
             case 'super administrator':
-                console.log("🎯 Redirecting to Super Admin portal");
+                
                 return '/portal/super-admin';
 
             case 'client':
             case 'customer':
             case 'buyer':
-                console.log("🎯 Redirecting to Client properties");
+                
                 return '/properties';
 
             default:
-                console.warn("⚠️ Unknown role, defaulting to properties:", normalizedRole);
                 return '/properties';
         }
     };
@@ -97,30 +94,27 @@ const onFinish = async (values) => {
     setError('');
 
     try {
-        console.log('🔐 Attempting login with:', values.usernameOrEmail);
+     
 
         const result = await contextLogin(values.usernameOrEmail, values.password, values.rememberMe);
-        console.log('📨 Login result:', result);
+       
 
         if (result.success) {
             message.success('Welcome back to BeTheLand!');
 
             // Get user data directly from the context
             const currentUser = authService.getCurrentUser();
-            console.log("👤 Current User from authService:", currentUser);
+         
 
             // Use the user data from the login response directly
             const userRole = result.data?.userType || currentUser?.role || currentUser?.userType;
-            console.log("🎭 Final determined role:", userRole);
-
             const redirectPath = getRedirectPath(userRole);
-            console.log("📍 Redirect path determined:", redirectPath);
+           
 
             const returnUrl = searchParams.get('returnUrl');
-            console.log("📋 Return URL from params:", returnUrl);
-
+         
             const finalDestination = returnUrl || redirectPath;
-            console.log("🎯 Final destination:", finalDestination);
+          
 
             // Add a small delay to ensure context is updated
             setTimeout(() => {

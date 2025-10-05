@@ -14,6 +14,10 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Log request for debugging
+        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
+
         return config;
     },
     (error) => {
@@ -21,11 +25,19 @@ api.interceptors.request.use(
     }
 );
 
-// Add response interceptor for better error handling
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log(`API Response: ${response.status} ${response.config.url}`, response.data);
+        return response;
+    },
     (error) => {
-        console.error('API Error:', error.response?.data || error.message);
+        console.error('API Error:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
         return Promise.reject(error);
     }
 );
@@ -35,13 +47,17 @@ export const propertyService = {
     getAllProperties: async () => {
         try {
             const response = await api.get('/CreationProperty');
+            console.log('Get all properties response:', response.data);
+
             // Handle nested response structure
             if (response.data && response.data.properties) {
                 return response.data.properties;
             }
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to fetch properties: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            console.error('Get all properties error:', errorMessage);
+            throw new Error(`Failed to fetch properties: ${errorMessage}`);
         }
     },
 
@@ -49,12 +65,14 @@ export const propertyService = {
     getPropertyById: async (id) => {
         try {
             const response = await api.get(`/CreationProperty/${id}`);
+            console.log('Get property by ID response:', response.data);
             return response.data;
         } catch (error) {
             if (error.response?.status === 404) {
                 throw new Error('Property not found');
             }
-            throw new Error(`Failed to fetch property: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to fetch property: ${errorMessage}`);
         }
     },
 
@@ -87,34 +105,49 @@ export const propertyService = {
                 ImageUrls: propertyData.imageUrls || []
             };
 
-            console.log('Sending property data:', requestData);
+            console.log('Creating property with data:', requestData);
             const response = await api.post('/CreationProperty', requestData);
+            console.log('Create property response:', response.data);
             return response.data;
         } catch (error) {
             if (error.response?.status === 400) {
                 throw new Error(`Validation error: ${JSON.stringify(error.response.data)}`);
             }
-            throw new Error(`Failed to create property: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to create property: ${errorMessage}`);
         }
     },
 
-    // Create property with images (multipart) - FIXED
+    // Create property with images (multipart)
     createPropertyWithImages: async (formData) => {
         try {
             console.log('Creating property with images...');
+            console.log('FormData entries:');
+
+            // Log form data contents for debugging
+            for (let [key, value] of formData.entries()) {
+                if (key === 'images') {
+                    console.log(`Image file: ${value.name} (${value.size} bytes)`);
+                } else {
+                    console.log(`${key}:`, value);
+                }
+            }
 
             const response = await api.post('/CreationProperty/with-images', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
-                timeout: 60000, // Increase timeout for file uploads
+                timeout: 60000,
             });
 
             console.log('Property created successfully:', response.data);
             return response.data;
         } catch (error) {
             console.error('Error creating property with images:', error);
-            const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0] || error.message;
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.errors?.[0] ||
+                error.response?.data ||
+                error.message;
             throw new Error(`Failed to create property with images: ${errorMessage}`);
         }
     },
@@ -148,7 +181,9 @@ export const propertyService = {
                 ImageUrls: propertyData.imageUrls || []
             };
 
+            console.log('Updating property with data:', requestData);
             const response = await api.put(`/CreationProperty/${id}`, requestData);
+            console.log('Update property response:', response.data);
             return response.data;
         } catch (error) {
             if (error.response?.status === 400) {
@@ -157,7 +192,8 @@ export const propertyService = {
             if (error.response?.status === 404) {
                 throw new Error('Property not found');
             }
-            throw new Error(`Failed to update property: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to update property: ${errorMessage}`);
         }
     },
 
@@ -177,7 +213,10 @@ export const propertyService = {
             return response.data;
         } catch (error) {
             console.error('Error updating property with images:', error);
-            const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0] || error.message;
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.errors?.[0] ||
+                error.response?.data ||
+                error.message;
             throw new Error(`Failed to update property with images: ${errorMessage}`);
         }
     },
@@ -185,13 +224,16 @@ export const propertyService = {
     // Delete property
     deleteProperty: async (id) => {
         try {
+            console.log('Deleting property:', id);
             await api.delete(`/CreationProperty/${id}`);
+            console.log('Property deleted successfully');
             return true;
         } catch (error) {
             if (error.response?.status === 404) {
                 throw new Error('Property not found');
             }
-            throw new Error(`Failed to delete property: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to delete property: ${errorMessage}`);
         }
     },
 
@@ -201,7 +243,8 @@ export const propertyService = {
             const response = await api.get(`/CreationProperty/status/${status}`);
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to fetch properties by status: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to fetch properties by status: ${errorMessage}`);
         }
     },
 
@@ -213,7 +256,8 @@ export const propertyService = {
             });
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to search properties: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to search properties: ${errorMessage}`);
         }
     },
 
@@ -223,7 +267,8 @@ export const propertyService = {
             const response = await api.get(`/CreationProperty/agent/${agentId}`);
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to fetch agent properties: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to fetch agent properties: ${errorMessage}`);
         }
     },
 
@@ -233,7 +278,8 @@ export const propertyService = {
             const response = await api.get(`/CreationProperty/owner/${ownerId}`);
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to fetch owner properties: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to fetch owner properties: ${errorMessage}`);
         }
     },
 
@@ -248,7 +294,8 @@ export const propertyService = {
             });
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to upload images: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to upload images: ${errorMessage}`);
         }
     },
 
@@ -258,7 +305,8 @@ export const propertyService = {
             const response = await api.delete(`/CreationProperty/image/${encodeURIComponent(imageUrl)}`);
             return response.data;
         } catch (error) {
-            throw new Error(`Failed to delete image: ${error.response?.data?.message || error.message}`);
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to delete image: ${errorMessage}`);
         }
     }
 };

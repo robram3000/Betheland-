@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Realstate_servcices.Server.Entity.Properties
 {
-    public class Wishlist
+    public class WishlistProperties
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

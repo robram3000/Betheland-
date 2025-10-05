@@ -27,18 +27,53 @@ const PropTable = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [editingProperty, setEditingProperty] = useState(null);
     const [selectedRows, setSelectedRows] = useState([]);
-    const [formKey, setFormKey] = useState(Date.now()); // Add form key to force reset
+    const [formKey, setFormKey] = useState(Date.now());
 
     useEffect(() => {
         loadProperties();
     }, []);
 
+    // Enhanced image URL processor - matches getUserProfileImage pattern
+    const processImageUrl = (url) => {
+        if (!url || url === 'string') {
+            console.log('No URL or invalid URL provided:', url);
+            return '/default-property.jpg';
+        }
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        // If it starts with /uploads, prepend the base URL
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        // If it's just a filename, construct the full URL
+        if (url.includes('.') && !url.startsWith('/')) {
+            const fullUrl = `https://localhost:7075/uploads/properties/${url}`;
+            console.log('Converted filename to full URL:', url, '->', fullUrl);
+            return fullUrl;
+        }
+
+        // If it's a relative path without leading slash, add base URL
+        if (url.startsWith('uploads/')) {
+            const fullUrl = `https://localhost:7075/${url}`;
+            console.log('Added base URL to relative path:', url, '->', fullUrl);
+            return fullUrl;
+        }
+
+        console.log('Using default image for URL:', url);
+        return '/default-property.jpg';
+    };
+
     const loadProperties = async () => {
         setLoading(true);
         try {
             const response = await propertyService.getAllProperties();
+            console.log('Raw API response:', response);
 
-            // Handle different response structures
             let propertiesData = [];
 
             if (Array.isArray(response)) {
@@ -54,19 +89,32 @@ const PropTable = () => {
                 propertiesData = [];
             }
 
-            // Process images to ensure proper URLs
-            const processedProperties = propertiesData.map(property => ({
-                ...property,
-                mainImage: processImageUrl(property.mainImage),
-                propertyImages: Array.isArray(property.propertyImages)
-                    ? property.propertyImages.map(img => ({
-                        ...img,
-                        imageUrl: processImageUrl(img.imageUrl)
-                    }))
-                    : []
-            }));
+            // Process images with detailed logging
+            const processedProperties = propertiesData.map(property => {
+                console.log('Processing property:', property.id, property.title);
+                console.log('Raw mainImage:', property.mainImage);
+                console.log('Raw propertyImages:', property.propertyImages);
 
-            console.log('Loaded properties:', processedProperties);
+                const processedProperty = {
+                    ...property,
+                    mainImage: processImageUrl(property.mainImage),
+                    propertyImages: Array.isArray(property.propertyImages)
+                        ? property.propertyImages.map(img => {
+                            const processedImg = {
+                                ...img,
+                                imageUrl: processImageUrl(img.imageUrl)
+                            };
+                            console.log('Processed image:', img.imageUrl, '->', processedImg.imageUrl);
+                            return processedImg;
+                        })
+                        : []
+                };
+
+                console.log('Final processed property:', processedProperty);
+                return processedProperty;
+            });
+
+            console.log('All processed properties:', processedProperties);
             setProperties(processedProperties);
         } catch (error) {
             console.error('Error loading properties:', error);
@@ -77,41 +125,15 @@ const PropTable = () => {
         }
     };
 
-    // Helper function to process image URLs
-    const processImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-
-        // If it's already a full URL, return as is
-        if (url.startsWith('http') || url.startsWith('//')) {
-            return url;
-        }
-
-        // If it starts with /uploads, make it absolute
-        if (url.startsWith('/uploads/')) {
-            return url;
-        }
-
-        // If it's a relative path from wwwroot, prepend with /
-        if (url.startsWith('uploads/')) {
-            return '/' + url;
-        }
-
-        // If it's just a filename, assume it's in the default location
-        if (url.includes('.')) {
-            return '/uploads/properties/' + url;
-        }
-
-        return '/default-property.jpg';
-    };
-
     const handleCreate = () => {
         setEditingProperty(null);
-        setFormKey(Date.now()); // Reset form key
+        setFormKey(Date.now());
         setModalVisible(true);
     };
 
     const handleEdit = (property) => {
-        // Process property images before editing
+        console.log('Editing property:', property);
+
         const processedProperty = {
             ...property,
             mainImage: processImageUrl(property.mainImage),
@@ -123,8 +145,9 @@ const PropTable = () => {
                 : []
         };
 
+        console.log('Processed property for edit:', processedProperty);
         setEditingProperty(processedProperty);
-        setFormKey(Date.now()); // Reset form key
+        setFormKey(Date.now());
         setModalVisible(true);
     };
 
@@ -139,6 +162,12 @@ const PropTable = () => {
     };
 
     const handleView = (property) => {
+        const mainImageUrl = property.mainImage ||
+            (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
+            '/default-property.jpg';
+
+        console.log('Viewing property image:', mainImageUrl);
+
         Modal.info({
             title: property.title,
             width: 800,
@@ -147,10 +176,22 @@ const PropTable = () => {
                     <Row gutter={[16, 16]}>
                         <Col span={12}>
                             <img
-                                src={property.mainImage || (property.propertyImages && property.propertyImages[0]?.imageUrl) || '/default-property.jpg'}
+                                src={mainImageUrl}
                                 alt={property.title}
-                                style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'cover' }}
+                                style={{
+                                    width: '100%',
+                                    borderRadius: '8px',
+                                    maxHeight: '300px',
+                                    objectFit: 'cover'
+                                }}
+                                onError={(e) => {
+                                    console.error('Failed to load image:', mainImageUrl);
+                                    e.target.src = '/default-property.jpg';
+                                }}
                             />
+                            <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '8px' }}>
+                                Image URL: {mainImageUrl}
+                            </Text>
                         </Col>
                         <Col span={12}>
                             <Space direction="vertical" size="small" style={{ width: '100%' }}>
@@ -169,6 +210,29 @@ const PropTable = () => {
                         <Col span={24}>
                             <Text strong>Address:</Text>
                             <p>{property.address}, {property.city}, {property.state} {property.zipCode}</p>
+                        </Col>
+                        <Col span={24}>
+                            <Text strong>All Images:</Text>
+                            <Row gutter={[8, 8]} style={{ marginTop: '8px' }}>
+                                {property.propertyImages && property.propertyImages.map((img, index) => (
+                                    <Col key={index} span={6}>
+                                        <img
+                                            src={img.imageUrl}
+                                            alt={`Property ${index + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                height: '80px',
+                                                objectFit: 'cover',
+                                                borderRadius: '4px'
+                                            }}
+                                            onError={(e) => {
+                                                console.error('Failed to load thumbnail:', img.imageUrl);
+                                                e.target.src = '/default-property.jpg';
+                                            }}
+                                        />
+                                    </Col>
+                                ))}
+                            </Row>
                         </Col>
                     </Row>
                 </div>
@@ -194,10 +258,9 @@ const PropTable = () => {
                 }
             }
 
-            // Handle response structure
             const updatedProperty = result.property || result;
 
-            // Process images in the response
+            // Process the returned property data
             const processedProperty = {
                 ...updatedProperty,
                 mainImage: processImageUrl(updatedProperty.mainImage),
@@ -209,6 +272,8 @@ const PropTable = () => {
                     : []
             };
 
+            console.log('Submitted property result:', processedProperty);
+
             if (editingProperty) {
                 setProperties(prev => prev.map(prop =>
                     prop.id === editingProperty.id ? processedProperty : prop
@@ -219,9 +284,10 @@ const PropTable = () => {
 
             setModalVisible(false);
             setEditingProperty(null);
-            setFormKey(Date.now()); // Reset form for next use
+            setFormKey(Date.now());
             message.success(`Property ${editingProperty ? 'updated' : 'created'} successfully!`);
         } catch (error) {
+            console.error('Submit error:', error);
             message.error(`Failed to ${editingProperty ? 'update' : 'create'} property: ${error.message}`);
         } finally {
             setLoading(false);
@@ -231,7 +297,7 @@ const PropTable = () => {
     const handleCancel = () => {
         setModalVisible(false);
         setEditingProperty(null);
-        setFormKey(Date.now()); // Reset form key
+        setFormKey(Date.now());
     };
 
     const handleExport = () => {
@@ -357,10 +423,10 @@ const PropTable = () => {
                 footer={null}
                 width={1200}
                 style={{ top: 20 }}
-                destroyOnClose={true} // This ensures the form is destroyed when modal closes
+                destroyOnClose={true}
             >
                 <InsertProperty
-                    key={formKey} // This forces a fresh form instance
+                    key={formKey}
                     initialValues={editingProperty}
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}

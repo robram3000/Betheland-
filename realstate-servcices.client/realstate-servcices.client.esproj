@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
+﻿<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
   <PropertyGroup>
     <StartupCommand>npm run dev</StartupCommand>
     <JavaScriptTestRoot>src\</JavaScriptTestRoot>
@@ -11,8 +11,6 @@
   <ItemGroup>
     <Folder Include="src\Employeesportal\SuperAdminPortal\Conversation\" />
     <Folder Include="src\LandingPage\Services\" />
-    <Folder Include="src\Property\Services\" />
-    <Folder Include="src\Scheduling\NewFolder\" />
     <Folder Include="src\Wishlist\Services\" />
   </ItemGroup>
 </Project>

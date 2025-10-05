@@ -1,17 +1,23 @@
-// PropertyDetails.jsx (updated with white background)
 import React from 'react';
 import { Row, Col, Typography, Descriptions, Card } from 'antd';
 
 const { Title, Paragraph } = Typography;
 
-const PropertyDetails = () => {
+const PropertyDetails = ({ property }) => {
+    if (!property) {
+        return <div>Loading property details...</div>;
+    }
+
+    // Property information from actual property data
     const propertyInfo = {
-        type: 'Villa',
-        yearBuilt: 2018,
-        sqft: 4800,
-        lotSize: '0.5 acres',
-        floors: 2,
-        parking: '3 cars'
+        type: property.propertyType || 'Property',
+        yearBuilt: property.yearBuilt || 'N/A',
+        sqft: property.areaSqft || property.squareFeet || 0,
+        lotSize: property.lotSize || 'N/A',
+        floors: property.floors || property.totalFloors || 1,
+        parking: property.parkingSpaces ? `${property.parkingSpaces} cars` : 'N/A',
+        bedrooms: property.bedrooms || 0,
+        bathrooms: property.bathrooms || 0
     };
 
     return (
@@ -33,10 +39,12 @@ const PropertyDetails = () => {
                             >
                                 <Descriptions.Item label="Property Type">{propertyInfo.type}</Descriptions.Item>
                                 <Descriptions.Item label="Year Built">{propertyInfo.yearBuilt}</Descriptions.Item>
-                                <Descriptions.Item label="Square Feet">{propertyInfo.sqft} sq ft</Descriptions.Item>
+                                <Descriptions.Item label="Square Feet">{propertyInfo.sqft.toLocaleString()} sq ft</Descriptions.Item>
                                 <Descriptions.Item label="Lot Size">{propertyInfo.lotSize}</Descriptions.Item>
                                 <Descriptions.Item label="Floors">{propertyInfo.floors}</Descriptions.Item>
                                 <Descriptions.Item label="Parking">{propertyInfo.parking}</Descriptions.Item>
+                                <Descriptions.Item label="Bedrooms">{propertyInfo.bedrooms}</Descriptions.Item>
+                                <Descriptions.Item label="Bathrooms">{propertyInfo.bathrooms}</Descriptions.Item>
                             </Descriptions>
                         </Card>
                     </Col>
@@ -49,16 +57,13 @@ const PropertyDetails = () => {
                             }}
                         >
                             <Paragraph>
-                                This stunning luxury villa offers breathtaking ocean views from every room.
-                                Recently renovated with high-end finishes, this property features an open-concept
-                                living area, gourmet kitchen with premium appliances, and spacious bedrooms with
-                                ensuite bathrooms.
+                                {property.description || 'No description available for this property.'}
                             </Paragraph>
-                            <Paragraph>
-                                The outdoor space includes a infinity pool, landscaped gardens, and multiple
-                                entertainment areas perfect for hosting gatherings. Located in a prestigious
-                                neighborhood with excellent schools and amenities nearby.
-                            </Paragraph>
+                            {property.features && (
+                                <Paragraph>
+                                    <strong>Features:</strong> {property.features}
+                                </Paragraph>
+                            )}
                         </Card>
                     </Col>
                 </Row>

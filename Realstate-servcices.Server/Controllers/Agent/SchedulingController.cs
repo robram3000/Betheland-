@@ -1,11 +1,8 @@
 ﻿//using Microsoft.AspNetCore.Mvc;
-//using Realstate_servcices.Server.Dto.Property;
 //using Realstate_servcices.Server.Dto.Scheduling;
-//using Realstate_servcices.Server.Entity.Properties;
-//using Realstate_servcices.Server.Repository.ScheduleDao;
 //using Realstate_servcices.Server.Services.Scheduling;
 
-//namespace Realstate_servcices.Server.Controllers.Client
+//namespace Realstate_servcices.Server.Controllers.Agent
 //{
 //    [ApiController]
 //    [Route("api/[controller]")]
