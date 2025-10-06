@@ -12,8 +12,8 @@ using Realstate_servcices.Server.Data;
 namespace Realstate_servcices.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251003094014_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251006155320_initialcreate")]
+    partial class initialcreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -82,6 +82,43 @@ namespace Realstate_servcices.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("BaseMembers");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Member.Rating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("AgentId", "ClientId")
+                        .IsUnique();
+
+                    b.ToTable("Ratings");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.OTP.OTPRecord", b =>
@@ -311,7 +348,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("ScheduleProperties");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.Wishlist", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.WishlistProperties", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -356,12 +393,20 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<Guid>("AgentNo")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Awards")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int>("BaseMemberId")
                         .HasColumnType("int");
 
                     b.Property<string>("Bio")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BrokerageName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CellPhoneNo")
                         .IsRequired()
@@ -371,8 +416,28 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<DateTime>("DateRegistered")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Education")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Experience")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasDefaultValue("");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Languages")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -393,13 +458,48 @@ namespace Realstate_servcices.Server.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("OfficeAddress")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("OfficePhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Specialization")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasDefaultValue("[]");
+
                     b.Property<string>("Suffix")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<DateTime?>("VerificationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("YearsOfExperience")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("AgentNo")
+                        .IsUnique();
+
                     b.HasIndex("BaseMemberId")
+                        .IsUnique();
+
+                    b.HasIndex("DateRegistered");
+
+                    b.HasIndex("IsVerified");
+
+                    b.HasIndex("LicenseNumber")
                         .IsUnique();
 
                     b.ToTable("Agents");
@@ -478,6 +578,25 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("Clients");
                 });
 
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Member.Rating", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
+                        .WithMany("Ratings")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
+                        .WithMany("Ratings")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Client");
+                });
+
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyHouse", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
@@ -537,7 +656,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Property");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.Wishlist", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.WishlistProperties", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
                         .WithMany("Wishlists")
@@ -600,12 +719,16 @@ namespace Realstate_servcices.Server.Migrations
                 {
                     b.Navigation("Properties");
 
+                    b.Navigation("Ratings");
+
                     b.Navigation("ScheduleProperties");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Client", b =>
                 {
                     b.Navigation("Properties");
+
+                    b.Navigation("Ratings");
 
                     b.Navigation("ScheduleProperties");
 

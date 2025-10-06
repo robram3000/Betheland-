@@ -1,3 +1,4 @@
+﻿// PropertyDetails.jsx (updated with landing page colors)
 import React from 'react';
 import { Row, Col, Typography, Descriptions, Card } from 'antd';
 
@@ -23,19 +24,20 @@ const PropertyDetails = ({ property }) => {
     return (
         <div style={{ padding: '40px 0', backgroundColor: '#ffffff' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
-                <Title level={2} style={{ color: '#1B3C53' }}>Property Details</Title>
+                <Title level={2} style={{ color: '#001529' }}>Property Details</Title>
                 <Row gutter={[32, 32]}>
                     <Col xs={24} md={12}>
                         <Card
                             style={{
                                 borderRadius: '12px',
-                                border: '1px solid #e2e8f0'
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}
                         >
                             <Descriptions
                                 title="Basic Information"
                                 column={1}
-                                labelStyle={{ color: '#1B3C53', fontWeight: '500' }}
+                                labelStyle={{ color: '#001529', fontWeight: '500' }}
                             >
                                 <Descriptions.Item label="Property Type">{propertyInfo.type}</Descriptions.Item>
                                 <Descriptions.Item label="Year Built">{propertyInfo.yearBuilt}</Descriptions.Item>
@@ -53,14 +55,15 @@ const PropertyDetails = ({ property }) => {
                             title="Description"
                             style={{
                                 borderRadius: '12px',
-                                border: '1px solid #e2e8f0'
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}
                         >
-                            <Paragraph>
+                            <Paragraph style={{ color: '#001529' }}>
                                 {property.description || 'No description available for this property.'}
                             </Paragraph>
                             {property.features && (
-                                <Paragraph>
+                                <Paragraph style={{ color: '#001529' }}>
                                     <strong>Features:</strong> {property.features}
                                 </Paragraph>
                             )}

@@ -11,6 +11,5 @@
   <ItemGroup>
     <Folder Include="src\Employeesportal\SuperAdminPortal\Conversation\" />
     <Folder Include="src\LandingPage\Services\" />
-    <Folder Include="src\Wishlist\Services\" />
   </ItemGroup>
 </Project>

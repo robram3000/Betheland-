@@ -1,10 +1,8 @@
-﻿
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.Properties;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
 
 namespace Realstate_servcices.Server.Entity.member
 {
@@ -47,13 +45,48 @@ namespace Realstate_servcices.Server.Entity.member
 
         public DateTime? LicenseExpiry { get; set; }
 
+        [MaxLength(500)]
+        public string Experience { get; set; } = string.Empty;
+
+        [MaxLength(1000)]
+        public string Specialization { get; set; } = "[]";
+
+        [MaxLength(255)]
+        public string? OfficeAddress { get; set; }
+
+        [MaxLength(50)]
+        public string? OfficePhone { get; set; }
+
+        [MaxLength(255)]
+        public string? Website { get; set; }
+
+        [MaxLength(100)]
+        public string? Languages { get; set; }
+
+        [MaxLength(500)]
+        public string? Education { get; set; }
+
+        [MaxLength(500)]
+        public string? Awards { get; set; }
+
+        public int? YearsOfExperience { get; set; }
+
+        [MaxLength(100)]
+        public string? BrokerageName { get; set; }
+
+        public bool IsVerified { get; set; } = false;
+
+        public DateTime? VerificationDate { get; set; }
+
         [Required]
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 
-
+        // Navigation properties
         [ForeignKey("BaseMemberId")]
         public virtual BaseMember BaseMember { get; set; } = null!;
+
         public virtual ICollection<PropertyHouse>? Properties { get; set; }
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
+        public virtual ICollection<Rating>? Ratings { get; set; }
     }
 }

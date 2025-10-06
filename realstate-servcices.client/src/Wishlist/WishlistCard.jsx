@@ -1,4 +1,4 @@
-﻿// WishlistCard.jsx (fixed for the actual data structure)
+﻿// WishlistCard.jsx (updated with agent badge)
 import React from 'react';
 import { Card, Button, Space, Tag, Typography, Divider } from 'antd';
 import {
@@ -6,7 +6,8 @@ import {
     DeleteOutlined,
     CalendarOutlined,
     EyeOutlined,
-    EnvironmentOutlined
+    EnvironmentOutlined,
+    UserOutlined
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -26,7 +27,8 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
         propertyPrice = 0,
         propertyImages = [],
         propertyStatus = 'available',
-        propertyType = 'Unknown'
+        propertyType = 'Unknown',
+        firstChoiceAgent = null
     } = propertyData || {};
 
     // Calculate derived values
@@ -206,6 +208,27 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
                             </Tag>
                         </div>
                     )}
+
+                    {/* First Choice Agent Badge */}
+                    {firstChoiceAgent && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '12px',
+                            right: '12px',
+                            background: 'rgba(255, 214, 102, 0.95)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            backdropFilter: 'blur(4px)'
+                        }}>
+                            <Text style={{
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                color: '#000'
+                            }}>
+                                👑 First Choice Agent
+                            </Text>
+                        </div>
+                    )}
                 </div>
             }
             actions={[
@@ -221,7 +244,7 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
                     type="text"
                     icon={<CalendarOutlined />}
                     onClick={onScheduleTour}
-                    disabled={displayStatus !== 'available'}
+                    disabled={displayStatus === 'sold'} 
                     style={{ width: '100%' }}
                 >
                     Tour

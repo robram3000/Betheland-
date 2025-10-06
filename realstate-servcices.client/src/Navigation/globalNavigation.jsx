@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space } from 'antd';
+﻿import React, { useState, useEffect } from 'react';
+import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip } from 'antd';
 import {
     MenuOutlined,
     CloseOutlined,
@@ -8,12 +8,18 @@ import {
     UserOutlined,
     LogoutOutlined,
     SettingOutlined,
-    DownOutlined
+    DownOutlined,
+    CalendarOutlined,
+    BellOutlined,
+    EyeOutlined,
+    PhoneOutlined,
+    MailOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
 
 const { Header } = Layout;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const GlobalNavigation = () => {
@@ -24,10 +30,53 @@ const GlobalNavigation = () => {
     const [currentUser, setCurrentUser] = useState(null);
     const screens = useBreakpoint();
 
-    // Mock wishlist count - you can replace this with actual state management
-    const [wishlistCount] = useState(3);
+    // Mock notification data
+    const [notifications, setNotifications] = useState([
+        {
+            id: 1,
+            title: 'New Property Match',
+            description: 'A new property matching your criteria is available',
+            time: '5 min ago',
+            read: false,
+            type: 'property'
+        },
+        {
+            id: 2,
+            title: 'Schedule Reminder',
+            description: 'Your property viewing is scheduled for tomorrow',
+            time: '1 hour ago',
+            read: false,
+            type: 'schedule'
+        },
+        {
+            id: 3,
+            title: 'Message Received',
+            description: 'You have a new message from the agent',
+            time: '2 hours ago',
+            read: true,
+            type: 'message'
+        },
+        {
+            id: 4,
+            title: 'Price Drop',
+            description: 'A property in your wishlist has reduced price',
+            time: '1 day ago',
+            read: true,
+            type: 'price'
+        }
+    ]);
 
-    // Simple navigation items - no dropdowns needed
+    // Mock counts
+    const [wishlistCount] = useState(3);
+    const notificationCount = notifications.filter(notification => !notification.read).length;
+
+    // Company contact information
+    const companyContact = {
+        phone: '0977-849-1888 / 0917-791-1981',
+        email: 'allanlao@betheland.com.ph'
+    };
+
+    // Simple navigation items
     const menuItems = [
         { key: '/', label: 'Home' },
         { key: '/properties', label: 'Properties' },
@@ -35,7 +84,7 @@ const GlobalNavigation = () => {
         { key: '/contact-us', label: 'Contact Us' }
     ];
 
-    // Check authentication status on component mount and when location changes
+    // Check authentication status
     useEffect(() => {
         checkAuthStatus();
     }, [location]);
@@ -46,7 +95,6 @@ const GlobalNavigation = () => {
         if (authenticated) {
             const user = authService.getCurrentUser();
             setCurrentUser(user);
-            console.log('Current User:', user); // Debug log
         } else {
             setCurrentUser(null);
         }
@@ -71,6 +119,15 @@ const GlobalNavigation = () => {
         setDrawerVisible(false);
     };
 
+    const handleScheduleClick = () => {
+        navigate('/schedule');
+        setDrawerVisible(false);
+    };
+
+    const handleNotificationsClick = () => {
+        navigate('/notifications');
+    };
+
     const handleLogout = () => {
         authService.logout();
         setIsLoggedIn(false);
@@ -89,21 +146,31 @@ const GlobalNavigation = () => {
         setDrawerVisible(false);
     };
 
-    // Get display name - prioritize username, then email, then fallback
+    // Mark notification as read
+    const markAsRead = (notificationId) => {
+        setNotifications(prev =>
+            prev.map(notif =>
+                notif.id === notificationId ? { ...notif, read: true } : notif
+            )
+        );
+    };
+
+    // Mark all as read
+    const markAllAsRead = () => {
+        setNotifications(prev =>
+            prev.map(notif => ({ ...notif, read: true }))
+        );
+    };
+
+    // Get display name
     const getDisplayName = () => {
         if (!currentUser) return 'User';
-
-        // Try username first
         if (currentUser.username && currentUser.username.trim() !== '') {
             return currentUser.username;
         }
-
-        // Then try email (without domain)
         if (currentUser.email) {
             return currentUser.email.split('@')[0];
         }
-
-        // Fallback
         return 'User';
     };
 
@@ -111,7 +178,6 @@ const GlobalNavigation = () => {
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'User') return 'U';
-
         return displayName
             .split(' ')
             .map(name => name[0])
@@ -120,12 +186,150 @@ const GlobalNavigation = () => {
             .slice(0, 2);
     };
 
-    // User dropdown menu items - ONLY for user profile
+    // Notification dropdown content
+    const notificationContent = (
+        <div style={{
+            width: 320,
+            maxHeight: 400,
+            overflow: 'auto',
+            background: 'white', // Added solid white background
+            borderRadius: '8px' // Match the dropdown container
+        }}>
+            <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'white' // Ensure header also has solid background
+            }}>
+                <Text strong>Notifications</Text>
+                {notificationCount > 0 && (
+                    <Button
+                        type="link"
+                        size="small"
+                        onClick={markAllAsRead}
+                        style={{ padding: 0, height: 'auto' }}
+                    >
+                        Mark all as read
+                    </Button>
+                )}
+            </div>
+
+            <List
+                dataSource={notifications}
+                locale={{ emptyText: 'No notifications' }}
+                renderItem={(notification) => (
+                    <List.Item
+                        style={{
+                            padding: '12px 16px',
+                            cursor: 'pointer',
+                            backgroundColor: notification.read ? 'white' : '#f6ffed', // Changed from transparent to white
+                            borderBottom: '1px solid #f0f0f0',
+                            transition: 'background-color 0.3s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed'; // Changed from transparent to white
+                        }}
+                        onClick={() => markAsRead(notification.id)}
+                    >
+                        <List.Item.Meta
+                            avatar={
+                                <Badge dot={!notification.read}>
+                                    <div style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: '50%',
+                                        backgroundColor: getNotificationColor(notification.type),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {getNotificationIcon(notification.type)}
+                                    </div>
+                                </Badge>
+                            }
+                            title={
+                                <Text
+                                    strong={!notification.read}
+                                    style={{ fontSize: '14px' }}
+                                >
+                                    {notification.title}
+                                </Text>
+                            }
+                            description={
+                                <div>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: '12px', display: 'block' }}
+                                    >
+                                        {notification.description}
+                                    </Text>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: '11px', display: 'block', marginTop: 2 }}
+                                    >
+                                        {notification.time}
+                                    </Text>
+                                </div>
+                            }
+                        />
+                    </List.Item>
+                )}
+            />
+
+            <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #f0f0f0',
+                textAlign: 'center',
+                background: 'white' // Ensure footer also has solid background
+            }}>
+                <Button
+                    type="link"
+                    onClick={handleNotificationsClick}
+                    icon={<EyeOutlined />}
+                    style={{ padding: 0 }}
+                >
+                    View All Notifications
+                </Button>
+            </div>
+        </div>
+    );
+
+    // Helper function to get notification color based on type
+    const getNotificationColor = (type) => {
+        const colors = {
+            property: '#1890ff',
+            schedule: '#52c41a',
+            message: '#722ed1',
+            price: '#fa541c'
+        };
+        return colors[type] || '#1890ff';
+    };
+
+    // Helper function to get notification icon based on type
+    const getNotificationIcon = (type) => {
+        const icons = {
+            property: '🏠',
+            schedule: '📅',
+            message: '💬',
+            price: '💰'
+        };
+        return icons[type] || '🔔';
+    };
+
+    // User dropdown menu items
     const userMenuItems = [
         {
             key: 'user-info',
             label: (
-                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', background: 'white' }}>
                     <div style={{ fontWeight: '600', fontSize: '14px' }}>
                         {getDisplayName()}
                     </div>
@@ -166,501 +370,786 @@ const GlobalNavigation = () => {
     const isDesktop = screens.md;
 
     return (
-        <Header style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            borderBottom: '0.5px solid rgba(0, 0, 0, 0.1)',
-            padding: '0 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'sticky',
-            top: 0,
-            zIndex: 1000,
-            height: '64px'
-        }}>
-            {/* Centered Container */}
+        <>
+            {/* First Top Bar - Contact Information & Notification/Wishlist */}
             <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                maxWidth: '1200px'
+                background: '#001529',
+                color: 'white',
+                padding: '8px 24px',
+                fontSize: '14px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-                {/* Logo */}
-                <div
-                    style={{
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                        userSelect: 'none',
-                        height: '40px',
-                        display: 'flex',
-                        alignItems: 'center'
-                    }}
-                    onClick={handleLogoClick}
-                    role="button"
-                    tabIndex={0}
-                    onKeyPress={(e) => e.key === 'Enter' && handleLogoClick()}
-                    aria-label="Betheland Home"
-                >
-                    <div style={{
-                        color: '#001529',
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-                    }}>
-                        Betheland
-                    </div>
-                </div>
-
-                {/* Desktop Menu - Centered */}
-                {isDesktop && (
-                    <div style={{
-                        position: 'absolute',
-                        left: '50%',
-                        transform: 'translateX(-50%)'
-                    }}>
-                        <Menu
-                            mode="horizontal"
-                            selectedKeys={[location.pathname]}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#001529'
-                            }}
-                            items={menuItems.map(item => ({
-                                ...item,
-                                style: {
-                                    color: '#001529',
-                                    fontWeight: '500',
-                                    transition: 'color 0.3s',
-                                    padding: '0 16px'
-                                },
-                                onClick: () => handleMenuClick(item.key)
-                            }))}
-                        />
-                    </div>
-                )}
-
-                {/* Right Section - Icons & User Menu */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '16px',
-                    flexShrink: 0
+                    justifyContent: 'space-between',
+                    maxWidth: '1200px',
+                    margin: '0 auto'
                 }}>
-                    {/* Wishlist Icon */}
-                    {isDesktop && (
-                        <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
-                            <Button
-                                type="text"
-                                icon={<HeartOutlined style={{
-                                    color: '#001529',
-                                    fontSize: '18px',
-                                    transition: 'color 0.3s'
-                                }} />}
-                                onClick={handleWishlistClick}
-                                aria-label={`Wishlist with ${wishlistCount} items`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            />
-                        </Badge>
-                    )}
-
-                    {/* Chat Icon */}
-                    {isDesktop && isLoggedIn && (
-                        <Badge count={0} size="small" offset={[-5, 5]}>
-                            <Button
-                                type="text"
-                                icon={<MessageOutlined style={{
-                                    color: '#001529',
-                                    fontSize: '18px',
-                                    transition: 'color 0.3s'
-                                }} />}
-                                onClick={handleChatClick}
-                                aria-label="Chat"
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            />
-                        </Badge>
-                    )}
-
-                    {/* User Menu (when logged in) OR Auth Buttons (when not logged in) */}
-                    {isDesktop ? (
-                        isLoggedIn ? (
-                            <Dropdown
-                                menu={{ items: userMenuItems }}
-                                placement="bottomRight"
-                                trigger={['click']}
-                            >
-                                <Button
-                                    type="text"
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        color: '#001529',
-                                        fontWeight: '500',
-                                        height: '40px',
-                                        padding: '0 12px',
-                                        borderRadius: '6px',
-                                        transition: 'all 0.3s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'rgba(0, 21, 41, 0.04)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }}
-                                >
-                                    <Space>
-                                        <Avatar
-                                            size="small"
-                                            style={{
-                                                backgroundColor: '#001529',
-                                                fontSize: '12px',
-                                                fontWeight: '600'
-                                            }}
-                                        >
-                                            {getUserInitials()}
-                                        </Avatar>
-                                        <span style={{
-                                            fontSize: '14px',
-                                            maxWidth: '120px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {getDisplayName()}
-                                        </span>
-                                        <DownOutlined style={{ fontSize: '12px', color: '#666' }} />
-                                    </Space>
-                                </Button>
-                            </Dropdown>
-                        ) : (
-                            /* Auth Buttons - Desktop */
-                            <div style={{
-                                display: 'flex',
-                                gap: '12px'
-                            }}>
-                                <Button
-                                    onClick={() => navigate('/login')}
-                                    style={{
-                                        color: '#001529',
-                                        borderColor: '#001529',
-                                        fontWeight: '500'
-                                    }}
-                                    aria-label="Login to your account"
-                                >
-                                    Login
-                                </Button>
-                                <Button
-                                    type="primary"
-                                    onClick={() => navigate('/register/verify-email')}
-                                    style={{
-                                        background: '#001529',
-                                        borderColor: '#001529',
-                                        fontWeight: '500'
-                                    }}
-                                    aria-label="Register new account"
-                                >
-                                    Register
-                                </Button>
-                            </div>
-                        )
-                    ) : (
-                        /* Mobile Menu Button */
+                    {/* Left Side - Contact Information */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '24px'
+                    }}>
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px'
                         }}>
-                            {/* Wishlist Icon - Mobile (outside drawer) */}
-                            <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
-                                <Button
-                                    type="text"
-                                    icon={<HeartOutlined style={{
-                                        color: '#001529',
-                                        fontSize: '18px'
-                                    }} />}
-                                    onClick={handleWishlistClick}
-                                    aria-label={`Wishlist with ${wishlistCount} items`}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                />
-                            </Badge>
+                            <PhoneOutlined style={{ fontSize: '12px' }} />
+                            <Text style={{ color: 'white', fontSize: '13px' }}>
+                                {companyContact.phone}
+                            </Text>
+                        </div>
+                    </div>
 
-                            {/* Chat Icon - Mobile (when logged in) */}
+                    {/* Right Side - Email & Notification & Wishlist (Desktop only) */}
+                    {isDesktop && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '24px'
+                        }}>
+                            {/* Email */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <MailOutlined style={{ fontSize: '12px' }} />
+                                <Text style={{ color: 'white', fontSize: '13px' }}>
+                                    {companyContact.email}
+                                </Text>
+                            </div>
+
+                            {/* Wishlist Icon with Label */}
+                            <Tooltip title="Wishlist" placement="bottom">
+                                <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
+                                    <Button
+                                        type="text"
+                                        icon={<HeartOutlined style={{
+                                            color: 'white',
+                                            fontSize: '16px',
+                                            transition: 'color 0.3s'
+                                        }} />}
+                                        onClick={handleWishlistClick}
+                                        aria-label={`Wishlist with ${wishlistCount} items`}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 'auto',
+                                            height: '32px',
+                                            padding: '0 8px',
+                                            gap: '4px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <span style={{
+                                            fontSize: '13px',
+                                            color: 'white',
+                                            marginLeft: '4px'
+                                        }}>
+                                            Wishlist
+                                        </span>
+                                    </Button>
+                                </Badge>
+                            </Tooltip>
+
+                            {/* Notification Icon with Label and Dropdown */}
                             {isLoggedIn && (
+                                <Tooltip title="Notifications" placement="bottom">
+                                    <Dropdown
+                                        overlay={notificationContent}
+                                        trigger={['click']}
+                                        placement="bottomRight"
+                                        overlayStyle={{
+                                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                                            borderRadius: '8px',
+                                            background: 'white' // Ensure dropdown container has solid background
+                                        }}
+                                    >
+                                        <Badge count={notificationCount} size="small" offset={[-5, 5]}>
+                                            <Button
+                                                type="text"
+                                                icon={<BellOutlined style={{
+                                                    color: 'white',
+                                                    fontSize: '16px',
+                                                    transition: 'color 0.3s'
+                                                }} />}
+                                                aria-label={`Notifications with ${notificationCount} new items`}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: 'auto',
+                                                    height: '32px',
+                                                    padding: '0 8px',
+                                                    gap: '4px'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                }}
+                                            >
+                                                <span style={{
+                                                    fontSize: '13px',
+                                                    color: 'white',
+                                                    marginLeft: '4px'
+                                                }}>
+                                                    Notifications
+                                                </span>
+                                            </Button>
+                                        </Badge>
+                                    </Dropdown>
+                                </Tooltip>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Navigation Header */}
+            <Header style={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderBottom: '0.5px solid rgba(0, 0, 0, 0.1)',
+                padding: '0 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1000,
+                height: '64px'
+            }}>
+                {/* Centered Container */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    maxWidth: '1200px'
+                }}>
+                    {/* Logo - Left Side */}
+                    <div
+                        style={{
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            userSelect: 'none',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexDirection: 'column',
+                            justifyContent: 'center'
+                        }}
+                        onClick={handleLogoClick}
+                        role="button"
+                        tabIndex={0}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLogoClick()}
+                        aria-label="Betheland Home"
+                    >
+                        <div style={{
+                            color: '#001529',
+                            fontSize: '20px',
+                            fontWeight: 'bold',
+                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                            lineHeight: '1.2'
+                        }}>
+                            BETHELAND
+                        </div>
+                        <div style={{
+                            color: '#666',
+                            fontSize: '10px',
+                            fontWeight: 'normal',
+                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                            lineHeight: '1.2',
+                            marginTop: '2px',
+                            letterSpacing: '0.5px'
+                        }}>
+                            Real Estate Services
+                        </div>
+                    </div>
+
+                    {/* Desktop Menu - Centered */}
+                    {isDesktop && (
+                        <div style={{
+                            position: 'absolute',
+                            left: '50%',
+                            transform: 'translateX(-50%)'
+                        }}>
+                            <Menu
+                                mode="horizontal"
+                                selectedKeys={[location.pathname]}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#001529'
+                                }}
+                                items={menuItems.map(item => ({
+                                    ...item,
+                                    style: {
+                                        color: '#001529',
+                                        fontWeight: '500',
+                                        transition: 'color 0.3s',
+                                        padding: '0 16px'
+                                    },
+                                    onClick: () => handleMenuClick(item.key)
+                                }))}
+                            />
+                        </div>
+                    )}
+
+                    {/* Right Section - User Menu & Auth Buttons */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexShrink: 0
+                    }}>
+                        {/* Schedule Icon */}
+                        {isDesktop && isLoggedIn && (
+                            <Tooltip title="Schedule" placement="bottom">
+                                <Badge count={0} size="small" offset={[-5, 5]}>
+                                    <Button
+                                        type="text"
+                                        icon={<CalendarOutlined style={{
+                                            color: '#001529',
+                                            fontSize: '18px',
+                                            transition: 'color 0.3s'
+                                        }} />}
+                                        onClick={handleScheduleClick}
+                                        aria-label="Schedule"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '40px',
+                                            height: '40px'
+                                        }}
+                                    />
+                                </Badge>
+                            </Tooltip>
+                        )}
+
+                        {/* Chat Icon */}
+                        {isDesktop && isLoggedIn && (
+                            <Tooltip title="Chat" placement="bottom">
                                 <Badge count={0} size="small" offset={[-5, 5]}>
                                     <Button
                                         type="text"
                                         icon={<MessageOutlined style={{
                                             color: '#001529',
-                                            fontSize: '18px'
+                                            fontSize: '18px',
+                                            transition: 'color 0.3s'
                                         }} />}
                                         onClick={handleChatClick}
                                         aria-label="Chat"
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            justifyContent: 'center'
+                                            justifyContent: 'center',
+                                            width: '40px',
+                                            height: '40px'
                                         }}
                                     />
                                 </Badge>
-                            )}
+                            </Tooltip>
+                        )}
 
-                            <Button
-                                type="text"
-                                icon={drawerVisible ? <CloseOutlined /> : <MenuOutlined />}
-                                onClick={() => setDrawerVisible(!drawerVisible)}
-                                aria-label={drawerVisible ? "Close menu" : "Open menu"}
-                                style={{
-                                    color: '#001529',
-                                    fontSize: '18px'
-                                }}
-                            />
-
-                            <Drawer
-                                title={
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        paddingRight: '8px'
-                                    }}>
-                                        <span style={{
-                                            fontWeight: 'bold',
-                                            fontSize: '18px',
-                                            color: '#001529'
-                                        }}>
-                                            Menu
-                                        </span>
-                                        <Button
-                                            type="text"
-                                            icon={<CloseOutlined />}
-                                            onClick={() => setDrawerVisible(false)}
-                                            aria-label="Close menu"
-                                            style={{
-                                                color: '#001529'
-                                            }}
-                                        />
-                                    </div>
-                                }
-                                placement="right"
-                                onClose={() => setDrawerVisible(false)}
-                                open={drawerVisible}
-                                closable={false}
-                                width={280}
-                                bodyStyle={{
-                                    padding: '16px 0'
-                                }}
-                            >
-                                {/* Simple menu items - no dropdowns for About Us and Contact Us */}
-                                <Menu
-                                    mode="vertical"
-                                    selectedKeys={[location.pathname]}
-                                    style={{
-                                        border: 'none',
-                                        marginBottom: '16px'
+                        {/* User Menu (when logged in) OR Auth Buttons (when not logged in) */}
+                        {isDesktop ? (
+                            isLoggedIn ? (
+                                <Dropdown
+                                    menu={{ items: userMenuItems }}
+                                    placement="bottomRight"
+                                    trigger={['click']}
+                                    overlayStyle={{
+                                        background: 'white' // Ensure user dropdown also has solid background
                                     }}
-                                    items={[
-                                        ...menuItems,
-                                        {
-                                            key: '/wishlist',
-                                            label: (
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    width: '100%'
-                                                }}>
-                                                    <span>Wishlist</span>
-                                                    <Badge count={wishlistCount} size="small" />
-                                                </div>
-                                            ),
-                                            icon: <HeartOutlined />
-                                        },
-                                        ...(isLoggedIn ? [{
-                                            key: '/messages',
-                                            label: 'Chat',
-                                            icon: <MessageOutlined />
-                                        }] : [])
-                                    ].map(item => ({
-                                        ...item,
-                                        style: {
-                                            padding: '12px 20px',
-                                            fontSize: '16px',
-                                            fontWeight: '500',
-                                            margin: '0',
-                                            height: 'auto',
-                                            lineHeight: '1.5',
-                                            border: 'none'
-                                        },
-                                        onClick: () => handleMenuClick(item.key)
-                                    }))}
-                                />
-
-                                {/* User Section or Auth Buttons */}
-                                {isLoggedIn ? (
-                                    <div style={{
-                                        marginTop: '24px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px',
-                                        padding: '0 20px',
-                                        borderTop: '1px solid #f0f0f0',
-                                        paddingTop: '20px'
-                                    }}>
-                                        {/* User Info Section */}
-                                        <div style={{
+                                >
+                                    <Button
+                                        type="text"
+                                        style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '12px',
-                                            padding: '16px 0',
-                                            borderBottom: '1px solid #f0f0f0',
-                                            marginBottom: '8px'
-                                        }}>
+                                            gap: '8px',
+                                            color: '#001529',
+                                            fontWeight: '500',
+                                            height: '40px',
+                                            padding: '0 12px',
+                                            borderRadius: '6px',
+                                            transition: 'all 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'rgba(0, 21, 41, 0.04)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <Space>
                                             <Avatar
-                                                size="large"
+                                                size="small"
                                                 style={{
                                                     backgroundColor: '#001529',
-                                                    fontSize: '16px',
+                                                    fontSize: '12px',
                                                     fontWeight: '600'
                                                 }}
                                             >
                                                 {getUserInitials()}
                                             </Avatar>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{
-                                                    fontWeight: '600',
-                                                    fontSize: '16px',
+                                            <span style={{
+                                                fontSize: '14px',
+                                                maxWidth: '120px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {getDisplayName()}
+                                            </span>
+                                            <DownOutlined style={{ fontSize: '12px', color: '#666' }} />
+                                        </Space>
+                                    </Button>
+                                </Dropdown>
+                            ) : (
+                                /* Auth Buttons - Desktop */
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '12px'
+                                }}>
+                                    <Button
+                                        onClick={() => navigate('/login')}
+                                        style={{
+                                            color: '#001529',
+                                            borderColor: '#001529',
+                                            fontWeight: '500'
+                                        }}
+                                        aria-label="Login to your account"
+                                    >
+                                        Login
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        onClick={() => navigate('/register/verify-email')}
+                                        style={{
+                                            background: '#001529',
+                                            borderColor: '#001529',
+                                            fontWeight: '500'
+                                        }}
+                                        aria-label="Register new account"
+                                    >
+                                        Register
+                                    </Button>
+                                </div>
+                            )
+                        ) : (
+                            /* Mobile Menu Button */
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                {/* Mobile Contact Info - Email only */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    marginRight: '8px'
+                                }}>
+                                    <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
+                                    <Text style={{ fontSize: '12px', color: '#001529' }}>
+                                        {companyContact.email}
+                                    </Text>
+                                </div>
+
+                                {/* Wishlist Icon - Mobile (outside drawer) */}
+                                <Tooltip title="Wishlist" placement="bottom">
+                                    <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
+                                        <Button
+                                            type="text"
+                                            icon={<HeartOutlined style={{
+                                                color: '#001529',
+                                                fontSize: '18px'
+                                            }} />}
+                                            onClick={handleWishlistClick}
+                                            aria-label={`Wishlist with ${wishlistCount} items`}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        />
+                                    </Badge>
+                                </Tooltip>
+
+                                {/* Schedule Icon - Mobile (when logged in) */}
+                                {isLoggedIn && (
+                                    <Tooltip title="Schedule" placement="bottom">
+                                        <Badge count={0} size="small" offset={[-5, 5]}>
+                                            <Button
+                                                type="text"
+                                                icon={<CalendarOutlined style={{
+                                                    color: '#001529',
+                                                    fontSize: '18px'
+                                                }} />}
+                                                onClick={handleScheduleClick}
+                                                aria-label="Schedule"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            />
+                                        </Badge>
+                                    </Tooltip>
+                                )}
+
+                                {/* Notification Icon - Mobile (when logged in) */}
+                                {isLoggedIn && (
+                                    <Tooltip title="Notifications" placement="bottom">
+                                        <Badge count={notificationCount} size="small" offset={[-5, 5]}>
+                                            <Button
+                                                type="text"
+                                                icon={<BellOutlined style={{
+                                                    color: '#001529',
+                                                    fontSize: '18px'
+                                                }} />}
+                                                onClick={handleNotificationsClick}
+                                                aria-label={`Notifications with ${notificationCount} new items`}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            />
+                                        </Badge>
+                                    </Tooltip>
+                                )}
+
+                                {/* Chat Icon - Mobile (when logged in) */}
+                                {isLoggedIn && (
+                                    <Tooltip title="Chat" placement="bottom">
+                                        <Badge count={0} size="small" offset={[-5, 5]}>
+                                            <Button
+                                                type="text"
+                                                icon={<MessageOutlined style={{
+                                                    color: '#001529',
+                                                    fontSize: '18px'
+                                                }} />}
+                                                onClick={handleChatClick}
+                                                aria-label="Chat"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            />
+                                        </Badge>
+                                    </Tooltip>
+                                )}
+
+                                <Button
+                                    type="text"
+                                    icon={drawerVisible ? <CloseOutlined /> : <MenuOutlined />}
+                                    onClick={() => setDrawerVisible(!drawerVisible)}
+                                    aria-label={drawerVisible ? "Close menu" : "Open menu"}
+                                    style={{
+                                        color: '#001529',
+                                        fontSize: '18px'
+                                    }}
+                                />
+
+                                <Drawer
+                                    title={
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            paddingRight: '8px'
+                                        }}>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                fontSize: '18px',
+                                                color: '#001529'
+                                            }}>
+                                                Menu
+                                            </span>
+                                            <Button
+                                                type="text"
+                                                icon={<CloseOutlined />}
+                                                onClick={() => setDrawerVisible(false)}
+                                                aria-label="Close menu"
+                                                style={{
                                                     color: '#001529'
-                                                }}>
-                                                    {getDisplayName()}
-                                                </div>
-                                                <div style={{
-                                                    fontSize: '14px',
-                                                    color: '#666',
-                                                    marginTop: '2px'
-                                                }}>
-                                                    {currentUser?.email || 'No email'}
+                                                }}
+                                            />
+                                        </div>
+                                    }
+                                    placement="right"
+                                    onClose={() => setDrawerVisible(false)}
+                                    open={drawerVisible}
+                                    closable={false}
+                                    width={280}
+                                    bodyStyle={{
+                                        padding: '16px 0'
+                                    }}
+                                >
+                                    {/* Mobile Contact Info in Drawer */}
+                                    <div style={{
+                                        padding: '16px 20px',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        marginBottom: '16px'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            marginBottom: '8px'
+                                        }}>
+                                            <PhoneOutlined style={{ fontSize: '14px', color: '#001529' }} />
+                                            <Text style={{ fontSize: '14px', color: '#001529' }}>
+                                                {companyContact.phone}
+                                            </Text>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
+                                            <Text style={{ fontSize: '14px', color: '#001529' }}>
+                                                {companyContact.email}
+                                            </Text>
+                                        </div>
+                                    </div>
+
+                                    <Menu
+                                        mode="vertical"
+                                        selectedKeys={[location.pathname]}
+                                        style={{
+                                            border: 'none',
+                                            marginBottom: '16px'
+                                        }}
+                                        items={[
+                                            ...menuItems,
+                                            {
+                                                key: '/wishlist',
+                                                label: (
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        width: '100%'
+                                                    }}>
+                                                        <span>Wishlist</span>
+                                                        <Badge count={wishlistCount} size="small" />
+                                                    </div>
+                                                ),
+                                                icon: <HeartOutlined />
+                                            },
+                                            ...(isLoggedIn ? [
+                                                {
+                                                    key: '/schedule',
+                                                    label: 'Schedule',
+                                                    icon: <CalendarOutlined />
+                                                },
+                                                {
+                                                    key: '/notifications',
+                                                    label: (
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            width: '100%'
+                                                        }}>
+                                                            <span>Notifications</span>
+                                                            <Badge count={notificationCount} size="small" />
+                                                        </div>
+                                                    ),
+                                                    icon: <BellOutlined />
+                                                },
+                                                {
+                                                    key: '/messages',
+                                                    label: 'Chat',
+                                                    icon: <MessageOutlined />
+                                                }
+                                            ] : [])
+                                        ].map(item => ({
+                                            ...item,
+                                            style: {
+                                                padding: '12px 20px',
+                                                fontSize: '16px',
+                                                fontWeight: '500',
+                                                margin: '0',
+                                                height: 'auto',
+                                                lineHeight: '1.5',
+                                                border: 'none'
+                                            },
+                                            onClick: () => handleMenuClick(item.key)
+                                        }))}
+                                    />
+
+                                    {/* User Section or Auth Buttons */}
+                                    {isLoggedIn ? (
+                                        <div style={{
+                                            marginTop: '24px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            padding: '0 20px',
+                                            borderTop: '1px solid #f0f0f0',
+                                            paddingTop: '20px'
+                                        }}>
+                                            {/* User Info Section */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                padding: '16px 0',
+                                                borderBottom: '1px solid #f0f0f0',
+                                                marginBottom: '8px'
+                                            }}>
+                                                <Avatar
+                                                    size="large"
+                                                    style={{
+                                                        backgroundColor: '#001529',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    {getUserInitials()}
+                                                </Avatar>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{
+                                                        fontWeight: '600',
+                                                        fontSize: '16px',
+                                                        color: '#001529'
+                                                    }}>
+                                                        {getDisplayName()}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '14px',
+                                                        color: '#666',
+                                                        marginTop: '2px'
+                                                    }}>
+                                                        {currentUser?.email || 'No email'}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <Button
-                                            size="large"
-                                            icon={<UserOutlined />}
-                                            onClick={handleProfileClick}
-                                            style={{
-                                                color: '#001529',
-                                                borderColor: '#001529',
-                                                fontWeight: '500',
-                                                height: '44px',
-                                                textAlign: 'left',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'flex-start'
-                                            }}
-                                        >
-                                            My Profile
-                                        </Button>
-                                        <Button
-                                            size="large"
-                                            icon={<SettingOutlined />}
-                                            onClick={handleSettingsClick}
-                                            style={{
-                                                color: '#001529',
-                                                borderColor: '#001529',
-                                                fontWeight: '500',
-                                                height: '44px',
-                                                textAlign: 'left',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'flex-start'
-                                            }}
-                                        >
-                                            Settings
-                                        </Button>
-                                        <Button
-                                            size="large"
-                                            icon={<LogoutOutlined />}
-                                            danger
-                                            onClick={handleLogout}
-                                            style={{
-                                                fontWeight: '500',
-                                                height: '44px',
-                                                textAlign: 'left',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'flex-start',
-                                                marginTop: '8px'
-                                            }}
-                                        >
-                                            Logout
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div style={{
-                                        marginTop: '24px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px',
-                                        padding: '0 20px',
-                                        borderTop: '1px solid #f0f0f0',
-                                        paddingTop: '20px'
-                                    }}>
-                                        <Button
-                                            size="large"
-                                            onClick={() => {
-                                                navigate('/login');
-                                                setDrawerVisible(false);
-                                            }}
-                                            style={{
-                                                color: '#001529',
-                                                borderColor: '#001529',
-                                                fontWeight: '500',
-                                                height: '44px'
-                                            }}
-                                            aria-label="Login to your account"
-                                        >
-                                            Login
-                                        </Button>
-                                        <Button
-                                            size="large"
-                                            type="primary"
-                                            onClick={() => {
-                                                navigate('/register/verify-email');
-                                                setDrawerVisible(false);
-                                            }}
-                                            style={{
-                                                background: '#001529',
-                                                borderColor: '#001529',
-                                                fontWeight: '500',
-                                                height: '44px'
-                                            }}
-                                            aria-label="Register new account"
-                                        >
-                                            Register
-                                        </Button>
-                                    </div>
-                                )}
-                            </Drawer>
-                        </div>
-                    )}
+                                            <Button
+                                                size="large"
+                                                icon={<UserOutlined />}
+                                                onClick={handleProfileClick}
+                                                style={{
+                                                    color: '#001529',
+                                                    borderColor: '#001529',
+                                                    fontWeight: '500',
+                                                    height: '44px',
+                                                    textAlign: 'left',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'flex-start'
+                                                }}
+                                            >
+                                                My Profile
+                                            </Button>
+                                            <Button
+                                                size="large"
+                                                icon={<SettingOutlined />}
+                                                onClick={handleSettingsClick}
+                                                style={{
+                                                    color: '#001529',
+                                                    borderColor: '#001529',
+                                                    fontWeight: '500',
+                                                    height: '44px',
+                                                    textAlign: 'left',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'flex-start'
+                                                }}
+                                            >
+                                                Settings
+                                            </Button>
+                                            <Button
+                                                size="large"
+                                                icon={<LogoutOutlined />}
+                                                danger
+                                                onClick={handleLogout}
+                                                style={{
+                                                    fontWeight: '500',
+                                                    height: '44px',
+                                                    textAlign: 'left',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'flex-start',
+                                                    marginTop: '8px'
+                                                }}
+                                            >
+                                                Logout
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            marginTop: '24px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            padding: '0 20px',
+                                            borderTop: '1px solid #f0f0f0',
+                                            paddingTop: '20px'
+                                        }}>
+                                            <Button
+                                                size="large"
+                                                onClick={() => {
+                                                    navigate('/login');
+                                                    setDrawerVisible(false);
+                                                }}
+                                                style={{
+                                                    color: '#001529',
+                                                    borderColor: '#001529',
+                                                    fontWeight: '500',
+                                                    height: '44px'
+                                                }}
+                                                aria-label="Login to your account"
+                                            >
+                                                Login
+                                            </Button>
+                                            <Button
+                                                size="large"
+                                                type="primary"
+                                                onClick={() => {
+                                                    navigate('/register/verify-email');
+                                                    setDrawerVisible(false);
+                                                }}
+                                                style={{
+                                                    background: '#001529',
+                                                    borderColor: '#001529',
+                                                    fontWeight: '500',
+                                                    height: '44px'
+                                                }}
+                                                aria-label="Register new account"
+                                            >
+                                                Register
+                                            </Button>
+                                        </div>
+                                    )}
+                                </Drawer>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-        </Header>
+            </Header>
+        </>
     );
 };
 

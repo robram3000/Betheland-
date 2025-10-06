@@ -6,17 +6,13 @@ class AuthService {
         this.setupTokenRefresh();
     }
 
-    // Setup automatic token refresh
     setupTokenRefresh() {
-        // Refresh token 5 minutes before expiry
         const checkTokenExpiry = () => {
             const token = this.getToken();
             if (token) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
                     const expiresIn = payload.exp * 1000 - Date.now();
-
-                    // Refresh if token expires in less than 5 minutes
                     if (expiresIn < 5 * 60 * 1000 && expiresIn > 0) {
                         this.refreshToken().catch(error => {
                             console.warn('Token refresh failed:', error);
@@ -27,12 +23,9 @@ class AuthService {
                 }
             }
         };
-
-        // Check every minute
         this.tokenCheckInterval = setInterval(checkTokenExpiry, 60 * 1000);
     }
 
-    // Login user
     async login(usernameOrEmail, password, rememberMe = false) {
         try {
             const response = await api.post('/Login/login', {
@@ -49,7 +42,6 @@ class AuthService {
             }
 
             if (response.success && response.accessToken) {
-                // Validate token structure
                 try {
                     const payload = JSON.parse(atob(response.accessToken.split('.')[1]));
                     if (!payload.exp) {
@@ -62,8 +54,6 @@ class AuthService {
                         message: 'Invalid authentication token'
                     };
                 }
-
-                // Store tokens
                 this.setTokens(response, rememberMe);
 
                 return {

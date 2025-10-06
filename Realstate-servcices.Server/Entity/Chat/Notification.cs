@@ -44,8 +44,6 @@ namespace Realstate_servcices.Server.Entity.Chat
         public DateTime? ReadAt { get; set; }
 
         public DateTime? ExpiryAt { get; set; }
-
-        // Navigation properties
         public virtual BaseMember? Recipient { get; set; }
     }
 }

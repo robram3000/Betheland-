@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Realstate_servcices.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class initialcreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -66,6 +66,18 @@ namespace Realstate_servcices.Server.Migrations
                     LicenseNumber = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Bio = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     LicenseExpiry = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Experience = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false, defaultValue: ""),
+                    Specialization = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false, defaultValue: "[]"),
+                    OfficeAddress = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    OfficePhone = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Website = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    Languages = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Education = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Awards = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    YearsOfExperience = table.Column<int>(type: "int", nullable: true),
+                    BrokerageName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    IsVerified = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    VerificationDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     DateRegistered = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -164,6 +176,36 @@ namespace Realstate_servcices.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Ratings",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AgentId = table.Column<int>(type: "int", nullable: false),
+                    ClientId = table.Column<int>(type: "int", nullable: false),
+                    Score = table.Column<int>(type: "int", nullable: false),
+                    Comment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Ratings", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Ratings_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Ratings_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PropertyImages",
                 columns: table => new
                 {
@@ -253,9 +295,31 @@ namespace Realstate_servcices.Server.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Agents_AgentNo",
+                table: "Agents",
+                column: "AgentNo",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Agents_BaseMemberId",
                 table: "Agents",
                 column: "BaseMemberId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Agents_DateRegistered",
+                table: "Agents",
+                column: "DateRegistered");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Agents_IsVerified",
+                table: "Agents",
+                column: "IsVerified");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Agents_LicenseNumber",
+                table: "Agents",
+                column: "LicenseNumber",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -307,6 +371,17 @@ namespace Realstate_servcices.Server.Migrations
                 column: "PropertyId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Ratings_AgentId_ClientId",
+                table: "Ratings",
+                columns: new[] { "AgentId", "ClientId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ratings_ClientId",
+                table: "Ratings",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ScheduleProperties_AgentId",
                 table: "ScheduleProperties",
                 column: "AgentId");
@@ -341,6 +416,9 @@ namespace Realstate_servcices.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "PropertyImages");
+
+            migrationBuilder.DropTable(
+                name: "Ratings");
 
             migrationBuilder.DropTable(
                 name: "ScheduleProperties");

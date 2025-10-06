@@ -12,22 +12,22 @@ const { Title, Paragraph } = Typography;
 const SecondSection = () => {
     const features = [
         {
-            icon: <HomeOutlined style={{ fontSize: '48px', color: '#667eea' }} />,
+            icon: <HomeOutlined style={{ fontSize: '48px', color: '#001529' }} />, // Updated to dark blue
             title: 'Wide Property Selection',
             description: 'Choose from thousands of verified properties across multiple cities and neighborhoods.'
         },
         {
-            icon: <SafetyCertificateOutlined style={{ fontSize: '48px', color: '#667eea' }} />,
+            icon: <SafetyCertificateOutlined style={{ fontSize: '48px', color: '#001529' }} />, // Updated to dark blue
             title: 'Verified Listings',
             description: 'Every property is thoroughly verified to ensure accuracy and authenticity.'
         },
         {
-            icon: <TeamOutlined style={{ fontSize: '48px', color: '#667eea' }} />,
+            icon: <TeamOutlined style={{ fontSize: '48px', color: '#001529' }} />, // Updated to dark blue
             title: 'Expert Support',
             description: 'Our team of real estate experts is here to guide you every step of the way.'
         },
         {
-            icon: <RocketOutlined style={{ fontSize: '48px', color: '#667eea' }} />,
+            icon: <RocketOutlined style={{ fontSize: '48px', color: '#001529' }} />, // Updated to dark blue
             title: 'Quick Process',
             description: 'Streamlined processes to help you find and secure your property faster.'
         }

@@ -1,15 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Realstate_servcices.Server.Dto.Scheduling
+﻿namespace Realstate_servcices.Server.Dto.Scheduling
 {
     public class UpdateScheduleDto
     {
-        public DateTime? ScheduleTime { get; set; }
-
-        [MaxLength(20)]
-        public string? Status { get; set; }
-
-        [MaxLength(500)]
+        public DateTime ScheduleTime { get; set; }
+        public string Status { get; set; } = "Scheduled";
         public string? Notes { get; set; }
     }
 }

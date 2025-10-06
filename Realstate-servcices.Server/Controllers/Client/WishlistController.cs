@@ -5,7 +5,7 @@ using Realstate_servcices.Server.Dto.Wishlist;
 using Realstate_servcices.Server.Services.Wishlist;
 using System.Security.Claims;
 
-namespace Realstate_servcices.Server.Controllers.Agent
+namespace Realstate_servcices.Server.Controllers.Client
 {
     [ApiController]
     [Route("api/[controller]")]

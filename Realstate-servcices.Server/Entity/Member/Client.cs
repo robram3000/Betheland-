@@ -64,5 +64,7 @@ namespace Realstate_servcices.Server.Entity.member
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
 
         public virtual ICollection<WishlistProperties>? Wishlists { get; set; }
+        public virtual ICollection<Rating>? Ratings { get; set; }
+
     }
 }

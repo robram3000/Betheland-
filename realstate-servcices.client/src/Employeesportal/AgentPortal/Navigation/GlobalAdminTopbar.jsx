@@ -1,4 +1,4 @@
-// GlobalAdminTopbar.jsx
+// GlobalAdminTopbar.jsx (Updated)
 import React, { useState } from 'react';
 import {
     Layout,
@@ -11,6 +11,7 @@ import {
     Input,
     theme,
     Switch,
+    message
 } from 'antd';
 import {
     QuestionCircleOutlined,
@@ -24,6 +25,9 @@ import {
     MoonOutlined,
     SunOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import authService from '../../../Authpage/Services/LoginAuth';
+import { useUser } from '../../../Authpage/Services/UserContextService';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -32,25 +36,27 @@ const { Search } = Input;
 const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
+    const navigate = useNavigate();
+    const { user, logout } = useUser();
+
     const {
         token: { colorBgContainer },
     } = theme.useToken();
 
     const handleLogout = () => {
-        // Add logout logic here
-        console.log('Logout clicked');
+        logout();
+        message.success('Logged out successfully');
+        navigate('/login');
         setDropdownVisible(false);
     };
 
     const handleProfile = () => {
-        // Add profile logic here
-        console.log('Profile clicked');
+        navigate('/profile');
         setDropdownVisible(false);
     };
 
     const handleSettings = () => {
-        // Add settings logic here
-        console.log('Settings clicked');
+        navigate('/settings');
         setDropdownVisible(false);
     };
 
@@ -69,15 +75,121 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
         console.log('Dark mode:', checked);
     };
 
+    // Get display name from user context
+    const getDisplayName = () => {
+        if (!user) return 'Admin';
+
+        // Try username first
+        if (user.username && user.username.trim() !== '') {
+            return user.username;
+        }
+
+        // Then try email (without domain)
+        if (user.email) {
+            return user.email.split('@')[0];
+        }
+
+        // Fallback based on role
+        const userRole = user?.role || user?.userType;
+        switch (userRole?.toLowerCase()) {
+            case 'superadmin':
+                return 'Super Admin';
+            case 'admin':
+                return 'Administrator';
+            case 'agent':
+                return 'Agent';
+            default:
+                return 'User';
+        }
+    };
+
+    // Get user initials for avatar
+    const getUserInitials = () => {
+        const displayName = getDisplayName();
+        if (displayName === 'Admin' || displayName === 'User') {
+            const role = user?.role || user?.userType;
+            if (role?.toLowerCase() === 'superadmin') return 'SA';
+            if (role?.toLowerCase() === 'admin') return 'A';
+            if (role?.toLowerCase() === 'agent') return 'AG';
+            return 'U';
+        }
+
+        return displayName
+            .split(' ')
+            .map(name => name[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
+    // Get role display name
+    const getRoleDisplayName = () => {
+        const role = user?.role || user?.userType;
+        switch (role?.toLowerCase()) {
+            case 'superadmin':
+                return 'Super Administrator';
+            case 'admin':
+                return 'Administrator';
+            case 'agent':
+                return 'Real Estate Agent';
+            case 'client':
+                return 'Client';
+            default:
+                return role || 'User';
+        }
+    };
+
     const profileMenuItems = [
         {
-            key: '1',
+            key: 'user-info',
+            label: (
+                <div style={{
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #f0f0f0',
+                    minWidth: '200px',
+                    background: 'rgba(0,0,0,0.02)'
+                }}>
+                    <div style={{
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        color: '#1a365d',
+                        marginBottom: '2px'
+                    }}>
+                        {getDisplayName()}
+                    </div>
+                    <div style={{
+                        fontSize: '12px',
+                        color: '#666',
+                        marginBottom: '2px'
+                    }}>
+                        {user?.email || 'No email'}
+                    </div>
+                    <div style={{
+                        fontSize: '11px',
+                        color: '#888',
+                        fontWeight: '500',
+                        background: 'rgba(26, 54, 93, 0.1)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                    }}>
+                        {getRoleDisplayName()}
+                    </div>
+                </div>
+            ),
+            disabled: true,
+        },
+        {
+            type: 'divider',
+        },
+        {
+            key: 'profile',
             icon: <UserOutlined />,
-            label: 'Profile',
+            label: 'My Profile',
             onClick: handleProfile,
         },
         {
-            key: '2',
+            key: 'settings',
             icon: <SettingOutlined />,
             label: 'Settings',
             onClick: handleSettings,
@@ -86,7 +198,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
             type: 'divider',
         },
         {
-            key: '3',
+            key: 'logout',
             icon: <LogoutOutlined />,
             label: 'Logout',
             danger: true,
@@ -143,14 +255,14 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
 
             {/* Right Side */}
             <Space size="middle">
-             
+              
 
                 {/* Notifications */}
                 <Badge
                     count={5}
                     size="small"
                     style={{
-                        backgroundColor: '#1a365d', // Dark blue color
+                        backgroundColor: '#1a365d', 
                     }}
                 >
                     <Button
@@ -159,7 +271,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                         style={{
                             width: 32,
                             height: 32,
-                            color: '#1a365d', // Dark blue color
+                            color: '#1a365d', 
                         }}
                     />
                 </Badge>
@@ -176,6 +288,8 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                     Help
                 </Button>
 
+               
+
                 {/* Profile Dropdown */}
                 <Dropdown
                     menu={{ items: profileMenuItems }}
@@ -184,7 +298,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                     onOpenChange={setDropdownVisible}
                     placement="bottomRight"
                     overlayStyle={{
-                        minWidth: 160,
+                        minWidth: 200,
                     }}
                 >
                     <Button
@@ -214,7 +328,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                                     fontWeight: 600,
                                 }}
                             >
-                                A
+                                {getUserInitials()}
                             </Avatar>
                             <div style={{
                                 display: 'flex',
@@ -226,12 +340,12 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
                                     fontSize: '12px',
                                     color: '#1a365d', // Dark blue color
                                 }}>
-                                    Admin User
+                                    {getDisplayName()}
                                 </Text>
                                 <Text type="secondary" style={{
                                     fontSize: '10px',
                                 }}>
-                                    Administrator
+                                    {getRoleDisplayName()}
                                 </Text>
                             </div>
                         </Space>

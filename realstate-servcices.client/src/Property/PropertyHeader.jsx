@@ -1,5 +1,6 @@
-﻿import React, { useState } from 'react';
-import { Row, Col, Typography, Rate, Tag, Button, Space } from 'antd';
+﻿// PropertyHeader.jsx (updated with agent picture)
+import React, { useState } from 'react';
+import { Row, Col, Typography, Rate, Tag, Button, Space, Avatar } from 'antd';
 import { EnvironmentOutlined, HeartOutlined, HeartFilled, CalendarOutlined, ShareAltOutlined, MessageOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -38,41 +39,73 @@ const PropertyHeader = ({ property }) => {
     };
 
     return (
-        <div style={{ padding: '40px 0', background: '#f8f9fa' }}>
+        <div style={{ padding: '40px 0', background: 'linear-gradient(135deg, #001529 0%, #003366 100%)' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
                 <Row gutter={[32, 16]} align="middle">
                     <Col xs={24} md={16}>
-                        <Title level={1}>{property.title || 'Property Title'}</Title>
+                        <Title level={1} style={{ color: 'white' }}>{property.title || 'Property Title'}</Title>
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                            <EnvironmentOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
-                            <Text type="secondary">{property.location || property.address || 'Location not specified'}</Text>
+                            <EnvironmentOutlined style={{ marginRight: '8px', color: 'rgba(255, 255, 255, 0.9)' }} />
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.9)' }}>{property.location || property.address || 'Location not specified'}</Text>
                         </div>
-                        <Rate disabled defaultValue={property.rating || 4.5} allowHalf style={{ marginBottom: '16px' }} />
+                        <Rate disabled defaultValue={property.rating || 4.5} allowHalf style={{ marginBottom: '16px', color: '#fadb14' }} />
                         <div>
-                            <Tag color="blue">{property.propertyType || 'Property'}</Tag>
-                            <Tag color="green">{property.bedrooms || 0} Bedrooms</Tag>
-                            <Tag color="orange">{property.bathrooms || 0} Bathrooms</Tag>
-                            {property.status && <Tag color={property.status === 'available' ? 'green' : 'red'}>{property.status}</Tag>}
+                            <Tag color="white" style={{ color: '#001529' }}>{property.propertyType || 'Property'}</Tag>
+                            <Tag color="white" style={{ color: '#001529' }}>{property.bedrooms || 0} Bedrooms</Tag>
+                            <Tag color="white" style={{ color: '#001529' }}>{property.bathrooms || 0} Bathrooms</Tag>
+                            {property.status && <Tag color={property.status === 'available' ? 'white' : 'red'} style={{ color: property.status === 'available' ? '#001529' : 'white' }}>{property.status}</Tag>}
                         </div>
                     </Col>
                     <Col xs={24} md={8}>
                         <div style={{ textAlign: 'right' }}>
-                            <Title level={2} style={{ color: '#1890ff', margin: 0 }}>
+                            {/* Agent Section */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                                <div style={{ textAlign: 'right', marginRight: '12px' }}>
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.9)', display: 'block', fontSize: '14px' }}>
+                                        Listed by
+                                    </Text>
+                                    <Text strong style={{ color: 'white', fontSize: '16px' }}>
+                                        {property.agent?.name || 'Agent Name'}
+                                    </Text>
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', fontSize: '12px' }}>
+                                        {property.agent?.company || 'Real Estate Company'}
+                                    </Text>
+                                </div>
+                                <Avatar
+                                    size={60}
+                                    src={property.agent?.photo || 'https://via.placeholder.com/60x60?text=Agent'}
+                                    style={{
+                                        border: '3px solid rgba(255, 255, 255, 0.3)',
+                                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Price Section */}
+                            <Title level={2} style={{ color: 'white', margin: 0 }}>
                                 {formatPesoPrice(property.price)}
                             </Title>
                             {property.areaSqft && (
-                                <Text type="secondary">
+                                <Text style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                                     ₱{Math.round(property.price / property.areaSqft).toLocaleString()}/sq ft
                                 </Text>
                             )}
 
+                            {/* Action Buttons */}
                             <Space direction="vertical" style={{ width: '100%', marginTop: '16px' }} size="small">
                                 <Button
                                     type="primary"
                                     icon={<CalendarOutlined />}
                                     size="large"
                                     onClick={handleScheduleTour}
-                                    style={{ width: '100%', borderRadius: '8px' }}
+                                    style={{
+                                        width: '100%',
+                                        borderRadius: '8px',
+                                        background: 'white',
+                                        color: '#001529',
+                                        border: 'none',
+                                        fontWeight: '600'
+                                    }}
                                 >
                                     Schedule a Tour
                                 </Button>
@@ -81,7 +114,13 @@ const PropertyHeader = ({ property }) => {
                                     icon={<MessageOutlined />}
                                     size="large"
                                     onClick={handleChat}
-                                    style={{ width: '100%', borderRadius: '8px' }}
+                                    style={{
+                                        width: '100%',
+                                        borderRadius: '8px',
+                                        background: 'transparent',
+                                        color: 'white',
+                                        border: '2px solid rgba(255, 255, 255, 0.3)'
+                                    }}
                                 >
                                     Chat with Agent
                                 </Button>
@@ -92,7 +131,9 @@ const PropertyHeader = ({ property }) => {
                                         onClick={toggleFavorite}
                                         style={{
                                             borderRadius: '8px 0 0 8px',
-                                            color: isFavorite ? '#ff4d4f' : undefined
+                                            color: isFavorite ? '#ff4d4f' : 'white',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)'
                                         }}
                                     >
                                         {isFavorite ? 'Saved' : 'Save'}
@@ -100,7 +141,12 @@ const PropertyHeader = ({ property }) => {
                                     <Button
                                         icon={<ShareAltOutlined />}
                                         onClick={handleShare}
-                                        style={{ borderRadius: '0 8px 8px 0' }}
+                                        style={{
+                                            borderRadius: '0 8px 8px 0',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                                            color: 'white'
+                                        }}
                                     >
                                         Share
                                     </Button>

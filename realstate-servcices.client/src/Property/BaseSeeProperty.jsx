@@ -1,4 +1,4 @@
-// BaseSeeProperty.jsx (quick fix)
+// BaseSeeProperty.jsx (updated with landing page colors)
 import React, { useEffect, useState } from 'react';
 import { Layout, ConfigProvider, Spin, message, Button } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ const { Content } = Layout;
 
 const theme = {
     token: {
-        colorPrimary: '#1B3C53',
+        colorPrimary: '#001529', // Updated to match landing page dark blue
         borderRadius: 8,
         colorBgContainer: '#ffffff',
     },
@@ -91,8 +91,15 @@ const BaseSeePropertyContent = () => {
                         alignItems: 'center',
                         flexDirection: 'column'
                     }}>
-                        <h2>Property not found</h2>
-                        <Button onClick={() => navigate('/properties')}>
+                        <h2 style={{ color: '#001529' }}>Property not found</h2>
+                        <Button
+                            onClick={() => navigate('/properties')}
+                            style={{
+                                background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
+                                border: 'none',
+                                color: 'white'
+                            }}
+                        >
                             Back to Properties
                         </Button>
                     </Content>

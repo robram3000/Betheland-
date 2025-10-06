@@ -21,9 +21,23 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             {
                 BaseMemberId = baseMemberId,
                 FirstName = request.FirstName,
+                MiddleName = request.MiddleName,
                 LastName = request.LastName,
+                Suffix = request.Suffix,
                 CellPhoneNo = request.CellPhoneNo,
                 LicenseNumber = request.LicenseNumber,
+                Bio = request.Bio,
+                LicenseExpiry = request.LicenseExpiry,
+                Experience = request.Experience ?? string.Empty,
+                Specialization = request.Specialization ?? "[]",
+                OfficeAddress = request.OfficeAddress,
+                OfficePhone = request.OfficePhone,
+                Website = request.Website,
+                Languages = request.Languages,
+                Education = request.Education,
+                Awards = request.Awards,
+                YearsOfExperience = request.YearsOfExperience,
+                BrokerageName = request.BrokerageName,
                 DateRegistered = DateTime.UtcNow
             };
 
@@ -60,9 +74,29 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 throw new ArgumentException($"Agent with ID {id} not found");
 
             agent.FirstName = request.FirstName;
+            agent.MiddleName = request.MiddleName;
             agent.LastName = request.LastName;
+            agent.Suffix = request.Suffix;
             agent.CellPhoneNo = request.CellPhoneNo;
             agent.LicenseNumber = request.LicenseNumber;
+            agent.Bio = request.Bio;
+            agent.LicenseExpiry = request.LicenseExpiry;
+            agent.Experience = request.Experience ?? string.Empty;
+            agent.Specialization = request.Specialization ?? "[]";
+            agent.OfficeAddress = request.OfficeAddress;
+            agent.OfficePhone = request.OfficePhone;
+            agent.Website = request.Website;
+            agent.Languages = request.Languages;
+            agent.Education = request.Education;
+            agent.Awards = request.Awards;
+            agent.YearsOfExperience = request.YearsOfExperience;
+            agent.BrokerageName = request.BrokerageName;
+
+            if (request.IsVerified.HasValue && request.IsVerified.Value && !agent.IsVerified)
+            {
+                agent.IsVerified = true;
+                agent.VerificationDate = DateTime.UtcNow;
+            }
 
             var baseMember = await _context.BaseMembers.FindAsync(agent.BaseMemberId);
             if (baseMember != null)

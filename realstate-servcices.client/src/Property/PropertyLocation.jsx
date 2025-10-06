@@ -1,3 +1,4 @@
+// PropertyLocation.jsx (updated with landing page colors)
 import React from 'react';
 import { Row, Col, Typography, Card, Button } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
@@ -46,17 +47,25 @@ const PropertyLocation = ({ property }) => {
     return (
         <div style={{ padding: '40px 0', backgroundColor: '#ffffff' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
-                <Title level={2} style={{ color: '#1B3C53' }}>Location</Title>
+                <Title level={2} style={{ color: '#001529' }}>Location</Title>
                 <Row gutter={[32, 32]}>
                     <Col xs={24} lg={16}>
                         <Card
                             title="Location Map"
-                            style={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                            style={{
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                            }}
                             extra={
                                 <Button
                                     type="primary"
                                     size="small"
-                                    style={{ background: '#1B3C53', borderColor: '#1B3C53' }}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
+                                        border: 'none',
+                                        borderRadius: '8px'
+                                    }}
                                     onClick={handleFullScreenMap}
                                 >
                                     Full Screen
@@ -87,20 +96,24 @@ const PropertyLocation = ({ property }) => {
                     <Col xs={24} lg={8}>
                         <Card
                             title="Location Info"
-                            style={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                            style={{
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                            }}
                         >
                             <div style={{ marginBottom: '16px' }}>
-                                <EnvironmentOutlined style={{ marginRight: '8px', color: '#1B3C53' }} />
-                                <Text strong>{property.location || property.address || 'Location not specified'}</Text>
+                                <EnvironmentOutlined style={{ marginRight: '8px', color: '#001529' }} />
+                                <Text strong style={{ color: '#001529' }}>{property.location || property.address || 'Location not specified'}</Text>
                             </div>
                             {property.city && (
                                 <div style={{ marginBottom: '16px' }}>
-                                    <Text type="secondary">City: {property.city}</Text>
+                                    <Text type="secondary" style={{ color: '#001529' }}>City: {property.city}</Text>
                                 </div>
                             )}
                             {property.neighborhood && (
                                 <div style={{ marginBottom: '16px' }}>
-                                    <Text type="secondary">Neighborhood: {property.neighborhood}</Text>
+                                    <Text type="secondary" style={{ color: '#001529' }}>Neighborhood: {property.neighborhood}</Text>
                                 </div>
                             )}
                             <Button
@@ -108,8 +121,9 @@ const PropertyLocation = ({ property }) => {
                                 block
                                 style={{
                                     borderRadius: '8px',
-                                    background: '#1B3C53',
-                                    borderColor: '#1B3C53'
+                                    background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
+                                    border: 'none',
+                                    fontWeight: '600'
                                 }}
                                 onClick={handleExploreNeighborhood}
                             >

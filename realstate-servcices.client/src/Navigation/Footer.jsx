@@ -52,10 +52,8 @@ const Footer = () => {
         {
             title: 'Cities',
             links: [
-                { label: 'New York', href: '/cities/new-york' },
-                { label: 'Los Angeles', href: '/cities/los-angeles' },
-                { label: 'Chicago', href: '/cities/chicago' },
-                { label: 'Miami', href: '/cities/miami' },
+                { label: 'Magdalena Laguna', href: '/cities/new-york' },
+
                 { label: 'View All Cities', href: '/cities' }
             ]
         }
@@ -63,10 +61,7 @@ const Footer = () => {
 
     const socialLinks = [
         { icon: <FacebookOutlined />, href: '#', color: '#1877F2' },
-        { icon: <TwitterOutlined />, href: '#', color: '#1DA1F2' },
-        { icon: <InstagramOutlined />, href: '#', color: '#E4405F' },
         { icon: <LinkedinOutlined />, href: '#', color: '#0A66C2' },
-        { icon: <YoutubeOutlined />, href: '#', color: '#FF0000' }
     ];
 
     return (
@@ -78,33 +73,51 @@ const Footer = () => {
                         {/* Company Info */}
                         <Col xs={24} lg={6}>
                             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                <Title level={3} style={{ color: 'white', margin: 0 }}>
-                                    Betheland
-                                </Title>
-                                <Paragraph style={{ color: 'rgba(255, 255, 255, 0.8)', lineHeight: '1.6' }}>
-                                    Your trusted partner in finding the perfect property.
-                                    We connect dreams with addresses across the nation.
-                                </Paragraph>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start'
+                                }}>
+                                    <Title level={3} style={{
+                                        color: 'white',
+                                        margin: 0,
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                                        lineHeight: '1.2'
+                                    }}>
+                                        BETHELAND
+                                    </Title>
+                                    <Paragraph style={{
+                                        color: 'rgba(255, 255, 255, 0.8)',
+                                        lineHeight: '1.6',
+                                        margin: '4px 0 0 0',
+                                        fontSize: '14px',
+                                        fontWeight: 'normal'
+                                    }}>
+                                        Real Estate Services
+                                    </Paragraph>
+                                </div>
 
                                 {/* Contact Info */}
-                                <Space direction="vertical" size="small">
+                                <Space direction="vertical" size="small" style={{ marginTop: '16px' }}>
                                     <Space>
                                         <PhoneOutlined style={{ color: '#1890ff' }} />
                                         <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                                            +1 (555) 123-4567
+                                            0977-849-1888 / 0917-791-1981
                                         </Text>
                                     </Space>
                                     <Space>
                                         <MailOutlined style={{ color: '#1890ff' }} />
                                         <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                                            info@betheland.com
+                                            allanlao@betheland.com.ph
                                         </Text>
                                     </Space>
                                     <Space>
                                         <EnvironmentOutlined style={{ color: '#1890ff' }} />
                                         <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                                            123 Business Ave, Suite 100<br />
-                                            New York, NY 10001
+                                            E. Jacinto St. Poblacion,<br />
+                                            Magdalena, Philippines
                                         </Text>
                                     </Space>
                                 </Space>
@@ -143,33 +156,11 @@ const Footer = () => {
                         {/* Newsletter Subscription */}
                         <Col xs={24} md={12} lg={6}>
                             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                <Title level={4} style={{ color: 'white', margin: 0, fontSize: '16px' }}>
-                                    Newsletter
-                                </Title>
-                                <Paragraph style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                                    Subscribe to get updates on new properties and exclusive offers.
-                                </Paragraph>
+                           
 
-                                <Space.Compact style={{ width: '100%' }}>
-                                    <Input
-                                        placeholder="Enter your email"
-                                        size="large"
-                                        style={{
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            color: 'white'
-                                        }}
-                                    />
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        icon={<ArrowRightOutlined />}
-                                        style={{
-                                            background: '#1890ff',
-                                            borderColor: '#1890ff'
-                                        }}
-                                    />
-                                </Space.Compact>
+
+
+                            
 
                                 {/* Social Media Links */}
                                 <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '1rem' }}>

@@ -1,8 +1,6 @@
-﻿using Realstate_servcices.Server.Dto.Property;
-
-namespace Realstate_servcices.Server.Dto.Scheduling
+﻿namespace Realstate_servcices.Server.Dto.Scheduling
 {
-    public class SchedulePropertiesDto
+    public class ScheduleDto
     {
         public int Id { get; set; }
         public Guid ScheduleNo { get; set; }
@@ -15,10 +13,10 @@ namespace Realstate_servcices.Server.Dto.Scheduling
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        // Navigation properties
-        public PropertyHouseDto? Property { get; set; }
-        public AgentDto? Agent { get; set; }
-        public ClientDto? Client { get; set; }
-
+        // Additional properties for display
+        public string? PropertyTitle { get; set; }
+        public string? AgentName { get; set; }
+        public string? ClientName { get; set; }
+        public string? PropertyAddress { get; set; }
     }
 }

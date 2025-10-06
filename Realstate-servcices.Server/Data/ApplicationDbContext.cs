@@ -17,7 +17,7 @@ namespace Realstate_servcices.Server.Data
         public DbSet<BaseMember> BaseMembers { get; set; }
         public DbSet<Agent> Agents { get; set; }
         public DbSet<Client> Clients { get; set; }
-
+        public DbSet<Rating> Ratings { get; set; }
         public DbSet<PropertyHouse> Properties { get; set; }
         public DbSet<PropertyImage> PropertyImages { get; set; }
         public DbSet<ScheduleProperties> ScheduleProperties { get; set; }
@@ -41,7 +41,31 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.CreatedAt);
             });
 
-       
+            modelBuilder.Entity<Rating>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Score).IsRequired();
+                entity.Property(e => e.Comment).HasMaxLength(1000);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt).IsRequired(false);
+
+                // Relationships
+                entity.HasOne(r => r.Agent)
+                      .WithMany(a => a.Ratings)
+                      .HasForeignKey(r => r.AgentId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Client)
+                      .WithMany(c => c.Ratings)
+                      .HasForeignKey(r => r.ClientId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(r => new { r.AgentId, r.ClientId })
+                      .IsUnique();
+            });
+
+
+
             modelBuilder.Entity<BaseMember>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -54,23 +78,92 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.Username).IsUnique();
             });
 
-        
+
             modelBuilder.Entity<Agent>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.CellPhoneNo).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.LicenseNumber).IsRequired().HasMaxLength(100);
+
+                entity.Property(e => e.FirstName)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.MiddleName)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.LastName)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.Suffix)
+                      .HasMaxLength(10);
+
+                entity.Property(e => e.CellPhoneNo)
+                      .IsRequired()
+                      .HasMaxLength(20);
+
+                entity.Property(e => e.LicenseNumber)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.Bio)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.LicenseExpiry);
+
+                entity.Property(e => e.Experience)
+                      .HasMaxLength(500)
+                      .HasDefaultValue(string.Empty);
+
+                entity.Property(e => e.Specialization)
+                      .HasMaxLength(1000)
+                      .HasDefaultValue("[]");
+
+                entity.Property(e => e.OfficeAddress)
+                      .HasMaxLength(255);
+
+                entity.Property(e => e.OfficePhone)
+                      .HasMaxLength(50);
+
+                entity.Property(e => e.Website)
+                      .HasMaxLength(255);
+
+                entity.Property(e => e.Languages)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.Education)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.Awards)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.YearsOfExperience);
+
+                entity.Property(e => e.BrokerageName)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.IsVerified)
+                      .HasDefaultValue(false);
+
+                entity.Property(e => e.VerificationDate);
+
+                entity.Property(e => e.DateRegistered)
+                      .IsRequired();
 
                 // One-to-one relationship with BaseMember
                 entity.HasOne(a => a.BaseMember)
                       .WithOne(bm => bm.Agent)
                       .HasForeignKey<Agent>(a => a.BaseMemberId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => e.LicenseNumber).IsUnique();
+                entity.HasIndex(e => e.AgentNo).IsUnique();
+
+                // Optional: Add index for frequently queried fields
+                entity.HasIndex(e => e.IsVerified);
+                entity.HasIndex(e => e.DateRegistered);
             });
 
-       
             modelBuilder.Entity<Client>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -107,7 +200,7 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.Amenities).IsRequired().HasDefaultValue("[]");
 
                 // FIX: Ensure OwnerId is configured as nullable
-                entity.Property(e => e.OwnerId).IsRequired(false); // This allows NULL in database
+                entity.Property(e => e.OwnerId).IsRequired(false); 
 
                 // Relationships
                 entity.HasOne(p => p.Owner)

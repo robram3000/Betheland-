@@ -24,7 +24,7 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 Role = role,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                status = "Pending"
+                status = "Active"
             };
 
             _context.BaseMembers.Add(baseMember);

@@ -61,7 +61,7 @@ const ThirdSection = () => {
                                     'Flexible viewing schedules'
                                 ].map((item, index) => (
                                     <Space key={index} style={{ fontSize: '16px' }}>
-                                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                                        <CheckCircleOutlined style={{ color: '#001529' }} /> {/* Updated to dark blue */}
                                         <span style={{ color: '#001529' }}>{item}</span>
                                     </Space>
                                 ))}
@@ -75,7 +75,7 @@ const ThirdSection = () => {
                                     height: '50px',
                                     padding: '0 32px',
                                     fontSize: '16px',
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    background: 'linear-gradient(135deg, #001529 0%, #003366 100%)', // Updated to dark blue gradient
                                     border: 'none',
                                     borderRadius: '8px',
                                     fontWeight: '600',
@@ -98,7 +98,7 @@ const ThirdSection = () => {
                                         border: 'none',
                                         borderRadius: '12px',
                                         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                                        background: index === 0 ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white'
+                                        background: index === 0 ? 'linear-gradient(135deg, #001529 0%, #003366 100%)' : 'white' // Updated to dark blue gradient
                                     }}
                                     bodyStyle={{ padding: '1.5rem' }}
                                 >
@@ -107,12 +107,12 @@ const ThirdSection = () => {
                                             <div style={{
                                                 width: '60px',
                                                 height: '60px',
-                                                background: index === 0 ? 'white' : '#667eea',
+                                                background: index === 0 ? 'white' : '#001529', // Updated to dark blue
                                                 borderRadius: '50%',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                color: index === 0 ? '#667eea' : 'white',
+                                                color: index === 0 ? '#001529' : 'white', // Updated to dark blue
                                                 fontSize: '24px',
                                                 fontWeight: 'bold'
                                             }}>

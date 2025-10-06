@@ -10,7 +10,7 @@ const FirstSection = () => {
 
     return (
         <section style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #001529 0%, #003366 100%)', // Updated to dark blue gradient
             minHeight: '100vh',
             display: 'flex',
             alignItems: 'center',
@@ -51,7 +51,7 @@ const FirstSection = () => {
                                     padding: '0 32px',
                                     fontSize: '16px',
                                     background: 'white',
-                                    color: '#667eea',
+                                    color: '#001529', // Updated to dark blue
                                     border: 'none',
                                     borderRadius: '8px',
                                     fontWeight: '600'

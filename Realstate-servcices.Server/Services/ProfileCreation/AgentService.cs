@@ -20,7 +20,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         {
             try
             {
-  
                 if (await _baseMemberRepository.EmailExistsAsync(request.Email))
                 {
                     return new RegisterResponse { Success = false, Message = "Email already exists" };
@@ -30,7 +29,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 {
                     return new RegisterResponse { Success = false, Message = "Username already exists" };
                 }
-
 
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
@@ -67,11 +65,28 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 Email = agent.BaseMember.Email,
                 Username = agent.BaseMember.Username,
                 FirstName = agent.FirstName,
+                MiddleName = agent.MiddleName,
                 LastName = agent.LastName,
+                Suffix = agent.Suffix,
                 CellPhoneNo = agent.CellPhoneNo,
                 LicenseNumber = agent.LicenseNumber,
+                Bio = agent.Bio,
+                LicenseExpiry = agent.LicenseExpiry,
+                Experience = agent.Experience,
+                Specialization = agent.Specialization,
+                OfficeAddress = agent.OfficeAddress,
+                OfficePhone = agent.OfficePhone,
+                Website = agent.Website,
+                Languages = agent.Languages,
+                Education = agent.Education,
+                Awards = agent.Awards,
+                YearsOfExperience = agent.YearsOfExperience,
+                BrokerageName = agent.BrokerageName,
+                IsVerified = agent.IsVerified,
+                VerificationDate = agent.VerificationDate,
                 Status = agent.BaseMember.status,
-                CreatedAt = agent.BaseMember.CreatedAt
+                CreatedAt = agent.BaseMember.CreatedAt,
+                DateRegistered = agent.DateRegistered
             };
         }
 
@@ -84,11 +99,28 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 Email = agent.BaseMember.Email,
                 Username = agent.BaseMember.Username,
                 FirstName = agent.FirstName,
+                MiddleName = agent.MiddleName,
                 LastName = agent.LastName,
+                Suffix = agent.Suffix,
                 CellPhoneNo = agent.CellPhoneNo,
                 LicenseNumber = agent.LicenseNumber,
+                Bio = agent.Bio,
+                LicenseExpiry = agent.LicenseExpiry,
+                Experience = agent.Experience,
+                Specialization = agent.Specialization,
+                OfficeAddress = agent.OfficeAddress,
+                OfficePhone = agent.OfficePhone,
+                Website = agent.Website,
+                Languages = agent.Languages,
+                Education = agent.Education,
+                Awards = agent.Awards,
+                YearsOfExperience = agent.YearsOfExperience,
+                BrokerageName = agent.BrokerageName,
+                IsVerified = agent.IsVerified,
+                VerificationDate = agent.VerificationDate,
                 Status = agent.BaseMember.status,
-                CreatedAt = agent.BaseMember.CreatedAt
+                CreatedAt = agent.BaseMember.CreatedAt,
+                DateRegistered = agent.DateRegistered
             }).ToList();
         }
 

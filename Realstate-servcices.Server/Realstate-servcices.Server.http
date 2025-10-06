@@ -3,16 +3,162 @@
 @ContentType = application/json
 
 ### Health Check (HTTP)
-### Test with invalid data - Register agent with existing username
+GET {{Realstate_servcices.Server_HostAddress_HTTP}}/health
+
+### Health Check (HTTPS)
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/health
+
+### AGENT ENDPOINTS
+
+### 1. Register a new agent (Basic - Roberto Ramirez)
 POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
   "email": "roberto.ramirez@gmail.com",
-  "username": "Ram@3000",
+  "username": "roberto_ramirez",
   "password": "Ramirez@2k13",
   "firstName": "Roberto",
   "lastName": "Ramirez",
   "cellPhoneNo": "09666627948",
   "licenseNumber": "LIC-123458"
+}
+
+### 2. Register a new agent (Full details - Roberto Dela Cruz)
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
+Content-Type: {{ContentType}}
+
+{
+  "email": "roberto.delacruz@realestate.com",
+  "username": "roberto_dc",
+  "password": "SecurePass123!",
+  "firstName": "Roberto",
+  "middleName": "Santos",
+  "lastName": "Dela Cruz",
+  "suffix": "Jr.",
+  "cellPhoneNo": "09123456789",
+  "licenseNumber": "LIC-987654",
+  "bio": "Experienced real estate agent specializing in luxury properties with 8+ years in the industry. Committed to providing exceptional service to clients.",
+  "licenseExpiry": "2025-12-31",
+  "experience": "Specialized in residential properties, condominiums, and commercial spaces in Metro Manila",
+  "specialization": "[\"Condominiums\", \"Luxury Homes\", \"Commercial Spaces\"]",
+  "officeAddress": "456 Real Estate Ave, Makati City, Philippines",
+  "officePhone": "02-8123-4567",
+  "website": "https://roberto-delacruz-realestate.com",
+  "languages": "English, Tagalog, Spanish",
+  "education": "BS Real Estate Management - University of Santo Tomas",
+  "awards": "Top Seller 2022, Rookie of the Year 2018",
+  "yearsOfExperience": 8,
+  "brokerageName": "Metro Properties Inc."
+}
+
+### 3. Test with invalid data - Register agent with existing username
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
+Content-Type: {{ContentType}}
+
+{
+  "email": "another.roberto@gmail.com",
+  "username": "roberto_ramirez",
+  "password": "Password123!",
+  "firstName": "Roberto",
+  "lastName": "Garcia",
+  "cellPhoneNo": "09111111111",
+  "licenseNumber": "LIC-999999"
+}
+
+### 4. Test with invalid email format
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
+Content-Type: {{ContentType}}
+
+{
+  "email": "invalid-email",
+  "username": "roberto_invalid",
+  "password": "Password123!",
+  "firstName": "Roberto",
+  "lastName": "Invalid",
+  "cellPhoneNo": "09222222222",
+  "licenseNumber": "LIC-111111"
+}
+
+### 5. Get agent by ID (Replace {id} with actual agent ID after registration)
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/1
+Content-Type: {{ContentType}}
+
+### 6. Get all agents
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent
+Content-Type: {{ContentType}}
+
+### 7. Update agent details (Replace {id} with actual agent ID)
+PUT {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/1
+Content-Type: {{ContentType}}
+
+{
+  "firstName": "Roberto",
+  "lastName": "Ramirez",
+  "cellPhoneNo": "09777777777",
+  "licenseNumber": "LIC-123458-UPDATED",
+  "middleName": "Manuel",
+  "suffix": "Sr.",
+  "bio": "Updated bio: Senior real estate consultant with extensive experience in property management and investment advisory.",
+  "licenseExpiry": "2026-06-30",
+  "experience": "Over 12 years in real estate, specializing in property investments and commercial leasing",
+  "specialization": "[\"Property Investment\", \"Commercial Leasing\", \"Property Management\"]",
+  "officeAddress": "789 Updated Office St, BGC Taguig",
+  "officePhone": "02-8888-9999",
+  "website": "https://roberto-ramirez-updated.com",
+  "languages": "English, Tagalog, Spanish, Mandarin",
+  "education": "MBA in Real Estate - Ateneo de Manila University",
+  "awards": "Top Performer 2020-2023, Excellence in Service Award 2022",
+  "yearsOfExperience": 12,
+  "brokerageName": "Prime Properties Group",
+  "isVerified": true
+}
+
+### 8. Update agent status (Replace {id} with actual agent ID)
+PATCH {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/1/status
+Content-Type: {{ContentType}}
+
+{
+  "status": "Inactive"
+}
+
+### 9. Update agent status to Active
+PATCH {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/1/status
+Content-Type: {{ContentType}}
+
+{
+  "status": "Active"
+}
+
+### 10. Delete agent (Replace {id} with actual agent ID)
+DELETE {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/1
+Content-Type: {{ContentType}}
+
+### 11. Get non-existent agent (Should return 404)
+GET {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/999
+Content-Type: {{ContentType}}
+
+### 12. Update non-existent agent (Should return error)
+PUT {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/999
+Content-Type: {{ContentType}}
+
+{
+  "firstName": "Non",
+  "lastName": "Existent",
+  "cellPhoneNo": "09000000000",
+  "licenseNumber": "LIC-000000"
+}
+
+### 13. Register agent with minimal required fields only
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
+Content-Type: {{ContentType}}
+
+{
+  "email": "minimal.roberto@test.com",
+  "username": "roberto_min",
+  "password": "Minimal123!",
+  "firstName": "Roberto",
+  "lastName": "Minimal",
+  "cellPhoneNo": "09333333333",
+  "licenseNumber": "LIC-MINIMAL"
 }
