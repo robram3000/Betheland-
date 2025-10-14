@@ -14,7 +14,9 @@ namespace Realstate_servcices.Server.Dto.Property
         public int PropertyFloor { get; set; } = 1;
         public int Bedrooms { get; set; } = 1;
         public decimal Bathrooms { get; set; } = 1;
-        public int AreaSqft { get; set; }
+        public int AreaSqm { get; set; }
+        public int Kitchen { get; set; }
+        public int Garage { get; set; }
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
@@ -23,10 +25,12 @@ namespace Realstate_servcices.Server.Dto.Property
         public decimal? Longitude { get; set; }
         public string Status { get; set; } = "available";
         public int? OwnerId { get; set; } = null;
-        public int? AgentId { get; set; } = null; 
+        public int? AgentId { get; set; } = null;
         public string Amenities { get; set; } = "[]";
         public DateTime ListedDate { get; set; } = DateTime.UtcNow;
         public List<PropertyImageDto> PropertyImages { get; set; } = new List<PropertyImageDto>();
+        public List<PropertyVideoDto> PropertyVideos { get; set; } = new List<PropertyVideoDto>();
         public string MainImage { get; set; } = string.Empty;
+        public string MainVideo { get; set; } = string.Empty;
     }
 }

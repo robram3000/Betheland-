@@ -1,12 +1,37 @@
-﻿// PropertyHeader.jsx (updated with agent picture)
-import React, { useState } from 'react';
-import { Row, Col, Typography, Rate, Tag, Button, Space, Avatar } from 'antd';
-import { EnvironmentOutlined, HeartOutlined, HeartFilled, CalendarOutlined, ShareAltOutlined, MessageOutlined } from '@ant-design/icons';
+﻿import React, { useState, useEffect } from 'react';
+import { Row, Col, Typography, Rate, Tag, Button, Space, Avatar, Skeleton } from 'antd';
+import { EnvironmentOutlined, HeartOutlined, HeartFilled, CalendarOutlined, ShareAltOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons';
+import { agentService } from './Services/GetAgent';
 
 const { Title, Text } = Typography;
 
 const PropertyHeader = ({ property }) => {
     const [isFavorite, setIsFavorite] = useState(false);
+    const [agent, setAgent] = useState(null);
+    const [loadingAgent, setLoadingAgent] = useState(false);
+
+    // Fetch agent information
+    useEffect(() => {
+        const fetchAgent = async () => {
+            if (!property?.agentId) {
+                setAgent(null);
+                return;
+            }
+
+            try {
+                setLoadingAgent(true);
+                const agentData = await agentService.getAgentById(property.agentId);
+                setAgent(agentData);
+            } catch (error) {
+                console.error('Error fetching agent:', error);
+                setAgent(null);
+            } finally {
+                setLoadingAgent(false);
+            }
+        };
+
+        fetchAgent();
+    }, [property?.agentId]);
 
     const toggleFavorite = () => {
         setIsFavorite(!isFavorite);
@@ -38,6 +63,36 @@ const PropertyHeader = ({ property }) => {
         return `₱${price}`;
     };
 
+    // Process agent image URL
+    const processAgentImageUrl = (url) => {
+        if (!url || url === 'string') {
+            return '/default-avatar.jpg';
+        }
+
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/agents/${url}`;
+        }
+
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+
+        return '/default-avatar.jpg';
+    };
+
+    const agentName = agent ? `${agent.FirstName} ${agent.LastName}`.trim() : 'Unknown Agent';
+    const agentImage = agent ? processAgentImageUrl(agent.BaseMember?.profilePictureUrl) : '/default-avatar.jpg';
+    const brokerageName = agent?.BrokerageName || 'Real Estate Company';
+    const agentLicense = agent?.LicenseNumber ? `License: ${agent.LicenseNumber}` : 'Licensed Agent';
+
     return (
         <div style={{ padding: '40px 0', background: 'linear-gradient(135deg, #001529 0%, #003366 100%)' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
@@ -64,19 +119,34 @@ const PropertyHeader = ({ property }) => {
                                     <Text style={{ color: 'rgba(255, 255, 255, 0.9)', display: 'block', fontSize: '14px' }}>
                                         Listed by
                                     </Text>
-                                    <Text strong style={{ color: 'white', fontSize: '16px' }}>
-                                        {property.agent?.name || 'Agent Name'}
-                                    </Text>
-                                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', fontSize: '12px' }}>
-                                        {property.agent?.company || 'Real Estate Company'}
-                                    </Text>
+                                    {loadingAgent ? (
+                                        <Skeleton paragraph={{ rows: 1 }} />
+                                    ) : (
+                                        <>
+                                            <Text strong style={{ color: 'white', fontSize: '16px' }}>
+                                                {agentName}
+                                            </Text>
+                                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', fontSize: '12px' }}>
+                                                {brokerageName}
+                                            </Text>
+                                            {agentLicense && (
+                                                <Text style={{ color: 'rgba(255, 255, 255, 0.6)', display: 'block', fontSize: '10px' }}>
+                                                    {agentLicense}
+                                                </Text>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                                 <Avatar
                                     size={60}
-                                    src={property.agent?.photo || 'https://via.placeholder.com/60x60?text=Agent'}
+                                    src={agentImage}
+                                    icon={!agentImage && <UserOutlined />}
                                     style={{
                                         border: '3px solid rgba(255, 255, 255, 0.3)',
                                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                                    }}
+                                    onError={(e) => {
+                                        e.target.src = '/default-avatar.jpg';
                                     }}
                                 />
                             </div>

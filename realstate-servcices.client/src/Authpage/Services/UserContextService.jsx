@@ -30,7 +30,7 @@ export const UserProvider = ({ children }) => {
         } else {
             setUserPermissions([]);
         }
-    }, [user]);
+    }, [user]); 
 
     // Track user activity
     useEffect(() => {
@@ -147,6 +147,7 @@ export const UserProvider = ({ children }) => {
     };
 
     // Login function for context
+    // In login function - UPDATE THE MAPPING
     const login = async (usernameOrEmail, password, rememberMe = false) => {
         setLoading(true);
         try {
@@ -156,26 +157,31 @@ export const UserProvider = ({ children }) => {
                 const currentUser = authService.getCurrentUser();
                 console.log("UserContext - Current User:", currentUser);
 
-                // Ensure role consistency
+                // ✅ Enhanced debugging
+                console.log("Login result data:", result.data);
+                console.log("ImageProfile from backend:", result.data.ImageProfile);
+
                 const normalizedUser = {
                     ...currentUser,
-                    role: currentUser?.role || currentUser?.userType // Map userType to role
+                    role: currentUser?.role || currentUser?.userType
                 };
 
                 setUser(normalizedUser);
 
-                // Set permissions
                 const userRole = normalizedUser?.role;
                 setUserPermissions(rolePermissions[userRole] || []);
 
-                // Set profile from auth data
+                // ✅ Ensure profile picture is properly mapped
                 const userData = {
                     userId: result.data.userId,
                     email: result.data.email,
                     userType: result.data.userType,
                     username: result.data.username || '',
-                    role: result.data.userType // Ensure role is set
+                    role: result.data.userType,
+                    profilePicture: result.data.ImageProfile || currentUser?.profilePicture
                 };
+
+                console.log("Setting profile data:", userData);
                 setProfile(userData);
             }
 
@@ -266,12 +272,7 @@ export const UserProvider = ({ children }) => {
         const allowedRoles = routePermissions[routePath] || [];
         const userRole = user?.role || user?.userType;
 
-        console.log("🔐 Route Access Check:", {
-            route: routePath,
-            userRole: userRole,
-            allowedRoles: allowedRoles,
-            hasAccess: allowedRoles.includes(userRole)
-        });
+      
 
         return allowedRoles.includes(userRole);
     };

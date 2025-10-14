@@ -78,7 +78,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 .FirstOrDefaultAsync(bm => bm.Email == email);
         }
 
-        // Updated to return bool
         public async Task<bool> UpdatePasswordAsync(int id, string newPasswordHash)
         {
             try
@@ -94,10 +93,35 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             }
             catch (Exception ex)
             {
-                // Log the exception
                 Console.WriteLine($"Error updating password: {ex.Message}");
                 return false;
             }
+        }
+
+        public async Task<bool> UpdateProfilePictureAsync(int id, string profilePictureUrl)
+        {
+            try
+            {
+                var baseMember = await _context.BaseMembers.FindAsync(id);
+                if (baseMember == null)
+                    return false;
+
+                baseMember.ProfilePictureUrl = profilePictureUrl;
+                baseMember.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating profile picture: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<BaseMember?> GetBaseMemberByIdAsync(int id)
+        {
+            return await _context.BaseMembers
+                .FirstOrDefaultAsync(b => b.Id == id);
         }
     }
 }

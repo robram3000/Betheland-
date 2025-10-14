@@ -36,8 +36,10 @@ namespace Realstate_servcices.Server.Entity.Properties
 
         [Column(TypeName = "decimal(3,1)")]
         public decimal Bathrooms { get; set; }
+        public int Garage { get; set; }
+        public int Kitchen { get; set; }
 
-        public int AreaSqft { get; set; }
+        public int AreaSqm { get; set; }
 
         [Required]
         [MaxLength(255)]
@@ -65,8 +67,7 @@ namespace Realstate_servcices.Server.Entity.Properties
         [MaxLength(20)]
         public string Status { get; set; } = "available";
 
-        // REMOVE [Required] and change to int?
-        public int? OwnerId { get; set; }  
+        public int? OwnerId { get; set; }
 
         public int? AgentId { get; set; }
 
@@ -81,15 +82,14 @@ namespace Realstate_servcices.Server.Entity.Properties
         public string Amenities { get; set; } = "[]";
 
         [ForeignKey("OwnerId")]
-        public virtual Client? Owner { get; set; } 
+        public virtual Client? Owner { get; set; }
 
         [ForeignKey("AgentId")]
         public virtual Agent? Agent { get; set; }
 
-        public virtual ICollection<PropertyImage>? PropertyImages { get; set; }
-
-        public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
-
-        public virtual ICollection<WishlistProperties>? Wishlists { get; set; }
+        public virtual ICollection<PropertyVideo> PropertyVideos { get; set; } = new List<PropertyVideo>();
+        public virtual ICollection<PropertyImage> PropertyImages { get; set; } = new List<PropertyImage>();
+        public virtual ICollection<ScheduleProperties> ScheduleProperties { get; set; } = new List<ScheduleProperties>();
+        public virtual ICollection<WishlistProperties> Wishlists { get; set; } = new List<WishlistProperties>();
     }
 }

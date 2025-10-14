@@ -1,4 +1,3 @@
-// BaseProperty.jsx - Ensure proper provider order
 import React from 'react';
 import { Layout, ConfigProvider } from 'antd';
 import PropertySearchPage from './PropertySearchPage';
@@ -23,11 +22,30 @@ const BaseProperty = () => {
                 <PropertyDataProvider>
                     <Layout style={{
                         minHeight: '100vh',
-                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }}>
                         <GlobalNavigation />
-                        <Content style={{ background: 'transparent' }}>
-                            <PropertySearchPage />
+                        <Content style={{
+                            background: 'transparent',
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: '100%',
+                                maxWidth: '100%',
+                                display: 'flex',
+                                justifyContent: 'center'
+                            }}>
+                                <PropertySearchPage />
+                            </div>
                         </Content>
                         <Footer />
                     </Layout>

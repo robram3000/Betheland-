@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// AgentController.cs
+using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Services.ProfileCreation;
+using Realstate_servcices.Server.Utilities.Storage; // Add this
+using Microsoft.AspNetCore.Http; // Add this
 
 namespace Realstate_servcices.Server.Controllers.Client
 {
@@ -9,10 +12,32 @@ namespace Realstate_servcices.Server.Controllers.Client
     public class AgentController : ControllerBase
     {
         private readonly IAgentService _agentService;
+        private readonly ILocalstorageImage _localStorageImage; // Add this
 
-        public AgentController(IAgentService agentService)
+        // Update constructor to inject ILocalstorageImage
+        public AgentController(IAgentService agentService, ILocalstorageImage localStorageImage)
         {
             _agentService = agentService;
+            _localStorageImage = localStorageImage;
+        }
+
+        [HttpPost("upload")]
+        public async Task<ActionResult> UploadImage(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { Success = false, Message = "No file uploaded" });
+            }
+
+            try
+            {
+                var imageUrl = await _localStorageImage.UploadImageAsync(file, "agents");
+                return Ok(new { Success = true, Url = imageUrl });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = ex.Message });
+            }
         }
 
         [HttpPost("register")]
@@ -27,7 +52,7 @@ namespace Realstate_servcices.Server.Controllers.Client
 
             if (result.Success)
             {
-                return CreatedAtAction(nameof(GetAgent), new { id = result.UserId }, result);
+                return Ok(result);
             }
 
             return BadRequest(result);
@@ -36,21 +61,55 @@ namespace Realstate_servcices.Server.Controllers.Client
         [HttpGet("{id}")]
         public async Task<ActionResult<AgentResponse>> GetAgent(int id)
         {
-            var agent = await _agentService.GetAgentAsync(id);
-
-            if (agent == null)
+            try
             {
-                return NotFound(new RegisterResponse { Success = false, Message = "Agent not found" });
-            }
+                var agent = await _agentService.GetAgentAsync(id);
 
-            return Ok(agent);
+                if (agent == null)
+                {
+                    return NotFound(new { Success = false, Message = "Agent not found" });
+                }
+
+                return Ok(new { Success = true, Data = agent });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "An error occurred while retrieving agent", Error = ex.Message });
+            }
+        }
+
+        [HttpGet("member/{baseMemberId}")]
+        public async Task<ActionResult<AgentResponse>> GetAgentByBaseMemberId(int baseMemberId)
+        {
+            try
+            {
+                var agent = await _agentService.GetAgentByBaseMemberIdAsync(baseMemberId);
+
+                if (agent == null)
+                {
+                    return NotFound(new { Success = false, Message = "Agent not found for the specified base member" });
+                }
+
+                return Ok(new { Success = true, Data = agent });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "An error occurred while retrieving agent", Error = ex.Message });
+            }
         }
 
         [HttpGet]
         public async Task<ActionResult<List<AgentResponse>>> GetAllAgents()
         {
-            var agents = await _agentService.GetAllAgentsAsync();
-            return Ok(agents);
+            try
+            {
+                var agents = await _agentService.GetAllAgentsAsync();
+                return Ok(new { Success = true, Data = agents });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "An error occurred while retrieving agents", Error = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
@@ -89,6 +148,26 @@ namespace Realstate_servcices.Server.Controllers.Client
             return BadRequest(result);
         }
 
+        [HttpPatch("{id}/verify")]
+        public async Task<ActionResult<RegisterResponse>> VerifyAgent(int id)
+        {
+            try
+            {
+                var result = await _agentService.UpdateAgentStatusAsync(id, "Verified");
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return BadRequest(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "An error occurred while verifying agent", Error = ex.Message });
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult<RegisterResponse>> DeleteAgent(int id)
         {
@@ -102,4 +181,6 @@ namespace Realstate_servcices.Server.Controllers.Client
             return BadRequest(result);
         }
     }
+
+
 }

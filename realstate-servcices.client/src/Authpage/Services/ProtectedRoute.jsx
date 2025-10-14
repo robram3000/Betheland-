@@ -12,22 +12,8 @@ const ProtectedRoute = ({
     requiredAllPermissions = [],
     fallbackPath = "/unauthorized"
 }) => {
-    const { isAuthenticated, user, loading, hasRole, hasPermission, hasAnyPermission, hasAllPermissions, canAccessRoute } = useUser();
+    const { isAuthenticated, loading, hasRole, hasPermission, hasAnyPermission, hasAllPermissions, canAccessRoute } = useUser();
     const location = useLocation();
-
-    useEffect(() => {
-        if (!loading) {
-            console.log("🔒 ProtectedRoute Debug:", {
-                path: location.pathname,
-                userRole: user?.role || user?.userType,
-                isAuthenticated,
-                requiredRole,
-                requiredPermission,
-                requiredAnyPermission,
-                requiredAllPermissions
-            });
-        }
-    }, [loading, location.pathname, user, isAuthenticated]);
 
     if (loading) {
         return (
@@ -73,7 +59,7 @@ const ProtectedRoute = ({
         return <Navigate to={fallbackPath} replace />;
     }
 
-    console.log("✅ Access granted to:", currentPath);
+
     return children;
 };
 
@@ -120,16 +106,7 @@ export const RoleSpecificRoute = ({
 }) => {
     const { user, loading } = useUser();
 
-    useEffect(() => {
-        if (!loading && user) {
-            const userRole = user?.role || user?.userType;
-            console.log("🎯 RoleSpecificRoute Debug:", {
-                userRole,
-                allowedRoles,
-                hasAccess: allowedRoles.includes(userRole)
-            });
-        }
-    }, [loading, user, allowedRoles]);
+
 
     if (loading) {
         return (

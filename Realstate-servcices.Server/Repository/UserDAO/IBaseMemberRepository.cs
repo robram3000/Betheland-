@@ -9,12 +9,12 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         Task<BaseMember> UpdateBaseMemberStatusAsync(int id, string status);
         Task<bool> EmailExistsAsync(string email);
         Task<bool> UsernameExistsAsync(string username);
-
         Task<BaseMember?> FindByEmailAsync(string email);
         Task<BaseMember?> FindByUsernameAsync(string username);
         Task<BaseMember?> FindByUsernameOrEmailAsync(string usernameOrEmail);
-
         Task<BaseMember?> GetBaseMemberByEmailAsync(string email);
         Task<bool> UpdatePasswordAsync(int id, string newPasswordHash);
+        Task<bool> UpdateProfilePictureAsync(int id, string profilePictureUrl);
+        Task<BaseMember?> GetBaseMemberByIdAsync(int id);
     }
 }

@@ -1,4 +1,4 @@
-// Services/LoginAuth.jsx (Enhanced)
+﻿// Services/LoginAuth.jsx (Enhanced)
 import api from './Api';
 
 class AuthService {
@@ -119,19 +119,20 @@ class AuthService {
 
         storage.setItem('authToken', authData.accessToken);
         storage.setItem('refreshToken', authData.refreshToken || '');
+
+        // ✅ Use consistent property name - store as profilePicture
         storage.setItem('userData', JSON.stringify({
             userId: authData.userId,
             email: authData.email,
             userType: authData.userType,
-            username: authData.username || ''
+            username: authData.username || '',
+            profilePicture: authData.ImageProfile || '' // Map ImageProfile to profilePicture
         }));
 
-        // Also set in localStorage for token refresh service
         if (!rememberMe) {
             localStorage.setItem('sessionAuthToken', authData.accessToken);
         }
     }
-
     // Get token from appropriate storage
     getToken() {
         return localStorage.getItem('authToken') ||
@@ -187,14 +188,19 @@ class AuthService {
             const user = JSON.parse(userData);
             const payload = JSON.parse(atob(token.split('.')[1]));
 
+            // ✅ Debug logging to see what's actually stored
+            console.log("Stored user data:", user);
+            console.log("Profile picture from storage:", user.profilePicture);
+
             return {
                 userId: user.userId,
                 email: user.email,
                 userType: user.userType,
                 username: payload.unique_name || payload.sub || user.username,
                 role: payload.role || user.userType,
+                profilePicture: user.profilePicture, // ✅ Use the stored property name
                 expiresAt: new Date(payload.exp * 1000),
-                rememberMe: !!localStorage.getItem('authToken') 
+                rememberMe: !!localStorage.getItem('authToken')
             };
         } catch (error) {
             console.error('Error parsing user data:', error);

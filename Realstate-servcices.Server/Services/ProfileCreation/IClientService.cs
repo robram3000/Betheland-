@@ -5,10 +5,15 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
     public interface IClientService
     {
         Task<RegisterResponse> CreateClientAsync(ClientRegisterRequest request);
-        Task<ClientResponse?> GetClientAsync(int id);
+        Task<ClientResponse?> GetClientAsync(int baseMemberId);
         Task<List<ClientResponse>> GetAllClientsAsync();
-        Task<RegisterResponse> UpdateClientAsync(int id, ClientUpdateRequest request);
-        Task<RegisterResponse> UpdateClientStatusAsync(int id, string status);
-        Task<RegisterResponse> DeleteClientAsync(int id);
+        Task<RegisterResponse> UpdateClientAsync(int baseMemberId, ClientUpdateRequest request);
+        Task<RegisterResponse> UpdateClientStatusAsync(int baseMemberId, string status);
+        Task<RegisterResponse> DeleteClientAsync(int baseMemberId);
+
+        // Profile picture methods
+        Task<ProfilePictureResponse> UploadProfilePictureAsync(int baseMemberId, IFormFile file);
+        Task<ProfilePictureResponse> DeleteProfilePictureAsync(int baseMemberId);
+        Task<string?> GetProfilePictureAsync(int baseMemberId);
     }
 }

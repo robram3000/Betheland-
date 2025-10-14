@@ -108,7 +108,6 @@ namespace Realstate_servcices.Server.Controllers.Client
         {
             try
             {
-                // Find the wishlist item by clientId and propertyId
                 var wishlistItem = await _context.Wishlists
                     .FirstOrDefaultAsync(w => w.ClientId == clientId && w.PropertyId == propertyId);
 
@@ -160,7 +159,7 @@ namespace Realstate_servcices.Server.Controllers.Client
         {
             try
             {
-                // Get user ID from claims (adjust based on your auth setup)
+               
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userIdClaim))
                     return Unauthorized();

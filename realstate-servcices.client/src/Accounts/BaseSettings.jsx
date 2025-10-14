@@ -1,4 +1,3 @@
-// BaseSettings.jsx
 import React from 'react';
 import { Layout, ConfigProvider } from 'antd';
 import SettingsPage from './SettingsPage';

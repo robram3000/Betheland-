@@ -1,4 +1,4 @@
-// WishlistAdded.jsx - Complete Fixed Version
+// WishlistAdded.jsx - Complete Fixed Version with Real-time Sync
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../../Authpage/Services/Api';
 
@@ -108,6 +108,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     const [wishlistCount, setWishlistCount] = useState(0);
     const [authInfo, setAuthInfo] = useState(getAuthInfo());
     const [initialized, setInitialized] = useState(false);
+    const [updateTrigger, setUpdateTrigger] = useState(0);
 
     // Global reference for external access
     useEffect(() => {
@@ -125,7 +126,8 @@ export const WishlistDataProvider = ({ children, clientId }) => {
             },
             clearClientId: () => {
                 localStorage.removeItem('clientId');
-            }
+            },
+            triggerUpdate: () => setUpdateTrigger(prev => prev + 1)
         };
 
         return () => {
@@ -149,6 +151,18 @@ export const WishlistDataProvider = ({ children, clientId }) => {
             clearInterval(authCheckInterval);
         };
     }, []);
+
+    // Always keep wishlistCount in sync with wishlistItems
+    useEffect(() => {
+        const count = Array.isArray(wishlistItems) ? wishlistItems.length : 0;
+        if (count !== wishlistCount) {
+            setWishlistCount(count);
+        }
+    }, [wishlistItems, wishlistCount]);
+
+    const triggerUpdate = () => {
+        setUpdateTrigger(prev => prev + 1);
+    };
 
     const getClientIdFromServer = async () => {
         try {
@@ -207,12 +221,14 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     const loadWishlist = async () => {
         if (!authInfo.isAuthenticated) {
             setError('Authentication required');
+            setWishlistCount(0);
             return [];
         }
 
         const currentClientId = await getCurrentClientId();
         if (!currentClientId) {
             setError('Unable to determine client ID. Please log in again.');
+            setWishlistCount(0);
             return [];
         }
 
@@ -220,12 +236,15 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         setError(null);
         try {
             const data = await wishlistService.getClientWishlist(currentClientId);
-            setWishlistItems(data || []);
-            setWishlistCount(Array.isArray(data) ? data.length : 0);
-            return data || [];
+            const items = data || [];
+            setWishlistItems(items);
+            setWishlistCount(items.length);
+            triggerUpdate(); // Notify all components
+            return items;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to load wishlist';
             setError(errorMessage);
+            setWishlistCount(0);
             console.error('Error loading wishlist:', err);
 
             if (err?.status === 401) {
@@ -264,7 +283,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
 
             // Update local state
             setWishlistItems(prev => [...prev, newItem]);
-            setWishlistCount(prev => prev + 1);
+            triggerUpdate(); // Notify all components
 
             return newItem;
         } catch (err) {
@@ -294,7 +313,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         try {
             await wishlistService.removeFromWishlist(wishlistItemId);
             setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId));
-            setWishlistCount(prev => prev - 1);
+            triggerUpdate(); // Notify all components
             return true;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to remove from wishlist';
@@ -313,7 +332,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     };
 
     // Remove from wishlist by property ID
-    // In removeFromWishlistByProperty method, use the working endpoint:
     const removeFromWishlistByProperty = async (propertyId) => {
         if (!authInfo.isAuthenticated) {
             throw new Error('Authentication required');
@@ -331,7 +349,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
             await wishlistService.removeFromWishlistByProperty(currentClientId, propertyId);
 
             setWishlistItems(prev => prev.filter(item => item.propertyId !== propertyId));
-            setWishlistCount(prev => prev - 1);
+            triggerUpdate(); // Notify all components
             return true;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to remove from wishlist';
@@ -375,7 +393,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         }
     };
 
-    // In toggleWishlist function:
+    // Toggle wishlist function
     const toggleWishlist = async (propertyId, isFavorite, notes = '') => {
         if (!authInfo.isAuthenticated) {
             throw new Error('Please log in to manage your wishlist');
@@ -421,6 +439,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         setWishlistItems([]);
         setWishlistCount(0);
         setError(null);
+        triggerUpdate(); // Notify all components
     };
 
     // Get wishlist property IDs
@@ -473,6 +492,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         isAuthenticated: authInfo.isAuthenticated,
         currentUserId: authInfo.userId,
         clientId: authInfo.isAuthenticated ? getCurrentClientId() : null,
+        updateTrigger,
 
         // Actions
         loadWishlist,
@@ -487,6 +507,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         refreshWishlist,
         setClientId,
         clearClientId,
+        triggerUpdate,
 
         // Aliases for convenience
         addItem: addToWishlist,

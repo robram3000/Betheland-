@@ -6,120 +6,60 @@ using Realstate_servcices.Server.Repository.ScheduleDao;
 
 namespace Realstate_servcices.Server.Services.Scheduling
 {
-    public class ScheduleServices : IScheduleServices
+    public class SchedulingServices : ISchedulingServices
     {
-        private readonly IScheduleRepository _scheduleRepository;
+        private readonly ISchedulingRepository _schedulingRepository;
 
-        public ScheduleServices(IScheduleRepository scheduleRepository)
+        public SchedulingServices(ISchedulingRepository schedulingRepository)
         {
-            _scheduleRepository = scheduleRepository;
+            _schedulingRepository = schedulingRepository;
         }
 
-        public async Task<ScheduleResponseDto> GetScheduleByIdAsync(int id)
+        public async Task<ScheduleResponseDto?> GetScheduleByIdAsync(int id)
         {
-            var schedule = await _scheduleRepository.GetByIdAsync(id);
-            if (schedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Schedule not found." };
-            }
-
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule retrieved successfully.",
-                Data = MapToDto(schedule)
-            };
+            var schedule = await _schedulingRepository.GetByIdAsync(id);
+            return schedule != null ? MapToDto(schedule) : null;
         }
 
-        public async Task<ScheduleResponseDto> GetScheduleByNoAsync(Guid scheduleNo)
+        public async Task<IEnumerable<ScheduleResponseDto>> GetAllSchedulesAsync()
         {
-            var schedule = await _scheduleRepository.GetByScheduleNoAsync(scheduleNo);
-            if (schedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Schedule not found." };
-            }
-
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule retrieved successfully.",
-                Data = MapToDto(schedule)
-            };
+            var schedules = await _schedulingRepository.GetAllAsync();
+            return schedules.Select(MapToDto);
         }
 
-        public async Task<SchedulesResponseDto> GetAllSchedulesAsync()
+        public async Task<IEnumerable<ScheduleResponseDto>> GetSchedulesByAgentAsync(int agentId)
         {
-            var schedules = await _scheduleRepository.GetAllAsync();
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = "Schedules retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
+            var schedules = await _schedulingRepository.GetByAgentIdAsync(agentId);
+            return schedules.Select(MapToDto);
         }
 
-        public async Task<SchedulesResponseDto> GetSchedulesByAgentAsync(int agentId)
+        public async Task<IEnumerable<ScheduleResponseDto>> GetSchedulesByClientAsync(int clientId)
         {
-            var schedules = await _scheduleRepository.GetByAgentIdAsync(agentId);
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = "Agent schedules retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
+            var schedules = await _schedulingRepository.GetByClientIdAsync(clientId);
+            return schedules.Select(MapToDto);
         }
 
-        public async Task<SchedulesResponseDto> GetSchedulesByClientAsync(int clientId)
+        public async Task<IEnumerable<ScheduleResponseDto>> GetSchedulesByPropertyAsync(int propertyId)
         {
-            var schedules = await _scheduleRepository.GetByClientIdAsync(clientId);
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = "Client schedules retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
+            var schedules = await _schedulingRepository.GetByPropertyIdAsync(propertyId);
+            return schedules.Select(MapToDto);
         }
 
-        public async Task<SchedulesResponseDto> GetSchedulesByPropertyAsync(int propertyId)
+        public async Task<IEnumerable<ScheduleResponseDto>> GetUpcomingSchedulesAsync(int days = 7)
         {
-            var schedules = await _scheduleRepository.GetByPropertyIdAsync(propertyId);
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = "Property schedules retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
-        }
-
-        public async Task<SchedulesResponseDto> GetSchedulesByStatusAsync(string status)
-        {
-            var schedules = await _scheduleRepository.GetByStatusAsync(status);
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = $"Schedules with status '{status}' retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
-        }
-
-        public async Task<SchedulesResponseDto> GetSchedulesByDateRangeAsync(DateTime startDate, DateTime endDate)
-        {
-            var schedules = await _scheduleRepository.GetSchedulesByDateRangeAsync(startDate, endDate);
-            return new SchedulesResponseDto
-            {
-                Success = true,
-                Message = "Schedules for date range retrieved successfully.",
-                Data = schedules.Select(MapToDto).ToList()
-            };
+            var schedules = await _schedulingRepository.GetUpcomingSchedulesAsync(days);
+            return schedules.Select(MapToDto);
         }
 
         public async Task<ScheduleResponseDto> CreateScheduleAsync(CreateScheduleDto createDto)
         {
-            // Check if time slot is available
-            var isAvailable = await _scheduleRepository.IsTimeSlotAvailableAsync(createDto.AgentId, createDto.ScheduleTime);
+            // Validate time slot availability
+            var isAvailable = await _schedulingRepository.IsTimeSlotAvailableAsync(
+                createDto.AgentId, createDto.ScheduleTime);
+
             if (!isAvailable)
             {
-                return new ScheduleResponseDto { Success = false, Message = "Time slot is not available for the selected agent." };
+                throw new InvalidOperationException("The selected time slot is not available for this agent.");
             }
 
             var schedule = new ScheduleProperties
@@ -133,30 +73,25 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 CreatedAt = DateTime.UtcNow
             };
 
-            var createdSchedule = await _scheduleRepository.CreateAsync(schedule);
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule created successfully.",
-                Data = MapToDto(createdSchedule)
-            };
+            var createdSchedule = await _schedulingRepository.CreateAsync(schedule);
+            return MapToDto(createdSchedule);
         }
 
-        public async Task<ScheduleResponseDto> UpdateScheduleAsync(int id, UpdateScheduleDto updateDto)
+        public async Task<ScheduleResponseDto?> UpdateScheduleAsync(int id, UpdateScheduleDto updateDto)
         {
-            var existingSchedule = await _scheduleRepository.GetByIdAsync(id);
+            var existingSchedule = await _schedulingRepository.GetByIdAsync(id);
             if (existingSchedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Schedule not found." };
-            }
+                return null;
 
-            // If changing time, check availability
+            // If time is changed, check availability
             if (existingSchedule.ScheduleTime != updateDto.ScheduleTime)
             {
-                var isAvailable = await _scheduleRepository.IsTimeSlotAvailableAsync(existingSchedule.AgentId, updateDto.ScheduleTime);
+                var isAvailable = await _schedulingRepository.IsTimeSlotAvailableAsync(
+                    existingSchedule.AgentId, updateDto.ScheduleTime);
+
                 if (!isAvailable)
                 {
-                    return new ScheduleResponseDto { Success = false, Message = "New time slot is not available for the agent." };
+                    throw new InvalidOperationException("The selected time slot is not available for this agent.");
                 }
             }
 
@@ -165,83 +100,47 @@ namespace Realstate_servcices.Server.Services.Scheduling
             existingSchedule.Notes = updateDto.Notes;
             existingSchedule.UpdatedAt = DateTime.UtcNow;
 
-            var updatedSchedule = await _scheduleRepository.UpdateAsync(id, existingSchedule);
-            if (updatedSchedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Failed to update schedule." };
-            }
-
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule updated successfully.",
-                Data = MapToDto(updatedSchedule)
-            };
+            var updatedSchedule = await _schedulingRepository.UpdateAsync(existingSchedule);
+            return MapToDto(updatedSchedule);
         }
 
-        public async Task<ScheduleResponseDto> CancelScheduleAsync(int id)
+        public async Task<bool> CancelScheduleAsync(int id)
         {
-            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            var schedule = await _schedulingRepository.GetByIdAsync(id);
             if (schedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Schedule not found." };
-            }
+                return false;
 
             schedule.Status = "Cancelled";
             schedule.UpdatedAt = DateTime.UtcNow;
-
-            var updatedSchedule = await _scheduleRepository.UpdateAsync(id, schedule);
-            if (updatedSchedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Failed to cancel schedule." };
-            }
-
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule cancelled successfully.",
-                Data = MapToDto(updatedSchedule)
-            };
+            await _schedulingRepository.UpdateAsync(schedule);
+            return true;
         }
 
-        public async Task<ScheduleResponseDto> CompleteScheduleAsync(int id)
+        public async Task<bool> CompleteScheduleAsync(int id)
         {
-            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            var schedule = await _schedulingRepository.GetByIdAsync(id);
             if (schedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Schedule not found." };
-            }
+                return false;
 
             schedule.Status = "Completed";
             schedule.UpdatedAt = DateTime.UtcNow;
-
-            var updatedSchedule = await _scheduleRepository.UpdateAsync(id, schedule);
-            if (updatedSchedule == null)
-            {
-                return new ScheduleResponseDto { Success = false, Message = "Failed to complete schedule." };
-            }
-
-            return new ScheduleResponseDto
-            {
-                Success = true,
-                Message = "Schedule completed successfully.",
-                Data = MapToDto(updatedSchedule)
-            };
+            await _schedulingRepository.UpdateAsync(schedule);
+            return true;
         }
 
         public async Task<bool> DeleteScheduleAsync(int id)
         {
-            return await _scheduleRepository.DeleteAsync(id);
+            return await _schedulingRepository.DeleteAsync(id);
         }
 
         public async Task<bool> IsTimeSlotAvailableAsync(int agentId, DateTime scheduleTime)
         {
-            return await _scheduleRepository.IsTimeSlotAvailableAsync(agentId, scheduleTime);
+            return await _schedulingRepository.IsTimeSlotAvailableAsync(agentId, scheduleTime);
         }
 
-        private ScheduleDto MapToDto(ScheduleProperties schedule)
+        private static ScheduleResponseDto MapToDto(ScheduleProperties schedule)
         {
-            return new ScheduleDto
+            return new ScheduleResponseDto
             {
                 Id = schedule.Id,
                 ScheduleNo = schedule.ScheduleNo,
@@ -253,10 +152,10 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 Notes = schedule.Notes,
                 CreatedAt = schedule.CreatedAt,
                 UpdatedAt = schedule.UpdatedAt,
-                PropertyTitle = schedule.Property?.Title,
-                PropertyAddress = schedule.Property?.Address,
+                PropertyTitle = schedule.Property?.Title ?? string.Empty,
                 AgentName = $"{schedule.Agent?.FirstName} {schedule.Agent?.LastName}",
-                ClientName = $"{schedule.Client?.FirstName} {schedule.Client?.LastName}"
+                ClientName = $"{schedule.Client?.FirstName} {schedule.Client?.LastName}",
+                PropertyAddress = schedule.Property?.Address ?? string.Empty
             };
         }
     }

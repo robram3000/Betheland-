@@ -1,4 +1,4 @@
-// BaseLandingPage.jsx (updated)
+
 import React from 'react';
 import { Layout } from 'antd';
 import FirstSection from './FirstSection';
@@ -19,7 +19,7 @@ const BaseLandingPage = () => {
             <Content style={{ background: '#f8f9fa' }}>
                 <FirstSection />
                 <SecondSection />
-                <FeaturedProperties /> {/* Add Featured Properties section */}
+                <FeaturedProperties /> 
                 <ThirdSection />
                 <AgentsSection />
             </Content>

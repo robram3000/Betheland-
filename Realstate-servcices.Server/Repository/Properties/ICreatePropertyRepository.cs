@@ -14,6 +14,14 @@ namespace Realstate_servcices.Server.Repository.Properties
         Task<IEnumerable<PropertyHouse>> GetPropertiesByStatusAsync(string status);
         Task<IEnumerable<PropertyHouse>> SearchPropertiesAsync(string searchTerm);
         Task<bool> PropertyExistsAsync(int id);
-        Task<bool> OwnerExistsAsync(int ownerId); 
+        Task<bool> OwnerExistsAsync(int ownerId);
+
+        // Image methods
+        Task AddPropertyImagesAsync(int propertyId, List<PropertyImage> images);
+        Task UpdatePropertyImagesAsync(int propertyId, List<PropertyImage> images);
+
+        // Video methods
+        Task AddPropertyVideosAsync(int propertyId, List<PropertyVideo> videos);
+        Task UpdatePropertyVideosAsync(int propertyId, List<PropertyVideo> videos);
     }
 }

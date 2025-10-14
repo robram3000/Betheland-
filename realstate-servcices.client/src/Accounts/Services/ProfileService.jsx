@@ -1,306 +1,260 @@
-// Services/ProfileService.jsx
+﻿
 import api from '../../Authpage/Services/Api';
+import authService from '../../Authpage/Services/LoginAuth';
 
 class ProfileService {
-    // Get user profile
     async getProfile() {
         try {
-            const response = await api.get('/Client/profile');
+            const currentUser = authService.getCurrentUser();
 
-            if (response && response.success) {
+            if (!currentUser) {
                 return {
-                    success: true,
-                    data: response.data,
-                    message: response.message || 'Profile retrieved successfully'
+                    success: false,
+                    message: 'User not authenticated'
                 };
+            }
+
+            const response = await api.get(`/Client/${currentUser.userId}`);
+            if (!response) {
+                return {
+                    success: false,
+                    message: 'No response from server'
+                };
+            }
+
+            let clientData = response.data || response;
+            const mappedData = {
+                id: clientData.baseMemberId || clientData.id || currentUser.userId,
+                clientId: clientData.id,
+                baseMemberId: clientData.baseMemberId,
+                email: clientData.email || currentUser.email,
+                username: clientData.username || currentUser.username,
+                firstName: clientData.firstName,
+                lastName: clientData.lastName,
+                middleName: clientData.middleName,
+                suffix: clientData.suffix,
+                cellPhoneNo: clientData.cellPhoneNo,
+                country: clientData.country,
+                city: clientData.city,
+                street: clientData.street,
+                zipCode: clientData.zipCode,
+                gender: clientData.gender,
+                status: clientData.status,
+                createdAt: clientData.createdAt,
+                dateRegistered: clientData.dateRegistered,
+                profilePicture: clientData.profilePictureUrl || clientData.profilePicture,
+                address: clientData.address // Make sure this line is present
+            };
+
+            console.log('📋 ProfileService - Mapped data:', mappedData); // Debug log
+
+            return {
+                success: true,
+                data: mappedData,
+                message: 'Profile loaded successfully'
+            };
+        } catch (error) {
+            let errorMessage = 'Failed to load profile';
+            if (error.response) {
+                console.error('Response error details:', error.response);
+                errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+            } else if (error.request) {
+                errorMessage = 'No response from server - network error';
+            } else {
+                errorMessage = error.message || 'Failed to load profile';
             }
 
             return {
                 success: false,
-                message: response?.message || 'Failed to retrieve profile'
-            };
-        } catch (error) {
-            console.error('Get profile error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to retrieve profile';
-
-            return {
-                success: false,
-                message: errorMessage
+                message: errorMessage,
+                error: error
             };
         }
     }
-
-    // Update user profile
     async updateProfile(profileData) {
         try {
-            // Filter only modifiable fields for submission
-            const modifiableData = {
-                email: profileData.email,
+            const currentUser = authService.getCurrentUser();
+            if (!currentUser) {
+                return {
+                    success: false,
+                    message: 'User not authenticated'
+                };
+            }
+            const backendData = {
                 firstName: profileData.firstName,
-                middleName: profileData.middleName,
                 lastName: profileData.lastName,
-                suffix: profileData.suffix,
+                middleName: profileData.middleName,
                 cellPhoneNo: profileData.cellPhoneNo,
                 country: profileData.country,
                 city: profileData.city,
                 street: profileData.street,
-                zipCode: profileData.zipCode
+                zipCode: profileData.zipCode,
+                gender: profileData.gender,
+                address: profileData.address
             };
+            const response = await api.put(`/Client/${currentUser.userId}`, backendData);
+            return {
+                success: true,
+                data: response.data,
+                message: 'Profile updated successfully'
+            };
+        } catch (error) {
+        
 
-            const response = await api.put('/Client/profile', modifiableData);
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    data: response.data,
-                    message: response.message || 'Profile updated successfully'
-                };
+            let errorMessage = 'Failed to update profile';
+            if (error.response) {
+                errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+            } else if (error.request) {
+                errorMessage = 'No response from server - network error';
+            } else {
+                errorMessage = error.message || 'Failed to update profile';
             }
 
             return {
                 success: false,
-                message: response?.message || 'Failed to update profile'
-            };
-        } catch (error) {
-            console.error('Update profile error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to update profile';
-
-            return {
-                success: false,
-                message: errorMessage
+                message: errorMessage,
+                error: error
             };
         }
     }
-
-    // Update specific profile field
-    async updateProfileField(fieldName, value) {
-        try {
-            const updateData = { [fieldName]: value };
-
-            const response = await api.patch('/Client/profile/field', updateData);
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    data: response.data,
-                    message: response.message || 'Profile field updated successfully'
-                };
-            }
-
-            return {
-                success: false,
-                message: response?.message || 'Failed to update profile field'
-            };
-        } catch (error) {
-            console.error(`Update ${fieldName} error:`, error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                `Failed to update ${fieldName}`;
-
-            return {
-                success: false,
-                message: errorMessage
-            };
-        }
-    }
-
-    // Change password
-    async changePassword(passwordData) {
-        try {
-            const response = await api.post('/Client/change-password', passwordData);
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    message: response.message || 'Password changed successfully'
-                };
-            }
-
-            return {
-                success: false,
-                message: response?.message || 'Failed to change password'
-            };
-        } catch (error) {
-            console.error('Change password error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to change password';
-
-            return {
-                success: false,
-                message: errorMessage
-            };
-        }
-    }
-
-    // Verify OTP for password change
-    async verifyOtpForPasswordChange(otpData) {
-        try {
-            const response = await api.post('/Client/verify-otp-password', otpData);
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    message: response.message || 'OTP verified successfully'
-                };
-            }
-
-            return {
-                success: false,
-                message: response?.message || 'Invalid OTP'
-            };
-        } catch (error) {
-            console.error('OTP verification error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'OTP verification failed';
-
-            return {
-                success: false,
-                message: errorMessage
-            };
-        }
-    }
-
-    // Resend OTP
-    async resendOtp() {
-        try {
-            const response = await api.post('/Client/resend-otp');
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    message: response.message || 'OTP sent successfully'
-                };
-            }
-
-            return {
-                success: false,
-                message: response?.message || 'Failed to resend OTP'
-            };
-        } catch (error) {
-            console.error('Resend OTP error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to resend OTP';
-
-            return {
-                success: false,
-                message: errorMessage
-            };
-        }
-    }
-
-    // Upload profile picture
     async uploadProfilePicture(file) {
         try {
-            const formData = new FormData();
-            formData.append('profilePicture', file);
+            const currentUser = authService.getCurrentUser();
 
-            const response = await api.post('/Client/upload-profile-picture', formData, {
+            if (!currentUser) {
+                return {
+                    success: false,
+                    message: 'User not authenticated'
+                };
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await api.post(`/Client/${currentUser.userId}/profile-picture`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
             });
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    data: response.data,
-                    message: response.message || 'Profile picture uploaded successfully'
-                };
+            return {
+                success: true,
+                data: response.data,
+                message: 'Profile picture updated successfully'
+            };
+        } catch (error) {
+            let errorMessage = 'Failed to upload profile picture';
+            if (error.response) {
+                errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
             }
 
             return {
                 success: false,
-                message: response?.message || 'Failed to upload profile picture'
-            };
-        } catch (error) {
-            console.error('Upload profile picture error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to upload profile picture';
-
-            return {
-                success: false,
-                message: errorMessage
+                message: errorMessage,
+                error: error
             };
         }
     }
-
-    // Delete profile picture
     async deleteProfilePicture() {
         try {
-            const response = await api.delete('/Client/profile-picture');
+            const currentUser = authService.getCurrentUser();
 
-            if (response && response.success) {
+            if (!currentUser) {
                 return {
-                    success: true,
-                    message: response.message || 'Profile picture removed successfully'
+                    success: false,
+                    message: 'User not authenticated'
                 };
+            }
+
+            const response = await api.delete(`/Client/${currentUser.userId}/profile-picture`);
+
+            return {
+                success: true,
+                data: response.data,
+                message: 'Profile picture deleted successfully'
+            };
+        } catch (error) {
+            let errorMessage = 'Failed to delete profile picture';
+            if (error.response) {
+                errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
             }
 
             return {
                 success: false,
-                message: response?.message || 'Failed to remove profile picture'
-            };
-        } catch (error) {
-            console.error('Delete profile picture error:', error);
-
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to remove profile picture';
-
-            return {
-                success: false,
-                message: errorMessage
+                message: errorMessage,
+                error: error
             };
         }
     }
-
-    // Get user activity/logs
-    async getUserActivity() {
+    async changePassword(passwordData) {
         try {
-            const response = await api.get('/Client/activity');
-
-            if (response && response.success) {
-                return {
-                    success: true,
-                    data: response.data,
-                    message: response.message || 'User activity retrieved successfully'
-                };
+            const response = await api.post('/Login/change-password', {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
+            });
+            return {
+                success: true,
+                data: response.data,
+                message: 'Password changed successfully'
+            };
+        } catch (error) {
+            let errorMessage = 'Failed to change password';
+            if (error.response) {
+                errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
             }
 
             return {
                 success: false,
-                message: response?.message || 'Failed to retrieve user activity'
+                message: errorMessage,
+                error: error
             };
-        } catch (error) {
-            console.error('Get user activity error:', error);
+        }
+    }
+    async updateProfileField(fieldName, value) {
+        try {
+            const currentUser = authService.getCurrentUser();
+            if (!currentUser) {
+                return {
+                    success: false,
+                    message: 'User not authenticated'
+                };
+            }
 
-            const errorMessage = error?.message ||
-                error?.response?.data?.message ||
-                'Failed to retrieve user activity';
+            const updateData = { [fieldName]: value };
+            const response = await api.put(`/Client/${currentUser.userId}`, updateData);
 
             return {
+                success: true,
+                data: response.data,
+                message: `${fieldName} updated successfully`
+            };
+        } catch (error) {
+            console.error(`❌ ProfileService - Update ${fieldName} error:`, error);
+            return {
                 success: false,
-                message: errorMessage
+                message: error.message || `Failed to update ${fieldName}`
+            };
+        }
+    }
+    async testApiConnection() {
+        try {
+            const currentUser = authService.getCurrentUser();
+            if (!currentUser) {
+                return { success: false, message: 'No user' };
+            }
+            const testResponse = await api.get(`/Client/${currentUser.userId}`);
+            return {
+                success: true,
+                data: testResponse.data,
+                message: 'API test successful'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message,
+                error: error
             };
         }
     }
 }
 
-// Create singleton instance
 const profileService = new ProfileService();
 export default profileService;

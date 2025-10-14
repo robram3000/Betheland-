@@ -6,4 +6,5 @@
         public string Status { get; set; } = "Scheduled";
         public string? Notes { get; set; }
     }
+
 }

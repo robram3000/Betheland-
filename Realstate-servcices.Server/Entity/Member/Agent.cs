@@ -74,7 +74,7 @@ namespace Realstate_servcices.Server.Entity.member
         [MaxLength(100)]
         public string? BrokerageName { get; set; }
 
-        public bool IsVerified { get; set; } = false;
+        public bool IsVerified { get; set; }
 
         public DateTime? VerificationDate { get; set; }
 
@@ -88,5 +88,7 @@ namespace Realstate_servcices.Server.Entity.member
         public virtual ICollection<PropertyHouse>? Properties { get; set; }
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
         public virtual ICollection<Rating>? Ratings { get; set; }
+
+        
     }
-}
+}   

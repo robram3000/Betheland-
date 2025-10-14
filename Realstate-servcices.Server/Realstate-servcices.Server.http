@@ -29,9 +29,9 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "roberto.delacruz@realestate.com",
-  "username": "roberto_dc",
-  "password": "SecurePass123!",
+  "email": "roberto@realestate.com",
+  "username": "roberto_dc1234",
+  "password": "Ramirez@2k13",
   "firstName": "Roberto",
   "middleName": "Santos",
   "lastName": "Dela Cruz",
@@ -97,8 +97,8 @@ Content-Type: {{ContentType}}
   "lastName": "Ramirez",
   "cellPhoneNo": "09777777777",
   "licenseNumber": "LIC-123458-UPDATED",
-  "middleName": "Manuel",
-  "suffix": "Sr.",
+  "middleName": "Villar",
+  "suffix": "Jr.",
   "bio": "Updated bio: Senior real estate consultant with extensive experience in property management and investment advisory.",
   "licenseExpiry": "2026-06-30",
   "experience": "Over 12 years in real estate, specializing in property investments and commercial leasing",

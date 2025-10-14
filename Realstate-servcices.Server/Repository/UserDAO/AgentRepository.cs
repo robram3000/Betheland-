@@ -48,9 +48,18 @@ namespace Realstate_servcices.Server.Repository.UserDAO
 
         public async Task<Agent?> GetAgentByIdAsync(int id)
         {
-            return await _context.Agents
-                .Include(a => a.BaseMember)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            try
+            {
+                return await _context.Agents
+                    .Include(a => a.BaseMember)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.Id == id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAgentByIdAsync: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<Agent?> GetAgentByBaseMemberIdAsync(int baseMemberId)
@@ -73,6 +82,7 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             if (agent == null)
                 throw new ArgumentException($"Agent with ID {id} not found");
 
+            // Update agent properties
             agent.FirstName = request.FirstName;
             agent.MiddleName = request.MiddleName;
             agent.LastName = request.LastName;
@@ -92,12 +102,17 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             agent.YearsOfExperience = request.YearsOfExperience;
             agent.BrokerageName = request.BrokerageName;
 
-            if (request.IsVerified.HasValue && request.IsVerified.Value && !agent.IsVerified)
+            // Handle verification status
+            if (request.IsVerified.HasValue)
             {
-                agent.IsVerified = true;
-                agent.VerificationDate = DateTime.UtcNow;
+                agent.IsVerified = request.IsVerified.Value;
+                if (request.IsVerified.Value && !agent.IsVerified)
+                {
+                    agent.VerificationDate = DateTime.UtcNow;
+                }
             }
 
+            // Update base member timestamp
             var baseMember = await _context.BaseMembers.FindAsync(agent.BaseMemberId);
             if (baseMember != null)
             {
@@ -106,6 +121,26 @@ namespace Realstate_servcices.Server.Repository.UserDAO
 
             await _context.SaveChangesAsync();
             return agent;
+        }
+
+        public async Task<bool> UpdateVerificationStatusAsync(int id, bool isVerified)
+        {
+            var agent = await _context.Agents.FindAsync(id);
+            if (agent == null)
+                return false;
+
+            agent.IsVerified = isVerified;
+            if (isVerified)
+            {
+                agent.VerificationDate = DateTime.UtcNow;
+            }
+            else
+            {
+                agent.VerificationDate = null;
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> DeleteAgentAsync(int id)

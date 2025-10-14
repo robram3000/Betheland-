@@ -1,4 +1,4 @@
-// GlobalAdminNavigation.jsx
+// GlobalAdminNavigation.jsx - Mobile Enhanced
 import React, { useState } from 'react';
 import {
     Layout,
@@ -11,58 +11,50 @@ import {
     theme,
 } from 'antd';
 import {
-    SecurityScanOutlined,
-    DashboardOutlined,
-    SettingOutlined,
-    UserOutlined,
-    TeamOutlined,
-    BarChartOutlined,
-    FileTextOutlined,
-    ShoppingOutlined,
     MessageOutlined,
-    BellOutlined,
+    HomeOutlined,
     AppstoreOutlined,
-    SafetyCertificateOutlined,
+    BarChartOutlined,
+    UserOutlined,
 } from '@ant-design/icons';
+import { Link, useLocation } from 'react-router-dom';
 
 const { Sider } = Layout;
 const { Title, Text } = Typography;
 
-const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
-    const [selectedKey, setSelectedKey] = useState('dashboard');
+const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false }) => {
+    const location = useLocation();
+    const [selectedKey, setSelectedKey] = useState('chat');
     const {
         token: { colorPrimary, colorBgContainer },
     } = theme.useToken();
 
     const navigationItems = [
-   
         {
-            key: 'authentication',
-            icon: <SafetyCertificateOutlined />,
-            label: 'Authentication Logs',
-            badge: 3,
+            key: 'statistics',
+            icon: <BarChartOutlined />,
+            label: 'Statistics & Performance',
+            path: '/admin/statistics'
         },
         {
-            key: 'users',
+            key: 'chat',
+            icon: <MessageOutlined />,
+            label: 'Chat',
+            path: '/admin/chat'
+        },
+        {
+            key: 'properties-management',
+            icon: <HomeOutlined />,
+            label: 'Properties Management',
+            path: '/portal/admin/properties'
+        },
+        {
+            key: 'agents',
             icon: <UserOutlined />,
-            label: 'User Management',
-        },
-      
-        {
-            key: 'content',
-            icon: <FileTextOutlined />,
-            label: 'Content Management',
-        },
-        {
-            key: 'landing',
-            icon: <AppstoreOutlined />,
-            label: 'Landing Page',
-        },
-    
+            label: 'Agents',
+            path: '/portal/admin/agent'
+        }
     ];
-
-  
-   
 
     const handleMenuClick = ({ key }) => {
         setSelectedKey(key);
@@ -79,12 +71,25 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                     {item.icon}
                 </Badge>
             ) : item.icon,
-            label: collapsed ? (
-                <Tooltip title={item.label} placement="right">
-                    {item.label}
-                </Tooltip>
-            ) : (
-                item.label
+            label: (
+                <Link
+                    to={item.path}
+                    style={{
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        display: 'block',
+                        width: '100%'
+                    }}
+                    onClick={() => handleMenuClick({ key: item.key })}
+                >
+                    {collapsed && !isMobileDrawer ? (
+                        <Tooltip title={item.label} placement="right">
+                            {item.label}
+                        </Tooltip>
+                    ) : (
+                        item.label
+                    )}
+                </Link>
             ),
             style: {
                 borderRadius: '8px',
@@ -92,11 +97,75 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                 height: '40px',
                 display: 'flex',
                 alignItems: 'center',
+                fontSize: isMobileDrawer ? '14px' : '13px',
             },
         };
 
         return menuItem;
     };
+
+    React.useEffect(() => {
+        const currentPath = location.pathname;
+        const currentItem = navigationItems.find(item =>
+            currentPath.startsWith(item.path)
+        );
+        if (currentItem) {
+            setSelectedKey(currentItem.key);
+        }
+    }, [location.pathname]);
+
+    // For mobile drawer, use different styling
+    if (isMobileDrawer) {
+        return (
+            <div style={{
+                height: '100vh',
+                background: colorBgContainer,
+                overflow: 'auto'
+            }}>
+                {/* Header Section for Mobile */}
+                <div style={{
+                    padding: '20px 16px',
+                    borderBottom: '1px solid rgba(0,0,0,0.06)',
+                    textAlign: 'left',
+                    background: 'rgba(0,0,0,0.02)',
+                }}>
+                    <div>
+                        <Title level={4} style={{ margin: 0, color: colorPrimary, fontSize: '18px', fontWeight: 600 }}>
+                            Control Center
+                        </Title>
+                        <Text type="secondary" style={{ fontSize: '14px' }}>
+                            Manage your platform
+                        </Text>
+                    </div>
+                </div>
+
+                {/* Main Navigation */}
+                <div style={{ padding: '16px 0' }}>
+                    <Text strong style={{
+                        padding: '0 16px 12px',
+                        fontSize: '13px',
+                        color: '#8c8c8c',
+                        letterSpacing: '0.5px',
+                        display: 'block'
+                    }}>
+                        MAIN NAVIGATION
+                    </Text>
+                    <Menu
+                        mode="inline"
+                        selectedKeys={[selectedKey]}
+                        onClick={handleMenuClick}
+                        style={{
+                            border: 'none',
+                            background: 'transparent',
+                        }}
+                        items={navigationItems.map(renderMenuItem)}
+                    />
+                </div>
+
+                <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
+            </div>
+        );
+    }
 
     return (
         <Sider
@@ -111,10 +180,17 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                 borderRight: '1px solid rgba(0,0,0,0.06)',
                 position: 'fixed',
                 left: 0,
-                top: 68,
+                top: 64,
                 bottom: 0,
                 zIndex: 999,
                 boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
+            }}
+            breakpoint="lg"
+            onBreakpoint={(broken) => {
+                // This will automatically collapse on breakpoint
+                if (broken) {
+                    // Handle breakpoint if needed
+                }
             }}
         >
             {/* Header Section */}
@@ -134,18 +210,20 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                         </Text>
                     </div>
                 ) : (
-                    <div style={{
-                        width: 32,
-                        height: 32,
-                        background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto',
-                    }}>
-                        <AppstoreOutlined style={{ color: 'white', fontSize: '16px' }} />
-                    </div>
+                    <Link to="/admin" style={{ textDecoration: 'none' }}>
+                        <div style={{
+                            width: 32,
+                            height: 32,
+                            background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto',
+                        }}>
+                            <AppstoreOutlined style={{ color: 'white', fontSize: '16px' }} />
+                        </div>
+                    </Link>
                 )}
             </div>
 
@@ -173,8 +251,6 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
             </div>
 
             <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
-
-          
         </Sider>
     );
 };

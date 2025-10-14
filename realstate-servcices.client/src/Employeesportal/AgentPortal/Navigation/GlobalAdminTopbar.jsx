@@ -51,7 +51,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
     };
 
     const handleProfile = () => {
-        navigate('/profile');
+        navigate('/portal/agent/profile');
         setDropdownVisible(false);
     };
 

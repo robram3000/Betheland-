@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip } from 'antd';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip, Skeleton } from 'antd';
 import {
     MenuOutlined,
     CloseOutlined,
@@ -13,14 +13,35 @@ import {
     BellOutlined,
     EyeOutlined,
     PhoneOutlined,
-    MailOutlined
+    MailOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
+import profileService from '../Accounts/Services/ProfileService';
 
 const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
+const useSafeWishlistData = () => {
+    try {
+        const { useWishlistData } = require('../Property/Services/WishlistAdded');
+        const wishlistData = useWishlistData();
+        return wishlistData;
+    } catch (error) {
+        return {
+            wishlistCount: 0,
+            isAuthenticated: false,
+            refreshWishlist: () => { },
+            toggleWishlist: () => Promise.resolve(),
+            isPropertyInWishlist: () => Promise.resolve(false),
+            loading: false,
+            wishlistPropertyIds: [],
+            updateTrigger: 0
+        };
+    }
+};
 
 const GlobalNavigation = () => {
     const navigate = useNavigate();
@@ -28,7 +49,19 @@ const GlobalNavigation = () => {
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+    const [profileData, setProfileData] = useState(null);
+    const [profileImageError, setProfileImageError] = useState(false);
+    const [loadingProfile, setLoadingProfile] = useState(false);
     const screens = useBreakpoint();
+
+    // Use the safe wishlist data hook
+    const {
+        wishlistCount,
+        isAuthenticated: isWishlistAuthenticated,
+        refreshWishlist,
+        wishlistPropertyIds,
+        updateTrigger
+    } = useSafeWishlistData();
 
     // Mock notification data
     const [notifications, setNotifications] = useState([
@@ -66,8 +99,8 @@ const GlobalNavigation = () => {
         }
     ]);
 
-    // Mock counts
-    const [wishlistCount] = useState(3);
+    // Use dynamic wishlist count from context
+    const displayWishlistCount = wishlistCount || 0;
     const notificationCount = notifications.filter(notification => !notification.read).length;
 
     // Company contact information
@@ -84,20 +117,143 @@ const GlobalNavigation = () => {
         { key: '/contact-us', label: 'Contact Us' }
     ];
 
-    // Check authentication status
+    // FIXED: Image URL processing - similar to PropertyCard.jsx
+    const processImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            console.log("GlobalNavigation - No image URL provided, using default");
+            return '/default-avatar.jpg';
+        }
+
+        console.log("GlobalNavigation - Processing image URL:", url);
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        // Handle different path formats
+        if (url.startsWith('/uploads/')) {
+            const fullUrl = `https://localhost:7075${url}`;
+            console.log("GlobalNavigation - Built full URL from /uploads/:", fullUrl);
+            return fullUrl;
+        }
+
+        if (url.includes('.') && !url.startsWith('/')) {
+            const fullUrl = `https://localhost:7075/uploads/profile-pictures/${url}`;
+            console.log("GlobalNavigation - Built full URL for filename:", fullUrl);
+            return fullUrl;
+        }
+
+        if (url.startsWith('uploads/')) {
+            const fullUrl = `https://localhost:7075/${url}`;
+            console.log("GlobalNavigation - Built full URL from uploads/:", fullUrl);
+            return fullUrl;
+        }
+
+        console.log("GlobalNavigation - Using default avatar");
+        return '/default-avatar.jpg';
+    };
+
+    // Load user profile data
+    const loadUserProfile = async () => {
+        if (!isLoggedIn) return;
+
+        setLoadingProfile(true);
+        try {
+            console.log('🔄 GlobalNavigation - Loading user profile...');
+            const result = await profileService.getProfile();
+
+            if (result.success && result.data) {
+                console.log('✅ GlobalNavigation - Profile data loaded:', result.data);
+                setProfileData(result.data);
+
+                // Update currentUser with profile data
+                setCurrentUser(prev => ({
+                    ...prev,
+                    profilePicture: result.data.profilePicture,
+                    username: result.data.username || prev?.username,
+                    email: result.data.email || prev?.email,
+                    firstName: result.data.firstName,
+                    lastName: result.data.lastName
+                }));
+            } else {
+                console.warn('❌ GlobalNavigation - Failed to load profile:', result.message);
+            }
+        } catch (error) {
+            console.error('💥 GlobalNavigation - Error loading profile:', error);
+        } finally {
+            setLoadingProfile(false);
+        }
+    };
+
+    // UPDATED: Get profile picture URL from profileData first, then fallback to currentUser
+    const getProfilePictureUrl = () => {
+        // Try profileData first (from ProfileService)
+        if (profileData?.profilePicture) {
+            console.log("GlobalNavigation - Profile picture from profileData:", profileData.profilePicture);
+            return processImageUrl(profileData.profilePicture);
+        }
+
+        // Fallback to currentUser data
+        if (currentUser?.profilePicture) {
+            console.log("GlobalNavigation - Profile picture from currentUser:", currentUser.profilePicture);
+            return processImageUrl(currentUser.profilePicture);
+        }
+
+        console.log("GlobalNavigation - No profile picture found");
+        return null;
+    };
+
+    // Check authentication status and load profile
     useEffect(() => {
         checkAuthStatus();
     }, [location]);
+
+    // Load profile when user logs in
+    useEffect(() => {
+        if (isLoggedIn) {
+            loadUserProfile();
+        } else {
+            setProfileData(null);
+        }
+    }, [isLoggedIn]);
+
+    // Refresh wishlist when authentication status changes
+    useEffect(() => {
+        if (isLoggedIn) {
+            refreshWishlist();
+        }
+    }, [isLoggedIn, updateTrigger, refreshWishlist]);
+
+    // Add periodic refresh for real-time updates
+    useEffect(() => {
+        if (isLoggedIn) {
+            const interval = setInterval(() => {
+                refreshWishlist();
+            }, 30000);
+
+            return () => clearInterval(interval);
+        }
+    }, [isLoggedIn, refreshWishlist]);
 
     const checkAuthStatus = () => {
         const authenticated = authService.isAuthenticated();
         setIsLoggedIn(authenticated);
         if (authenticated) {
             const user = authService.getCurrentUser();
+            console.log("GlobalNavigation - Current User from auth:", user);
             setCurrentUser(user);
+            setProfileImageError(false);
         } else {
             setCurrentUser(null);
+            setProfileData(null);
+            setProfileImageError(false);
         }
+    };
+
+    const handleImageError = (e) => {
+        console.error("GlobalNavigation - Profile image failed to load:", e);
+        setProfileImageError(true);
     };
 
     const handleMenuClick = (key) => {
@@ -110,6 +266,11 @@ const GlobalNavigation = () => {
     };
 
     const handleWishlistClick = () => {
+        if (!isLoggedIn) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('view wishlist')}`);
+            return;
+        }
         navigate('/wishlist');
         setDrawerVisible(false);
     };
@@ -132,6 +293,8 @@ const GlobalNavigation = () => {
         authService.logout();
         setIsLoggedIn(false);
         setCurrentUser(null);
+        setProfileData(null);
+        setProfileImageError(false);
         navigate('/');
         setDrawerVisible(false);
     };
@@ -144,6 +307,13 @@ const GlobalNavigation = () => {
     const handleSettingsClick = () => {
         navigate('/settings');
         setDrawerVisible(false);
+    };
+
+    // Refresh profile data
+    const refreshProfile = () => {
+        if (isLoggedIn) {
+            loadUserProfile();
+        }
     };
 
     // Mark notification as read
@@ -162,22 +332,45 @@ const GlobalNavigation = () => {
         );
     };
 
-    // Get display name
     const getDisplayName = () => {
-        if (!currentUser) return 'User';
-        if (currentUser.username && currentUser.username.trim() !== '') {
+        if (profileData) {
+            const { firstName, middleName, lastName, suffix } = profileData;
+            const nameParts = [];
+            if (firstName && firstName.trim() !== '') nameParts.push(firstName.trim());
+            if (middleName && middleName.trim() !== '') nameParts.push(middleName.trim());
+            if (lastName && lastName.trim() !== '') nameParts.push(lastName.trim());
+            if (suffix && suffix.trim() !== '') nameParts.push(suffix.trim());
+            if (nameParts.length > 0) {
+                const fullName = nameParts.join(' ');
+                console.log("GlobalNavigation - Built full name from profileData:", fullName);
+                return fullName;
+            }
+        }
+
+        // Fallback to username if no name parts available
+        if (profileData?.username && profileData.username.trim() !== '') {
+            return profileData.username;
+        }
+
+        // Fallback to currentUser data
+        if (currentUser?.username && currentUser.username.trim() !== '') {
             return currentUser.username;
         }
-        if (currentUser.email) {
+        if (currentUser?.email) {
             return currentUser.email.split('@')[0];
         }
+
         return 'User';
     };
 
-    // Get user initials for avatar
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'User') return 'U';
+        if (profileData?.firstName) {
+            const first = profileData.firstName[0] || '';
+            const last = profileData.lastName?.[0] || '';
+            return `${first}${last}`.toUpperCase();
+        }
         return displayName
             .split(' ')
             .map(name => name[0])
@@ -186,14 +379,17 @@ const GlobalNavigation = () => {
             .slice(0, 2);
     };
 
-    // Notification dropdown content
+    const getUserEmail = () => {
+        return profileData?.email || currentUser?.email || 'No email';
+    };
+
     const notificationContent = (
         <div style={{
             width: 320,
             maxHeight: 400,
             overflow: 'auto',
-            background: 'white', // Added solid white background
-            borderRadius: '8px' // Match the dropdown container
+            background: 'white',
+            borderRadius: '8px'
         }}>
             <div style={{
                 padding: '12px 16px',
@@ -201,7 +397,7 @@ const GlobalNavigation = () => {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'white' // Ensure header also has solid background
+                background: 'white'
             }}>
                 <Text strong>Notifications</Text>
                 {notificationCount > 0 && (
@@ -224,7 +420,7 @@ const GlobalNavigation = () => {
                         style={{
                             padding: '12px 16px',
                             cursor: 'pointer',
-                            backgroundColor: notification.read ? 'white' : '#f6ffed', // Changed from transparent to white
+                            backgroundColor: notification.read ? 'white' : '#f6ffed',
                             borderBottom: '1px solid #f0f0f0',
                             transition: 'background-color 0.3s'
                         }}
@@ -232,7 +428,7 @@ const GlobalNavigation = () => {
                             e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed'; // Changed from transparent to white
+                            e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed';
                         }}
                         onClick={() => markAsRead(notification.id)}
                     >
@@ -288,7 +484,7 @@ const GlobalNavigation = () => {
                 padding: '12px 16px',
                 borderTop: '1px solid #f0f0f0',
                 textAlign: 'center',
-                background: 'white' // Ensure footer also has solid background
+                background: 'white'
             }}>
                 <Button
                     type="link"
@@ -301,8 +497,6 @@ const GlobalNavigation = () => {
             </div>
         </div>
     );
-
-    // Helper function to get notification color based on type
     const getNotificationColor = (type) => {
         const colors = {
             property: '#1890ff',
@@ -313,7 +507,6 @@ const GlobalNavigation = () => {
         return colors[type] || '#1890ff';
     };
 
-    // Helper function to get notification icon based on type
     const getNotificationIcon = (type) => {
         const icons = {
             property: '🏠',
@@ -323,8 +516,6 @@ const GlobalNavigation = () => {
         };
         return icons[type] || '🔔';
     };
-
-    // User dropdown menu items
     const userMenuItems = [
         {
             key: 'user-info',
@@ -334,8 +525,18 @@ const GlobalNavigation = () => {
                         {getDisplayName()}
                     </div>
                     <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                        {currentUser?.email || 'No email'}
+                        {getUserEmail()}
                     </div>
+                    <Button
+                        type="link"
+                        size="small"
+                        onClick={refreshProfile}
+                        loading={loadingProfile}
+                        icon={<ReloadOutlined />}
+                        style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
+                    >
+                        Refresh Profile
+                    </Button>
                 </div>
             ),
             disabled: true,
@@ -368,6 +569,8 @@ const GlobalNavigation = () => {
     ];
 
     const isDesktop = screens.md;
+    const profilePictureUrl = getProfilePictureUrl();
+    console.log("GlobalNavigation - Final profile picture URL for display:", profilePictureUrl);
 
     return (
         <>
@@ -423,18 +626,26 @@ const GlobalNavigation = () => {
                                 </Text>
                             </div>
 
-                            {/* Wishlist Icon with Label */}
-                            <Tooltip title="Wishlist" placement="bottom">
-                                <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
+                            {/* Enhanced Wishlist Icon with Real-time Updates - ALWAYS SHOW COUNT */}
+                            <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"} placement="bottom">
+                                <Badge
+                                    count={displayWishlistCount}
+                                    size="small"
+                                    offset={[-5, 5]}
+                                    style={{
+                                        backgroundColor: '#ff4d4f',
+                                        boxShadow: '0 0 0 1px #fff'
+                                    }}
+                                >
                                     <Button
                                         type="text"
                                         icon={<HeartOutlined style={{
-                                            color: 'white',
+                                            color: displayWishlistCount > 0 ? '#ff4d4f' : 'white',
                                             fontSize: '16px',
-                                            transition: 'color 0.3s'
+                                            transition: 'all 0.3s ease'
                                         }} />}
                                         onClick={handleWishlistClick}
-                                        aria-label={`Wishlist with ${wishlistCount} items`}
+                                        aria-label={`Wishlist with ${displayWishlistCount} items`}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -442,21 +653,25 @@ const GlobalNavigation = () => {
                                             width: 'auto',
                                             height: '32px',
                                             padding: '0 8px',
-                                            gap: '4px'
+                                            gap: '4px',
+                                            position: 'relative'
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                                            e.currentTarget.style.transform = 'scale(1.05)';
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.transform = 'scale(1)';
                                         }}
                                     >
                                         <span style={{
                                             fontSize: '13px',
                                             color: 'white',
-                                            marginLeft: '4px'
+                                            marginLeft: '4px',
+                                            fontWeight: displayWishlistCount > 0 ? '600' : 'normal'
                                         }}>
-                                            Wishlist
+                                            Wishlist ({displayWishlistCount})
                                         </span>
                                     </Button>
                                 </Badge>
@@ -472,7 +687,7 @@ const GlobalNavigation = () => {
                                         overlayStyle={{
                                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                                             borderRadius: '8px',
-                                            background: 'white' // Ensure dropdown container has solid background
+                                            background: 'white'
                                         }}
                                     >
                                         <Badge count={notificationCount} size="small" offset={[-5, 5]}>
@@ -505,7 +720,7 @@ const GlobalNavigation = () => {
                                                     color: 'white',
                                                     marginLeft: '4px'
                                                 }}>
-                                                    Notifications
+                                                    Notifications ({notificationCount})
                                                 </span>
                                             </Button>
                                         </Badge>
@@ -673,7 +888,7 @@ const GlobalNavigation = () => {
                                     placement="bottomRight"
                                     trigger={['click']}
                                     overlayStyle={{
-                                        background: 'white' // Ensure user dropdown also has solid background
+                                        background: 'white'
                                     }}
                                 >
                                     <Button
@@ -700,12 +915,16 @@ const GlobalNavigation = () => {
                                             <Avatar
                                                 size="small"
                                                 style={{
-                                                    backgroundColor: '#001529',
+                                                    backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
                                                     fontSize: '12px',
-                                                    fontWeight: '600'
+                                                    fontWeight: '600',
+                                                    border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
                                                 }}
+                                                src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
+                                                onError={handleImageError}
+                                                icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
                                             >
-                                                {getUserInitials()}
+                                                {(!profilePictureUrl || profileImageError) && getUserInitials()}
                                             </Avatar>
                                             <span style={{
                                                 fontSize: '14px',
@@ -771,9 +990,9 @@ const GlobalNavigation = () => {
                                     </Text>
                                 </div>
 
-                                {/* Wishlist Icon - Mobile (outside drawer) */}
-                                <Tooltip title="Wishlist" placement="bottom">
-                                    <Badge count={wishlistCount} size="small" offset={[-5, 5]}>
+                                {/* Wishlist Icon - Mobile (outside drawer) - ALWAYS SHOW COUNT */}
+                                <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"} placement="bottom">
+                                    <Badge count={displayWishlistCount} size="small" offset={[-5, 5]}>
                                         <Button
                                             type="text"
                                             icon={<HeartOutlined style={{
@@ -781,7 +1000,7 @@ const GlobalNavigation = () => {
                                                 fontSize: '18px'
                                             }} />}
                                             onClick={handleWishlistClick}
-                                            aria-label={`Wishlist with ${wishlistCount} items`}
+                                            aria-label={`Wishlist with ${displayWishlistCount} items`}
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -951,7 +1170,7 @@ const GlobalNavigation = () => {
                                                         width: '100%'
                                                     }}>
                                                         <span>Wishlist</span>
-                                                        <Badge count={wishlistCount} size="small" />
+                                                        <Badge count={displayWishlistCount} size="small" />
                                                     </div>
                                                 ),
                                                 icon: <HeartOutlined />
@@ -1021,12 +1240,16 @@ const GlobalNavigation = () => {
                                                 <Avatar
                                                     size="large"
                                                     style={{
-                                                        backgroundColor: '#001529',
+                                                        backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
                                                         fontSize: '16px',
-                                                        fontWeight: '600'
+                                                        fontWeight: '600',
+                                                        border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
                                                     }}
+                                                    src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
+                                                    onError={handleImageError}
+                                                    icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
                                                 >
-                                                    {getUserInitials()}
+                                                    {(!profilePictureUrl || profileImageError) && getUserInitials()}
                                                 </Avatar>
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{
@@ -1041,8 +1264,18 @@ const GlobalNavigation = () => {
                                                         color: '#666',
                                                         marginTop: '2px'
                                                     }}>
-                                                        {currentUser?.email || 'No email'}
+                                                        {getUserEmail()}
                                                     </div>
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        onClick={refreshProfile}
+                                                        loading={loadingProfile}
+                                                        icon={<ReloadOutlined />}
+                                                        style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
+                                                    >
+                                                        Refresh
+                                                    </Button>
                                                 </div>
                                             </div>
 

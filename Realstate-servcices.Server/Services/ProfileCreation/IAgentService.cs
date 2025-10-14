@@ -10,5 +10,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         Task<RegisterResponse> UpdateAgentAsync(int id, AgentUpdateRequest request);
         Task<RegisterResponse> UpdateAgentStatusAsync(int id, string status);
         Task<RegisterResponse> DeleteAgentAsync(int id);
+        Task<AgentResponse?> GetAgentByBaseMemberIdAsync(int baseMemberId); 
+  
     }
 }

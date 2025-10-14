@@ -1,4 +1,3 @@
-// AgentsSection.jsx
 import React from 'react';
 import { Row, Col, Card, Typography, Button, Space, Avatar } from 'antd';
 import {

@@ -1,209 +1,207 @@
-// Services/useProfile.jsx
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import profileService from './ProfileService';
-import authService from '../../Authpage/Services/LoginAuth';
 
 const useProfile = () => {
     const [loading, setLoading] = useState(false);
     const [updating, setUpdating] = useState(false);
-
-    // Get user profile
-    const getProfile = useCallback(async () => {
+    const [profileData, setProfileData] = useState(null);
+    const [error, setError] = useState(null);
+    const getProfile = useCallback(async (showMessage = false) => {
         setLoading(true);
+        setError(null);
         try {
             const result = await profileService.getProfile();
+            if (result.success && result.data) {
+                setProfileData(result.data);
+                if (showMessage) {
+                    message.success('Profile loaded successfully');
+                }
+            } else {
+                setError(result.message);
+                if (showMessage) {
+                    message.error(result.message || 'Failed to load profile');
+                }
+            }
+
             setLoading(false);
             return result;
         } catch (error) {
+            setError(error.message);
             setLoading(false);
-            console.error('Get profile hook error:', error);
+
+            if (showMessage) {
+                message.error('Failed to load profile');
+            }
+
             return {
                 success: false,
-                message: 'Failed to load profile'
+                message: 'Failed to load profile',
+                error: error
             };
         }
     }, []);
 
-    // Update profile
     const updateProfile = useCallback(async (profileData) => {
+        console.log('🔄 useProfile - Updating profile with data:', profileData);
         setUpdating(true);
+        setError(null);
+
         try {
             const result = await profileService.updateProfile(profileData);
+            console.log('📦 useProfile - Update result:', result);
 
             if (result.success) {
-                message.success(result.message || 'Profile updated successfully');
-
-                // Update localStorage if email changed
-                if (profileData.email) {
-                    const userData = localStorage.getItem('userData');
-                    if (userData) {
-                        const parsedData = JSON.parse(userData);
-                        localStorage.setItem('userData', JSON.stringify({
-                            ...parsedData,
-                            email: profileData.email
-                        }));
-                    }
-                }
+                message.success('Profile updated successfully');
+                // Refresh profile data after update
+                await getProfile(false);
             } else {
                 message.error(result.message || 'Failed to update profile');
+                setError(result.message);
             }
 
             setUpdating(false);
             return result;
         } catch (error) {
+            console.error('💥 useProfile - Update error:', error);
+            setError(error.message);
             setUpdating(false);
-            console.error('Update profile hook error:', error);
             message.error('Failed to update profile');
+
             return {
                 success: false,
-                message: 'Failed to update profile'
+                message: 'Failed to update profile',
+                error: error
             };
         }
-    }, []);
+    }, [getProfile]);
 
-    // Update single field
     const updateField = useCallback(async (fieldName, value) => {
         setUpdating(true);
+        setError(null);
+
         try {
             const result = await profileService.updateProfileField(fieldName, value);
 
             if (result.success) {
-                message.success(`${fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} updated successfully`);
-
-                // Update localStorage
-                const userData = localStorage.getItem('userData');
-                if (userData) {
-                    const parsedData = JSON.parse(userData);
-                    localStorage.setItem('userData', JSON.stringify({
-                        ...parsedData,
-                        [fieldName]: value
-                    }));
-                }
+                message.success(`${fieldName} updated successfully`);
+                setProfileData(prev => ({ ...prev, [fieldName]: value }));
             } else {
                 message.error(result.message || `Failed to update ${fieldName}`);
+                setError(result.message);
             }
 
             setUpdating(false);
             return result;
         } catch (error) {
+            console.error(`💥 useProfile - Update ${fieldName} error:`, error);
+            setError(error.message);
             setUpdating(false);
-            console.error(`Update ${fieldName} hook error:`, error);
             message.error(`Failed to update ${fieldName}`);
+
             return {
                 success: false,
-                message: `Failed to update ${fieldName}`
+                message: `Failed to update ${fieldName}`,
+                error: error
             };
         }
     }, []);
 
-    // Change password
     const changePassword = useCallback(async (passwordData) => {
         setUpdating(true);
+        setError(null);
+
         try {
             const result = await profileService.changePassword(passwordData);
 
             if (result.success) {
-                message.success(result.message || 'Password changed successfully');
+                message.success('Password changed successfully');
             } else {
                 message.error(result.message || 'Failed to change password');
+                setError(result.message);
             }
 
             setUpdating(false);
             return result;
         } catch (error) {
+            console.error('💥 useProfile - Change password error:', error);
+            setError(error.message);
             setUpdating(false);
-            console.error('Change password hook error:', error);
             message.error('Failed to change password');
+
             return {
                 success: false,
-                message: 'Failed to change password'
+                message: 'Failed to change password',
+                error: error
             };
         }
     }, []);
 
-    // Verify OTP
-    const verifyOtp = useCallback(async (otpData) => {
-        setUpdating(true);
-        try {
-            const result = await profileService.verifyOtpForPasswordChange(otpData);
-
-            if (result.success) {
-                message.success(result.message || 'OTP verified successfully');
-            } else {
-                message.error(result.message || 'Invalid OTP');
-            }
-
-            setUpdating(false);
-            return result;
-        } catch (error) {
-            setUpdating(false);
-            console.error('OTP verification hook error:', error);
-            message.error('OTP verification failed');
-            return {
-                success: false,
-                message: 'OTP verification failed'
-            };
-        }
-    }, []);
-
-    // Resend OTP
-    const resendOtp = useCallback(async () => {
-        try {
-            const result = await profileService.resendOtp();
-
-            if (result.success) {
-                message.success(result.message || 'OTP sent successfully');
-            } else {
-                message.error(result.message || 'Failed to send OTP');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Resend OTP hook error:', error);
-            message.error('Failed to send OTP');
-            return {
-                success: false,
-                message: 'Failed to send OTP'
-            };
-        }
-    }, []);
-
-    // Upload profile picture
     const uploadProfilePicture = useCallback(async (file) => {
         setUpdating(true);
+        setError(null);
+
         try {
             const result = await profileService.uploadProfilePicture(file);
 
             if (result.success) {
-                message.success(result.message || 'Profile picture updated successfully');
+                message.success('Profile picture updated successfully');
             } else {
                 message.error(result.message || 'Failed to upload profile picture');
+                setError(result.message);
             }
 
             setUpdating(false);
             return result;
         } catch (error) {
+            console.error('💥 useProfile - Upload profile picture error:', error);
+            setError(error.message);
             setUpdating(false);
-            console.error('Upload profile picture hook error:', error);
             message.error('Failed to upload profile picture');
+
             return {
                 success: false,
-                message: 'Failed to upload profile picture'
+                message: 'Failed to upload profile picture',
+                error: error
             };
         }
+    }, []);
+
+    const testApiConnection = useCallback(async () => {
+        setLoading(true);
+
+        try {
+            const result = await profileService.testApiConnection();
+
+            setLoading(false);
+            return result;
+        } catch (error) {
+            console.error('🧪 useProfile - API test error:', error);
+            setLoading(false);
+            return {
+                success: false,
+                message: 'API test failed',
+                error: error
+            };
+        }
+    }, []);
+
+    const clearError = useCallback(() => {
+        setError(null);
     }, []);
 
     return {
         loading,
         updating,
+        profileData,
+        error,
         getProfile,
         updateProfile,
         updateField,
         changePassword,
-        verifyOtp,
-        resendOtp,
-        uploadProfilePicture
+        uploadProfilePicture,
+        testApiConnection,
+        clearError
     };
 };
 

@@ -34,13 +34,11 @@ namespace Realstate_servcices.Server.Repository.Properties
                     property.ListedDate = DateTime.UtcNow;
                 }
 
-                // Ensure OwnerId is valid or null to avoid foreign key constraints
                 if (property.OwnerId <= 0)
                 {
                     property.OwnerId = null;
                 }
 
-                // Ensure AgentId is valid or null
                 if (property.AgentId <= 0)
                 {
                     property.AgentId = null;
@@ -64,21 +62,6 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
-        public async Task<bool> OwnerExistsAsync(int ownerId)
-        {
-            try
-            {
-                return await _context.Clients
-                    .AsNoTracking()
-                    .AnyAsync(c => c.Id == ownerId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while checking if owner exists with ID: {OwnerId}", ownerId);
-                throw new Exception($"Failed to check owner existence: {ex.Message}", ex);
-            }
-        }
-
         public async Task<PropertyHouse?> GetPropertyByIdAsync(int id)
         {
             try
@@ -87,6 +70,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var property = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .AsNoTracking()
@@ -116,6 +100,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var existingProperty = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .FirstOrDefaultAsync(p => p.Id == property.Id);
 
                 if (existingProperty == null)
@@ -124,7 +109,7 @@ namespace Realstate_servcices.Server.Repository.Properties
                     return null;
                 }
 
-                // Update properties
+                // Update basic properties
                 existingProperty.Title = property.Title;
                 existingProperty.Description = property.Description;
                 existingProperty.Type = property.Type;
@@ -146,39 +131,12 @@ namespace Realstate_servcices.Server.Repository.Properties
                 existingProperty.Amenities = property.Amenities;
                 existingProperty.UpdatedAt = DateTime.UtcNow;
 
-                // Handle images update if provided
-                if (property.PropertyImages != null && property.PropertyImages.Any())
-                {
-                    _logger.LogInformation("Updating property images for property ID: {PropertyId}", property.Id);
-
-                    // Remove existing images
-                    var existingImages = _context.PropertyImages.Where(pi => pi.PropertyId == existingProperty.Id);
-                    _context.PropertyImages.RemoveRange(existingImages);
-
-                    // Add new images
-                    foreach (var image in property.PropertyImages)
-                    {
-                        var newImage = new PropertyImage
-                        {
-                            PropertyId = existingProperty.Id,
-                            ImageUrl = image.ImageUrl,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        _context.PropertyImages.Add(newImage);
-                    }
-                }
-
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("Property with ID {PropertyId} updated successfully", property.Id);
 
-                return await _context.Properties
-                    .Include(p => p.PropertyImages)
-                    .Include(p => p.Owner)
-                    .Include(p => p.Agent)
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == property.Id);
+                return await GetPropertyByIdAsync(property.Id);
             }
             catch (DbUpdateException dbEx)
             {
@@ -204,6 +162,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var property = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.ScheduleProperties)
                     .Include(p => p.Wishlists)
                     .FirstOrDefaultAsync(p => p.Id == id);
@@ -218,6 +177,11 @@ namespace Realstate_servcices.Server.Repository.Properties
                 if (property.PropertyImages != null && property.PropertyImages.Any())
                 {
                     _context.PropertyImages.RemoveRange(property.PropertyImages);
+                }
+
+                if (property.PropertyVideos != null && property.PropertyVideos.Any())
+                {
+                    _context.PropertyVideos.RemoveRange(property.PropertyVideos);
                 }
 
                 if (property.ScheduleProperties != null && property.ScheduleProperties.Any())
@@ -260,6 +224,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .AsNoTracking()
@@ -284,6 +249,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .Where(p => p.OwnerId == ownerId)
@@ -309,6 +275,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .Where(p => p.AgentId == agentId)
@@ -334,6 +301,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .Where(p => p.Status.ToLower() == status.ToLower())
@@ -364,6 +332,7 @@ namespace Realstate_servcices.Server.Repository.Properties
 
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
+                    .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
                     .Where(p =>
@@ -400,6 +369,135 @@ namespace Realstate_servcices.Server.Repository.Properties
             {
                 _logger.LogError(ex, "Error occurred while checking if property exists with ID: {PropertyId}", id);
                 throw new Exception($"Failed to check property existence: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<bool> OwnerExistsAsync(int ownerId)
+        {
+            try
+            {
+                return await _context.Clients
+                    .AsNoTracking()
+                    .AnyAsync(c => c.Id == ownerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while checking if owner exists with ID: {OwnerId}", ownerId);
+                throw new Exception($"Failed to check owner existence: {ex.Message}", ex);
+            }
+        }
+
+        public async Task AddPropertyImagesAsync(int propertyId, List<PropertyImage> images)
+        {
+            try
+            {
+                if (images != null && images.Any())
+                {
+                    foreach (var image in images)
+                    {
+                        image.PropertyId = propertyId;
+                        image.CreatedAt = DateTime.UtcNow;
+                    }
+                    await _context.PropertyImages.AddRangeAsync(images);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Added {Count} images to property ID: {PropertyId}", images.Count, propertyId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding images to property ID: {PropertyId}", propertyId);
+                throw new Exception($"Failed to add property images: {ex.Message}", ex);
+            }
+        }
+
+        public async Task AddPropertyVideosAsync(int propertyId, List<PropertyVideo> videos)
+        {
+            try
+            {
+                if (videos != null && videos.Any())
+                {
+                    foreach (var video in videos)
+                    {
+                        video.PropertyId = propertyId;
+                        video.CreatedAt = DateTime.UtcNow;
+                    }
+                    await _context.PropertyVideos.AddRangeAsync(videos);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Added {Count} videos to property ID: {PropertyId}", videos.Count, propertyId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding videos to property ID: {PropertyId}", propertyId);
+                throw new Exception($"Failed to add property videos: {ex.Message}", ex);
+            }
+        }
+
+        public async Task UpdatePropertyVideosAsync(int propertyId, List<PropertyVideo> videos)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Remove existing videos
+                var existingVideos = _context.PropertyVideos.Where(pv => pv.PropertyId == propertyId);
+                _context.PropertyVideos.RemoveRange(existingVideos);
+
+                // Add new videos
+                if (videos != null && videos.Any())
+                {
+                    foreach (var video in videos)
+                    {
+                        video.PropertyId = propertyId;
+                        video.CreatedAt = DateTime.UtcNow;
+                    }
+                    await _context.PropertyVideos.AddRangeAsync(videos);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Updated videos for property ID: {PropertyId}", propertyId);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error updating videos for property ID: {PropertyId}", propertyId);
+                throw new Exception($"Failed to update property videos: {ex.Message}", ex);
+            }
+        }
+
+        public async Task UpdatePropertyImagesAsync(int propertyId, List<PropertyImage> images)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Remove existing images
+                var existingImages = _context.PropertyImages.Where(pi => pi.PropertyId == propertyId);
+                _context.PropertyImages.RemoveRange(existingImages);
+
+                // Add new images
+                if (images != null && images.Any())
+                {
+                    foreach (var image in images)
+                    {
+                        image.PropertyId = propertyId;
+                        image.CreatedAt = DateTime.UtcNow;
+                    }
+                    await _context.PropertyImages.AddRangeAsync(images);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Updated images for property ID: {PropertyId}", propertyId);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error updating images for property ID: {PropertyId}", propertyId);
+                throw new Exception($"Failed to update property images: {ex.Message}", ex);
             }
         }
     }

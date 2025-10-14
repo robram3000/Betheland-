@@ -12,5 +12,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         Task<Agent> UpdateAgentAsync(int id, AgentUpdateRequest request);
         Task<bool> DeleteAgentAsync(int id);
         Task<bool> AgentExistsAsync(int id);
+        Task<bool> UpdateVerificationStatusAsync(int id, bool isVerified);
     }
 }

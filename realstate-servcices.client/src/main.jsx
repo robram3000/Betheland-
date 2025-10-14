@@ -22,8 +22,13 @@ import BaseScheduling from './Scheduling/BaseScheduling.jsx'
 import PropertyManagementPage from './Employeesportal/AgentPortal/Properties/PropertyManagementPage.jsx'
 import ScheduleManagementPage from './Employeesportal/AgentPortal/Appointment/ScheduleManagementPage.jsx'
 import AgentLayout from './Employeesportal/AgentPortal/Navigation/adminlayout.jsx'
+import AgentProfile from './Employeesportal/AgentPortal/Profile/AgentProfile.jsx'
 
-// Add these agent-specific components if they don't exist
+
+import AgentLayoutadmn from './Employeesportal/AdminPortal/Creation_Agent/agentlayoutadmn.jsx'
+import PropertyLayout from './Employeesportal/AdminPortal/Creation_Property/Propertylayout.jsx'
+
+
 
 
 
@@ -136,9 +141,26 @@ createRoot(document.getElementById('root')).render(
                             requiredRole="Admin"
                             requiredPermission="manage_users"
                         >
-                            <AdminLayout />
+                            <PropertyLayout />
                         </ProtectedRoute>
                     } />
+                    <Route path="/portal/admin/agent" element={
+                        <ProtectedRoute
+                            requiredRole="Admin"
+                            requiredPermission="manage_agents"
+                        >
+                            <AgentLayoutadmn />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/admin/properties" element={
+                        <ProtectedRoute
+                            requiredRole="Admin"
+                            requiredPermission="manage_properties"
+                        >
+                            <PropertyLayout/>
+                        </ProtectedRoute>
+                    } />
+
 
 
                
@@ -148,9 +170,11 @@ createRoot(document.getElementById('root')).render(
                             requiredRole="Agent"
                             requiredPermission="manage_properties"
                         >
-                            <AgentLayout />
+                            <PropertyLayout />
                         </ProtectedRoute>
                     } />
+
+    
 
                     {/* Add individual agent routes if needed */}
                     <Route path="/portal/agent/all-properties" element={
@@ -160,6 +184,17 @@ createRoot(document.getElementById('root')).render(
                             </AgentLayout>
                         </ProtectedRoute>
                     } />
+                    <Route path="/portal/agent/profile" element={
+                        <ProtectedRoute requiredRole="Agent"
+                            requiredPermission= "manage_profile"
+                        >
+                            <AgentLayout>
+                                <AgentProfile />
+                            </AgentLayout>
+                        </ProtectedRoute>
+                    } />
+
+
                     <Route path="/portal/agent/all-schedule" element={
                         <ProtectedRoute requiredRole="Agent">
                             <AgentLayout>

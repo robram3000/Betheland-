@@ -20,16 +20,15 @@ namespace Realstate_servcices.Server.Data
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<PropertyHouse> Properties { get; set; }
         public DbSet<PropertyImage> PropertyImages { get; set; }
+        public DbSet<PropertyVideo> PropertyVideos { get; set; }
         public DbSet<ScheduleProperties> ScheduleProperties { get; set; }
-        public DbSet<WishlistProperties> Wishlists { get; set; } 
-
+        public DbSet<WishlistProperties> Wishlists { get; set; }
         public DbSet<OTPRecord> OTPRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-        
             modelBuilder.Entity<OTPRecord>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -64,8 +63,6 @@ namespace Realstate_servcices.Server.Data
                       .IsUnique();
             });
 
-
-
             modelBuilder.Entity<BaseMember>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -77,7 +74,6 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.Email).IsUnique();
                 entity.HasIndex(e => e.Username).IsUnique();
             });
-
 
             modelBuilder.Entity<Agent>(entity =>
             {
@@ -158,8 +154,6 @@ namespace Realstate_servcices.Server.Data
                 // Index for better performance
                 entity.HasIndex(e => e.LicenseNumber).IsUnique();
                 entity.HasIndex(e => e.AgentNo).IsUnique();
-
-                // Optional: Add index for frequently queried fields
                 entity.HasIndex(e => e.IsVerified);
                 entity.HasIndex(e => e.DateRegistered);
             });
@@ -170,10 +164,11 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.CellPhoneNo).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.Country).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.City).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.Street).IsRequired().HasMaxLength(255);
-                entity.Property(e => e.ZipCode).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.Country).HasMaxLength(100);
+                entity.Property(e => e.City).HasMaxLength(100);
+                entity.Property(e => e.Street).HasMaxLength(255);
+                entity.Property(e => e.ZipCode).HasMaxLength(20);
+                entity.Property(e => e.Address).HasMaxLength(255);
 
                 // One-to-one relationship with BaseMember
                 entity.HasOne(c => c.BaseMember)
@@ -182,14 +177,22 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-
             modelBuilder.Entity<PropertyHouse>(entity =>
             {
                 entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.PropertyNo).IsRequired();
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Description).IsRequired();
                 entity.Property(e => e.Type).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Price).HasColumnType("decimal(12,2)");
+                entity.Property(e => e.PropertyAge);
+                entity.Property(e => e.PropertyFloor);
+                entity.Property(e => e.Bedrooms);
                 entity.Property(e => e.Bathrooms).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Garage);
+                entity.Property(e => e.Kitchen);
+                entity.Property(e => e.AreaSqm);
                 entity.Property(e => e.Address).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.City).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.State).IsRequired().HasMaxLength(100);
@@ -197,10 +200,12 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.Latitude).HasColumnType("decimal(10,8)");
                 entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("available");
+                entity.Property(e => e.OwnerId).IsRequired(false);
+                entity.Property(e => e.AgentId).IsRequired(false);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt).IsRequired();
+                entity.Property(e => e.ListedDate).IsRequired();
                 entity.Property(e => e.Amenities).IsRequired().HasDefaultValue("[]");
-
-                // FIX: Ensure OwnerId is configured as nullable
-                entity.Property(e => e.OwnerId).IsRequired(false); 
 
                 // Relationships
                 entity.HasOne(p => p.Owner)
@@ -215,7 +220,6 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-
             modelBuilder.Entity<PropertyImage>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -228,7 +232,19 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-        
+            modelBuilder.Entity<PropertyVideo>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.VideoUrl).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.CreatedAt).IsRequired();
+
+                // Relationship
+                entity.HasOne(pv => pv.Property)
+                      .WithMany(p => p.PropertyVideos)
+                      .HasForeignKey(pv => pv.PropertyId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<ScheduleProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -253,14 +269,12 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-       
             modelBuilder.Entity<WishlistProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.AddedDate).IsRequired();
 
-           
                 entity.HasIndex(w => new { w.ClientId, w.PropertyId })
                       .IsUnique();
 

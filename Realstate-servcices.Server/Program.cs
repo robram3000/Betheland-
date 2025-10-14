@@ -9,14 +9,11 @@ using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
-
-
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Repository.WishRepo;
 using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
-
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
 using Realstate_servcices.Server.Services.SMTP.rollout;
@@ -29,28 +26,45 @@ var builder = WebApplication.CreateBuilder(args);
 // Add logging services
 builder.Services.AddLogging();
 
-// Configure CORS
+// Configure CORS for Betheland
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BethelandPolicy", policy =>
     {
-        policy.WithOrigins(
-            "https://localhost:7075",
-            "http://localhost:5173",
-            "https://localhost:5173",
-            "http://localhost:5174",
-            "https://localhost:5174",
-            "https://localhost:52090",
-            "https://localhost:64324"
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials();
+        var allowedOrigins = builder.Environment.IsDevelopment()
+            ? new[]
+            {
+                "https://localhost:7075",
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "http://localhost:5174",
+                "https://localhost:5174",
+                "https://localhost:64324"
+            }
+            : new[]
+            {
+                "https://betheland.com",
+                "https://www.betheland.com",
+                "http://betheland.com",
+                "http://www.betheland.com"
+            };
+
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
 // Use different ports to avoid conflict
-builder.WebHost.UseUrls("https://localhost:7075", "http://localhost:5016");
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("https://localhost:7075", "http://localhost:5016");
+}
+else
+{
+    builder.WebHost.UseUrls("https://betheland.com", "http://betheland.com");
+}
 
 // Add DbContext with SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -82,14 +96,12 @@ builder.Services.AddScoped<ICreatePropertyRepository, CreatePropertyRepository>(
 builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>();
 builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
 
-//builder.Services.AddScoped<ISchedulePropertiesRepository, SchedulePropertiesRepository>();
-//builder.Services.AddScoped<ISchedulePropertiesService, SchedulePropertiesService>();
 builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
 builder.Services.AddScoped<IWishlistService, WishlistService>();
 
+builder.Services.AddScoped<IProfilePictureService, ProfilePictureService>();
+builder.Services.AddScoped<ILocalStorageVideo , LocalStorageVideo>();
 
-
-// Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -121,12 +133,20 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 104857600;
+    options.MultipartBodyLengthLimit = 104857600; 
 });
+
+
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+    configuration.RootPath = "wwwroot";
+});
+
+
 
 var app = builder.Build();
 
-// Ensure wwwroot directory exists
+// Ensure wwwroot and uploads directories exist
 var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
 if (!Directory.Exists(webRootPath))
 {
@@ -134,28 +154,50 @@ if (!Directory.Exists(webRootPath))
     Console.WriteLine($"Created wwwroot directory at: {webRootPath}");
 }
 
-
-app.UseStaticFiles();
-
-app.UseStaticFiles(new StaticFileOptions
+var uploadsPath = Path.Combine(webRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
 {
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")),
-    RequestPath = "/uploads"
-});
-app.UseDefaultFiles();
+    Directory.CreateDirectory(uploadsPath);
+    Console.WriteLine($"Created uploads directory at: {uploadsPath}");
+}
 
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+
+    // Enable static files and SPA for production
+    app.UseStaticFiles();
+    app.UseSpaStaticFiles();
 }
 
 app.UseHttpsRedirection();
 app.UseCors("BethelandPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
+
+
 app.MapControllers();
-app.MapFallbackToFile("/index.html");
+
+// Serve static files for API documentation
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "wwwroot")),
+    RequestPath = ""
+});
+
+// SPA fallback for production - serve React app
+if (!app.Environment.IsDevelopment())
+{
+    app.MapFallbackToFile("index.html");
+}
 
 app.Run();

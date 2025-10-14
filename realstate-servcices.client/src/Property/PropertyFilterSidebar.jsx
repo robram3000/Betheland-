@@ -1,4 +1,4 @@
-﻿// PropertyFilterSidebar.jsx (redesigned)
+﻿// PropertyFilterSidebar.jsx (compact version)
 import React from 'react';
 import {
     Card,
@@ -56,15 +56,19 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
     }
 
     return (
-        <div style={{ padding: '0' }}>
+        <div style={{ width: '280px', padding: '0' }}>
+            {/* Header */}
             <div style={{
-                padding: '24px 24px 16px 24px',
-                borderBottom: '1px solid #f1f5f9'
+                padding: '16px 20px',
+                borderBottom: '1px solid #f1f5f9',
+                background: 'white'
             }}>
                 <Row justify="space-between" align="middle">
-                    <Space>
-                        <FilterOutlined style={{ color: '#1B3C53' }} />
-                        <Title level={4} style={{ margin: 0, color: '#1B3C53' }}>Filters</Title>
+                    <Space size="small">
+                        <FilterOutlined style={{ color: '#1B3C53', fontSize: '16px' }} />
+                        <Title level={5} style={{ margin: 0, color: '#1B3C53', fontSize: '16px' }}>
+                            Filters
+                        </Title>
                     </Space>
                     <Button
                         type="text"
@@ -73,28 +77,36 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                         size="small"
                         style={{
                             color: '#64748b',
-                            border: '1px solid #e2e8f0'
+                            fontSize: '12px',
+                            padding: '2px 8px',
+                            height: 'auto'
                         }}
                     >
-                        Clear All
+                        Clear
                     </Button>
                 </Row>
             </div>
 
-            <div style={{ padding: '24px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {/* Filter Content */}
+            <div style={{
+                padding: '16px 20px',
+                maxHeight: 'calc(100vh - 200px)',
+                overflowY: 'auto',
+                background: 'white'
+            }}>
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
 
                     {/* Price Range */}
-                    <Card
-                        size="small"
-                        bordered={false}
-                        style={{ background: 'transparent', boxShadow: 'none' }}
-                        bodyStyle={{ padding: '0' }}
-                    >
-                        <Text strong style={{ color: '#1B3C53', marginBottom: '12px', display: 'block' }}>
-                            Price Range (₱)
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
+                            Price Range
                         </Text>
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space direction="vertical" style={{ width: '100%' }} size="small">
                             <Slider
                                 range
                                 min={0}
@@ -103,13 +115,24 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 value={filters.priceRange}
                                 onChange={(value) => updateFilter('priceRange', value)}
                                 tooltip={{ formatter: value => formatPeso(value) }}
-                                trackStyle={{ background: '#1B3C53' }}
-                                handleStyle={{ borderColor: '#1B3C53' }}
+                                trackStyle={{ background: '#1B3C53', height: '4px' }}
+                                handleStyle={{
+                                    borderColor: '#1B3C53',
+                                    height: '16px',
+                                    width: '16px',
+                                    marginTop: '-6px'
+                                }}
+                                railStyle={{ background: '#e2e8f0', height: '4px' }}
                             />
                             <Row gutter={8}>
                                 <Col span={12}>
                                     <InputNumber
-                                        style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                        style={{
+                                            width: '100%',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            fontSize: '12px'
+                                        }}
                                         value={filters.priceRange[0]}
                                         formatter={value => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                         parser={value => value.replace(/₱\s?|(,*)/g, '')}
@@ -119,7 +142,12 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Col>
                                 <Col span={12}>
                                     <InputNumber
-                                        style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                        style={{
+                                            width: '100%',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            fontSize: '12px'
+                                        }}
                                         value={filters.priceRange[1]}
                                         formatter={value => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                         parser={value => value.replace(/₱\s?|(,*)/g, '')}
@@ -129,18 +157,29 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Col>
                             </Row>
                         </Space>
-                    </Card>
+                    </div>
 
-                    <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
                     {/* Bedrooms & Bathrooms */}
-                    <Card size="small" bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                        <Text strong style={{ color: '#1B3C53', marginBottom: '12px', display: 'block' }}>
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
                             Rooms
                         </Text>
-                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                        <Space direction="vertical" style={{ width: '100%' }} size="small">
                             <div>
-                                <Text style={{ display: 'block', marginBottom: '4px' }}>Bedrooms</Text>
+                                <Text style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '12px'
+                                }}>
+                                    Bedrooms
+                                </Text>
                                 <Select
                                     style={{ width: '100%' }}
                                     placeholder="Any"
@@ -158,7 +197,13 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Select>
                             </div>
                             <div>
-                                <Text style={{ display: 'block', marginBottom: '4px' }}>Bathrooms</Text>
+                                <Text style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '12px'
+                                }}>
+                                    Bathrooms
+                                </Text>
                                 <Select
                                     style={{ width: '100%' }}
                                     placeholder="Any"
@@ -174,16 +219,21 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Select>
                             </div>
                         </Space>
-                    </Card>
+                    </div>
 
-                    <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
                     {/* Square Footage */}
-                    <Card size="small" bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                        <Text strong style={{ color: '#1B3C53', marginBottom: '12px', display: 'block' }}>
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
                             Square Footage
                         </Text>
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space direction="vertical" style={{ width: '100%' }} size="small">
                             <Slider
                                 range
                                 min={0}
@@ -192,13 +242,24 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 value={filters.squareFeet}
                                 onChange={(value) => updateFilter('squareFeet', value)}
                                 tooltip={{ formatter: value => `${value} sq ft` }}
-                                trackStyle={{ background: '#1B3C53' }}
-                                handleStyle={{ borderColor: '#1B3C53' }}
+                                trackStyle={{ background: '#1B3C53', height: '4px' }}
+                                handleStyle={{
+                                    borderColor: '#1B3C53',
+                                    height: '16px',
+                                    width: '16px',
+                                    marginTop: '-6px'
+                                }}
+                                railStyle={{ background: '#e2e8f0', height: '4px' }}
                             />
                             <Row gutter={8}>
                                 <Col span={12}>
                                     <InputNumber
-                                        style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                        style={{
+                                            width: '100%',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            fontSize: '12px'
+                                        }}
                                         value={filters.squareFeet[0]}
                                         formatter={value => `${value} sq ft`}
                                         parser={value => value.replace(' sq ft', '')}
@@ -208,7 +269,12 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Col>
                                 <Col span={12}>
                                     <InputNumber
-                                        style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                        style={{
+                                            width: '100%',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            fontSize: '12px'
+                                        }}
                                         value={filters.squareFeet[1]}
                                         formatter={value => `${value} sq ft`}
                                         parser={value => value.replace(' sq ft', '')}
@@ -218,30 +284,36 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Col>
                             </Row>
                         </Space>
-                    </Card>
+                    </div>
 
-                    <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
                     {/* Property Type */}
-                    <Card size="small" bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                        <Text strong style={{ color: '#1B3C53', marginBottom: '12px', display: 'block' }}>
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
                             Property Type
                         </Text>
                         <CheckboxGroup
                             value={filters.propertyType}
                             onChange={value => updateFilter('propertyType', value)}
-                            style={{ display: 'flex', flexDirection: 'column' }}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
                         >
                             {propertyTypes.map(type => (
                                 <Checkbox
                                     key={type}
                                     value={type}
                                     style={{
-                                        margin: '4px 0',
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
+                                        margin: 0,
+                                        padding: '6px 8px',
+                                        borderRadius: '4px',
                                         border: '1px solid transparent',
-                                        transition: 'all 0.2s'
+                                        transition: 'all 0.2s',
+                                        fontSize: '12px'
                                     }}
                                     className="filter-checkbox"
                                 >
@@ -249,37 +321,43 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                                 </Checkbox>
                             ))}
                         </CheckboxGroup>
-                    </Card>
+                    </div>
 
-                    <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
                     {/* Amenities */}
-                    <Card size="small" bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                        <Text strong style={{ color: '#1B3C53', marginBottom: '12px', display: 'block' }}>
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
                             Amenities
                         </Text>
                         <CheckboxGroup
                             value={filters.amenities}
                             onChange={value => updateFilter('amenities', value)}
-                            style={{ display: 'flex', flexDirection: 'column' }}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
                         >
                             {amenities.map(amenity => (
                                 <Checkbox
                                     key={amenity}
                                     value={amenity}
                                     style={{
-                                        margin: '4px 0',
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
+                                        margin: 0,
+                                        padding: '6px 8px',
+                                        borderRadius: '4px',
                                         border: '1px solid transparent',
-                                        transition: 'all 0.2s'
+                                        transition: 'all 0.2s',
+                                        fontSize: '12px'
                                     }}
                                 >
                                     {amenity}
                                 </Checkbox>
                             ))}
                         </CheckboxGroup>
-                    </Card>
+                    </div>
                 </Space>
             </div>
 
@@ -291,6 +369,13 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                 :global(.ant-checkbox-wrapper-checked) {
                     background: #f0f9ff;
                     border-color: #1B3C53 !important;
+                }
+                :global(.ant-checkbox-wrapper) {
+                    font-size: 12px;
+                }
+                :global(.ant-slider-handle) {
+                    width: 16px;
+                    height: 16px;
                 }
             `}</style>
         </div>

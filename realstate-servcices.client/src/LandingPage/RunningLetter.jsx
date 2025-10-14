@@ -1,19 +1,18 @@
-﻿// RunningLetter.jsx
-import React from 'react';
+﻿import React from 'react';
 import { Row, Col, Typography } from 'antd';
 
 const { Text } = Typography;
 
 const RunningLetter = () => {
     const announcements = [
-        "🏠 New Properties Added Daily!",
-        "⭐ Featured: Luxury Villa in Downtown - $1.2M",
-        "🔥 Hot Deal: 20% Discount on First-Time Buyer Programs",
-        "📈 Market Update: Property values increased 15% this quarter",
-        "🎉 Special Offer: Free consultation for new clients",
-        "🏆 Award: Best Real Estate Platform 2024",
-        "📍 New Location: Now serving Miami and Orlando",
-        "💼 Open House: Saturday 2-4PM at 123 Main Street"
+        " New Properties Added Daily!",
+        " Featured: Luxury Villa in Downtown ",
+        " Hot Deal: 20% Discount on First-Time Buyer Programs",
+        " Market Update: Property values increased 15% this quarter",
+        " Special Offer: Free consultation for new clients",
+        " Award: Best Real Estate Platform 2024",
+        " New Location: Now serving Miami and Orlando",
+        " Open House: Saturday 2-4PM at 123 Main Street"
     ];
 
     return (

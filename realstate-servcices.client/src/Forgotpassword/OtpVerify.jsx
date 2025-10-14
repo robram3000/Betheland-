@@ -118,33 +118,57 @@ const OtpVerify = () => {
             <ConfigProvider theme={theme}>
                 <Layout style={{
                     minHeight: '100vh',
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    background: 'white',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
+                    {/* Silver Background */}
+                    <div className="silver-background">
+                        <div className="silver-grid-overlay"></div>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div
+                                key={`silver-dot-${i}`}
+                                className="silver-property-dot"
+                                style={{
+                                    left: `${10 + i * 12}%`,
+                                    top: `${20 + (i * 8) % 60}%`,
+                                    animationDelay: `${i * 1.5}s`
+                                }}
+                            />
+                        ))}
+                        <div className="silver-location-pin" style={{ top: '20%', left: '15%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '60%', right: '25%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '40%', left: '80%' }}>📍</div>
+                        <div className="silver-building-outline"></div>
+                    </div>
+
                     <Content style={{
-                        padding: '20px',
-                        width: '100%',
-                        maxWidth: '450px',
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        height: '100vh',
+                        padding: '20px'
                     }}>
                         <Card
                             style={{
                                 borderRadius: '16px',
                                 boxShadow: '0 8px 32px rgba(27, 60, 83, 0.12)',
                                 border: '1px solid #e2e8f0',
-                                width: '100%'
+                                width: '100%',
+                                maxWidth: '450px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                                backdropFilter: 'blur(8px)'
                             }}
                             bodyStyle={{
                                 padding: '60px 32px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                textAlign: 'center'
                             }}
                         >
                             <Spin
@@ -259,17 +283,173 @@ const OtpVerify = () => {
         <ConfigProvider theme={theme}>
             <Layout style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                background: 'white',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
-                <Content style={{ padding: '20px', width: '100%', maxWidth: '500px' }}>
+                {/* Silver Background */}
+                <div className="silver-background">
+                    <div className="silver-grid-overlay"></div>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                            key={`silver-dot-${i}`}
+                            className="silver-property-dot"
+                            style={{
+                                left: `${10 + i * 12}%`,
+                                top: `${20 + (i * 8) % 60}%`,
+                                animationDelay: `${i * 1.5}s`
+                            }}
+                        />
+                    ))}
+                    <div className="silver-location-pin" style={{ top: '20%', left: '15%' }}>📍</div>
+                    <div className="silver-location-pin" style={{ top: '60%', right: '25%' }}>📍</div>
+                    <div className="silver-location-pin" style={{ top: '40%', left: '80%' }}>📍</div>
+                    <div className="silver-building-outline"></div>
+                </div>
+
+                {/* CSS Styles for Silver Background */}
+                <style>
+                    {`
+                    .silver-background {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        pointer-events: none;
+                        background: white;
+                    }
+
+                    .silver-grid-overlay {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background-image: 
+                            linear-gradient(rgba(192, 192, 192, 0.15) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(192, 192, 192, 0.15) 1px, transparent 1px);
+                        background-size: 40px 40px;
+                        animation: silverGridMove 25s linear infinite;
+                    }
+
+                    @keyframes silverGridMove {
+                        0% {
+                            transform: translate(0, 0);
+                        }
+                        100% {
+                            transform: translate(40px, 40px);
+                        }
+                    }
+
+                    .silver-property-dot {
+                        position: absolute;
+                        width: 8px;
+                        height: 8px;
+                        background: rgba(128, 128, 128, 0.4);
+                        border-radius: 50%;
+                        animation: silverDotPulse 3s ease-in-out infinite;
+                        box-shadow: 0 0 10px rgba(192, 192, 192, 0.3);
+                    }
+
+                    @keyframes silverDotPulse {
+                        0%, 100% {
+                            transform: scale(1);
+                            opacity: 0.4;
+                        }
+                        50% {
+                            transform: scale(1.8);
+                            opacity: 0.7;
+                        }
+                    }
+
+                    .silver-location-pin {
+                        position: absolute;
+                        font-size: 28px;
+                        animation: silverPinFloat 8s ease-in-out infinite;
+                        opacity: 0.3;
+                        filter: grayscale(1) brightness(0.8);
+                    }
+
+                    @keyframes silverPinFloat {
+                        0%, 100% {
+                            transform: translateY(0px) rotate(0deg);
+                        }
+                        25% {
+                            transform: translateY(-15px) rotate(5deg);
+                        }
+                        50% {
+                            transform: translateY(-5px) rotate(-5deg);
+                        }
+                        75% {
+                            transform: translateY(-10px) rotate(3deg);
+                        }
+                    }
+
+                    .silver-building-outline {
+                        position: absolute;
+                        bottom: 0;
+                        left: 5%;
+                        width: 90%;
+                        height: 120px;
+                        border-top: 2px solid rgba(192, 192, 192, 0.3);
+                        background: linear-gradient(transparent, rgba(192, 192, 192, 0.1));
+                    }
+
+                    .silver-building-outline::before {
+                        content: '';
+                        position: absolute;
+                        top: -100px;
+                        left: 15%;
+                        width: 80px;
+                        height: 100px;
+                        border: 2px solid rgba(192, 192, 192, 0.3);
+                        border-bottom: none;
+                        animation: buildingGlow 4s ease-in-out infinite alternate;
+                    }
+
+                    .silver-building-outline::after {
+                        content: '';
+                        position: absolute;
+                        top: -150px;
+                        right: 25%;
+                        width: 60px;
+                        height: 150px;
+                        border: 2px solid rgba(192, 192, 192, 0.3);
+                        border-bottom: none;
+                        animation: buildingGlow 4s ease-in-out infinite alternate;
+                    }
+
+                    @keyframes buildingGlow {
+                        0% {
+                            opacity: 0.3;
+                        }
+                        100% {
+                            opacity: 0.6;
+                        }
+                    }
+                    `}
+                </style>
+
+                <Content style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100vh',
+                    padding: '20px'
+                }}>
                     <Card
                         style={{
                             borderRadius: '16px',
                             boxShadow: '0 8px 32px rgba(27, 60, 83, 0.12)',
-                            border: '1px solid #e2e8f0'
+                            border: '1px solid #e2e8f0',
+                            width: '100%',
+                            maxWidth: '500px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                            backdropFilter: 'blur(8px)'
                         }}
                         bodyStyle={{ padding: '32px' }}
                     >

@@ -54,74 +54,150 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             }
         }
 
+        public async Task<AgentResponse?> GetAgentByBaseMemberIdAsync(int baseMemberId)
+        {
+            try
+            {
+                var agent = await _agentRepository.GetAgentByBaseMemberIdAsync(baseMemberId);
+                if (agent == null) return null;
+
+                if (agent.BaseMember == null)
+                {
+                    throw new Exception("BaseMember not found for agent");
+                }
+
+                return new AgentResponse
+                {
+                    Id = agent.Id,
+                    BaseMemberId = agent.BaseMemberId,
+                    Email = agent.BaseMember?.Email ?? string.Empty,
+                    Username = agent.BaseMember?.Username ?? string.Empty,
+                    FirstName = agent.FirstName,
+                    MiddleName = agent.MiddleName,
+                    LastName = agent.LastName,
+                    Suffix = agent.Suffix,
+                    CellPhoneNo = agent.CellPhoneNo,
+                    LicenseNumber = agent.LicenseNumber,
+                    Bio = agent.Bio,
+                    LicenseExpiry = agent.LicenseExpiry,
+                    Experience = agent.Experience,
+                    Specialization = agent.Specialization,
+                    OfficeAddress = agent.OfficeAddress,
+                    OfficePhone = agent.OfficePhone,
+                    Website = agent.Website,
+                    Languages = agent.Languages,
+                    Education = agent.Education,
+                    Awards = agent.Awards,
+                    YearsOfExperience = agent.YearsOfExperience,
+                    BrokerageName = agent.BrokerageName,
+                    IsVerified = agent.IsVerified,
+                    VerificationDate = agent.VerificationDate,
+                    Status = agent.BaseMember?.status ?? "Unknown",
+                    CreatedAt = agent.BaseMember?.CreatedAt ?? DateTime.MinValue,
+                    DateRegistered = agent.DateRegistered,
+                    ProfilePictureUrl = agent.BaseMember?.ProfilePictureUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAgentByBaseMemberIdAsync: {ex.Message}");
+                throw;
+            }
+        }
+
         public async Task<AgentResponse?> GetAgentAsync(int id)
         {
-            var agent = await _agentRepository.GetAgentByIdAsync(id);
-            if (agent == null) return null;
-
-            return new AgentResponse
+            try
             {
-                Id = agent.Id,
-                Email = agent.BaseMember.Email,
-                Username = agent.BaseMember.Username,
-                FirstName = agent.FirstName,
-                MiddleName = agent.MiddleName,
-                LastName = agent.LastName,
-                Suffix = agent.Suffix,
-                CellPhoneNo = agent.CellPhoneNo,
-                LicenseNumber = agent.LicenseNumber,
-                Bio = agent.Bio,
-                LicenseExpiry = agent.LicenseExpiry,
-                Experience = agent.Experience,
-                Specialization = agent.Specialization,
-                OfficeAddress = agent.OfficeAddress,
-                OfficePhone = agent.OfficePhone,
-                Website = agent.Website,
-                Languages = agent.Languages,
-                Education = agent.Education,
-                Awards = agent.Awards,
-                YearsOfExperience = agent.YearsOfExperience,
-                BrokerageName = agent.BrokerageName,
-                IsVerified = agent.IsVerified,
-                VerificationDate = agent.VerificationDate,
-                Status = agent.BaseMember.status,
-                CreatedAt = agent.BaseMember.CreatedAt,
-                DateRegistered = agent.DateRegistered
-            };
+                var agent = await _agentRepository.GetAgentByIdAsync(id);
+                if (agent == null) return null;
+
+                if (agent.BaseMember == null)
+                {
+                    throw new Exception("BaseMember not found for agent");
+                }
+
+                return new AgentResponse
+                {
+                    Id = agent.Id,
+                    BaseMemberId = agent.BaseMemberId,
+                    Email = agent.BaseMember?.Email ?? string.Empty,
+                    Username = agent.BaseMember?.Username ?? string.Empty,
+                    FirstName = agent.FirstName,
+                    MiddleName = agent.MiddleName,
+                    LastName = agent.LastName,
+                    Suffix = agent.Suffix,
+                    CellPhoneNo = agent.CellPhoneNo,
+                    LicenseNumber = agent.LicenseNumber,
+                    Bio = agent.Bio,
+                    LicenseExpiry = agent.LicenseExpiry,
+                    Experience = agent.Experience,
+                    Specialization = agent.Specialization,
+                    OfficeAddress = agent.OfficeAddress,
+                    OfficePhone = agent.OfficePhone,
+                    Website = agent.Website,
+                    Languages = agent.Languages,
+                    Education = agent.Education,
+                    Awards = agent.Awards,
+                    YearsOfExperience = agent.YearsOfExperience,
+                    BrokerageName = agent.BrokerageName,
+                    IsVerified = agent.IsVerified,
+                    VerificationDate = agent.VerificationDate,
+                    Status = agent.BaseMember?.status ?? "Unknown",
+                    CreatedAt = agent.BaseMember?.CreatedAt ?? DateTime.MinValue,
+                    DateRegistered = agent.DateRegistered,
+                    ProfilePictureUrl = agent.BaseMember?.ProfilePictureUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAgentAsync: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<List<AgentResponse>> GetAllAgentsAsync()
         {
-            var agents = await _agentRepository.GetAllAgentsAsync();
-            return agents.Select(agent => new AgentResponse
+            try
             {
-                Id = agent.Id,
-                Email = agent.BaseMember.Email,
-                Username = agent.BaseMember.Username,
-                FirstName = agent.FirstName,
-                MiddleName = agent.MiddleName,
-                LastName = agent.LastName,
-                Suffix = agent.Suffix,
-                CellPhoneNo = agent.CellPhoneNo,
-                LicenseNumber = agent.LicenseNumber,
-                Bio = agent.Bio,
-                LicenseExpiry = agent.LicenseExpiry,
-                Experience = agent.Experience,
-                Specialization = agent.Specialization,
-                OfficeAddress = agent.OfficeAddress,
-                OfficePhone = agent.OfficePhone,
-                Website = agent.Website,
-                Languages = agent.Languages,
-                Education = agent.Education,
-                Awards = agent.Awards,
-                YearsOfExperience = agent.YearsOfExperience,
-                BrokerageName = agent.BrokerageName,
-                IsVerified = agent.IsVerified,
-                VerificationDate = agent.VerificationDate,
-                Status = agent.BaseMember.status,
-                CreatedAt = agent.BaseMember.CreatedAt,
-                DateRegistered = agent.DateRegistered
-            }).ToList();
+                var agents = await _agentRepository.GetAllAgentsAsync();
+                return agents.Select(agent => new AgentResponse
+                {
+                    Id = agent.Id,
+                    BaseMemberId = agent.BaseMemberId,
+                    Email = agent.BaseMember?.Email ?? string.Empty,
+                    Username = agent.BaseMember?.Username ?? string.Empty,
+                    FirstName = agent.FirstName,
+                    MiddleName = agent.MiddleName,
+                    LastName = agent.LastName,
+                    Suffix = agent.Suffix,
+                    CellPhoneNo = agent.CellPhoneNo,
+                    LicenseNumber = agent.LicenseNumber,
+                    Bio = agent.Bio,
+                    LicenseExpiry = agent.LicenseExpiry,
+                    Experience = agent.Experience,
+                    Specialization = agent.Specialization,
+                    OfficeAddress = agent.OfficeAddress,
+                    OfficePhone = agent.OfficePhone,
+                    Website = agent.Website,
+                    Languages = agent.Languages,
+                    Education = agent.Education,
+                    Awards = agent.Awards,
+                    YearsOfExperience = agent.YearsOfExperience,
+                    BrokerageName = agent.BrokerageName,
+                    IsVerified = agent.IsVerified,
+                    VerificationDate = agent.VerificationDate,
+                    Status = agent.BaseMember?.status ?? "Unknown",
+                    CreatedAt = agent.BaseMember?.CreatedAt ?? DateTime.MinValue,
+                    DateRegistered = agent.DateRegistered,
+                    ProfilePictureUrl = agent.BaseMember?.ProfilePictureUrl
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAllAgentsAsync: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<RegisterResponse> UpdateAgentAsync(int id, AgentUpdateRequest request)
@@ -143,6 +219,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             }
         }
 
+
         public async Task<RegisterResponse> UpdateAgentStatusAsync(int id, string status)
         {
             try
@@ -153,7 +230,19 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                     return new RegisterResponse { Success = false, Message = "Agent not found" };
                 }
 
+                // Update base member status
                 await _baseMemberRepository.UpdateBaseMemberStatusAsync(agent.BaseMemberId, status);
+
+                // Also update verification status if status is "Verified"
+                if (status == "Verified")
+                {
+                    await _agentRepository.UpdateVerificationStatusAsync(id, true);
+                }
+                else if (status == "Inactive" || status == "Suspended")
+                {
+                    await _agentRepository.UpdateVerificationStatusAsync(id, false);
+                }
+
                 return new RegisterResponse { Success = true, Message = "Agent status updated successfully" };
             }
             catch (Exception ex)

@@ -79,17 +79,20 @@ namespace Realstate_servcices.Server.Controllers.Security
 
                 // Generate claims with comprehensive null checks
                 var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
-                    new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
-                    new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
-                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
-                    new Claim("userId", baseMember.Id.ToString() ?? "")
-                };
+        {
+            new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
+            new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
+            new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
+            new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
+            new Claim("userId", baseMember.Id.ToString() ?? "")
+        };
 
                 var accessToken = _jwtService.GenerateAccessToken(claims);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
+                // FIXED: Proper logging
+                _logger.LogInformation("_____image url data: {ProfilePictureUrl}", baseMember.ProfilePictureUrl ?? "null");
+           
                 var response = new
                 {
                     success = true,
@@ -100,14 +103,13 @@ namespace Realstate_servcices.Server.Controllers.Security
                     userId = baseMember.Id.ToString(),
                     email = baseMember.Email,
                     userType = baseMember.Role,
+                    ImageProfile = baseMember.ProfilePictureUrl, 
                     message = "Login successful"
                 };
-
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                // Log the exception
                 _logger.LogError(ex, "Login error for user: {Username}", request.UsernameOrEmail);
 
                 return StatusCode(500, new
@@ -145,7 +147,7 @@ namespace Realstate_servcices.Server.Controllers.Security
                     });
                 }
 
-                // Get user from database to verify they still exist
+      
                 var baseMember = await _baseMemberRepository.FindByUsernameOrEmailAsync(userId);
                 if (baseMember == null)
                 {
@@ -155,19 +157,19 @@ namespace Realstate_servcices.Server.Controllers.Security
                         message = "User not found"
                     });
                 }
-
-                // Generate new claims with null checks
                 var newClaims = new List<Claim>
                 {
                     new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString()),
                     new Claim(ClaimTypes.Email, baseMember.Email ?? string.Empty),
                     new Claim(ClaimTypes.Name, baseMember.Username ?? string.Empty),
-                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client")
+                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
+                  
                 };
 
                 var newAccessToken = _jwtService.GenerateAccessToken(newClaims);
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
-
+                Console.WriteLine("____photourl :" , baseMember  );
+            
                 var response = new
                 {
                     success = true,
@@ -179,6 +181,7 @@ namespace Realstate_servcices.Server.Controllers.Security
                     email = baseMember.Email,
                     username = baseMember.Username,
                     userType = baseMember.Role,
+                    ImageProfile = baseMember.ProfilePictureUrl, 
                     message = "Token refreshed successfully"
                 };
 
@@ -203,13 +206,9 @@ namespace Realstate_servcices.Server.Controllers.Security
                 });
             }
         }
-
-        // Optional: Logout endpoint (if you want to handle server-side logout)
         [HttpPost("logout")]
         public async Task<ActionResult> Logout()
-        {
-            // In a real application, you might want to blacklist the token
-            // or remove it from a valid tokens list
+        {      
             return Ok(new
             {
                 success = true,

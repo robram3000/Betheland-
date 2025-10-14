@@ -1,4 +1,4 @@
-﻿// WishlistCard.jsx (updated with agent badge)
+﻿
 import React from 'react';
 import { Card, Button, Space, Tag, Typography, Divider } from 'antd';
 import {
@@ -13,12 +13,8 @@ import {
 const { Title, Text } = Typography;
 
 const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => {
-    // Use the property data directly (it's already flattened)
+   
     const propertyData = property;
-
-    console.log('WishlistCard property data:', propertyData);
-
-    // Extract data from the flattened structure
     const {
         id,
         propertyId,
@@ -31,7 +27,6 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
         firstChoiceAgent = null
     } = propertyData || {};
 
-    // Calculate derived values
     const displayId = propertyId || id;
     const displayTitle = propertyTitle;
     const displayLocation = propertyAddress;
@@ -39,7 +34,6 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
     const displayStatus = propertyStatus;
     const displayType = propertyType;
 
-    // Process image URL
     const processImageUrl = (url) => {
         if (!url || url === 'string') {
             return '/default-property.jpg';
@@ -64,7 +58,7 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
         return '/default-property.jpg';
     };
 
-    // Get the main image
+
     const getMainImage = () => {
         if (propertyImages && propertyImages.length > 0) {
             return processImageUrl(propertyImages[0]);
@@ -74,7 +68,6 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
 
     const displayImage = getMainImage();
 
-    // Format price in Philippine Peso
     const formatPesoPrice = (price) => {
         if (!price && price !== 0) return 'Price on request';
 
@@ -88,7 +81,7 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
         return `₱${numericPrice}`;
     };
 
-    // Get status color and text
+
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
             case 'available':
@@ -119,10 +112,10 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
         }
     };
 
-    // Extract property features from the data (you may need to adjust these based on your actual data)
-    const bedrooms = 2; // You'll need to get this from your actual data
-    const bathrooms = 2; // You'll need to get this from your actual data
-    const areaSqft = 1200; // You'll need to get this from your actual data
+ 
+    const bedrooms = 2; 
+    const bathrooms = 2; 
+    const areaSqft = 1200; 
 
     return (
         <Card
@@ -284,7 +277,7 @@ const WishlistCard = ({ property, onRemove, onScheduleTour, onViewDetails }) => 
                 </Space>
             </div>
 
-            {/* Property Details - You'll need to update these with actual data from your backend */}
+     
             <div style={{ marginBottom: '12px' }}>
                 <Space size="small" wrap>
                     <Tag style={{

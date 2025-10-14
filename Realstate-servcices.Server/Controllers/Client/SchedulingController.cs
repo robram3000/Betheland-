@@ -6,134 +6,127 @@ namespace Realstate_servcices.Server.Controllers.Client
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class ScheduleController : ControllerBase
+    public class SchedulingController : ControllerBase
     {
-        private readonly IScheduleServices _scheduleServices;
+        private readonly ISchedulingServices _schedulingServices;
 
-        public ScheduleController(IScheduleServices scheduleServices)
+        public SchedulingController(ISchedulingServices schedulingServices)
         {
-            _scheduleServices = scheduleServices;
+            _schedulingServices = schedulingServices;
         }
 
         [HttpGet]
-        public async Task<ActionResult<SchedulesResponseDto>> GetAllSchedules()
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetAllSchedules()
         {
-            var result = await _scheduleServices.GetAllSchedulesAsync();
-            if (!result.Success)
-                return NotFound(result);
-
-            return Ok(result);
+            var schedules = await _schedulingServices.GetAllSchedulesAsync();
+            return Ok(schedules);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ScheduleResponseDto>> GetScheduleById(int id)
         {
-            var result = await _scheduleServices.GetScheduleByIdAsync(id);
-            if (!result.Success)
-                return NotFound(result);
+            var schedule = await _schedulingServices.GetScheduleByIdAsync(id);
+            if (schedule == null)
+                return NotFound();
 
-            return Ok(result);
-        }
-
-        [HttpGet("number/{scheduleNo}")]
-        public async Task<ActionResult<ScheduleResponseDto>> GetScheduleByNumber(Guid scheduleNo)
-        {
-            var result = await _scheduleServices.GetScheduleByNoAsync(scheduleNo);
-            if (!result.Success)
-                return NotFound(result);
-
-            return Ok(result);
+            return Ok(schedule);
         }
 
         [HttpGet("agent/{agentId}")]
-        public async Task<ActionResult<SchedulesResponseDto>> GetSchedulesByAgent(int agentId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByAgent(int agentId)
         {
-            var result = await _scheduleServices.GetSchedulesByAgentAsync(agentId);
-            return Ok(result);
+            var schedules = await _schedulingServices.GetSchedulesByAgentAsync(agentId);
+            return Ok(schedules);
         }
 
         [HttpGet("client/{clientId}")]
-        public async Task<ActionResult<SchedulesResponseDto>> GetSchedulesByClient(int clientId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByClient(int clientId)
         {
-            var result = await _scheduleServices.GetSchedulesByClientAsync(clientId);
-            return Ok(result);
+            var schedules = await _schedulingServices.GetSchedulesByClientAsync(clientId);
+            return Ok(schedules);
         }
 
         [HttpGet("property/{propertyId}")]
-        public async Task<ActionResult<SchedulesResponseDto>> GetSchedulesByProperty(int propertyId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByProperty(int propertyId)
         {
-            var result = await _scheduleServices.GetSchedulesByPropertyAsync(propertyId);
-            return Ok(result);
+            var schedules = await _schedulingServices.GetSchedulesByPropertyAsync(propertyId);
+            return Ok(schedules);
         }
 
-        [HttpGet("status/{status}")]
-        public async Task<ActionResult<SchedulesResponseDto>> GetSchedulesByStatus(string status)
+        [HttpGet("upcoming")]
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetUpcomingSchedules([FromQuery] int days = 7)
         {
-            var result = await _scheduleServices.GetSchedulesByStatusAsync(status);
-            return Ok(result);
-        }
-
-        [HttpGet("date-range")]
-        public async Task<ActionResult<SchedulesResponseDto>> GetSchedulesByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
-        {
-            var result = await _scheduleServices.GetSchedulesByDateRangeAsync(startDate, endDate);
-            return Ok(result);
+            var schedules = await _schedulingServices.GetUpcomingSchedulesAsync(days);
+            return Ok(schedules);
         }
 
         [HttpPost]
         public async Task<ActionResult<ScheduleResponseDto>> CreateSchedule(CreateScheduleDto createDto)
         {
-            var result = await _scheduleServices.CreateScheduleAsync(createDto);
-            if (!result.Success)
-                return BadRequest(result);
-
-            return CreatedAtAction(nameof(GetScheduleById), new { id = result.Data?.Id }, result);
+            try
+            {
+                var schedule = await _schedulingServices.CreateScheduleAsync(createDto);
+                return CreatedAtAction(nameof(GetScheduleById), new { id = schedule.Id }, schedule);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult<ScheduleResponseDto>> UpdateSchedule(int id, UpdateScheduleDto updateDto)
         {
-            var result = await _scheduleServices.UpdateScheduleAsync(id, updateDto);
-            if (!result.Success)
-                return BadRequest(result);
+            try
+            {
+                var schedule = await _schedulingServices.UpdateScheduleAsync(id, updateDto);
+                if (schedule == null)
+                    return NotFound();
 
-            return Ok(result);
+                return Ok(schedule);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPatch("{id}/cancel")]
-        public async Task<ActionResult<ScheduleResponseDto>> CancelSchedule(int id)
+        public async Task<IActionResult> CancelSchedule(int id)
         {
-            var result = await _scheduleServices.CancelScheduleAsync(id);
-            if (!result.Success)
-                return BadRequest(result);
+            var result = await _schedulingServices.CancelScheduleAsync(id);
+            if (!result)
+                return NotFound();
 
-            return Ok(result);
+            return NoContent();
         }
 
         [HttpPatch("{id}/complete")]
-        public async Task<ActionResult<ScheduleResponseDto>> CompleteSchedule(int id)
+        public async Task<IActionResult> CompleteSchedule(int id)
         {
-            var result = await _scheduleServices.CompleteScheduleAsync(id);
-            if (!result.Success)
-                return BadRequest(result);
+            var result = await _schedulingServices.CompleteScheduleAsync(id);
+            if (!result)
+                return NotFound();
 
-            return Ok(result);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSchedule(int id)
         {
-            var result = await _scheduleServices.DeleteScheduleAsync(id);
+            var result = await _schedulingServices.DeleteScheduleAsync(id);
             if (!result)
-                return NotFound(new { Success = false, Message = "Schedule not found." });
+                return NotFound();
 
-            return Ok(new { Success = true, Message = "Schedule deleted successfully." });
+            return NoContent();
         }
 
-        [HttpGet("check-availability")]
-        public async Task<ActionResult<bool>> CheckTimeSlotAvailability([FromQuery] int agentId, [FromQuery] DateTime scheduleTime)
+        [HttpGet("availability")]
+        public async Task<ActionResult<bool>> CheckTimeSlotAvailability(
+            [FromQuery] int agentId,
+            [FromQuery] DateTime scheduleTime)
         {
-            var isAvailable = await _scheduleServices.IsTimeSlotAvailableAsync(agentId, scheduleTime);
+            var isAvailable = await _schedulingServices.IsTimeSlotAvailableAsync(agentId, scheduleTime);
             return Ok(isAvailable);
         }
     }

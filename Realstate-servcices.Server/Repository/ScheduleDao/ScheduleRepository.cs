@@ -5,11 +5,11 @@ using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Repository.ScheduleDao
 {
-    public class ScheduleRepository : IScheduleRepository
+    public class SchedulingRepository : ISchedulingRepository
     {
         private readonly ApplicationDbContext _context;
 
-        public ScheduleRepository(ApplicationDbContext context)
+        public SchedulingRepository(ApplicationDbContext context)
         {
             _context = context;
         }
@@ -17,83 +17,80 @@ namespace Realstate_servcices.Server.Repository.ScheduleDao
         public async Task<ScheduleProperties?> GetByIdAsync(int id)
         {
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .FirstOrDefaultAsync(s => s.Id == id);
-        }
-
-        public async Task<ScheduleProperties?> GetByScheduleNoAsync(Guid scheduleNo)
-        {
-            return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .FirstOrDefaultAsync(s => s.ScheduleNo == scheduleNo);
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .FirstOrDefaultAsync(sp => sp.Id == id);
         }
 
         public async Task<IEnumerable<ScheduleProperties>> GetAllAsync()
         {
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .OrderByDescending(s => s.CreatedAt)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .OrderByDescending(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<ScheduleProperties>> GetByAgentIdAsync(int agentId)
         {
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .Where(s => s.AgentId == agentId)
-                .OrderByDescending(s => s.CreatedAt)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .Where(sp => sp.AgentId == agentId)
+                .OrderByDescending(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<ScheduleProperties>> GetByClientIdAsync(int clientId)
         {
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .Where(s => s.ClientId == clientId)
-                .OrderByDescending(s => s.CreatedAt)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .Where(sp => sp.ClientId == clientId)
+                .OrderByDescending(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<ScheduleProperties>> GetByPropertyIdAsync(int propertyId)
         {
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .Where(s => s.PropertyId == propertyId)
-                .OrderByDescending(s => s.CreatedAt)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .Where(sp => sp.PropertyId == propertyId)
+                .OrderByDescending(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<ScheduleProperties>> GetByStatusAsync(string status)
+        public async Task<IEnumerable<ScheduleProperties>> GetSchedulesByDateAsync(DateTime date)
         {
+            var startDate = date.Date;
+            var endDate = startDate.AddDays(1);
+
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .Where(s => s.Status == status)
-                .OrderByDescending(s => s.CreatedAt)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .Where(sp => sp.ScheduleTime >= startDate && sp.ScheduleTime < endDate)
+                .OrderBy(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<ScheduleProperties>> GetSchedulesByDateRangeAsync(DateTime startDate, DateTime endDate)
+        public async Task<IEnumerable<ScheduleProperties>> GetUpcomingSchedulesAsync(int days = 7)
         {
+            var startDate = DateTime.UtcNow;
+            var endDate = startDate.AddDays(days);
+
             return await _context.ScheduleProperties
-                .Include(s => s.Property)
-                .Include(s => s.Agent)
-                .Include(s => s.Client)
-                .Where(s => s.ScheduleTime >= startDate && s.ScheduleTime <= endDate)
-                .OrderBy(s => s.ScheduleTime)
+                .Include(sp => sp.Property)
+                .Include(sp => sp.Agent)
+                .Include(sp => sp.Client)
+                .Where(sp => sp.ScheduleTime >= startDate && sp.ScheduleTime <= endDate)
+                .OrderBy(sp => sp.ScheduleTime)
                 .ToListAsync();
         }
 
@@ -104,20 +101,12 @@ namespace Realstate_servcices.Server.Repository.ScheduleDao
             return schedule;
         }
 
-        public async Task<ScheduleProperties?> UpdateAsync(int id, ScheduleProperties schedule)
+        public async Task<ScheduleProperties> UpdateAsync(ScheduleProperties schedule)
         {
-            var existingSchedule = await _context.ScheduleProperties.FindAsync(id);
-            if (existingSchedule == null)
-                return null;
-
-            // Update properties
-            existingSchedule.ScheduleTime = schedule.ScheduleTime;
-            existingSchedule.Status = schedule.Status;
-            existingSchedule.Notes = schedule.Notes;
-            existingSchedule.UpdatedAt = DateTime.UtcNow;
-
+            schedule.UpdatedAt = DateTime.UtcNow;
+            _context.ScheduleProperties.Update(schedule);
             await _context.SaveChangesAsync();
-            return existingSchedule;
+            return schedule;
         }
 
         public async Task<bool> DeleteAsync(int id)
@@ -133,20 +122,24 @@ namespace Realstate_servcices.Server.Repository.ScheduleDao
 
         public async Task<bool> ExistsAsync(int id)
         {
-            return await _context.ScheduleProperties.AnyAsync(s => s.Id == id);
+            return await _context.ScheduleProperties.AnyAsync(sp => sp.Id == id);
         }
 
         public async Task<bool> IsTimeSlotAvailableAsync(int agentId, DateTime scheduleTime)
         {
-            // Check if agent has any schedule within 1 hour of the requested time
-            var startTime = scheduleTime.AddHours(-1);
-            var endTime = scheduleTime.AddHours(1);
+            // Check if agent has any overlapping schedules
+            var bufferTime = TimeSpan.FromMinutes(30); // 30-minute buffer
+            var startTime = scheduleTime.Add(-bufferTime);
+            var endTime = scheduleTime.Add(bufferTime);
 
-            return !await _context.ScheduleProperties
-                .AnyAsync(s => s.AgentId == agentId &&
-                              s.ScheduleTime >= startTime &&
-                              s.ScheduleTime <= endTime &&
-                              s.Status != "Cancelled");
+            var conflictingSchedule = await _context.ScheduleProperties
+                .Where(sp => sp.AgentId == agentId &&
+                           sp.ScheduleTime >= startTime &&
+                           sp.ScheduleTime <= endTime &&
+                           sp.Status != "Cancelled")
+                .FirstOrDefaultAsync();
+
+            return conflictingSchedule == null;
         }
     }
 }

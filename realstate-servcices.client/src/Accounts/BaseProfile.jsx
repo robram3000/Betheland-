@@ -1,4 +1,3 @@
-// Updated BaseProfile.jsx
 import React from 'react';
 import { Layout, ConfigProvider } from 'antd';
 import ProfilePage from './Profile';

@@ -1,4 +1,4 @@
-// GlobalAdminTopbar.jsx
+// GlobalAdminTopbar.jsx - Fully Responsive
 import React, { useState } from 'react';
 import {
     Layout,
@@ -11,6 +11,9 @@ import {
     Input,
     theme,
     Switch,
+    message,
+    Grid,
+    Drawer
 } from 'antd';
 import {
     QuestionCircleOutlined,
@@ -23,61 +26,167 @@ import {
     SettingOutlined,
     MoonOutlined,
     SunOutlined,
+    CloseOutlined
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import authService from '../../../Authpage/Services/LoginAuth';
+import { useUser } from '../../../Authpage/Services/UserContextService';
 
 const { Header } = Layout;
 const { Text } = Typography;
-const { Search } = Input;
+const { useBreakpoint } = Grid;
 
-const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
+const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
+    const [notificationDrawerVisible, setNotificationDrawerVisible] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
+    const navigate = useNavigate();
+    const { user, logout } = useUser();
+    const screens = useBreakpoint();
+
     const {
         token: { colorBgContainer },
     } = theme.useToken();
 
     const handleLogout = () => {
-        // Add logout logic here
-        console.log('Logout clicked');
+        logout();
+        message.success('Logged out successfully');
+        navigate('/login');
         setDropdownVisible(false);
     };
 
     const handleProfile = () => {
-        // Add profile logic here
-        console.log('Profile clicked');
+        navigate('/profile');
         setDropdownVisible(false);
     };
 
     const handleSettings = () => {
-        // Add settings logic here
-        console.log('Settings clicked');
+        navigate('/settings');
         setDropdownVisible(false);
     };
 
     const handleHelp = () => {
-        // Add help logic here
         console.log('Help clicked');
     };
 
-    const handleSearch = (value) => {
-        console.log('Search:', value);
+    const handleNotifications = () => {
+        if (mobileView) {
+            setNotificationDrawerVisible(true);
+        } else {
+            // Handle desktop notifications
+            console.log('Notifications clicked');
+        }
     };
 
-    const toggleDarkMode = (checked) => {
-        setDarkMode(checked);
-        // Add dark mode toggle logic here
-        console.log('Dark mode:', checked);
+    // Get display name from user context
+    const getDisplayName = () => {
+        if (!user) return 'Admin';
+        if (user.username && user.username.trim() !== '') {
+            return user.username;
+        }
+        if (user.email) {
+            return user.email.split('@')[0];
+        }
+        const userRole = user?.role || user?.userType;
+        switch (userRole?.toLowerCase()) {
+            case 'superadmin':
+                return 'Super Admin';
+            case 'admin':
+                return 'Administrator';
+            case 'agent':
+                return 'Agent';
+            default:
+                return 'User';
+        }
+    };
+
+    // Get user initials for avatar
+    const getUserInitials = () => {
+        const displayName = getDisplayName();
+        if (displayName === 'Admin' || displayName === 'User') {
+            const role = user?.role || user?.userType;
+            if (role?.toLowerCase() === 'superadmin') return 'SA';
+            if (role?.toLowerCase() === 'admin') return 'A';
+            if (role?.toLowerCase() === 'agent') return 'AG';
+            return 'U';
+        }
+
+        return displayName
+            .split(' ')
+            .map(name => name[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
+    // Get role display name
+    const getRoleDisplayName = () => {
+        const role = user?.role || user?.userType;
+        switch (role?.toLowerCase()) {
+            case 'superadmin':
+                return 'Super Administrator';
+            case 'admin':
+                return 'Administrator';
+            case 'agent':
+                return 'Real Estate Agent';
+            case 'client':
+                return 'Client';
+            default:
+                return role || 'User';
+        }
     };
 
     const profileMenuItems = [
         {
-            key: '1',
+            key: 'user-info',
+            label: (
+                <div style={{
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #f0f0f0',
+                    minWidth: '200px',
+                    background: 'rgba(0,0,0,0.02)'
+                }}>
+                    <div style={{
+                        fontWeight: '600',
+                        fontSize: mobileView ? '14px' : '13px',
+                        color: '#1a365d',
+                        marginBottom: '4px'
+                    }}>
+                        {getDisplayName()}
+                    </div>
+                    <div style={{
+                        fontSize: mobileView ? '13px' : '12px',
+                        color: '#666',
+                        marginBottom: '6px'
+                    }}>
+                        {user?.email || 'No email'}
+                    </div>
+                    <div style={{
+                        fontSize: mobileView ? '12px' : '11px',
+                        color: '#888',
+                        fontWeight: '500',
+                        background: 'rgba(26, 54, 93, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                    }}>
+                        {getRoleDisplayName()}
+                    </div>
+                </div>
+            ),
+            disabled: true,
+        },
+        {
+            type: 'divider',
+        },
+        {
+            key: 'profile',
             icon: <UserOutlined />,
-            label: 'Profile',
+            label: 'My Profile',
             onClick: handleProfile,
         },
         {
-            key: '2',
+            key: 'settings',
             icon: <SettingOutlined />,
             label: 'Settings',
             onClick: handleSettings,
@@ -86,7 +195,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
             type: 'divider',
         },
         {
-            key: '3',
+            key: 'logout',
             icon: <LogoutOutlined />,
             label: 'Logout',
             danger: true,
@@ -94,122 +203,221 @@ const GlobalAdminTopbar = ({ onToggle, collapsed }) => {
         },
     ];
 
-    return (
-        <Header
-            style={{
-                background: colorBgContainer,
-                padding: '0 24px',
-                boxShadow: '0 1px 4px rgba(0,21,41,.08)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 1000,
-                height: 64,
-            }}
-        >
-            {/* Left Side */}
-            <Space size="middle">
-                {/* Collapse Toggle */}
-                <Button
-                    type="text"
-                    icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                    onClick={onToggle}
-                    style={{
-                        fontSize: '16px',
-                        width: 32,
-                        height: 32,
-                    }}
-                />
-
-                {/* Logo */}
-                <Text
-                    strong
-                    style={{
-                        fontSize: '20px',
-                        color: '#1890ff',
-                    }}
-                >
-                    Betheland
-                </Text>
-
-            </Space>
-
-            {/* Right Side */}
-            <Space size="middle">
-                {/* Dark Mode Toggle */}
-                <Space size="small">
-                    <SunOutlined style={{ color: darkMode ? '#8c8c8c' : '#1890ff' }} />
-                    <Switch
-                        size="small"
-                        checked={darkMode}
-                        onChange={toggleDarkMode}
-                    />
-                    <MoonOutlined style={{ color: darkMode ? '#1890ff' : '#8c8c8c' }} />
-                </Space>
-
-                {/* Notifications */}
-                <Badge count={5} size="small">
+    // Notification Drawer for Mobile
+    const NotificationDrawer = () => (
+        <Drawer
+            title={
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0'
+                }}>
+                    <span style={{ fontSize: '18px', fontWeight: 600 }}>Notifications</span>
                     <Button
                         type="text"
-                        icon={<BellOutlined />}
+                        icon={<CloseOutlined />}
+                        onClick={() => setNotificationDrawerVisible(false)}
+                    />
+                </div>
+            }
+            placement="right"
+            onClose={() => setNotificationDrawerVisible(false)}
+            open={notificationDrawerVisible}
+            width={320}
+        >
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <BellOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+                <Text type="secondary">No new notifications</Text>
+            </div>
+        </Drawer>
+    );
+
+    return (
+        <>
+            <Header
+                style={{
+                    background: colorBgContainer,
+                    padding: mobileView ? '0 16px' : '0 24px',
+                    boxShadow: '0 1px 4px rgba(0,21,41,.08)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    height: 64,
+                    borderBottom: '1px solid #f0f0f0',
+                    width: '100%',
+                }}
+            >
+                {/* Left Side */}
+                <Space size="middle">
+                    {/* Collapse Toggle */}
+                    <Button
+                        type="text"
+                        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                        onClick={onToggle}
                         style={{
-                            width: 32,
-                            height: 32,
+                            fontSize: '18px',
+                            width: 40,
+                            height: 40,
+                            color: '#1a365d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
                     />
-                </Badge>
 
-                {/* Help Button */}
-                <Button
-                    type="text"
-                    icon={<QuestionCircleOutlined />}
-                    onClick={handleHelp}
-                >
-                    Help
-                </Button>
-
-                {/* Profile Dropdown */}
-                <Dropdown
-                    menu={{ items: profileMenuItems }}
-                    trigger={['click']}
-                    open={dropdownVisible}
-                    onOpenChange={setDropdownVisible}
-                    placement="bottomRight"
-                >
-                    <Button
-                        type="text"
+                    {/* Logo */}
+                    <Text
+                        strong
                         style={{
-                            padding: '4px',
-                            height: 'auto',
+                            fontSize: mobileView ? '18px' : '20px',
+                            color: '#1a365d',
+                            fontWeight: 600,
                         }}
                     >
-                        <Space size="small">
-                            <Avatar
-                                size="small"
-                                style={{
-                                    backgroundColor: '#1890ff',
-                                    verticalAlign: 'middle',
-                                }}
-                            >
-                                A
-                            </Avatar>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <Text strong style={{ fontSize: '12px', lineHeight: 1 }}>
-                                    Admin User
-                                </Text>
-                                <Text type="secondary" style={{ fontSize: '10px', lineHeight: 1 }}>
-                                    Administrator
-                                </Text>
-                            </div>
-                        </Space>
-                    </Button>
-                </Dropdown>
-            </Space>
-        </Header>
+                        Betheland
+                    </Text>
+                </Space>
+
+                {/* Right Side */}
+                <Space size="middle">
+                    {/* Search - Hidden on mobile */}
+                    {!mobileView && (
+                        <Input
+                            placeholder="Search..."
+                            prefix={<SearchOutlined />}
+                            style={{
+                                width: 200,
+                                borderRadius: '6px'
+                            }}
+                        />
+                    )}
+
+                    {/* Notifications */}
+                    <Badge
+                        count={5}
+                        size="small"
+                        style={{
+                            backgroundColor: '#ff4d4f',
+                        }}
+                    >
+                        <Button
+                            type="text"
+                            icon={<BellOutlined />}
+                            onClick={handleNotifications}
+                            style={{
+                                width: 40,
+                                height: 40,
+                                color: '#1a365d',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        />
+                    </Badge>
+
+                    {/* Help Button */}
+                    {mobileView ? (
+                        <Button
+                            type="text"
+                            icon={<QuestionCircleOutlined />}
+                            onClick={handleHelp}
+                            style={{
+                                color: '#1a365d',
+                                width: 40,
+                                height: 40,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        />
+                    ) : (
+                        <Button
+                            type="text"
+                            icon={<QuestionCircleOutlined />}
+                            onClick={handleHelp}
+                            style={{
+                                color: '#1a365d',
+                            }}
+                        >
+                            Help
+                        </Button>
+                    )}
+
+                    {/* Profile Dropdown */}
+                    <Dropdown
+                        menu={{ items: profileMenuItems }}
+                        trigger={['click']}
+                        open={dropdownVisible}
+                        onOpenChange={setDropdownVisible}
+                        placement="bottomRight"
+                        overlayStyle={{
+                            minWidth: 220,
+                        }}
+                    >
+                        <Button
+                            type="text"
+                            style={{
+                                padding: mobileView ? '4px' : '4px 12px',
+                                height: 'auto',
+                                borderRadius: '8px',
+                                border: '1px solid transparent',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#1a365d';
+                                e.currentTarget.style.backgroundColor = 'rgba(26, 54, 93, 0.04)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'transparent';
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                        >
+                            <Space size="small">
+                                <Avatar
+                                    size={mobileView ? "default" : "small"}
+                                    style={{
+                                        backgroundColor: '#1a365d',
+                                        verticalAlign: 'middle',
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    {getUserInitials()}
+                                </Avatar>
+                                {!mobileView && (
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-start',
+                                        lineHeight: 1.2,
+                                    }}>
+                                        <Text strong style={{
+                                            fontSize: '13px',
+                                            color: '#1a365d',
+                                        }}>
+                                            {getDisplayName()}
+                                        </Text>
+                                        <Text type="secondary" style={{
+                                            fontSize: '11px',
+                                        }}>
+                                            {getRoleDisplayName()}
+                                        </Text>
+                                    </div>
+                                )}
+                            </Space>
+                        </Button>
+                    </Dropdown>
+                </Space>
+            </Header>
+
+            {/* Notification Drawer for Mobile */}
+            <NotificationDrawer />
+        </>
     );
 };
 

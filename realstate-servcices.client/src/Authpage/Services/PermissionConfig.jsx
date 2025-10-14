@@ -34,7 +34,8 @@ export const rolePermissions = {
         'manage_own_schedule',
         'create_properties',
         'edit_own_properties',
-        'view_appointments'
+        'view_appointments',
+        'manage_profile'
     ],
     'Client': [
         'view_properties',
@@ -59,9 +60,8 @@ export const routePermissions = {
     // Admin Routes
     '/portal/admin': ['SuperAdmin', 'Admin'],
     '/portal/admin/analytics': ['SuperAdmin', 'Admin'],
-    '/portal/admin/user-management': ['SuperAdmin', 'Admin'],
-    '/portal/admin/property-approval': ['SuperAdmin', 'Admin'],
-    '/portal/admin/reports': ['SuperAdmin', 'Admin'],
+    '/portal/admin/property': ['SuperAdmin', 'Admin'],
+    '/portal/admin/agent': ['SuperAdmin', 'Admin'],
 
     // Agent Routes
     '/portal/agent': ['SuperAdmin', 'Admin', 'Agent'],
@@ -70,6 +70,7 @@ export const routePermissions = {
     '/portal/agent/my-properties': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/my-schedule': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/clients': ['SuperAdmin', 'Admin', 'Agent'],
+    '/portal/agent/profile': ['SuperAdmin', 'Admin', 'Agent'],
 
     // Client Routes
     '/profile': ['SuperAdmin', 'Admin', 'Agent', 'Client'],

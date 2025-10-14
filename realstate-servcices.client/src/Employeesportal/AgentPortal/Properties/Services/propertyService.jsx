@@ -102,7 +102,8 @@ export const propertyService = {
                     AgentId: propertyData.agentId || null,
                     ListedDate: new Date().toISOString()
                 },
-                ImageUrls: propertyData.imageUrls || []
+                ImageUrls: propertyData.imageUrls || [],
+                VideoUrls: propertyData.videoUrls || []
             };
 
             console.log('Creating property with data:', requestData);
@@ -118,22 +119,23 @@ export const propertyService = {
         }
     },
 
-    // Create property with images (multipart)
+    // Create property with media (multipart) - FIXED ENDPOINT
     createPropertyWithImages: async (formData) => {
         try {
-            console.log('Creating property with images...');
+            console.log('Creating property with media...');
             console.log('FormData entries:');
 
             // Log form data contents for debugging
             for (let [key, value] of formData.entries()) {
-                if (key === 'images') {
-                    console.log(`Image file: ${value.name} (${value.size} bytes)`);
+                if (key === 'images' || key === 'videos') {
+                    console.log(`${key} file: ${value.name} (${value.size} bytes)`);
                 } else {
                     console.log(`${key}:`, value);
                 }
             }
 
-            const response = await api.post('/CreationProperty/with-images', formData, {
+            // FIXED: Changed endpoint from '/CreationProperty/with-images' to '/CreationProperty/with-media'
+            const response = await api.post('/CreationProperty/with-media', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -143,12 +145,12 @@ export const propertyService = {
             console.log('Property created successfully:', response.data);
             return response.data;
         } catch (error) {
-            console.error('Error creating property with images:', error);
+            console.error('Error creating property with media:', error);
             const errorMessage = error.response?.data?.message ||
                 error.response?.data?.errors?.[0] ||
                 error.response?.data ||
                 error.message;
-            throw new Error(`Failed to create property with images: ${errorMessage}`);
+            throw new Error(`Failed to create property with media: ${errorMessage}`);
         }
     },
 
@@ -178,7 +180,8 @@ export const propertyService = {
                     OwnerId: propertyData.ownerId || null,
                     AgentId: propertyData.agentId || null
                 },
-                ImageUrls: propertyData.imageUrls || []
+                ImageUrls: propertyData.imageUrls || [],
+                VideoUrls: propertyData.videoUrls || []
             };
 
             console.log('Updating property with data:', requestData);
@@ -197,12 +200,13 @@ export const propertyService = {
         }
     },
 
-    // Update property with images (multipart)
+    // Update property with media (multipart) - FIXED ENDPOINT
     updatePropertyWithImages: async (id, formData) => {
         try {
-            console.log('Updating property with images...');
+            console.log('Updating property with media...');
 
-            const response = await api.put(`/CreationProperty/with-images/${id}`, formData, {
+            // FIXED: Changed endpoint from '/CreationProperty/with-images' to '/CreationProperty/with-media'
+            const response = await api.put(`/CreationProperty/with-media/${id}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -212,12 +216,12 @@ export const propertyService = {
             console.log('Property updated successfully:', response.data);
             return response.data;
         } catch (error) {
-            console.error('Error updating property with images:', error);
+            console.error('Error updating property with media:', error);
             const errorMessage = error.response?.data?.message ||
                 error.response?.data?.errors?.[0] ||
                 error.response?.data ||
                 error.message;
-            throw new Error(`Failed to update property with images: ${errorMessage}`);
+            throw new Error(`Failed to update property with media: ${errorMessage}`);
         }
     },
 
@@ -307,6 +311,33 @@ export const propertyService = {
         } catch (error) {
             const errorMessage = error.response?.data?.message || error.response?.data || error.message;
             throw new Error(`Failed to delete image: ${errorMessage}`);
+        }
+    },
+
+    // Upload videos only
+    uploadVideos: async (formData) => {
+        try {
+            const response = await api.post('/CreationProperty/upload-videos', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                timeout: 60000,
+            });
+            return response.data;
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to upload videos: ${errorMessage}`);
+        }
+    },
+
+    // Delete video
+    deleteVideo: async (videoUrl) => {
+        try {
+            const response = await api.delete(`/CreationProperty/video/${encodeURIComponent(videoUrl)}`);
+            return response.data;
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || error.response?.data || error.message;
+            throw new Error(`Failed to delete video: ${errorMessage}`);
         }
     }
 };

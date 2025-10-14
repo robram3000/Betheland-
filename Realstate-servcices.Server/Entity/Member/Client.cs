@@ -53,6 +53,10 @@ namespace Realstate_servcices.Server.Entity.member
         [MaxLength(20)]
         public string? ZipCode { get; set; }
 
+
+        [MaxLength(255)]
+        public string? Address { get; set; }
+
         [Required]
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 

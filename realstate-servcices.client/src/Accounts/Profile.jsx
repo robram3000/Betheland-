@@ -1,682 +1,564 @@
-// Profile.jsx
+﻿// Updated ProfilePage.jsx - Enhanced Profile Picture Display
 import React, { useState, useEffect } from 'react';
-import { Card, Avatar, Descriptions, Button, Tag, Divider, Tabs, Form, Input, Modal, message, Alert, Spin } from 'antd';
+import {
+    Card,
+    Row,
+    Col,
+    Form,
+    Input,
+    Button,
+    Select,
+    Upload,
+    Avatar,
+    Divider,
+    Tabs,
+    message,
+    Spin,
+    Typography
+} from 'antd';
 import {
     UserOutlined,
-    MailOutlined,
-    CalendarOutlined,
-    LockOutlined,
-    SafetyOutlined,
-    EyeInvisibleOutlined,
-    EyeTwoTone,
-    PhoneOutlined,
-    IdcardOutlined,
-    CrownOutlined,
-    EditOutlined,
+    CameraOutlined,
     SaveOutlined,
-    CloseOutlined
+    LockOutlined,
+    MailOutlined,
+    PhoneOutlined,
+    EnvironmentOutlined,
+    HomeOutlined
 } from '@ant-design/icons';
-
-import { useUser } from '../Authpage/Services/UserContextService';
 import useProfile from './Services/useProfile';
 
+const { Title, Text } = Typography;
+const { Option } = Select;
 const { TabPane } = Tabs;
 
 const ProfilePage = () => {
-    const [activeTab, setActiveTab] = useState('1');
-    const [profileForm] = Form.useForm();
-    const [passwordForm] = Form.useForm();
-    const [isOtpModalVisible, setIsOtpModalVisible] = useState(false);
-    const [otpForm] = Form.useForm();
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
-    const [editingField, setEditingField] = useState(null);
-    const [tempValues, setTempValues] = useState({});
-    const [profileData, setProfileData] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    // Use the UserContext and Profile hooks
-    const { user, profile: contextProfile } = useUser();
     const {
-        loading: profileLoading,
+        loading,
         updating,
+        profileData,
+        error,
         getProfile,
         updateProfile,
-        updateField,
         changePassword,
-        verifyOtp,
-        resendOtp
+        uploadProfilePicture
     } = useProfile();
 
-    // Fetch profile data when component mounts
+    const [form] = Form.useForm();
+    const [passwordForm] = Form.useForm();
+    const [activeTab, setActiveTab] = useState('profile');
+    const [profileImageError, setProfileImageError] = useState(false);
+
     useEffect(() => {
-        const fetchProfileData = async () => {
-            try {
-                setLoading(true);
-                const result = await getProfile();
-                if (result.success) {
-                    setProfileData(result.data);
-                    // Set form initial values with real data
-                    profileForm.setFieldsValue({
-                        email: result.data.email,
-                        firstName: result.data.firstName,
-                        middleName: result.data.middleName,
-                        lastName: result.data.lastName,
-                        suffix: result.data.suffix,
-                        cellPhoneNo: result.data.cellPhoneNo,
-                        country: result.data.country,
-                        city: result.data.city,
-                        street: result.data.street,
-                        zipCode: result.data.zipCode
-                    });
-                } else {
-                    message.error(result.message || 'Failed to load profile');
-                }
-            } catch (error) {
-                console.error('Error fetching profile:', error);
-                message.error('Failed to load profile data');
-            } finally {
-                setLoading(false);
-            }
-        };
+        getProfile();
+    }, [getProfile]);
 
-        if (user) {
-            fetchProfileData();
+    useEffect(() => {
+        console.log('📥 Profile data received:', profileData); 
+        if (profileData) {
+            form.setFieldsValue({
+                firstName: profileData.firstName,
+                lastName: profileData.lastName,
+                middleName: profileData.middleName,
+                suffix: profileData.suffix,
+                email: profileData.email,
+                cellPhoneNo: profileData.cellPhoneNo,
+                country: profileData.country,
+                city: profileData.city,
+                street: profileData.street,
+                address: profileData.address, 
+                zipCode: profileData.zipCode,
+                gender: profileData.gender,
+            });
+            console.log('🔄 Form fields set with address:', profileData.address); // Debug log
         }
-    }, [user, getProfile, profileForm]);
+    }, [profileData, form]);
 
-    // Update onProfileFinish to use real API
-    const onProfileFinish = async (values) => {
-        console.log('Profile update:', values);
 
-        // Filter only modifiable fields for submission
-        const modifiableData = {
-            email: values.email,
-            firstName: values.firstName,
-            middleName: values.middleName,
-            lastName: values.lastName,
-            suffix: values.suffix,
-            cellPhoneNo: values.cellPhoneNo,
-            country: values.country,
-            city: values.city,
-            street: values.street,
-            zipCode: values.zipCode
-        };
-
-        const result = await updateProfile(modifiableData);
+    const handleProfileUpdate = async (values) => {
+        const result = await updateProfile(values);
         if (result.success) {
-            // Update local state with new data
-            setProfileData(prev => ({ ...prev, ...modifiableData }));
+            message.success('Profile updated successfully!');
         }
     };
 
-    // Update onPasswordFinish to use real API
-    const onPasswordFinish = async (values) => {
-        console.log('Password change initiated:', values);
-        setIsChangingPassword(true);
-
-        const result = await changePassword(values);
-        if (result.success) {
-            showOtpModal();
-        } else {
-            setIsChangingPassword(false);
+    const handlePasswordChange = async (values) => {
+        if (values.newPassword !== values.confirmPassword) {
+            message.error('New passwords do not match!');
+            return;
         }
-    };
 
-    const showOtpModal = () => {
-        setIsOtpModalVisible(true);
-        message.info('OTP sent to your registered email/phone');
-    };
+        const result = await changePassword({
+            currentPassword: values.currentPassword,
+            newPassword: values.newPassword
+        });
 
-    const handleOtpSubmit = async (values) => {
-        console.log('OTP verification:', values);
-
-        const result = await verifyOtp(values);
         if (result.success) {
             message.success('Password changed successfully!');
-            setIsOtpModalVisible(false);
-            setIsChangingPassword(false);
             passwordForm.resetFields();
-            otpForm.resetFields();
         }
     };
 
-    const handleOtpCancel = () => {
-        setIsOtpModalVisible(false);
-        setIsChangingPassword(false);
-        otpForm.resetFields();
-    };
-
-    const handleResendOtp = async () => {
-        const result = await resendOtp();
+    const handleProfilePictureUpload = async (file) => {
+        const result = await uploadProfilePicture(file);
         if (result.success) {
-            message.info('New OTP sent to your registered email/phone');
+            message.success('Profile picture updated successfully!');
+            setProfileImageError(false);
         }
+        return false;
     };
 
-    // Helper to get full name
-    const getFullName = () => {
-        if (!profileData) return 'Loading...';
-        return `${profileData.firstName || ''} ${profileData.middleName ? profileData.middleName + ' ' : ''}${profileData.lastName || ''}${profileData.suffix ? ' ' + profileData.suffix : ''}`.trim();
+    const handleImageError = () => {
+        setProfileImageError(true);
     };
 
-    // Edit field functions - updated to use API
-    const startEditing = (fieldName, currentValue) => {
-        setEditingField(fieldName);
-        setTempValues({
-            ...tempValues,
-            [fieldName]: currentValue
-        });
-    };
-
-    const saveField = async (fieldName) => {
-        const newValue = tempValues[fieldName];
-        console.log(`Saving ${fieldName}:`, newValue);
-
-        const result = await updateField(fieldName, newValue);
-        if (result.success) {
-            // Update form values
-            const currentValues = profileForm.getFieldsValue();
-            profileForm.setFieldsValue({
-                ...currentValues,
-                [fieldName]: newValue
-            });
-
-            // Update local state
-            setProfileData(prev => ({
-                ...prev,
-                [fieldName]: newValue
-            }));
+    // Process image URL similar to GlobalNavigation
+    const processImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return null;
         }
 
-        setEditingField(null);
-        setTempValues({});
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        // Handle different path formats
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/profile-pictures/${url}`;
+        }
+
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+
+        return null;
     };
 
-    const cancelEditing = () => {
-        setEditingField(null);
-        setTempValues({});
+    const getProfilePictureUrl = () => {
+        if (profileData?.profilePicture) {
+            return processImageUrl(profileData.profilePicture);
+        }
+        return null;
     };
 
-    const handleTempValueChange = (fieldName, value) => {
-        setTempValues({
-            ...tempValues,
-            [fieldName]: value
-        });
+    const uploadProps = {
+        beforeUpload: handleProfilePictureUpload,
+        showUploadList: false,
+        accept: 'image/*'
     };
 
-    // Loading state
-    if (loading || profileLoading) {
+    const getUserInitials = () => {
+        if (profileData) {
+            const { firstName, lastName } = profileData;
+            const first = firstName?.[0] || '';
+            const last = lastName?.[0] || '';
+            return `${first}${last}`.toUpperCase();
+        }
+        return 'U';
+    };
+
+    if (loading && !profileData) {
         return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '400px'
-            }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
                 <Spin size="large" />
             </div>
         );
     }
 
-    // Use real data from backend or fallback to context data
-    const displayData = profileData || contextProfile || {};
-
-    // Editable Field Component
-    const EditableField = ({ fieldName, label, value, icon: Icon, type = 'text', rules = [] }) => {
-        const isEditing = editingField === fieldName;
-        const currentValue = isEditing ? tempValues[fieldName] : value;
-
-        return (
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 0',
-                borderBottom: '1px solid #d9d9d9'
-            }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                        {label}
-                    </div>
-                    {isEditing ? (
-                        <Form.Item style={{ margin: 0 }} rules={rules}>
-                            <Input
-                                value={currentValue}
-                                onChange={(e) => handleTempValueChange(fieldName, e.target.value)}
-                                onPressEnter={() => saveField(fieldName)}
-                                autoFocus
-                                size="small"
-                                style={{ width: '100%' }}
-                            />
-                        </Form.Item>
-                    ) : (
-                        <div style={{
-                            fontSize: '14px',
-                            color: '#333',
-                            padding: '4px 0',
-                            minHeight: '24px'
-                        }}>
-                            {currentValue || 'Not set'}
-                        </div>
-                    )}
-                </div>
-                {!isEditing ? (
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => startEditing(fieldName, value)}
-                        style={{
-                            color: '#666',
-                            opacity: 0.7,
-                            transition: 'all 0.3s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                            e.currentTarget.style.color = '#1890ff';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '0.7';
-                            e.currentTarget.style.color = '#666';
-                        }}
-                    />
-                ) : (
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        <Button
-                            type="text"
-                            icon={<SaveOutlined />}
-                            onClick={() => saveField(fieldName)}
-                            style={{ color: '#52c41a' }}
-                            size="small"
-                            loading={updating}
-                        />
-                        <Button
-                            type="text"
-                            icon={<CloseOutlined />}
-                            onClick={cancelEditing}
-                            style={{ color: '#ff4d4f' }}
-                            size="small"
-                        />
-                    </div>
-                )}
-            </div>
-        );
-    };
+    const profilePictureUrl = getProfilePictureUrl();
 
     return (
-        <div style={{
-            padding: '24px',
-            maxWidth: '1000px',
-            margin: '0 auto'
-        }}>
-            {/* OTP Verification Modal */}
-            <Modal
-                title="Verify OTP to Change Password"
-                open={isOtpModalVisible}
-                onCancel={handleOtpCancel}
-                footer={null}
-                centered
-            >
-                <div style={{ padding: '20px 0' }}>
-                    <p style={{ marginBottom: '20px', color: '#666' }}>
-                        For security reasons, please enter the 6-digit OTP sent to your registered email or phone number to complete the password change.
-                    </p>
-
-                    <Form
-                        form={otpForm}
-                        layout="vertical"
-                        onFinish={handleOtpSubmit}
-                    >
-                        <Form.Item
-                            label="Enter OTP"
-                            name="otp"
-                            rules={[
-                                { required: true, message: 'Please input the OTP!' },
-                                { len: 6, message: 'OTP must be 6 digits!' },
-                                { pattern: /^\d+$/, message: 'OTP must contain only numbers!' }
-                            ]}
+        <div className="profile-page">
+            <div className="profile-container">
+                <Row justify="center">
+                    <Col xs={24} sm={22} md={20} lg={18} xl={16} style={{ maxWidth: '600px' }}>
+                        <Card
+                            className="profile-card"
+                            bodyStyle={{ padding: '16px' }}
+                            style={{ margin: '16px 0' }}
                         >
-                            <Input.OTP
-                                length={6}
-                                size="large"
-                                style={{ justifyContent: 'center' }}
-                            />
-                        </Form.Item>
-
-                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <Button type="link" onClick={handleResendOtp}>
-                                Resend OTP
-                            </Button>
-                        </div>
-
-                        <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                            <Button
-                                onClick={handleOtpCancel}
-                                style={{ marginRight: '8px' }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={isChangingPassword}
-                            >
-                                Verify & Change Password
-                            </Button>
-                        </Form.Item>
-                    </Form>
-                </div>
-            </Modal>
-
-            <Card
-                style={{
-                    boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.06)',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    border: '1px solid #d9d9d9'
-                }}
-                bordered={false}
-            >
-                {/* Profile Header */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '32px',
-                    background: 'linear-gradient(135deg, #1B3C53 0%, #2D5A7A 100%)',
-                    color: 'white',
-                    margin: '-24px -24px 0 -24px',
-                    borderBottom: '1px solid #d9d9d9'
-                }}>
-                    <Avatar
-                        size={80}
-                        icon={<UserOutlined />}
-                        src={displayData.profilePictureUrl}
-                        style={{
-                            backgroundColor: 'rgba(255,255,255,0.2)',
-                            border: '3px solid rgba(255,255,255,0.3)'
-                        }}
-                    />
-                    <div style={{ marginLeft: '20px', flex: 1 }}>
-                        <h2 style={{
-                            color: 'white',
-                            margin: '0 0 8px 0',
-                            fontSize: '28px',
-                            fontWeight: '600'
-                        }}>
-                            {getFullName()}
-                        </h2>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                            <Tag
-                                color="green"
-                                style={{
-                                    border: 'none',
-                                    background: 'rgba(255,255,255,0.2)',
-                                    color: 'white',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                {displayData.status || 'Active'}
-                            </Tag>
-                            <span style={{ opacity: 0.9 }}>{displayData.role || user?.userType || 'User'}</span>
-                            <span style={{ opacity: 0.7, fontSize: '12px' }}>@{displayData.username || user?.username}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tabs Section */}
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    style={{ marginTop: '24px' }}
-                    size="large"
-                    items={[
-                        {
-                            key: '1',
-                            label: (
-                                <span>
-                                    <UserOutlined style={{ marginRight: '8px' }} />
-                                    Profile Information
-                                </span>
-                            ),
-                            children: (
-                                <div style={{ padding: '20px 0' }}>
-                                    <Form
-                                        form={profileForm}
-                                        layout="vertical"
-                                        onFinish={onProfileFinish}
-                                    >
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: '1fr 1fr',
-                                            gap: '16px',
-                                            marginBottom: '24px'
+                            {/* Enhanced Profile Picture Section */}
+                            <div className="profile-header" style={{ textAlign: 'center', marginBottom: '12px' }}>
+                                <div className="avatar-section">
+                                    <Upload {...uploadProps}>
+                                        <div className="avatar-upload" style={{
+                                            display: 'inline-block',
+                                            position: 'relative',
+                                            cursor: 'pointer'
                                         }}>
-                                            {/* Personal Information */}
-                                            <div style={{
-                                                padding: '20px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #d9d9d9'
+                                            <Avatar
+                                                size={80}
+                                                icon={<UserOutlined />}
+                                                src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
+                                                onError={handleImageError}
+                                                style={{
+                                                    backgroundColor: (!profilePictureUrl || profileImageError) ? '#f0f2f5' : 'transparent',
+                                                    border: '2px solid #1B3C53',
+                                                    fontSize: '24px',
+                                                    fontWeight: '600'
+                                                }}
+                                            >
+                                                {(!profilePictureUrl || profileImageError) && getUserInitials()}
+                                            </Avatar>
+                                            <div className="avatar-overlay" style={{
+                                                position: 'absolute',
+                                                bottom: 0,
+                                                right: 0,
+                                                background: 'rgba(0,0,0,0.6)',
+                                                borderRadius: '50%',
+                                                width: '24px',
+                                                height: '24px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                border: '2px solid white'
                                             }}>
-                                                <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
-                                                    <UserOutlined style={{ marginRight: '8px' }} />
-                                                    Personal Information
-                                                </h3>
-
-                                                <EditableField
-                                                    fieldName="firstName"
-                                                    label="First Name"
-                                                    value={displayData.firstName}
-                                                    icon={UserOutlined}
-                                                    rules={[{ required: true, message: 'First name is required' }]}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="middleName"
-                                                    label="Middle Name"
-                                                    value={displayData.middleName}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="lastName"
-                                                    label="Last Name"
-                                                    value={displayData.lastName}
-                                                    rules={[{ required: true, message: 'Last name is required' }]}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="suffix"
-                                                    label="Suffix"
-                                                    value={displayData.suffix}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="cellPhoneNo"
-                                                    label="Phone Number"
-                                                    value={displayData.cellPhoneNo}
-                                                    icon={PhoneOutlined}
-                                                    rules={[{ required: true, message: 'Phone number is required' }]}
-                                                />
-                                            </div>
-
-                                            {/* Address Information */}
-                                            <div style={{
-                                                padding: '20px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #d9d9d9'
-                                            }}>
-                                                <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
-                                                    <MailOutlined style={{ marginRight: '8px' }} />
-                                                    Address Information
-                                                </h3>
-
-                                                <EditableField
-                                                    fieldName="country"
-                                                    label="Country"
-                                                    value={displayData.country}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="city"
-                                                    label="City"
-                                                    value={displayData.city}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="street"
-                                                    label="Street Address"
-                                                    value={displayData.street}
-                                                />
-
-                                                <EditableField
-                                                    fieldName="zipCode"
-                                                    label="Zip Code"
-                                                    value={displayData.zipCode}
-                                                />
+                                                <CameraOutlined style={{ color: 'white', fontSize: '12px' }} />
                                             </div>
                                         </div>
+                                    </Upload>
+                                    <div className="user-info" style={{ marginTop: '12px' }}>
+                                        <Title level={4} style={{ margin: '4px 0', color: '#1B3C53' }}>
+                                            {profileData?.firstName} {profileData?.lastName} {profileData?.suffix && profileData.suffix}
+                                        </Title>
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            <MailOutlined /> {profileData?.email}
+                                        </Text>
+                                        <br />
+                                        <Text type="secondary" style={{ fontSize: '11px', color: '#666' }}>
+                                            Click the camera icon to update profile picture
+                                        </Text>
+                                    </div>
+                                </div>
+                            </div>
 
-                                        <Form.Item style={{ marginTop: '24px', textAlign: 'right' }}>
+                            <Divider style={{ margin: '16px 0' }} />
+
+                            {/* Tabs Section */}
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={setActiveTab}
+                                className="profile-tabs"
+                                size="small"
+                            >
+                                {/* Profile Information Tab */}
+                                <TabPane tab="Profile" key="profile">
+                                    <Form
+                                        form={form}
+                                        layout="vertical"
+                                        onFinish={handleProfileUpdate}
+                                        className="profile-form"
+                                    >
+                                        <Divider style={{ margin: '0 0 12px 0' }}>
+                                            <Text strong style={{ color: '#1B3C53', fontSize: '12px' }}>
+                                                <UserOutlined /> Personal Information
+                                            </Text>
+                                        </Divider>
+
+                                        {/* Name Fields */}
+                                        <Row gutter={[8, 8]}>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>First Name</span>}
+                                                    name="firstName"
+                                                    rules={[{ required: true, message: 'Please enter first name' }]}
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="First name"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Middle</span>}
+                                                    name="middleName"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Middle"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Last Name</span>}
+                                                    name="lastName"
+                                                    rules={[{ required: true, message: 'Please enter last name' }]}
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Last name"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Suffix</span>}
+                                                    name="suffix"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Select
+                                                        placeholder="Suffix"
+                                                        size="small"
+                                                        dropdownStyle={{ fontSize: '12px' }}
+                                                    >
+                                                        <Option value="Jr.">Jr.</Option>
+                                                        <Option value="Sr.">Sr.</Option>
+                                                        <Option value="II">II</Option>
+                                                        <Option value="III">III</Option>
+                                                        <Option value="IV">IV</Option>
+                                                    </Select>
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+
+                                        {/* Contact Info */}
+                                        <Row gutter={[8, 8]}>
+                                            <Col xs={24} sm={12}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Email</span>}
+                                                    name="email"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Email"
+                                                        disabled
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={12}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Phone</span>}
+                                                    name="cellPhoneNo"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Phone"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+
+                                        <Form.Item
+                                            label={<span style={{ fontSize: '12px' }}>Gender</span>}
+                                            name="gender"
+                                            style={{ marginBottom: '12px' }}
+                                        >
+                                            <Select
+                                                placeholder="Gender"
+                                                size="small"
+                                                dropdownStyle={{ fontSize: '12px' }}
+                                            >
+                                                <Option value="male">Male</Option>
+                                                <Option value="female">Female</Option>
+                                                <Option value="other">Other</Option>
+                                            </Select>
+                                        </Form.Item>
+
+                                        <Divider style={{ margin: '12px 0' }}>
+                                            <Text strong style={{ color: '#1B3C53', fontSize: '12px' }}>
+                                                <HomeOutlined /> Location Information
+                                            </Text>
+                                        </Divider>
+
+                                        {/* Location Fields */}
+                                        <Row gutter={[8, 8]}>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Country</span>}
+                                                    name="country"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Country"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>City</span>}
+                                                    name="city"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="City"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>Street</span>}
+                                                    name="street"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="Street"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} sm={6}>
+                                                <Form.Item
+                                                    label={<span style={{ fontSize: '12px' }}>ZIP Code</span>}
+                                                    name="zipCode"
+                                                    style={{ marginBottom: '8px' }}
+                                                >
+                                                    <Input
+                                                        size="small"
+                                                        placeholder="ZIP"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+
+                                        {/* Address Field */}
+                                        <Form.Item
+                                            label={<span style={{ fontSize: '12px' }}>Address</span>}
+                                            name="address"
+                                            style={{ marginBottom: '12px' }}
+                                        >
+                                            <Input.TextArea
+                                                size="small"
+                                                placeholder="Full address"
+                                                rows={2}
+                                                showCount
+                                                maxLength={200}
+                                                style={{ fontSize: '12px' }}
+                                            />
+                                        </Form.Item>
+
+                                        <Divider style={{ margin: '12px 0' }} />
+
+                                        <Form.Item style={{ marginBottom: 0 }}>
                                             <Button
                                                 type="primary"
                                                 htmlType="submit"
-                                                size="large"
+                                                icon={<SaveOutlined />}
+                                                size="small"
                                                 loading={updating}
                                                 style={{
+                                                    height: '28px',
+                                                    fontSize: '11px',
+                                                    padding: '0 12px',
                                                     backgroundColor: '#1B3C53',
-                                                    borderColor: '#1B3C53',
-                                                    padding: '0 32px',
-                                                    height: '40px'
+                                                    borderColor: '#1B3C53'
                                                 }}
                                             >
-                                                Save All Changes
+                                                Update Profile
                                             </Button>
                                         </Form.Item>
                                     </Form>
+                                </TabPane>
 
-                                    <Divider style={{ borderColor: '#d9d9d9' }} />
-
-                                    {/* Read-only fields (System-managed) */}
-                                    <div style={{
-                                        background: '#f9f9f9',
-                                        padding: '20px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #d9d9d9'
-                                    }}>
-                                        <h3 style={{ marginBottom: '16px', color: '#1B3C53' }}>
-                                            <IdcardOutlined style={{ marginRight: '8px' }} />
-                                            System Information (Read-only)
-                                        </h3>
-                                        <Descriptions column={1} size="small">
-                                            <Descriptions.Item label="User ID">{displayData.id || user?.userId}</Descriptions.Item>
-                                            <Descriptions.Item label="Member Number">{displayData.baseMemberNo}</Descriptions.Item>
-                                            <Descriptions.Item label="Username">{displayData.username || user?.username}</Descriptions.Item>
-                                            <Descriptions.Item label="Account Created">{displayData.createdAt}</Descriptions.Item>
-                                            <Descriptions.Item label="Last Updated">{displayData.updatedAt}</Descriptions.Item>
-                                        </Descriptions>
-                                    </div>
-                                </div>
-                            )
-                        },
-                        {
-                            key: '2',
-                            label: (
-                                <span>
-                                    <LockOutlined style={{ marginRight: '8px' }} />
-                                    Change Password
-                                </span>
-                            ),
-                            children: (
-                                <div style={{ padding: '20px 0', maxWidth: '500px' }}>
-                                    <div style={{
-                                        background: '#f0f7ff',
-                                        padding: '16px',
-                                        borderRadius: '8px',
-                                        marginBottom: '24px',
-                                        border: '1px solid #d9d9d9'
-                                    }}>
-                                        <SafetyOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
-                                        For security, OTP verification is required to change your password.
-                                    </div>
-
+                                {/* Change Password Tab - Commented Out */}
+                                {/*
+                                <TabPane tab="Password" key="password">
                                     <Form
                                         form={passwordForm}
                                         layout="vertical"
-                                        onFinish={onPasswordFinish}
+                                        onFinish={handlePasswordChange}
+                                        className="password-form"
                                     >
+                                        <Divider style={{ margin: '0 0 12px 0' }}>
+                                            <Text strong style={{ color: '#1B3C53', fontSize: '12px' }}>
+                                                <LockOutlined /> Change Password
+                                            </Text>
+                                        </Divider>
+
                                         <Form.Item
-                                            label="Current Password"
+                                            label={<span style={{ fontSize: '12px' }}>Current Password</span>}
                                             name="currentPassword"
-                                            rules={[{ required: true, message: 'Please input your current password!' }]}
+                                            rules={[{ required: true, message: 'Please enter current password' }]}
+                                            style={{ marginBottom: '8px' }}
                                         >
                                             <Input.Password
-                                                prefix={<LockOutlined />}
-                                                placeholder="Enter current password"
-                                                size="large"
-                                                iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                                                size="small"
+                                                placeholder="Current password"
                                             />
                                         </Form.Item>
 
                                         <Form.Item
-                                            label="New Password"
+                                            label={<span style={{ fontSize: '12px' }}>New Password</span>}
                                             name="newPassword"
                                             rules={[
-                                                { required: true, message: 'Please input new password!' },
-                                                { min: 8, message: 'Password must be at least 8 characters!' }
+                                                { required: true, message: 'Please enter new password' },
+                                                { min: 6, message: 'Min 6 characters' }
                                             ]}
+                                            style={{ marginBottom: '8px' }}
                                         >
                                             <Input.Password
-                                                prefix={<SafetyOutlined />}
-                                                placeholder="Enter new password"
-                                                size="large"
-                                                iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                                                size="small"
+                                                placeholder="New password"
                                             />
                                         </Form.Item>
 
                                         <Form.Item
-                                            label="Confirm New Password"
+                                            label={<span style={{ fontSize: '12px' }}>Confirm Password</span>}
                                             name="confirmPassword"
                                             rules={[
-                                                { required: true, message: 'Please confirm your new password!' },
+                                                { required: true, message: 'Please confirm password' },
                                                 ({ getFieldValue }) => ({
                                                     validator(_, value) {
                                                         if (!value || getFieldValue('newPassword') === value) {
                                                             return Promise.resolve();
                                                         }
-                                                        return Promise.reject(new Error('The two passwords do not match!'));
+                                                        return Promise.reject(new Error('Passwords do not match'));
                                                     },
                                                 }),
                                             ]}
+                                            style={{ marginBottom: '12px' }}
                                         >
                                             <Input.Password
-                                                prefix={<SafetyOutlined />}
-                                                placeholder="Confirm new password"
-                                                size="large"
-                                                iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                                                size="small"
+                                                placeholder="Confirm password"
                                             />
                                         </Form.Item>
 
-                                        <Form.Item style={{ marginTop: '32px', textAlign: 'right' }}>
+                                        <Form.Item style={{ marginBottom: 0 }}>
                                             <Button
                                                 type="primary"
                                                 htmlType="submit"
-                                                size="large"
-                                                loading={isChangingPassword}
+                                                icon={<LockOutlined />}
+                                                size="small"
+                                                loading={updating}
                                                 style={{
+                                                    height: '28px',
+                                                    fontSize: '11px',
+                                                    padding: '0 12px',
                                                     backgroundColor: '#1B3C53',
-                                                    borderColor: '#1B3C53',
-                                                    padding: '0 32px',
-                                                    height: '40px'
+                                                    borderColor: '#1B3C53'
                                                 }}
                                             >
                                                 Change Password
                                             </Button>
                                         </Form.Item>
                                     </Form>
+                                </TabPane>
+                                */}
+                            </Tabs>
+
+                            {error && (
+                                <div className="error-message" style={{ marginTop: '8px' }}>
+                                    <Text type="danger" style={{ fontSize: '11px' }}>{error}</Text>
                                 </div>
-                            )
-                        }
-                    ]}
-                />
-            </Card>
+                            )}
+                        </Card>
+                    </Col>
+                </Row>
+            </div>
         </div>
     );
 };

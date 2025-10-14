@@ -1,9 +1,0 @@
-﻿namespace Realstate_servcices.Server.Dto.Scheduling
-{
-    public class ScheduleResponseDto
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public ScheduleDto? Data { get; set; }
-    }
-}
