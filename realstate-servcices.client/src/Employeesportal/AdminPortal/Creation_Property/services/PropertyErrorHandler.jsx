@@ -1,4 +1,3 @@
-// PropertyErrorHandler.js
 export class PropertyError extends Error {
     constructor(message, code, details = null) {
         super(message);
@@ -66,7 +65,7 @@ export const propertyValidator = {
         const { maxSize = 10 * 1024 * 1024, allowedTypes = [] } = options;
         const errors = [];
 
-        files.forEach((file, index) => {
+        files.forEach((file) => {
             if (file.size > maxSize) {
                 errors.push(`File ${file.name} exceeds maximum size of ${maxSize / 1024 / 1024}MB`);
             }
@@ -85,15 +84,12 @@ export const propertyValidator = {
 export const propertyErrorHandler = {
     handleServiceError: (error, methodName) => {
         console.error(`Property Service Error in ${methodName}:`, error);
-
-        // If it's already a PropertyError, just re-throw it
         if (error instanceof PropertyError) {
             return error;
         }
 
-        // Handle different types of errors
         if (error.response) {
-            // Server responded with error status
+            
             const status = error.response.status;
             const message = error.response.data?.message || error.response.statusText;
 
@@ -116,10 +112,9 @@ export const propertyErrorHandler = {
                     return new PropertyError(message || `HTTP Error ${status}`, 'HTTP_ERROR');
             }
         } else if (error.request) {
-            // Request was made but no response received
+ 
             return new PropertyError('Network error: Unable to connect to server', 'NETWORK_ERROR');
         } else {
-            // Something else happened
             return new PropertyError(error.message || 'Unknown error occurred', 'UNKNOWN_ERROR');
         }
     },
@@ -129,7 +124,6 @@ export const propertyErrorHandler = {
     }
 };
 
-// Enhanced service wrapper
 export const createPropertyServiceWithErrorHandling = (baseService) => {
     const handler = {};
 

@@ -15,8 +15,7 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Log request for debugging
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
+      
 
         return config;
     },
@@ -27,7 +26,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
     (response) => {
-        console.log(`API Response: ${response.status} ${response.config.url}`, response.data);
+      
         return response;
     },
     (error) => {
@@ -47,8 +46,7 @@ export const propertyService = {
     getAllProperties: async () => {
         try {
             const response = await api.get('/CreationProperty');
-            console.log('Get all properties response:', response.data);
-
+         
             // Handle nested response structure
             if (response.data && response.data.properties) {
                 return response.data.properties;
@@ -65,7 +63,7 @@ export const propertyService = {
     getPropertyById: async (id) => {
         try {
             const response = await api.get(`/CreationProperty/${id}`);
-            console.log('Get property by ID response:', response.data);
+         
             return response.data;
         } catch (error) {
             if (error.response?.status === 404) {
@@ -106,9 +104,9 @@ export const propertyService = {
                 VideoUrls: propertyData.videoUrls || []
             };
 
-            console.log('Creating property with data:', requestData);
+           
             const response = await api.post('/CreationProperty', requestData);
-            console.log('Create property response:', response.data);
+          
             return response.data;
         } catch (error) {
             if (error.response?.status === 400) {
@@ -122,8 +120,7 @@ export const propertyService = {
     // Create property with media (multipart) - FIXED ENDPOINT
     createPropertyWithImages: async (formData) => {
         try {
-            console.log('Creating property with media...');
-            console.log('FormData entries:');
+         
 
             // Log form data contents for debugging
             for (let [key, value] of formData.entries()) {

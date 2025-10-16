@@ -9,7 +9,6 @@ namespace Realstate_servcices.Server.Utilities.Storage
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<LocalStorageVideo> _logger;
         private const string BaseUploadPath = "uploads";
-        private const string PropertyVideosFolder = "properties";
 
         public LocalStorageVideo(IWebHostEnvironment environment, ILogger<LocalStorageVideo> logger)
         {
@@ -24,7 +23,7 @@ namespace Realstate_servcices.Server.Utilities.Storage
             {
                 var uploadsPath = Path.Combine(_environment.WebRootPath, BaseUploadPath);
                 var videosPath = Path.Combine(uploadsPath, "videos");
-                var propertyVideosPath = Path.Combine(videosPath, PropertyVideosFolder);
+                var propertyVideosPath = Path.Combine(videosPath, "properties");
                 var memberVideosPath = Path.Combine(uploadsPath, "member-videos");
 
                 if (!Directory.Exists(uploadsPath))
@@ -58,7 +57,7 @@ namespace Realstate_servcices.Server.Utilities.Storage
             try
             {
                 // Use properties subfolder for property videos
-                var actualFolderPath = folderPath == "videos" ? Path.Combine("videos", PropertyVideosFolder) : folderPath;
+                var actualFolderPath = Path.Combine("videos", "properties");
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
                 var relativePath = Path.Combine(BaseUploadPath, actualFolderPath, fileName);
                 var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
@@ -121,24 +120,18 @@ namespace Realstate_servcices.Server.Utilities.Storage
         public async Task<List<string>> UploadMultipleVideosAsync(List<IFormFile> files, string folderPath = "videos")
         {
             var uploadedUrls = new List<string>();
+            var uploadTasks = new List<Task<string>>();
 
             foreach (var file in files)
             {
                 if (file.Length > 0)
                 {
-                    try
-                    {
-                        var url = await UploadVideoAsync(file, folderPath);
-                        uploadedUrls.Add(url);
-                        _logger.LogInformation($"Successfully uploaded video: {file.FileName} -> {url}");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to upload video: {file.FileName}");
-                        throw;
-                    }
+                    uploadTasks.Add(UploadVideoAsync(file, folderPath));
                 }
             }
+
+            var results = await Task.WhenAll(uploadTasks);
+            uploadedUrls.AddRange(results);
 
             _logger.LogInformation($"Successfully uploaded {uploadedUrls.Count} videos");
             return uploadedUrls;
@@ -147,23 +140,18 @@ namespace Realstate_servcices.Server.Utilities.Storage
         public async Task<List<string>> UploadMultipleMemberVideosAsync(List<IFormFile> files, string memberId, string folderPath = "member-videos")
         {
             var uploadedUrls = new List<string>();
+            var uploadTasks = new List<Task<string>>();
 
             foreach (var file in files)
             {
                 if (file.Length > 0)
                 {
-                    try
-                    {
-                        var url = await UploadMemberVideoAsync(file, memberId, folderPath);
-                        uploadedUrls.Add(url);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to upload member video for member {memberId}: {file.FileName}");
-                        throw;
-                    }
+                    uploadTasks.Add(UploadMemberVideoAsync(file, memberId, folderPath));
                 }
             }
+
+            var results = await Task.WhenAll(uploadTasks);
+            uploadedUrls.AddRange(results);
 
             _logger.LogInformation($"Successfully uploaded {uploadedUrls.Count} videos for member {memberId}");
             return uploadedUrls;
@@ -264,23 +252,17 @@ namespace Realstate_servcices.Server.Utilities.Storage
             try
             {
                 if (string.IsNullOrEmpty(videoUrl))
-                    return "Unknown";
-
+                    return "00:00";
                 var filePath = GetVideoPath(videoUrl);
                 if (!File.Exists(filePath))
-                    return "Unknown";
-
-                // For now, return a placeholder
-                // In production, integrate with FFmpeg or other video processing library
+                    return "00:00";
                 _logger.LogInformation($"Duration detection requested for: {videoUrl}");
-
-                // Placeholder - you can implement actual duration detection here
-                return "00:00"; // Replace with actual duration detection
+                return "00:00";
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error getting video duration for: {videoUrl}");
-                return "Unknown";
+                return "00:00";
             }
         }
 
@@ -320,11 +302,8 @@ namespace Realstate_servcices.Server.Utilities.Storage
             if (string.IsNullOrEmpty(fileExtension) || !allowedExtensions.Contains(fileExtension))
                 throw new ArgumentException("Invalid video file type. Allowed types: " + string.Join(", ", allowedExtensions));
 
-            // Larger size limit for videos (100MB)
             if (file.Length > 100 * 1024 * 1024)
                 throw new ArgumentException("Video file size too large. Maximum size is 100MB.");
-
-            // Additional validation for video files could be added here
         }
     }
 }

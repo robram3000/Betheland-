@@ -1,14 +1,12 @@
 import api from '../../../../Authpage/Services/Api';
 import agentMapper from './agentMapper';
-import { createAgentServiceWithErrorHandling, agentValidator } from './AgentErrorHandler';
+import { createAgentServiceWithErrorHandling } from './AgentErrorHandler';
 
 const baseAgentService = {
     async getAgents() {
         console.log('Fetching agents...');
         const response = await api.get('/agent');
         console.log('Agents response:', response);
-
-        // Handle different response formats
         if (response && response.success && response.data) {
             return agentMapper.toFrontendList(response.data);
         }
@@ -56,9 +54,6 @@ const baseAgentService = {
     async createAgent(agentData) {
         console.log('Creating agent:', agentData);
 
-        // Validate agent data
-        agentValidator.validateCreateAgent(agentData);
-
         // Map to backend format
         const createRequest = agentMapper.toCreateRequest(agentData);
         console.log('Create request:', createRequest);
@@ -75,7 +70,6 @@ const baseAgentService = {
 
     async updateAgent(id, agentData) {
         console.log('Updating agent:', id, agentData);
-        agentValidator.validateUpdateAgent({ ...agentData, id });
         const updateRequest = agentMapper.toUpdateRequest(agentData);
         console.log('Update request:', updateRequest);
 

@@ -1,4 +1,4 @@
-// GlobalAdminTopbar.jsx - Fully Responsive
+
 import React, { useState } from 'react';
 import {
     Layout,
@@ -20,22 +20,17 @@ import {
     UserOutlined,
     LogoutOutlined,
     BellOutlined,
-    SearchOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     SettingOutlined,
-    MoonOutlined,
-    SunOutlined,
     CloseOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../../Authpage/Services/LoginAuth';
 import { useUser } from '../../../Authpage/Services/UserContextService';
-
 const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-
 const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [notificationDrawerVisible, setNotificationDrawerVisible] = useState(false);
@@ -43,42 +38,34 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     const navigate = useNavigate();
     const { user, logout } = useUser();
     const screens = useBreakpoint();
-
     const {
         token: { colorBgContainer },
     } = theme.useToken();
-
     const handleLogout = () => {
         logout();
         message.success('Logged out successfully');
         navigate('/login');
         setDropdownVisible(false);
     };
-
     const handleProfile = () => {
         navigate('/profile');
         setDropdownVisible(false);
     };
-
     const handleSettings = () => {
         navigate('/settings');
         setDropdownVisible(false);
     };
-
     const handleHelp = () => {
         console.log('Help clicked');
     };
-
     const handleNotifications = () => {
         if (mobileView) {
             setNotificationDrawerVisible(true);
         } else {
-            // Handle desktop notifications
+           
             console.log('Notifications clicked');
         }
     };
-
-    // Get display name from user context
     const getDisplayName = () => {
         if (!user) return 'Admin';
         if (user.username && user.username.trim() !== '') {
@@ -99,8 +86,6 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 return 'User';
         }
     };
-
-    // Get user initials for avatar
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'Admin' || displayName === 'User') {
@@ -118,8 +103,6 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             .toUpperCase()
             .slice(0, 2);
     };
-
-    // Get role display name
     const getRoleDisplayName = () => {
         const role = user?.role || user?.userType;
         switch (role?.toLowerCase()) {
@@ -135,7 +118,6 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 return role || 'User';
         }
     };
-
     const profileMenuItems = [
         {
             key: 'user-info',
@@ -202,8 +184,6 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             onClick: handleLogout,
         },
     ];
-
-    // Notification Drawer for Mobile
     const NotificationDrawer = () => (
         <Drawer
             title={
@@ -232,7 +212,6 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             </div>
         </Drawer>
     );
-
     return (
         <>
             <Header
@@ -286,17 +265,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
 
                 {/* Right Side */}
                 <Space size="middle">
-                    {/* Search - Hidden on mobile */}
-                    {!mobileView && (
-                        <Input
-                            placeholder="Search..."
-                            prefix={<SearchOutlined />}
-                            style={{
-                                width: 200,
-                                borderRadius: '6px'
-                            }}
-                        />
-                    )}
+              
 
                     {/* Notifications */}
                     <Badge
@@ -420,5 +389,4 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         </>
     );
 };
-
 export default GlobalAdminTopbar;

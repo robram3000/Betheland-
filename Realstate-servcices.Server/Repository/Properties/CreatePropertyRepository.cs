@@ -118,7 +118,9 @@ namespace Realstate_servcices.Server.Repository.Properties
                 existingProperty.PropertyFloor = property.PropertyFloor;
                 existingProperty.Bedrooms = property.Bedrooms;
                 existingProperty.Bathrooms = property.Bathrooms;
-                existingProperty.AreaSqft = property.AreaSqft;
+                existingProperty.AreaSqm = property.AreaSqm;
+                existingProperty.Kitchen = property.Kitchen;
+                existingProperty.Garage = property.Garage;
                 existingProperty.Address = property.Address;
                 existingProperty.City = property.City;
                 existingProperty.State = property.State;

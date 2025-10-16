@@ -19,10 +19,13 @@ namespace Realstate_servcices.Server.Entity.Properties
         [MaxLength(500)]
         public string ThumbnailUrl { get; set; } = string.Empty;
 
-        [MaxLength(20)]
-        public string Duration { get; set; } = string.Empty;
-
         public long FileSize { get; set; }
+
+        public long Size { get; set; }
+
+
+
+        public string Duration { get; set; } = string.Empty;
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

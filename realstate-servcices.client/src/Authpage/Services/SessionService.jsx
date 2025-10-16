@@ -47,7 +47,7 @@ class SessionService {
     }
 
     startSessionChecking() {
-        // Check session every 5 minutes
+        // Check session every 30 minutes for 12-hour sessions
         this.sessionCheckInterval = setInterval(async () => {
             if (authService.isAuthenticated()) {
                 try {
@@ -60,7 +60,7 @@ class SessionService {
                     console.warn('Session validation failed:', error);
                 }
             }
-        }, 5 * 60 * 1000); // 5 minutes
+        }, 30 * 60 * 1000); // 30 minutes
     }
 
     // Check session validity with backend

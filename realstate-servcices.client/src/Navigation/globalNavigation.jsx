@@ -19,11 +19,9 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
 import profileService from '../Accounts/Services/ProfileService';
-
 const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-
 const useSafeWishlistData = () => {
     try {
         const { useWishlistData } = require('../Property/Services/WishlistAdded');
@@ -42,7 +40,6 @@ const useSafeWishlistData = () => {
         };
     }
 };
-
 const GlobalNavigation = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -53,8 +50,6 @@ const GlobalNavigation = () => {
     const [profileImageError, setProfileImageError] = useState(false);
     const [loadingProfile, setLoadingProfile] = useState(false);
     const screens = useBreakpoint();
-
-    // Use the safe wishlist data hook
     const {
         wishlistCount,
         isAuthenticated: isWishlistAuthenticated,
@@ -62,8 +57,6 @@ const GlobalNavigation = () => {
         wishlistPropertyIds,
         updateTrigger
     } = useSafeWishlistData();
-
-    // Mock notification data
     const [notifications, setNotifications] = useState([
         {
             id: 1,
@@ -98,76 +91,52 @@ const GlobalNavigation = () => {
             type: 'price'
         }
     ]);
-
-    // Use dynamic wishlist count from context
     const displayWishlistCount = wishlistCount || 0;
     const notificationCount = notifications.filter(notification => !notification.read).length;
-
-    // Company contact information
     const companyContact = {
         phone: '0977-849-1888 / 0917-791-1981',
         email: 'allanlao@betheland.com.ph'
     };
-
-    // Simple navigation items
     const menuItems = [
         { key: '/', label: 'Home' },
         { key: '/properties', label: 'Properties' },
         { key: '/about', label: 'About Us' },
         { key: '/contact-us', label: 'Contact Us' }
     ];
-
-    // FIXED: Image URL processing - similar to PropertyCard.jsx
     const processImageUrl = (url) => {
         if (!url || typeof url !== 'string' || url.trim() === '') {
-            console.log("GlobalNavigation - No image URL provided, using default");
+       
             return '/default-avatar.jpg';
         }
-
-        console.log("GlobalNavigation - Processing image URL:", url);
-
-        // If it's already a full URL, return as is
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
             return url;
         }
-
-        // Handle different path formats
         if (url.startsWith('/uploads/')) {
             const fullUrl = `https://localhost:7075${url}`;
-            console.log("GlobalNavigation - Built full URL from /uploads/:", fullUrl);
             return fullUrl;
         }
-
         if (url.includes('.') && !url.startsWith('/')) {
             const fullUrl = `https://localhost:7075/uploads/profile-pictures/${url}`;
-            console.log("GlobalNavigation - Built full URL for filename:", fullUrl);
+     
             return fullUrl;
         }
-
         if (url.startsWith('uploads/')) {
             const fullUrl = `https://localhost:7075/${url}`;
-            console.log("GlobalNavigation - Built full URL from uploads/:", fullUrl);
             return fullUrl;
         }
-
-        console.log("GlobalNavigation - Using default avatar");
         return '/default-avatar.jpg';
     };
-
-    // Load user profile data
     const loadUserProfile = async () => {
         if (!isLoggedIn) return;
 
         setLoadingProfile(true);
         try {
-            console.log('🔄 GlobalNavigation - Loading user profile...');
+           
             const result = await profileService.getProfile();
 
             if (result.success && result.data) {
-                console.log('✅ GlobalNavigation - Profile data loaded:', result.data);
-                setProfileData(result.data);
-
-                // Update currentUser with profile data
+         
+                setProfileData(result.data)
                 setCurrentUser(prev => ({
                     ...prev,
                     profilePicture: result.data.profilePicture,
@@ -177,7 +146,7 @@ const GlobalNavigation = () => {
                     lastName: result.data.lastName
                 }));
             } else {
-                console.warn('❌ GlobalNavigation - Failed to load profile:', result.message);
+          
             }
         } catch (error) {
             console.error('💥 GlobalNavigation - Error loading profile:', error);
@@ -185,31 +154,25 @@ const GlobalNavigation = () => {
             setLoadingProfile(false);
         }
     };
-
-    // UPDATED: Get profile picture URL from profileData first, then fallback to currentUser
     const getProfilePictureUrl = () => {
-        // Try profileData first (from ProfileService)
+
         if (profileData?.profilePicture) {
-            console.log("GlobalNavigation - Profile picture from profileData:", profileData.profilePicture);
+         
             return processImageUrl(profileData.profilePicture);
         }
 
         // Fallback to currentUser data
         if (currentUser?.profilePicture) {
-            console.log("GlobalNavigation - Profile picture from currentUser:", currentUser.profilePicture);
+         ;
             return processImageUrl(currentUser.profilePicture);
         }
 
         console.log("GlobalNavigation - No profile picture found");
         return null;
     };
-
-    // Check authentication status and load profile
     useEffect(() => {
         checkAuthStatus();
     }, [location]);
-
-    // Load profile when user logs in
     useEffect(() => {
         if (isLoggedIn) {
             loadUserProfile();
@@ -217,15 +180,11 @@ const GlobalNavigation = () => {
             setProfileData(null);
         }
     }, [isLoggedIn]);
-
-    // Refresh wishlist when authentication status changes
     useEffect(() => {
         if (isLoggedIn) {
             refreshWishlist();
         }
     }, [isLoggedIn, updateTrigger, refreshWishlist]);
-
-    // Add periodic refresh for real-time updates
     useEffect(() => {
         if (isLoggedIn) {
             const interval = setInterval(() => {
@@ -235,13 +194,11 @@ const GlobalNavigation = () => {
             return () => clearInterval(interval);
         }
     }, [isLoggedIn, refreshWishlist]);
-
     const checkAuthStatus = () => {
         const authenticated = authService.isAuthenticated();
         setIsLoggedIn(authenticated);
         if (authenticated) {
             const user = authService.getCurrentUser();
-            console.log("GlobalNavigation - Current User from auth:", user);
             setCurrentUser(user);
             setProfileImageError(false);
         } else {
@@ -250,21 +207,17 @@ const GlobalNavigation = () => {
             setProfileImageError(false);
         }
     };
-
-    const handleImageError = (e) => {
-        console.error("GlobalNavigation - Profile image failed to load:", e);
+    const handleImageError = () => {
+       
         setProfileImageError(true);
     };
-
     const handleMenuClick = (key) => {
         navigate(key);
         setDrawerVisible(false);
     };
-
     const handleLogoClick = () => {
         navigate('/');
     };
-
     const handleWishlistClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -274,21 +227,17 @@ const GlobalNavigation = () => {
         navigate('/wishlist');
         setDrawerVisible(false);
     };
-
     const handleChatClick = () => {
         navigate('/messages');
         setDrawerVisible(false);
     };
-
     const handleScheduleClick = () => {
         navigate('/schedule');
         setDrawerVisible(false);
     };
-
     const handleNotificationsClick = () => {
         navigate('/notifications');
     };
-
     const handleLogout = () => {
         authService.logout();
         setIsLoggedIn(false);
@@ -298,25 +247,19 @@ const GlobalNavigation = () => {
         navigate('/');
         setDrawerVisible(false);
     };
-
     const handleProfileClick = () => {
         navigate('/profile');
         setDrawerVisible(false);
     };
-
     const handleSettingsClick = () => {
         navigate('/settings');
         setDrawerVisible(false);
     };
-
-    // Refresh profile data
     const refreshProfile = () => {
         if (isLoggedIn) {
             loadUserProfile();
         }
     };
-
-    // Mark notification as read
     const markAsRead = (notificationId) => {
         setNotifications(prev =>
             prev.map(notif =>
@@ -324,14 +267,11 @@ const GlobalNavigation = () => {
             )
         );
     };
-
-    // Mark all as read
     const markAllAsRead = () => {
         setNotifications(prev =>
             prev.map(notif => ({ ...notif, read: true }))
         );
     };
-
     const getDisplayName = () => {
         if (profileData) {
             const { firstName, middleName, lastName, suffix } = profileData;
@@ -342,7 +282,7 @@ const GlobalNavigation = () => {
             if (suffix && suffix.trim() !== '') nameParts.push(suffix.trim());
             if (nameParts.length > 0) {
                 const fullName = nameParts.join(' ');
-                console.log("GlobalNavigation - Built full name from profileData:", fullName);
+              
                 return fullName;
             }
         }
@@ -362,7 +302,6 @@ const GlobalNavigation = () => {
 
         return 'User';
     };
-
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'User') return 'U';
@@ -378,11 +317,9 @@ const GlobalNavigation = () => {
             .toUpperCase()
             .slice(0, 2);
     };
-
     const getUserEmail = () => {
         return profileData?.email || currentUser?.email || 'No email';
     };
-
     const notificationContent = (
         <div style={{
             width: 320,
@@ -506,7 +443,6 @@ const GlobalNavigation = () => {
         };
         return colors[type] || '#1890ff';
     };
-
     const getNotificationIcon = (type) => {
         const icons = {
             property: '🏠',
@@ -567,11 +503,8 @@ const GlobalNavigation = () => {
             danger: true
         }
     ];
-
     const isDesktop = screens.md;
     const profilePictureUrl = getProfilePictureUrl();
-    console.log("GlobalNavigation - Final profile picture URL for display:", profilePictureUrl);
-
     return (
         <>
             {/* First Top Bar - Contact Information & Notification/Wishlist */}

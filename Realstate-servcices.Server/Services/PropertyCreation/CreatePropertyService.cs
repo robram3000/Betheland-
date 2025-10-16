@@ -29,8 +29,16 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             try
             {
                 _logger.LogInformation("Creating new property: {PropertyTitle}", request.Property.Title);
+                _logger.LogInformation("Property Data: {@PropertyData}", request.Property);
                 _logger.LogInformation("Image URLs count: {ImageCount}", request.ImageUrls?.Count ?? 0);
                 _logger.LogInformation("Video URLs count: {VideoCount}", request.VideoUrls?.Count ?? 0);
+
+                // Log all property fields to identify which ones are null
+                _logger.LogInformation("Property Details - Title: {Title}, Type: {Type}, Price: {Price}, Bedrooms: {Bedrooms}, Bathrooms: {Bathrooms}",
+                    request.Property.Title, request.Property.Type, request.Property.Price, request.Property.Bedrooms, request.Property.Bathrooms);
+
+                _logger.LogInformation("Address Details - Address: {Address}, City: {City}, State: {State}, Zip: {ZipCode}",
+                    request.Property.Address, request.Property.City, request.Property.State, request.Property.ZipCode);
 
                 // Validate owner exists if provided
                 if (request.Property.OwnerId.HasValue && request.Property.OwnerId > 0)
@@ -48,6 +56,9 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 }
 
                 var property = MapToPropertyEntity(request.Property);
+
+                // Log the mapped entity before saving
+                _logger.LogInformation("Mapped Property Entity: {@PropertyEntity}", property);
 
                 // Create property first
                 var createdProperty = await _propertyRepository.CreatePropertyAsync(property);
@@ -548,6 +559,7 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 AreaSqm = dto.AreaSqm,
                 Kitchen = dto.Kitchen,
                 Garage = dto.Garage,
+                Country = dto.Country,
                 Address = dto.Address,
                 City = dto.City,
                 State = dto.State,
@@ -581,6 +593,7 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 AreaSqm = property.AreaSqm,
                 Kitchen = property.Kitchen,
                 Garage = property.Garage,
+                Country = property.Country,
                 Address = property.Address,
                 City = property.City,
                 State = property.State,

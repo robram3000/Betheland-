@@ -40,6 +40,9 @@ namespace Realstate_servcices.Server.Entity.Properties
         public int Kitchen { get; set; }
 
         public int AreaSqm { get; set; }
+        [Required]
+        [MaxLength(100)]
+        public string Country { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(255)]
@@ -52,7 +55,6 @@ namespace Realstate_servcices.Server.Entity.Properties
         [Required]
         [MaxLength(100)]
         public string State { get; set; } = string.Empty;
-
         [Required]
         [MaxLength(20)]
         public string ZipCode { get; set; } = string.Empty;

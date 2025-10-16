@@ -1,8 +1,11 @@
 import moment from 'moment';
-export const agentMapper = {
 
+export const agentMapper = {
     toCreateRequest: (formData) => {
-        return {
+        console.log('DEBUG - Mapping to create request:', formData);
+
+        // Simple license expiry handling - just pass through whatever value we have
+        const requestData = {
             firstName: formData.firstName,
             middleName: formData.middleName || '',
             lastName: formData.lastName,
@@ -10,11 +13,9 @@ export const agentMapper = {
             cellPhoneNo: formData.cellPhoneNo,
             licenseNumber: formData.licenseNumber,
             bio: formData.bio || '',
-            licenseExpiry: formData.licenseExpiry ? formData.licenseExpiry.toISOString() : null,
+            licenseExpiry: formData.licenseExpiry || null, // Just pass through, let backend handle format
             experience: formData.experience || '',
-            specialization: Array.isArray(formData.specialization)
-                ? JSON.stringify(formData.specialization)
-                : (formData.specialization || '[]'),
+            specialization: formData.specialization || '[]',
             officeAddress: formData.officeAddress || '',
             officePhone: formData.officePhone || '',
             website: formData.website || '',
@@ -23,14 +24,18 @@ export const agentMapper = {
             awards: formData.awards || '',
             yearsOfExperience: formData.yearsOfExperience || 0,
             brokerageName: formData.brokerageName || '',
-
             email: formData.email,
             username: formData.username,
             password: formData.password,
         };
+
+        console.log('DEBUG - Mapped create request:', requestData);
+        return requestData;
     },
 
     toUpdateRequest: (formData) => {
+        console.log('DEBUG - Mapping to update request:', formData);
+
         const updateData = {
             firstName: formData.firstName,
             middleName: formData.middleName || '',
@@ -39,11 +44,9 @@ export const agentMapper = {
             cellPhoneNo: formData.cellPhoneNo,
             licenseNumber: formData.licenseNumber,
             bio: formData.bio || '',
-            licenseExpiry: formData.licenseExpiry ? formData.licenseExpiry.toISOString() : null,
+            licenseExpiry: formData.licenseExpiry || null, 
             experience: formData.experience || '',
-            specialization: Array.isArray(formData.specialization)
-                ? JSON.stringify(formData.specialization)
-                : (formData.specialization || '[]'),
+            specialization: formData.specialization || '[]',
             officeAddress: formData.officeAddress || '',
             officePhone: formData.officePhone || '',
             website: formData.website || '',
@@ -59,9 +62,9 @@ export const agentMapper = {
             updateData.password = formData.password;
         }
 
+        console.log('DEBUG - Mapped update request:', updateData);
         return updateData;
     },
-
     toFrontend: (backendData) => {
         return {
             id: backendData.id,
@@ -103,4 +106,5 @@ export const agentMapper = {
         return backendList.map(agent => agentMapper.toFrontend(agent));
     },
 };
+
 export default agentMapper;

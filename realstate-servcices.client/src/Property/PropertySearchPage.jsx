@@ -33,7 +33,6 @@ import PropertyCard from './PropertyCard';
 import { usePropertyData } from './Services/GetdataProperty';
 import { useUser } from '../Authpage/Services/UserContextService';
 import scheduleServices from './Services/ScheduleServices';
-import { agentService } from './Services/GetAgent';
 import moment from 'moment';
 
 const { Content } = Layout;

@@ -2,6 +2,7 @@
 using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Services.PropertyCreation;
 using Realstate_servcices.Server.Utilities.Storage;
+using System.Text.Json;
 
 namespace Realstate_servcices.Server.Controllers.Agent
 {
@@ -180,86 +181,153 @@ namespace Realstate_servcices.Server.Controllers.Agent
 
         [HttpPost("with-media")]
         [Consumes("multipart/form-data")]
+        [RequestSizeLimit(100 * 1024 * 1024)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
         public async Task<ActionResult<PropertyResponse>> CreatePropertyWithMedia(
-            [FromForm] string propertyData,
-            [FromForm] List<IFormFile>? images = null,
-            [FromForm] List<IFormFile>? videos = null)
-        {
-            try
+          [FromForm] string propertyData,
+          [FromForm] List<IFormFile>? images = null,
+          [FromForm] List<IFormFile>? videos = null)
             {
-                Console.WriteLine($"Received property data: {propertyData}");
-                Console.WriteLine($"Received images count: {images?.Count ?? 0}");
-                Console.WriteLine($"Received videos count: {videos?.Count ?? 0}");
-
-                if (string.IsNullOrEmpty(propertyData))
+                try
                 {
-                    return BadRequest(new PropertyResponse
+                    Console.WriteLine($"Received property data length: {propertyData?.Length ?? 0}");
+                    Console.WriteLine($"Received images count: {images?.Count ?? 0}");
+                    Console.WriteLine($"Received videos count: {videos?.Count ?? 0}");
+
+                    // Validate property data
+                    if (string.IsNullOrEmpty(propertyData))
+                    {
+                        return BadRequest(new PropertyResponse
+                        {
+                            Success = false,
+                            Message = "Property data is required"
+                        });
+                    }
+
+                    // Log the raw property data for debugging
+                    Console.WriteLine($"Raw property data: {propertyData}");
+
+                    // FIX: Deserialize directly to PropertyDto instead of CreatePropertyRequest
+                    PropertyDto propertyDto;
+                    try
+                    {
+                        propertyDto = System.Text.Json.JsonSerializer.Deserialize<PropertyDto>(
+                            propertyData,
+                            new System.Text.Json.JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true,
+                                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                            });
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        Console.WriteLine($"JSON deserialization error: {jsonEx.Message}");
+                        return BadRequest(new PropertyResponse
+                        {
+                            Success = false,
+                            Message = "Invalid JSON format in property data",
+                            Errors = new List<string> { jsonEx.Message }
+                        });
+                    }
+
+                    if (propertyDto == null)
+                    {
+                        return BadRequest(new PropertyResponse
+                        {
+                            Success = false,
+                            Message = "Invalid property data format"
+                        });
+                    }
+
+                    // Validate required fields
+                    if (string.IsNullOrEmpty(propertyDto.Title))
+                    {
+                        return BadRequest(new PropertyResponse
+                        {
+                            Success = false,
+                            Message = "Property title is required"
+                        });
+                    }
+
+                    List<string> imageUrls = new List<string>();
+                    List<string> videoUrls = new List<string>();
+
+                    // Upload images with size validation
+                    if (images != null && images.Any())
+                    {
+                        Console.WriteLine($"Uploading {images.Count} images...");
+                        foreach (var image in images)
+                        {
+                            Console.WriteLine($"Image: {image.FileName}, Size: {image.Length} bytes, ContentType: {image.ContentType}");
+
+                            // Validate image size (e.g., 10MB max per image)
+                            if (image.Length > 10 * 1024 * 1024)
+                            {
+                                return BadRequest(new PropertyResponse
+                                {
+                                    Success = false,
+                                    Message = $"Image {image.FileName} is too large. Maximum size is 10MB."
+                                });
+                            }
+                        }
+
+                        imageUrls = await _imageStorage.UploadMultipleImagesAsync(images);
+                        Console.WriteLine($"Uploaded {imageUrls.Count} images successfully");
+                    }
+
+                    // Upload videos with size validation
+                    if (videos != null && videos.Any())
+                    {
+                        Console.WriteLine($"Uploading {videos.Count} videos...");
+                        foreach (var video in videos)
+                        {
+                            Console.WriteLine($"Video: {video.FileName}, Size: {video.Length} bytes, ContentType: {video.ContentType}");
+
+                            // Validate video size (e.g., 50MB max per video)
+                            if (video.Length > 50 * 1024 * 1024)
+                            {
+                                return BadRequest(new PropertyResponse
+                                {
+                                    Success = false,
+                                    Message = $"Video {video.FileName} is too large. Maximum size is 50MB."
+                                });
+                            }
+                        }
+
+                        videoUrls = await _videoStorage.UploadMultipleVideosAsync(videos);
+                        Console.WriteLine($"Uploaded {videoUrls.Count} videos successfully");
+                    }
+
+                    // FIX: Create the proper CreatePropertyRequest structure
+                    var request = new CreatePropertyRequest
+                    {
+                        Property = propertyDto,
+                        ImageUrls = imageUrls,
+                        VideoUrls = videoUrls
+                    };
+
+                    Console.WriteLine($"Calling CreatePropertyAsync with Property Title: {request.Property.Title}");
+                    var result = await _propertyService.CreatePropertyAsync(request);
+
+                    if (!result.Success)
+                    {
+                        return BadRequest(result);
+                    }
+
+                    return CreatedAtAction(nameof(GetProperty), new { id = result.Property?.Id }, result);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in CreatePropertyWithMedia: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    return StatusCode(500, new PropertyResponse
                     {
                         Success = false,
-                        Message = "Property data is required"
+                        Message = $"Internal server error: {ex.Message}",
+                        Errors = new List<string> { ex.Message }
                     });
                 }
-
-                var request = System.Text.Json.JsonSerializer.Deserialize<CreatePropertyRequest>(
-                    propertyData,
-                    new System.Text.Json.JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
-
-                if (request == null)
-                {
-                    return BadRequest(new PropertyResponse
-                    {
-                        Success = false,
-                        Message = "Invalid property data format"
-                    });
-                }
-
-                List<string> imageUrls = new List<string>();
-                List<string> videoUrls = new List<string>();
-
-                // Upload images
-                if (images != null && images.Any())
-                {
-                    Console.WriteLine($"Uploading {images.Count} images...");
-                    imageUrls = await _imageStorage.UploadMultipleImagesAsync(images);
-                    Console.WriteLine($"Uploaded {imageUrls.Count} images successfully");
-                }
-
-                // Upload videos
-                if (videos != null && videos.Any())
-                {
-                    Console.WriteLine($"Uploading {videos.Count} videos...");
-                    videoUrls = await _videoStorage.UploadMultipleVideosAsync(videos);
-                    Console.WriteLine($"Uploaded {videoUrls.Count} videos successfully");
-                }
-
-                request.ImageUrls = imageUrls;
-                request.VideoUrls = videoUrls;
-
-                Console.WriteLine($"Calling CreatePropertyAsync with Property: {request.Property?.Title}");
-                var result = await _propertyService.CreatePropertyAsync(request);
-
-                if (!result.Success)
-                {
-                    return BadRequest(result);
-                }
-
-                return CreatedAtAction(nameof(GetProperty), new { id = result.Property?.Id }, result);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in CreatePropertyWithMedia: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return BadRequest(new PropertyResponse
-                {
-                    Success = false,
-                    Message = $"Failed to create property with media: {ex.Message}",
-                    Errors = new List<string> { ex.Message }
-                });
-            }
-        }
 
         [HttpPut("with-images/{id}")]
         [Consumes("multipart/form-data")]

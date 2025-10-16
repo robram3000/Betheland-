@@ -60,7 +60,7 @@ export const routePermissions = {
     // Admin Routes
     '/portal/admin': ['SuperAdmin', 'Admin'],
     '/portal/admin/analytics': ['SuperAdmin', 'Admin'],
-    '/portal/admin/property': ['SuperAdmin', 'Admin'],
+    '/portal/admin/properties': ['SuperAdmin', 'Admin'],
     '/portal/admin/agent': ['SuperAdmin', 'Admin'],
 
     // Agent Routes

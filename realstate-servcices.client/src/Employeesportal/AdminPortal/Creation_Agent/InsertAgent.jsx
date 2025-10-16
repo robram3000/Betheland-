@@ -22,7 +22,7 @@ import {
 } from 'antd';
 import agentService from './Services/AgentService';
 import {
-    agentValidator,
+   
     useAgentErrorHandler,
     createAgentServiceWithErrorHandling
 } from './Services/AgentErrorHandler';
@@ -150,14 +150,23 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 return;
             }
 
-            // Prepare agent data - FIX: Pass the original form values which include moment objects
+            // Prepare agent data - SIMPLIFIED: Don't transform any data here
             const agentData = {
                 ...allValues,
                 profilePictureUrl: imageUrl,
-                specialization: Array.isArray(allValues.specialization)
-                    ? JSON.stringify(allValues.specialization)
-                    : allValues.specialization || '[]',
             };
+
+            // Handle specialization - ensure it's properly formatted as JSON string
+            if (Array.isArray(agentData.specialization)) {
+                agentData.specialization = JSON.stringify(agentData.specialization);
+            } else if (!agentData.specialization) {
+                agentData.specialization = '[]';
+            }
+
+            // Handle languages - convert array to string if needed
+            if (Array.isArray(agentData.languages)) {
+                agentData.languages = agentData.languages.join(', ');
+            }
 
             // Remove confirmPassword from the data sent to API
             delete agentData.confirmPassword;

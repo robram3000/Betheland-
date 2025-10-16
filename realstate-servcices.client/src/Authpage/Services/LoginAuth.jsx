@@ -23,7 +23,7 @@ class AuthService {
                 }
             }
         };
-        this.tokenCheckInterval = setInterval(checkTokenExpiry, 60 * 1000);
+        this.tokenCheckInterval = setInterval(checkTokenExpiry, 12 * 60 * 60 * 1000);
     }
 
     async login(usernameOrEmail, password, rememberMe = false) {
