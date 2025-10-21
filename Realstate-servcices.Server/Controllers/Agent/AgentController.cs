@@ -1,9 +1,9 @@
-﻿// AgentController.cs
+﻿
 using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Services.ProfileCreation;
-using Realstate_servcices.Server.Utilities.Storage; // Add this
-using Microsoft.AspNetCore.Http; // Add this
+using Realstate_servcices.Server.Utilities.Storage;
+using Microsoft.AspNetCore.Http; 
 
 namespace Realstate_servcices.Server.Controllers.Client
 {

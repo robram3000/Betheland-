@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Realstate_servcices.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class initialcreate : Migration
+    public partial class initialcreated : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -300,10 +300,17 @@ namespace Realstate_servcices.Server.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    AgentId = table.Column<int>(type: "int", nullable: false),
-                    ClientId = table.Column<int>(type: "int", nullable: false),
-                    Score = table.Column<int>(type: "int", nullable: false),
+                    RatingNo = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RaterId = table.Column<int>(type: "int", nullable: false),
+                    RatedId = table.Column<int>(type: "int", nullable: false),
+                    Stars = table.Column<int>(type: "int", nullable: false),
                     Comment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    RatingType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    PropertyId = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChatId = table.Column<int>(type: "int", nullable: true),
+                    AgentId = table.Column<int>(type: "int", nullable: true),
+                    ClientId = table.Column<int>(type: "int", nullable: true),
+                    IsVisible = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -314,6 +321,24 @@ namespace Realstate_servcices.Server.Migrations
                         name: "FK_Ratings_Agents_AgentId",
                         column: x => x.AgentId,
                         principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Ratings_BaseMembers_RatedId",
+                        column: x => x.RatedId,
+                        principalTable: "BaseMembers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Ratings_BaseMembers_RaterId",
+                        column: x => x.RaterId,
+                        principalTable: "BaseMembers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Ratings_Chats_ChatId",
+                        column: x => x.ChatId,
+                        principalTable: "Chats",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -678,15 +703,35 @@ namespace Realstate_servcices.Server.Migrations
                 column: "PropertyId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Ratings_AgentId_ClientId",
+                name: "IX_Ratings_AgentId",
                 table: "Ratings",
-                columns: new[] { "AgentId", "ClientId" },
-                unique: true);
+                column: "AgentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ratings_ChatId",
+                table: "Ratings",
+                column: "ChatId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Ratings_ClientId",
                 table: "Ratings",
                 column: "ClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ratings_RatedId",
+                table: "Ratings",
+                column: "RatedId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ratings_RaterId",
+                table: "Ratings",
+                column: "RaterId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ratings_RatingNo",
+                table: "Ratings",
+                column: "RatingNo",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ScheduleProperties_AgentId",

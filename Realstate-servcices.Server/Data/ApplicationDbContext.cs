@@ -14,7 +14,6 @@ namespace Realstate_servcices.Server.Data
         {
         }
 
-        // Member entities
         public DbSet<BaseMember> BaseMembers { get; set; }
         public DbSet<Agent> Agents { get; set; }
         public DbSet<Client> Clients { get; set; }
@@ -46,7 +45,7 @@ namespace Realstate_servcices.Server.Data
                 .HasIndex(u => u.Username)
                 .IsUnique();
 
-            // One-to-one relationships for BaseMember
+         
             modelBuilder.Entity<BaseMember>()
                 .HasOne(bm => bm.Agent)
                 .WithOne(a => a.BaseMember)
@@ -72,68 +71,68 @@ namespace Realstate_servcices.Server.Data
                 .HasIndex(np => np.BaseMemberId)
                 .IsUnique();
 
-            // Chat relationships - FIXED: Use DeleteBehavior.ClientSetNull or DeleteBehavior.Restrict
+    
             modelBuilder.Entity<ChatParticipant>()
                 .HasOne(cp => cp.Chat)
                 .WithMany(c => c.Participants)
                 .HasForeignKey(cp => cp.ChatId)
-                .OnDelete(DeleteBehavior.Cascade); // This is OK
+                .OnDelete(DeleteBehavior.Cascade); 
 
             modelBuilder.Entity<ChatParticipant>()
                 .HasOne(cp => cp.BaseMember)
                 .WithMany()
                 .HasForeignKey(cp => cp.BaseMemberId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict); 
 
             modelBuilder.Entity<Message>()
                 .HasOne(m => m.Chat)
                 .WithMany(c => c.Messages)
                 .HasForeignKey(m => m.ChatId)
-                .OnDelete(DeleteBehavior.Cascade); // This is OK
+                .OnDelete(DeleteBehavior.Cascade); 
 
             modelBuilder.Entity<Message>()
                 .HasOne(m => m.Sender)
                 .WithMany()
                 .HasForeignKey(m => m.SenderId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<MessageFile>()
                 .HasOne(mf => mf.Message)
                 .WithMany(m => m.MessageFiles)
                 .HasForeignKey(mf => mf.MessageId)
-                .OnDelete(DeleteBehavior.Cascade); // This is OK
+                .OnDelete(DeleteBehavior.Cascade); 
 
-            // FIX: MessageReactions - use Restrict instead of Cascade
+      
             modelBuilder.Entity<MessageReaction>()
                 .HasOne(mr => mr.Message)
                 .WithMany(m => m.Reactions)
                 .HasForeignKey(mr => mr.MessageId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict); 
 
             modelBuilder.Entity<MessageReaction>()
                 .HasOne(mr => mr.BaseMember)
                 .WithMany()
                 .HasForeignKey(mr => mr.BaseMemberId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict); 
 
-            // Notification relationships
+  
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.BaseMember)
                 .WithMany()
                 .HasForeignKey(n => n.BaseMemberId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.Chat)
                 .WithMany(c => c.Notifications)
                 .HasForeignKey(n => n.ChatId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict); 
 
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.Message)
                 .WithMany(m => m.Notifications)
                 .HasForeignKey(n => n.MessageId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+                .OnDelete(DeleteBehavior.Restrict); 
 
             modelBuilder.Entity<NotificationPreference>()
                 .HasOne(np => np.BaseMember)
@@ -151,8 +150,51 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => new { e.Email, e.IsUsed, e.ExpirationTime });
                 entity.HasIndex(e => e.CreatedAt);
             });
+            modelBuilder.Entity<Rating>(entity =>
+            {
+                entity.HasKey(e => e.Id);
 
   
+                entity.Property(e => e.RatingNo).IsRequired();
+                entity.Property(e => e.Stars).IsRequired();
+                entity.Property(e => e.Comment).HasMaxLength(1000);
+                entity.Property(e => e.RatingType).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.PropertyId).HasMaxLength(50);
+                entity.Property(e => e.IsVisible).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt);
+
+        
+                entity.HasOne(r => r.Rater)
+                    .WithMany()
+                    .HasForeignKey(r => r.RaterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Rated)
+                    .WithMany()
+                    .HasForeignKey(r => r.RatedId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Agent)
+                    .WithMany(a => a.Ratings)
+                    .HasForeignKey(r => r.AgentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Client)
+                    .WithMany(c => c.Ratings)
+                    .HasForeignKey(r => r.ClientId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Chat)
+                    .WithMany(c => c.Ratings)
+                    .HasForeignKey(r => r.ChatId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+          
+                entity.HasIndex(e => e.RatingNo).IsUnique();
+            });
+
+
 
             modelBuilder.Entity<BaseMember>(entity =>
             {

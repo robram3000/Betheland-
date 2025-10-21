@@ -82,7 +82,7 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             if (agent == null)
                 throw new ArgumentException($"Agent with ID {id} not found");
 
-            // Update agent properties
+  
             agent.FirstName = request.FirstName;
             agent.MiddleName = request.MiddleName;
             agent.LastName = request.LastName;
@@ -102,7 +102,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             agent.YearsOfExperience = request.YearsOfExperience;
             agent.BrokerageName = request.BrokerageName;
 
-            // Handle verification status
             if (request.IsVerified.HasValue)
             {
                 agent.IsVerified = request.IsVerified.Value;
@@ -112,7 +111,6 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 }
             }
 
-            // Update base member - THIS IS WHAT'S MISSING
             var baseMember = await _context.BaseMembers.FindAsync(agent.BaseMemberId);
             if (baseMember != null)
             {

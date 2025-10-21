@@ -28,7 +28,7 @@ namespace Realstate_servcices.Server.Services.Conversation
 
             var createdChat = await _chatRepository.CreateAsync(chat);
 
-            // Add creator as participant
+
             var creatorParticipant = new ChatParticipant
             {
                 ChatId = createdChat.Id,
@@ -38,7 +38,6 @@ namespace Realstate_servcices.Server.Services.Conversation
             };
             await _participantRepository.AddParticipantAsync(creatorParticipant);
 
-            // Add other participants
             foreach (var participantId in createDto.ParticipantIds.Where(id => id != creatorId))
             {
                 var participant = new ChatParticipant
@@ -103,7 +102,7 @@ namespace Realstate_servcices.Server.Services.Conversation
                 if (existingParticipant.IsActive)
                     throw new InvalidOperationException("User is already a participant");
 
-                // Reactivate existing participant
+         
                 existingParticipant.IsActive = true;
                 existingParticipant.Role = addDto.Role;
                 await _participantRepository.AddParticipantAsync(existingParticipant);

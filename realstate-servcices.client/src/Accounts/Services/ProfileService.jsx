@@ -43,9 +43,9 @@ class ProfileService {
                 createdAt: clientData.createdAt,
                 dateRegistered: clientData.dateRegistered,
                 profilePicture: clientData.profilePictureUrl || clientData.profilePicture,
-                address: clientData.address 
+                address: clientData.address
 
-      
+            }
 
             return {
                 success: true,

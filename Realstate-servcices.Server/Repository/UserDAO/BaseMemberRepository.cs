@@ -1,4 +1,4 @@
-﻿// BaseMemberRepository.cs
+﻿
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;

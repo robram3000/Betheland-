@@ -360,6 +360,75 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("NotificationPreferences");
                 });
 
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Rating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ChatId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsVisible")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PropertyId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("RatedId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RaterId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RatingNo")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RatingType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Stars")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ChatId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("RatedId");
+
+                    b.HasIndex("RaterId");
+
+                    b.HasIndex("RatingNo")
+                        .IsUnique();
+
+                    b.ToTable("Ratings");
+                });
+
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Member.BaseMember", b =>
                 {
                     b.Property<int>("Id")
@@ -417,43 +486,6 @@ namespace Realstate_servcices.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("BaseMembers");
-                });
-
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Member.Rating", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AgentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ClientId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Score")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("AgentId", "ClientId")
-                        .IsUnique();
-
-                    b.ToTable("Ratings");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.OTP.OTPRecord", b =>
@@ -1074,23 +1106,44 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("BaseMember");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Member.Rating", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Rating", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
                         .WithMany("Ratings")
                         .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Realstate_servcices.Server.Entity.Chat.Chat", "Chat")
+                        .WithMany("Ratings")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
                         .WithMany("Ratings")
                         .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "Rated")
+                        .WithMany()
+                        .HasForeignKey("RatedId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "Rater")
+                        .WithMany()
+                        .HasForeignKey("RaterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Agent");
 
+                    b.Navigation("Chat");
+
                     b.Navigation("Client");
+
+                    b.Navigation("Rated");
+
+                    b.Navigation("Rater");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.PropertyHouse", b =>
@@ -1211,6 +1264,8 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Notifications");
 
                     b.Navigation("Participants");
+
+                    b.Navigation("Ratings");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Message", b =>
