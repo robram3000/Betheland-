@@ -53,7 +53,7 @@ const useProfile = () => {
 
             if (result.success) {
                 message.success('Profile updated successfully');
-                // Refresh profile data after update
+       
                 await getProfile(false);
             } else {
                 message.error(result.message || 'Failed to update profile');

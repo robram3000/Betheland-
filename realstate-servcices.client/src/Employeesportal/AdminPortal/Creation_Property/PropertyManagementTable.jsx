@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     Table,
     Card,
@@ -12,9 +12,20 @@ import {
     Statistic,
     Row,
     Col,
-    message
+    message,
+    Badge,
+    Image,
+    Modal,
+    Divider
 } from 'antd';
-import { SearchOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+    SearchOutlined,
+    EyeOutlined,
+    ReloadOutlined,
+    FilterOutlined,
+    PictureOutlined,
+    PlayCircleOutlined
+} from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import propertyService from './services/propertyService';
 
@@ -27,6 +38,10 @@ const PropertyManagementTable = () => {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
+    const [priceRangeFilter, setPriceRangeFilter] = useState('all');
+    const [mediaModalVisible, setMediaModalVisible] = useState(false);
+    const [selectedProperty, setSelectedProperty] = useState(null);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     useEffect(() => {
         loadProperties();
@@ -35,17 +50,90 @@ const PropertyManagementTable = () => {
     const loadProperties = async () => {
         setLoading(true);
         try {
-            // Use the correct service method
             const data = await propertyService.getAllProperties();
-            console.log('Management - Loaded properties:', data); // Debug log
+            console.log('Management - Loaded properties:', data);
             setProperties(data || []);
         } catch (error) {
             console.error('Error loading properties:', error);
             message.error('Failed to load properties');
-            setProperties([]); // Ensure it's always an array
+            setProperties([]);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Process image URL for display
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+        return '/default-property.jpg';
+    };
+
+    const getPropertyImage = (property) => {
+        return processImageUrl(
+            property.mainImage ||
+            (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
+            (property.imageUrls && property.imageUrls[0]) ||
+            '/default-property.jpg'
+        );
+    };
+
+    const getAllMedia = (property) => {
+        const media = [];
+
+        // Add main image
+        if (property.mainImage) {
+            media.push({
+                type: 'image',
+                url: processImageUrl(property.mainImage),
+                title: 'Main Image'
+            });
+        }
+
+        // Add property images
+        if (property.propertyImages && property.propertyImages.length > 0) {
+            property.propertyImages.forEach((img, index) => {
+                if (img.imageUrl) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(img.imageUrl),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add image URLs
+        if (property.imageUrls && property.imageUrls.length > 0) {
+            property.imageUrls.forEach((url, index) => {
+                if (url) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(url),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        return media;
+    };
+
+    const handleOpenMedia = (property, index = 0) => {
+        setSelectedProperty(property);
+        setCurrentMediaIndex(index);
+        setMediaModalVisible(true);
     };
 
     const filteredProperties = properties.filter(property => {
@@ -56,7 +144,12 @@ const PropertyManagementTable = () => {
         const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
         const matchesType = typeFilter === 'all' || property.type === typeFilter;
 
-        return matchesSearch && matchesStatus && matchesType;
+        const matchesPriceRange = priceRangeFilter === 'all' ||
+            (priceRangeFilter === 'low' && (property.price || 0) < 500000) ||
+            (priceRangeFilter === 'medium' && (property.price || 0) >= 500000 && (property.price || 0) < 2000000) ||
+            (priceRangeFilter === 'high' && (property.price || 0) >= 2000000);
+
+        return matchesSearch && matchesStatus && matchesType && matchesPriceRange;
     });
 
     const getStats = () => {
@@ -64,17 +157,16 @@ const PropertyManagementTable = () => {
         const available = properties.filter(p => p.status === 'available' || p.status === 'approved').length;
         const pending = properties.filter(p => p.status === 'pending').length;
         const sold = properties.filter(p => p.status === 'sold' || p.status === 'rented').length;
+        const withPhotos = properties.filter(p =>
+            p.mainImage ||
+            (p.propertyImages && p.propertyImages.length > 0) ||
+            (p.imageUrls && p.imageUrls.length > 0)
+        ).length;
 
-        return { total, available, pending, sold };
+        return { total, available, pending, sold, withPhotos };
     };
 
     const stats = getStats();
-
-    const handleViewProperty = (property) => {
-        console.log('View property:', property);
-        // You can implement a modal or navigation to property details here
-        message.info(`Viewing property: ${property.title}`);
-    };
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -100,41 +192,116 @@ const PropertyManagementTable = () => {
         }
     };
 
+    const renderMediaPreview = (property) => {
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const imageCount = allMedia.filter(m => m.type === 'image').length;
+
+        return (
+            <Space direction="vertical" size={8} align="center">
+                <Button
+                    type="primary"
+                    icon={<PictureOutlined />}
+                    size="small"
+                    onClick={() => handleOpenMedia(property)}
+                    style={{
+                        backgroundColor: '#1e3a8a',
+                        borderColor: '#1e3a8a',
+                        fontWeight: 500
+                    }}
+                >
+                    View Media
+                </Button>
+                {hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>
+                        <div>
+                            <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                            {imageCount} image{imageCount !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+                )}
+                {!hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#999', textAlign: 'center' }}>
+                        No media
+                    </div>
+                )}
+            </Space>
+        );
+    };
+
     const columns = [
         {
             title: 'Property',
             dataIndex: 'title',
             key: 'property',
-            render: (text, record) => (
-                <Space>
-                    <Avatar
-                        src={record.mainImage || record.propertyImages?.[0]?.imageUrl}
-                        shape="square"
-                        style={{ backgroundColor: '#1a365d' }}
-                    >
-                        {text?.[0]}
-                    </Avatar>
-                    <div>
-                        <div style={{ fontWeight: 500 }}>{text}</div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                            {record.address}, {record.city}
+            render: (text, record) => {
+                const imageUrl = getPropertyImage(record);
+                const hasMedia = getAllMedia(record).length > 0;
+
+                return (
+                    <Space>
+                        <Badge dot={!hasMedia} color={hasMedia ? 'green' : 'red'} offset={[-5, 5]}>
+                            <Avatar
+                                src={imageUrl}
+                                shape="square"
+                                style={{
+                                    backgroundColor: '#1a365d',
+                                    width: 50,
+                                    height: 50,
+                                    objectFit: 'cover'
+                                }}
+                                onError={(e) => {
+                                    e.target.src = '/default-property.jpg';
+                                }}
+                            >
+                                {text?.[0]?.toUpperCase()}
+                            </Avatar>
+                        </Badge>
+                        <div>
+                            <div style={{ fontWeight: 500 }}>{text || 'Untitled Property'}</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                {record.address}, {record.city}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#888', marginTop: 4 }}>
+                                <Tag color="blue" size="small">{record.type || 'N/A'}</Tag>
+                            </div>
                         </div>
-                    </div>
-                </Space>
-            ),
-        },
-        {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type) => <Tag color="blue">{type || 'Not specified'}</Tag>,
+                    </Space>
+                );
+            },
         },
         {
             title: 'Price',
             dataIndex: 'price',
             key: 'price',
-            render: (price) => price ? `$${price.toLocaleString()}` : 'Not set',
+            render: (price) => (
+                <div style={{ fontWeight: 600, color: '#1a365d' }}>
+                    {price ? `₱${price.toLocaleString()}` : 'Not set'}
+                </div>
+            ),
             sorter: (a, b) => (a.price || 0) - (b.price || 0),
+        },
+        {
+            title: 'Details',
+            key: 'details',
+            render: (_, record) => (
+                <Space direction="vertical" size={2}>
+                    <div style={{ fontWeight: 500 }}>
+                        {record.bedrooms || 0} BD / {record.bathrooms || 0} BA
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        {record.areaSqm ? `${record.areaSqm} sqm` : 'Area not set'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#888' }}>
+                        {record.propertyAge ? `${record.propertyAge} years` : 'Age not set'}
+                    </div>
+                </Space>
+            ),
+        },
+        {
+            title: 'Media',
+            key: 'media',
+            render: (_, record) => renderMediaPreview(record),
         },
         {
             title: 'Status',
@@ -154,17 +321,6 @@ const PropertyManagementTable = () => {
                 { text: 'Rejected', value: 'rejected' },
             ],
             onFilter: (value, record) => record.status === value,
-        },
-        {
-            title: 'Bed/Bath',
-            key: 'bedBath',
-            render: (_, record) => `${record.bedrooms || 0} BD / ${record.bathrooms || 0} BA`,
-        },
-        {
-            title: 'Area',
-            dataIndex: 'areaSqm',
-            key: 'area',
-            render: (area) => area ? `${area} sqm` : 'Not set',
         },
         {
             title: 'Agent',
@@ -194,7 +350,7 @@ const PropertyManagementTable = () => {
                     <Button
                         icon={<EyeOutlined />}
                         size="small"
-                        onClick={() => handleViewProperty(record)}
+                        onClick={() => console.log('View property:', record)}
                     >
                         View
                     </Button>
@@ -205,9 +361,10 @@ const PropertyManagementTable = () => {
 
     return (
         <div>
+            {/* Enhanced Stats Cards */}
             <div style={{ marginBottom: 24 }}>
                 <Row gutter={16}>
-                    <Col span={6}>
+                    <Col span={4}>
                         <Card>
                             <Statistic
                                 title="Total Properties"
@@ -216,7 +373,7 @@ const PropertyManagementTable = () => {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col span={4}>
                         <Card>
                             <Statistic
                                 title="Available"
@@ -225,7 +382,7 @@ const PropertyManagementTable = () => {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col span={4}>
                         <Card>
                             <Statistic
                                 title="Pending"
@@ -234,12 +391,31 @@ const PropertyManagementTable = () => {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col span={4}>
                         <Card>
                             <Statistic
                                 title="Sold/Rented"
                                 value={stats.sold}
                                 valueStyle={{ color: '#f5222d' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col span={4}>
+                        <Card>
+                            <Statistic
+                                title="With Photos"
+                                value={stats.withPhotos}
+                                valueStyle={{ color: '#722ed1' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col span={4}>
+                        <Card>
+                            <Statistic
+                                title="Photo Rate"
+                                value={((stats.withPhotos / stats.total) * 100).toFixed(1)}
+                                suffix="%"
+                                valueStyle={{ color: '#13c2c2' }}
                             />
                         </Card>
                     </Col>
@@ -261,6 +437,7 @@ const PropertyManagementTable = () => {
                             style={{ width: 150 }}
                             onChange={setStatusFilter}
                             placeholder="Filter by status"
+                            suffixIcon={<FilterOutlined />}
                         >
                             <Option value="all">All Status</Option>
                             <Option value="available">Available</Option>
@@ -275,6 +452,7 @@ const PropertyManagementTable = () => {
                             style={{ width: 150 }}
                             onChange={setTypeFilter}
                             placeholder="Filter by type"
+                            suffixIcon={<FilterOutlined />}
                         >
                             <Option value="all">All Types</Option>
                             <Option value="House">House</Option>
@@ -283,6 +461,18 @@ const PropertyManagementTable = () => {
                             <Option value="Townhouse">Townhouse</Option>
                             <Option value="Land">Land</Option>
                             <Option value="Commercial">Commercial</Option>
+                        </Select>
+                        <Select
+                            value={priceRangeFilter}
+                            style={{ width: 180 }}
+                            onChange={setPriceRangeFilter}
+                            placeholder="Filter by price range"
+                            suffixIcon={<FilterOutlined />}
+                        >
+                            <Option value="all">All Price Ranges</Option>
+                            <Option value="low">Low (&lt; ₱500K)</Option>
+                            <Option value="medium">Medium (₱500K - ₱2M)</Option>
+                            <Option value="high">High (&gt; ₱2M)</Option>
                         </Select>
                     </Space>
                     <Space>
@@ -314,6 +504,115 @@ const PropertyManagementTable = () => {
                     scroll={{ x: 1200 }}
                 />
             </Card>
+
+            {/* Media Gallery Modal */}
+            <Modal
+                title="Property Media Gallery"
+                open={mediaModalVisible}
+                onCancel={() => setMediaModalVisible(false)}
+                footer={null}
+                width={800}
+                style={{ top: 20 }}
+            >
+                {selectedProperty && (() => {
+                    const allMedia = getAllMedia(selectedProperty);
+                    const currentMedia = allMedia[currentMediaIndex];
+
+                    if (allMedia.length === 0) {
+                        return (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                <div style={{ color: '#999' }}>No media available for this property</div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                {currentMedia.type === 'image' ? (
+                                    <Image
+                                        width="100%"
+                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        src={currentMedia.url}
+                                        alt={currentMedia.title}
+                                        fallback="/fallback-image.png"
+                                    />
+                                ) : (
+                                    <video
+                                        controls
+                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        src={currentMedia.url}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                )}
+                            </div>
+
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
+                            </div>
+
+                            {allMedia.length > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Media Thumbnails */}
+                            {allMedia.length > 1 && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Divider>All Media ({allMedia.length})</Divider>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                        {allMedia.map((media, index) => (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    width: 60,
+                                                    height: 60,
+                                                    border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                                    borderRadius: 4,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => setCurrentMediaIndex(index)}
+                                            >
+                                                {media.type === 'image' ? (
+                                                    <img
+                                                        src={media.url}
+                                                        alt={media.title}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        backgroundColor: '#f0f0f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+            </Modal>
         </div>
     );
 };

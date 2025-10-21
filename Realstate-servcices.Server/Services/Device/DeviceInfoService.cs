@@ -1,6 +1,5 @@
 ﻿using Realstate_servcices.Server.Dto.Device;
 using Realstate_servcices.Server.Utilities.Device;
-
 namespace Realstate_servcices.Server.Services.Device
 {
     public class DeviceInfoService : IDeviceInfoService

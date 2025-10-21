@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-
 namespace Realstate_servcices.Server.Utilities.Device
 {
     public class EnvironmentUtility

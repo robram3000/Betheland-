@@ -61,7 +61,7 @@ namespace Realstate_servcices.Server.Controllers.Client
         }
 
         [HttpPost]
-        public async Task<ActionResult<ScheduleResponseDto>> CreateSchedule(CreateScheduleDto createDto)
+        public async Task<ActionResult<ScheduleResponseDto>> CreateSchedule([FromBody] CreateScheduleDto createDto)
         {
             try
             {
@@ -72,10 +72,14 @@ namespace Realstate_servcices.Server.Controllers.Client
             {
                 return BadRequest(new { message = ex.Message });
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while creating the schedule." });
+            }
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<ScheduleResponseDto>> UpdateSchedule(int id, UpdateScheduleDto updateDto)
+        public async Task<ActionResult<ScheduleResponseDto>> UpdateSchedule(int id, [FromBody] UpdateScheduleDto updateDto)
         {
             try
             {
@@ -88,6 +92,10 @@ namespace Realstate_servcices.Server.Controllers.Client
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the schedule." });
             }
         }
 
@@ -126,8 +134,15 @@ namespace Realstate_servcices.Server.Controllers.Client
             [FromQuery] int agentId,
             [FromQuery] DateTime scheduleTime)
         {
-            var isAvailable = await _schedulingServices.IsTimeSlotAvailableAsync(agentId, scheduleTime);
-            return Ok(isAvailable);
+            try
+            {
+                var isAvailable = await _schedulingServices.IsTimeSlotAvailableAsync(agentId, scheduleTime);
+                return Ok(isAvailable);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while checking availability." });
+            }
         }
     }
 }

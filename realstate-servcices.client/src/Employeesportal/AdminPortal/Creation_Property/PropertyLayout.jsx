@@ -1,3 +1,4 @@
+// Enhanced PropertyLayout.jsx with compact tabs
 import React, { useState, useEffect } from 'react';
 import { Layout, theme, ConfigProvider, Tabs, Badge } from 'antd';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
@@ -77,6 +78,13 @@ const PropertyLayout = () => {
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
+                components: {
+                    Tabs: {
+                        itemSelectedColor: '#1a365d',
+                        itemActiveColor: '#1a365d',
+                        cardHeight: 30, 
+                    },
+                },
             }}
         >
             <Layout style={{ minHeight: '100vh' }}>
@@ -95,29 +103,29 @@ const PropertyLayout = () => {
                         <Content
                             style={{
                                 background: colorBgContainer,
-                                margin: '24px 0',
+                                margin: '16px 0',
                                 minHeight: 280,
                                 borderRadius: borderRadiusLG,
                                 boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                                 border: '1px solid #f0f0f0',
                                 maxWidth: '100%',
                                 overflow: 'hidden',
-                                padding: '24px',
+                                padding: '20px',
                             }}
                         >
-                            <div style={{ marginBottom: 24 }}>
+                            <div style={{ marginBottom: 20 }}>
                                 <h1 style={{
                                     margin: 0,
                                     color: '#1a365d',
-                                    fontSize: '28px',
+                                    fontSize: '24px',
                                     fontWeight: 600
                                 }}>
                                     Property Management
                                 </h1>
                                 <p style={{
-                                    margin: '8px 0 0 0',
+                                    margin: '6px 0 0 0',
                                     color: '#666',
-                                    fontSize: '14px'
+                                    fontSize: '13px'
                                 }}>
                                     Manage real estate properties, approvals, and agent assignments
                                 </p>
@@ -127,8 +135,14 @@ const PropertyLayout = () => {
                                 activeKey={activeTab}
                                 onChange={handleTabChange}
                                 type="card"
-                                size="large"
+                                size="middle"
                                 items={tabItems}
+                                style={{
+                                    '& .ant-tabs-tab': {
+                                        padding: '8px 16px',
+                                        margin: '0 4px',
+                                    }
+                                }}
                             />
                         </Content>
                     </Layout>

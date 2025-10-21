@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.Scheduling;
-
 namespace Realstate_servcices.Server.Services.Scheduling
 {
     public interface ISchedulingServices

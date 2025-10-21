@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Management;
 using System.Runtime.InteropServices;
-
 namespace Realstate_servcices.Server.Utilities.Device
 {
     public class SystemInfoUtility

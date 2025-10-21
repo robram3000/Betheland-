@@ -1,7 +1,6 @@
 ﻿using Realstate_servcices.Server.Entity.member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Realstate_servcices.Server.Entity.Properties
 {
     public class WishlistProperties

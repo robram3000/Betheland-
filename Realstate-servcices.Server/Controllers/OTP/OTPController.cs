@@ -52,7 +52,7 @@ namespace Realstate_servcices.Server.Controllers.OTP
             {
                 _logger.LogInformation($"Verifying OTP for email: {request.Email}, OTP: {request.OTPCode}");
 
-                // Log the incoming request for debugging
+            
                 _logger.LogInformation($"Request received - Email: {request.Email}, OTP Code Length: {request.OTPCode?.Length}");
 
                 var result = await _otpService.VerifyOTPAsync(request);

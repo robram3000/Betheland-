@@ -1,7 +1,6 @@
 ﻿using Realstate_servcices.Server.Entity.Member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Realstate_servcices.Server.Entity.Chat
 {
     public class Message
@@ -14,44 +13,37 @@ namespace Realstate_servcices.Server.Entity.Chat
         public Guid MessageNo { get; set; } = Guid.NewGuid();
 
         [Required]
-        [ForeignKey("Conversation")]
-        public int ConversationId { get; set; }
+        public int ChatId { get; set; }
 
         [Required]
-        [ForeignKey("BaseMember")]
         public int SenderId { get; set; }
 
-        [ForeignKey("Message")]
-        public int? ParentMessageId { get; set; }
+        [MaxLength(2000)]
+        public string? Content { get; set; }
 
         [Required]
         [MaxLength(20)]
-        public string MessageType { get; set; } = "text"; 
+        public string MessageType { get; set; } = "text";
 
-        [Required]
-        [Column(TypeName = "text")]
-        public string Content { get; set; } = string.Empty;
+        public bool IsEdited { get; set; } = false;
 
-        [MaxLength(500)]
-        public string? AttachmentUrl { get; set; }
-
-        [Required]
-        public bool IsRead { get; set; } = false;
-
-        [Required]
-        public bool IsDelivered { get; set; } = false;
+        public bool IsDeleted { get; set; } = false;
 
         [Required]
         public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime? DeliveredAt { get; set; }
-
         public DateTime? ReadAt { get; set; }
 
-        // Navigation properties
-        public virtual Conversation? Conversation { get; set; }
-        public virtual BaseMember? Sender { get; set; }
-        public virtual Message? ParentMessage { get; set; }
-        public virtual ICollection<Message>? Replies { get; set; }
+        public DateTime? EditedAt { get; set; }
+
+        [ForeignKey("ChatId")]
+        public virtual Chat Chat { get; set; } = null!;
+
+        [ForeignKey("SenderId")]
+        public virtual BaseMember Sender { get; set; } = null!;
+
+        public virtual ICollection<MessageFile> MessageFiles { get; set; } = new List<MessageFile>();
+        public virtual ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
+        public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     }
 }

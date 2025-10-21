@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Realstate_servcices.Server.Entity.Member;
-using Realstate_servcices.Server.Entity.member;
-using Realstate_servcices.Server.Entity.OTP;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Entity.member;
+using Realstate_servcices.Server.Entity.Member;
+using Realstate_servcices.Server.Entity.OTP;
 using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Data
@@ -25,9 +26,120 @@ namespace Realstate_servcices.Server.Data
         public DbSet<WishlistProperties> Wishlists { get; set; }
         public DbSet<OTPRecord> OTPRecords { get; set; }
 
+        public DbSet<Chat> Chats { get; set; }
+        public DbSet<ChatParticipant> ChatParticipants { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<MessageFile> MessageFiles { get; set; }
+        public DbSet<MessageReaction> MessageReactions { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationPreference> NotificationPreferences { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<BaseMember>()
+        .HasIndex(u => u.Email)
+        .IsUnique();
+
+            modelBuilder.Entity<BaseMember>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
+            // One-to-one relationships for BaseMember
+            modelBuilder.Entity<BaseMember>()
+                .HasOne(bm => bm.Agent)
+                .WithOne(a => a.BaseMember)
+                .HasForeignKey<Agent>(a => a.BaseMemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BaseMember>()
+                .HasOne(bm => bm.Client)
+                .WithOne(c => c.BaseMember)
+                .HasForeignKey<Client>(c => c.BaseMemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Chat configurations
+            modelBuilder.Entity<ChatParticipant>()
+                .HasIndex(cp => new { cp.ChatId, cp.BaseMemberId })
+                .IsUnique();
+
+            modelBuilder.Entity<MessageReaction>()
+                .HasIndex(mr => new { mr.MessageId, mr.BaseMemberId, mr.Emoji })
+                .IsUnique();
+
+            modelBuilder.Entity<NotificationPreference>()
+                .HasIndex(np => np.BaseMemberId)
+                .IsUnique();
+
+            // Chat relationships - FIXED: Use DeleteBehavior.ClientSetNull or DeleteBehavior.Restrict
+            modelBuilder.Entity<ChatParticipant>()
+                .HasOne(cp => cp.Chat)
+                .WithMany(c => c.Participants)
+                .HasForeignKey(cp => cp.ChatId)
+                .OnDelete(DeleteBehavior.Cascade); // This is OK
+
+            modelBuilder.Entity<ChatParticipant>()
+                .HasOne(cp => cp.BaseMember)
+                .WithMany()
+                .HasForeignKey(cp => cp.BaseMemberId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Chat)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ChatId)
+                .OnDelete(DeleteBehavior.Cascade); // This is OK
+
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<MessageFile>()
+                .HasOne(mf => mf.Message)
+                .WithMany(m => m.MessageFiles)
+                .HasForeignKey(mf => mf.MessageId)
+                .OnDelete(DeleteBehavior.Cascade); // This is OK
+
+            // FIX: MessageReactions - use Restrict instead of Cascade
+            modelBuilder.Entity<MessageReaction>()
+                .HasOne(mr => mr.Message)
+                .WithMany(m => m.Reactions)
+                .HasForeignKey(mr => mr.MessageId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<MessageReaction>()
+                .HasOne(mr => mr.BaseMember)
+                .WithMany()
+                .HasForeignKey(mr => mr.BaseMemberId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            // Notification relationships
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.BaseMember)
+                .WithMany()
+                .HasForeignKey(n => n.BaseMemberId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Chat)
+                .WithMany(c => c.Notifications)
+                .HasForeignKey(n => n.ChatId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Message)
+                .WithMany(m => m.Notifications)
+                .HasForeignKey(n => n.MessageId)
+                .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict
+
+            modelBuilder.Entity<NotificationPreference>()
+                .HasOne(np => np.BaseMember)
+                .WithMany()
+                .HasForeignKey(np => np.BaseMemberId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<OTPRecord>(entity =>
             {
@@ -40,28 +152,7 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.CreatedAt);
             });
 
-            modelBuilder.Entity<Rating>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Score).IsRequired();
-                entity.Property(e => e.Comment).HasMaxLength(1000);
-                entity.Property(e => e.CreatedAt).IsRequired();
-                entity.Property(e => e.UpdatedAt).IsRequired(false);
-
-                // Relationships
-                entity.HasOne(r => r.Agent)
-                      .WithMany(a => a.Ratings)
-                      .HasForeignKey(r => r.AgentId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(r => r.Client)
-                      .WithMany(c => c.Ratings)
-                      .HasForeignKey(r => r.ClientId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasIndex(r => new { r.AgentId, r.ClientId })
-                      .IsUnique();
-            });
+  
 
             modelBuilder.Entity<BaseMember>(entity =>
             {
@@ -289,6 +380,8 @@ namespace Realstate_servcices.Server.Data
                       .HasForeignKey(w => w.PropertyId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
+
+
         }
     }
 }

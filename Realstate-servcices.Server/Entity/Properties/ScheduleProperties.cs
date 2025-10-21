@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Realstate_servcices.Server.Entity.member;
-
 namespace Realstate_servcices.Server.Entity.Properties
 {
     public class ScheduleProperties

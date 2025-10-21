@@ -23,6 +23,7 @@
         public string? Awards { get; set; }
         public int? YearsOfExperience { get; set; }
         public string? BrokerageName { get; set; }
+        public string? Photourl { get; set; }
     }
 
     public class AgentUpdateRequest
@@ -46,6 +47,7 @@
         public int? YearsOfExperience { get; set; }
         public string? BrokerageName { get; set; }
         public bool? IsVerified { get; set; }
+        public string? ProfilePictureUrl { get; set; }
     }
 
     public class AgentResponse

@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.OTP;
-
 namespace Realstate_servcices.Server.Services.SMTP.interfaces
 {
     public interface IOTPService

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Layout, ConfigProvider } from 'antd';
 import PropertySearchPage from './PropertySearchPage';
 import { GlobalNavigation, Footer } from '../Navigation/index';

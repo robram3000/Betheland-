@@ -5,8 +5,6 @@ using Realstate_servcices.Server.Dto.Wishlist;
 using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Entity.Properties;
 using Realstate_servcices.Server.Repository.WishRepo;
-
-
 namespace Realstate_servcices.Server.Services.Wishlist
 {
     public class WishlistService : IWishlistService

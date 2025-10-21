@@ -105,7 +105,7 @@ const GlobalNavigation = () => {
     ];
     const processImageUrl = (url) => {
         if (!url || typeof url !== 'string' || url.trim() === '') {
-       
+
             return '/default-avatar.jpg';
         }
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
@@ -117,7 +117,7 @@ const GlobalNavigation = () => {
         }
         if (url.includes('.') && !url.startsWith('/')) {
             const fullUrl = `https://localhost:7075/uploads/profile-pictures/${url}`;
-     
+
             return fullUrl;
         }
         if (url.startsWith('uploads/')) {
@@ -131,11 +131,11 @@ const GlobalNavigation = () => {
 
         setLoadingProfile(true);
         try {
-           
+
             const result = await profileService.getProfile();
 
             if (result.success && result.data) {
-         
+
                 setProfileData(result.data)
                 setCurrentUser(prev => ({
                     ...prev,
@@ -146,7 +146,7 @@ const GlobalNavigation = () => {
                     lastName: result.data.lastName
                 }));
             } else {
-          
+
             }
         } catch (error) {
             console.error('💥 GlobalNavigation - Error loading profile:', error);
@@ -157,13 +157,13 @@ const GlobalNavigation = () => {
     const getProfilePictureUrl = () => {
 
         if (profileData?.profilePicture) {
-         
+
             return processImageUrl(profileData.profilePicture);
         }
 
         // Fallback to currentUser data
         if (currentUser?.profilePicture) {
-         ;
+
             return processImageUrl(currentUser.profilePicture);
         }
 
@@ -208,7 +208,7 @@ const GlobalNavigation = () => {
         }
     };
     const handleImageError = () => {
-       
+
         setProfileImageError(true);
     };
     const handleMenuClick = (key) => {
@@ -282,7 +282,7 @@ const GlobalNavigation = () => {
             if (suffix && suffix.trim() !== '') nameParts.push(suffix.trim());
             if (nameParts.length > 0) {
                 const fullName = nameParts.join(' ');
-              
+
                 return fullName;
             }
         }
@@ -887,7 +887,7 @@ const GlobalNavigation = () => {
                                         }}
                                         aria-label="Login to your account"
                                     >
-                                        Login
+                                            SignUp
                                     </Button>
                                     <Button
                                         type="primary"
@@ -899,30 +899,17 @@ const GlobalNavigation = () => {
                                         }}
                                         aria-label="Register new account"
                                     >
-                                        Register
+                                       Join
                                     </Button>
                                 </div>
                             )
                         ) : (
-                            /* Mobile Menu Button */
+                            /* Mobile Menu Button and Icons */
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '4px'
                             }}>
-                                {/* Mobile Contact Info - Email only */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    marginRight: '8px'
-                                }}>
-                                    <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
-                                    <Text style={{ fontSize: '12px', color: '#001529' }}>
-                                        {companyContact.email}
-                                    </Text>
-                                </div>
-
                                 {/* Wishlist Icon - Mobile (outside drawer) - ALWAYS SHOW COUNT */}
                                 <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"} placement="bottom">
                                     <Badge count={displayWishlistCount} size="small" offset={[-5, 5]}>
@@ -937,7 +924,11 @@ const GlobalNavigation = () => {
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'center'
+                                                justifyContent: 'center',
+                                                width: '32px',
+                                                height: '32px',
+                                                minWidth: '32px',
+                                                padding: '4px'
                                             }}
                                         />
                                     </Badge>
@@ -958,7 +949,11 @@ const GlobalNavigation = () => {
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center'
+                                                    justifyContent: 'center',
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    minWidth: '32px',
+                                                    padding: '4px'
                                                 }}
                                             />
                                         </Badge>
@@ -980,7 +975,11 @@ const GlobalNavigation = () => {
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center'
+                                                    justifyContent: 'center',
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    minWidth: '32px',
+                                                    padding: '4px'
                                                 }}
                                             />
                                         </Badge>
@@ -1002,7 +1001,11 @@ const GlobalNavigation = () => {
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center'
+                                                    justifyContent: 'center',
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    minWidth: '32px',
+                                                    padding: '4px'
                                                 }}
                                             />
                                         </Badge>
@@ -1016,305 +1019,310 @@ const GlobalNavigation = () => {
                                     aria-label={drawerVisible ? "Close menu" : "Open menu"}
                                     style={{
                                         color: '#001529',
-                                        fontSize: '18px'
+                                        fontSize: '18px',
+                                        width: '32px',
+                                        height: '32px',
+                                        minWidth: '32px',
+                                        padding: '4px'
                                     }}
                                 />
-
-                                <Drawer
-                                    title={
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            paddingRight: '8px'
-                                        }}>
-                                            <span style={{
-                                                fontWeight: 'bold',
-                                                fontSize: '18px',
-                                                color: '#001529'
-                                            }}>
-                                                Menu
-                                            </span>
-                                            <Button
-                                                type="text"
-                                                icon={<CloseOutlined />}
-                                                onClick={() => setDrawerVisible(false)}
-                                                aria-label="Close menu"
-                                                style={{
-                                                    color: '#001529'
-                                                }}
-                                            />
-                                        </div>
-                                    }
-                                    placement="right"
-                                    onClose={() => setDrawerVisible(false)}
-                                    open={drawerVisible}
-                                    closable={false}
-                                    width={280}
-                                    bodyStyle={{
-                                        padding: '16px 0'
-                                    }}
-                                >
-                                    {/* Mobile Contact Info in Drawer */}
-                                    <div style={{
-                                        padding: '16px 20px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '16px'
-                                    }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            marginBottom: '8px'
-                                        }}>
-                                            <PhoneOutlined style={{ fontSize: '14px', color: '#001529' }} />
-                                            <Text style={{ fontSize: '14px', color: '#001529' }}>
-                                                {companyContact.phone}
-                                            </Text>
-                                        </div>
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
-                                            <Text style={{ fontSize: '14px', color: '#001529' }}>
-                                                {companyContact.email}
-                                            </Text>
-                                        </div>
-                                    </div>
-
-                                    <Menu
-                                        mode="vertical"
-                                        selectedKeys={[location.pathname]}
-                                        style={{
-                                            border: 'none',
-                                            marginBottom: '16px'
-                                        }}
-                                        items={[
-                                            ...menuItems,
-                                            {
-                                                key: '/wishlist',
-                                                label: (
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        width: '100%'
-                                                    }}>
-                                                        <span>Wishlist</span>
-                                                        <Badge count={displayWishlistCount} size="small" />
-                                                    </div>
-                                                ),
-                                                icon: <HeartOutlined />
-                                            },
-                                            ...(isLoggedIn ? [
-                                                {
-                                                    key: '/schedule',
-                                                    label: 'Schedule',
-                                                    icon: <CalendarOutlined />
-                                                },
-                                                {
-                                                    key: '/notifications',
-                                                    label: (
-                                                        <div style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            width: '100%'
-                                                        }}>
-                                                            <span>Notifications</span>
-                                                            <Badge count={notificationCount} size="small" />
-                                                        </div>
-                                                    ),
-                                                    icon: <BellOutlined />
-                                                },
-                                                {
-                                                    key: '/messages',
-                                                    label: 'Chat',
-                                                    icon: <MessageOutlined />
-                                                }
-                                            ] : [])
-                                        ].map(item => ({
-                                            ...item,
-                                            style: {
-                                                padding: '12px 20px',
-                                                fontSize: '16px',
-                                                fontWeight: '500',
-                                                margin: '0',
-                                                height: 'auto',
-                                                lineHeight: '1.5',
-                                                border: 'none'
-                                            },
-                                            onClick: () => handleMenuClick(item.key)
-                                        }))}
-                                    />
-
-                                    {/* User Section or Auth Buttons */}
-                                    {isLoggedIn ? (
-                                        <div style={{
-                                            marginTop: '24px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '12px',
-                                            padding: '0 20px',
-                                            borderTop: '1px solid #f0f0f0',
-                                            paddingTop: '20px'
-                                        }}>
-                                            {/* User Info Section */}
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '12px',
-                                                padding: '16px 0',
-                                                borderBottom: '1px solid #f0f0f0',
-                                                marginBottom: '8px'
-                                            }}>
-                                                <Avatar
-                                                    size="large"
-                                                    style={{
-                                                        backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
-                                                        fontSize: '16px',
-                                                        fontWeight: '600',
-                                                        border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
-                                                    }}
-                                                    src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
-                                                    onError={handleImageError}
-                                                    icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
-                                                >
-                                                    {(!profilePictureUrl || profileImageError) && getUserInitials()}
-                                                </Avatar>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{
-                                                        fontWeight: '600',
-                                                        fontSize: '16px',
-                                                        color: '#001529'
-                                                    }}>
-                                                        {getDisplayName()}
-                                                    </div>
-                                                    <div style={{
-                                                        fontSize: '14px',
-                                                        color: '#666',
-                                                        marginTop: '2px'
-                                                    }}>
-                                                        {getUserEmail()}
-                                                    </div>
-                                                    <Button
-                                                        type="link"
-                                                        size="small"
-                                                        onClick={refreshProfile}
-                                                        loading={loadingProfile}
-                                                        icon={<ReloadOutlined />}
-                                                        style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
-                                                    >
-                                                        Refresh
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <Button
-                                                size="large"
-                                                icon={<UserOutlined />}
-                                                onClick={handleProfileClick}
-                                                style={{
-                                                    color: '#001529',
-                                                    borderColor: '#001529',
-                                                    fontWeight: '500',
-                                                    height: '44px',
-                                                    textAlign: 'left',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'flex-start'
-                                                }}
-                                            >
-                                                My Profile
-                                            </Button>
-                                            <Button
-                                                size="large"
-                                                icon={<SettingOutlined />}
-                                                onClick={handleSettingsClick}
-                                                style={{
-                                                    color: '#001529',
-                                                    borderColor: '#001529',
-                                                    fontWeight: '500',
-                                                    height: '44px',
-                                                    textAlign: 'left',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'flex-start'
-                                                }}
-                                            >
-                                                Settings
-                                            </Button>
-                                            <Button
-                                                size="large"
-                                                icon={<LogoutOutlined />}
-                                                danger
-                                                onClick={handleLogout}
-                                                style={{
-                                                    fontWeight: '500',
-                                                    height: '44px',
-                                                    textAlign: 'left',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'flex-start',
-                                                    marginTop: '8px'
-                                                }}
-                                            >
-                                                Logout
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            marginTop: '24px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '12px',
-                                            padding: '0 20px',
-                                            borderTop: '1px solid #f0f0f0',
-                                            paddingTop: '20px'
-                                        }}>
-                                            <Button
-                                                size="large"
-                                                onClick={() => {
-                                                    navigate('/login');
-                                                    setDrawerVisible(false);
-                                                }}
-                                                style={{
-                                                    color: '#001529',
-                                                    borderColor: '#001529',
-                                                    fontWeight: '500',
-                                                    height: '44px'
-                                                }}
-                                                aria-label="Login to your account"
-                                            >
-                                                Login
-                                            </Button>
-                                            <Button
-                                                size="large"
-                                                type="primary"
-                                                onClick={() => {
-                                                    navigate('/register/verify-email');
-                                                    setDrawerVisible(false);
-                                                }}
-                                                style={{
-                                                    background: '#001529',
-                                                    borderColor: '#001529',
-                                                    fontWeight: '500',
-                                                    height: '44px'
-                                                }}
-                                                aria-label="Register new account"
-                                            >
-                                                Register
-                                            </Button>
-                                        </div>
-                                    )}
-                                </Drawer>
                             </div>
                         )}
                     </div>
                 </div>
             </Header>
+
+            {/* Mobile Drawer */}
+            <Drawer
+                title={
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingRight: '8px'
+                    }}>
+                        <span style={{
+                            fontWeight: 'bold',
+                            fontSize: '18px',
+                            color: '#001529'
+                        }}>
+                            Menu
+                        </span>
+                        <Button
+                            type="text"
+                            icon={<CloseOutlined />}
+                            onClick={() => setDrawerVisible(false)}
+                            aria-label="Close menu"
+                            style={{
+                                color: '#001529'
+                            }}
+                        />
+                    </div>
+                }
+                placement="right"
+                onClose={() => setDrawerVisible(false)}
+                open={drawerVisible}
+                closable={false}
+                width={280}
+                bodyStyle={{
+                    padding: '16px 0'
+                }}
+            >
+                {/* Mobile Contact Info in Drawer */}
+                <div style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f0f0f0',
+                    marginBottom: '16px'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '8px'
+                    }}>
+                        <PhoneOutlined style={{ fontSize: '14px', color: '#001529' }} />
+                        <Text style={{ fontSize: '14px', color: '#001529' }}>
+                            {companyContact.phone}
+                        </Text>
+                    </div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
+                        <Text style={{ fontSize: '14px', color: '#001529' }}>
+                            {companyContact.email}
+                        </Text>
+                    </div>
+                </div>
+
+                <Menu
+                    mode="vertical"
+                    selectedKeys={[location.pathname]}
+                    style={{
+                        border: 'none',
+                        marginBottom: '16px'
+                    }}
+                    items={[
+                        ...menuItems,
+                        {
+                            key: '/wishlist',
+                            label: (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    width: '100%'
+                                }}>
+                                    <span>Wishlist</span>
+                                    <Badge count={displayWishlistCount} size="small" />
+                                </div>
+                            ),
+                            icon: <HeartOutlined />
+                        },
+                        ...(isLoggedIn ? [
+                            {
+                                key: '/schedule',
+                                label: 'Schedule',
+                                icon: <CalendarOutlined />
+                            },
+                            {
+                                key: '/notifications',
+                                label: (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        width: '100%'
+                                    }}>
+                                        <span>Notifications</span>
+                                        <Badge count={notificationCount} size="small" />
+                                    </div>
+                                ),
+                                icon: <BellOutlined />
+                            },
+                            {
+                                key: '/messages',
+                                label: 'Chat',
+                                icon: <MessageOutlined />
+                            }
+                        ] : [])
+                    ].map(item => ({
+                        ...item,
+                        style: {
+                            padding: '12px 20px',
+                            fontSize: '16px',
+                            fontWeight: '500',
+                            margin: '0',
+                            height: 'auto',
+                            lineHeight: '1.5',
+                            border: 'none'
+                        },
+                        onClick: () => handleMenuClick(item.key)
+                    }))}
+                />
+
+                {/* User Section or Auth Buttons */}
+                {isLoggedIn ? (
+                    <div style={{
+                        marginTop: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '0 20px',
+                        borderTop: '1px solid #f0f0f0',
+                        paddingTop: '20px'
+                    }}>
+                        {/* User Info Section */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '16px 0',
+                            borderBottom: '1px solid #f0f0f0',
+                            marginBottom: '8px'
+                        }}>
+                            <Avatar
+                                size="large"
+                                style={{
+                                    backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
+                                }}
+                                src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
+                                onError={handleImageError}
+                                icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
+                            >
+                                {(!profilePictureUrl || profileImageError) && getUserInitials()}
+                            </Avatar>
+                            <div style={{ flex: 1 }}>
+                                <div style={{
+                                    fontWeight: '600',
+                                    fontSize: '16px',
+                                    color: '#001529'
+                                }}>
+                                    {getDisplayName()}
+                                </div>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: '#666',
+                                    marginTop: '2px'
+                                }}>
+                                    {getUserEmail()}
+                                </div>
+                                <Button
+                                    type="link"
+                                    size="small"
+                                    onClick={refreshProfile}
+                                    loading={loadingProfile}
+                                    icon={<ReloadOutlined />}
+                                    style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
+                                >
+                                    Refresh
+                                </Button>
+                            </div>
+                        </div>
+
+                        <Button
+                            size="large"
+                            icon={<UserOutlined />}
+                            onClick={handleProfileClick}
+                            style={{
+                                color: '#001529',
+                                borderColor: '#001529',
+                                fontWeight: '500',
+                                height: '44px',
+                                textAlign: 'left',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start'
+                            }}
+                        >
+                            My Profile
+                        </Button>
+                        <Button
+                            size="large"
+                            icon={<SettingOutlined />}
+                            onClick={handleSettingsClick}
+                            style={{
+                                color: '#001529',
+                                borderColor: '#001529',
+                                fontWeight: '500',
+                                height: '44px',
+                                textAlign: 'left',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start'
+                            }}
+                        >
+                            Settings
+                        </Button>
+                        <Button
+                            size="large"
+                            icon={<LogoutOutlined />}
+                            danger
+                            onClick={handleLogout}
+                            style={{
+                                fontWeight: '500',
+                                height: '44px',
+                                textAlign: 'left',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start',
+                                marginTop: '8px'
+                            }}
+                        >
+                            Logout
+                        </Button>
+                    </div>
+                ) : (
+                    <div style={{
+                        marginTop: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '0 20px',
+                        borderTop: '1px solid #f0f0f0',
+                        paddingTop: '20px'
+                    }}>
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                navigate('/login');
+                                setDrawerVisible(false);
+                            }}
+                            style={{
+                                color: '#001529',
+                                borderColor: '#001529',
+                                fontWeight: '500',
+                                height: '44px'
+                            }}
+                            aria-label="Login to your account"
+                        >
+                            SignUp
+                        </Button>
+                        <Button
+                            size="large"
+                            type="primary"
+                            onClick={() => {
+                                navigate('/register/verify-email');
+                                setDrawerVisible(false);
+                            }}
+                            style={{
+                                background: '#001529',
+                                borderColor: '#001529',
+                                fontWeight: '500',
+                                height: '44px'
+                            }}
+                            aria-label="Register new account"
+                        >
+                            Register
+                        </Button>
+                    </div>
+                )}
+            </Drawer>
         </>
     );
 };

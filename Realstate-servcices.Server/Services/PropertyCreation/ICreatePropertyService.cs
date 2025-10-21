@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.Property;
-
 namespace Realstate_servcices.Server.Services.PropertyCreation
 {
     public interface ICreatePropertyService

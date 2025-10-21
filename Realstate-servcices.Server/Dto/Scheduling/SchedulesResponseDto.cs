@@ -12,8 +12,6 @@
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
-
-        // Additional details for response
         public string PropertyTitle { get; set; } = string.Empty;
         public string AgentName { get; set; } = string.Empty;
         public string ClientName { get; set; } = string.Empty;

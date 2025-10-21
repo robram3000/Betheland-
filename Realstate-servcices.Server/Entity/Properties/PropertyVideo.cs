@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Realstate_servcices.Server.Entity.Properties
 {
     public class PropertyVideo
@@ -26,7 +25,6 @@ namespace Realstate_servcices.Server.Entity.Properties
 
 
         public string Duration { get; set; } = string.Empty;
-
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

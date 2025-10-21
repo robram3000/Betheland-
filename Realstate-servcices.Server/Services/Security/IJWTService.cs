@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-
 namespace Realstate_servcices.Server.Services.Security
 {
     public interface IJwtService

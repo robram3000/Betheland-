@@ -12,9 +12,8 @@ namespace Realstate_servcices.Server.Controllers.Client
     public class AgentController : ControllerBase
     {
         private readonly IAgentService _agentService;
-        private readonly ILocalstorageImage _localStorageImage; // Add this
+        private readonly ILocalstorageImage _localStorageImage; 
 
-        // Update constructor to inject ILocalstorageImage
         public AgentController(IAgentService agentService, ILocalstorageImage localStorageImage)
         {
             _agentService = agentService;
@@ -32,7 +31,7 @@ namespace Realstate_servcices.Server.Controllers.Client
             try
             {
                 var imageUrl = await _localStorageImage.UploadImageAsync(file, "agents");
-                return Ok(new { Success = true, Url = imageUrl });
+                   return Ok(new { Success = true, Url = imageUrl });
             }
             catch (Exception ex)
             {

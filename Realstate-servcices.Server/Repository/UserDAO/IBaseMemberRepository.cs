@@ -6,7 +6,9 @@ namespace Realstate_servcices.Server.Repository.UserDAO
     public interface IBaseMemberRepository
     {
         Task<BaseMember> CreateBaseMemberAsync(string email, string username, string passwordHash, string role);
+        Task<BaseMember> CreateBaseAgentMemberAsync(string email, string username, string passwordHarsh, string photourl, string role );
         Task<BaseMember> UpdateBaseMemberStatusAsync(int id, string status);
+   
         Task<bool> EmailExistsAsync(string email);
         Task<bool> UsernameExistsAsync(string username);
         Task<BaseMember?> FindByEmailAsync(string email);

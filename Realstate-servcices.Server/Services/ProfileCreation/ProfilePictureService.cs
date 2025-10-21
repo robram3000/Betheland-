@@ -1,7 +1,6 @@
 ﻿using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Utilities.Storage;
-
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
     public class ProfilePictureService : IProfilePictureService
@@ -32,8 +31,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                         Message = "No file provided"
                     };
                 }
-
-                // Validate file type and size
                 if (!IsValidImageFile(file))
                 {
                     return new ProfilePictureResponse
@@ -43,15 +40,13 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                     };
                 }
 
-                // Upload image to storage
+      
                 var imageUrl = await _localStorageImage.UploadMemberImageAsync(file, baseMemberId.ToString(), "profile-pictures");
-
-                // Update base member with profile picture URL
                 var success = await _baseMemberRepository.UpdateProfilePictureAsync(baseMemberId, imageUrl);
 
                 if (!success)
                 {
-                    // Delete the uploaded image if database update fails
+                    
                     await _localStorageImage.DeleteImageAsync(imageUrl);
                     return new ProfilePictureResponse
                     {
@@ -84,7 +79,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         {
             try
             {
-                // Get current profile picture URL
+               
                 var baseMember = await _baseMemberRepository.GetBaseMemberByIdAsync(baseMemberId);
 
                 if (baseMember?.ProfilePictureUrl == null)

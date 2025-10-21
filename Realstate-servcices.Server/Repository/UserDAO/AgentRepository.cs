@@ -112,10 +112,11 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 }
             }
 
-            // Update base member timestamp
+            // Update base member - THIS IS WHAT'S MISSING
             var baseMember = await _context.BaseMembers.FindAsync(agent.BaseMemberId);
             if (baseMember != null)
             {
+                baseMember.ProfilePictureUrl = request.ProfilePictureUrl ?? baseMember.ProfilePictureUrl;
                 baseMember.UpdatedAt = DateTime.UtcNow;
             }
 

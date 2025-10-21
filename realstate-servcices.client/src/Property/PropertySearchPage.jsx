@@ -1,161 +1,47 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿// PropertySearchPage.jsx (FIXED VERSION - Corrected Filtering)
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Layout,
     Row,
     Col,
-    Input,
-    Button,
-    Divider,
-    Tag,
     Space,
     Typography,
-    Modal,
-    Form,
-    InputNumber,
-    message,
+    Button,
+    Input,
+    Select,
+    Card,
+    Empty,
     Spin,
-    Alert,
-    DatePicker,
-    TimePicker
+    Pagination,
+    Drawer,
+    message,
+    Tag
 } from 'antd';
 import {
     SearchOutlined,
     FilterOutlined,
-    CloseOutlined,
-    PhoneOutlined,
-    MailOutlined,
-    EnvironmentOutlined,
-    CalendarOutlined,
-    ExclamationCircleOutlined
+    AppstoreOutlined,
+    PicLeftOutlined
 } from '@ant-design/icons';
-import PropertyFilterSidebar from './PropertyFilterSidebar';
 import PropertyCard from './PropertyCard';
+import PropertyFilterSidebar from './PropertyFilterSidebar';
 import { usePropertyData } from './Services/GetdataProperty';
-import { useUser } from '../Authpage/Services/UserContextService';
-import scheduleServices from './Services/ScheduleServices';
-import moment from 'moment';
 
-const { Content } = Layout;
-const { Text: AntText, Text } = Typography;
-const { Search } = Input;
-const { RangePicker } = DatePicker;
-
-// Debounce hook for performance
-const useDebounce = (value, delay) => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [value, delay]);
-
-    return debouncedValue;
-};
-
-// Fixed image URL processing function
-const processAgentImageUrl = (url) => {
-    if (!url || typeof url !== 'string' || url.trim() === '') {
-        return 'https://static.thenounproject.com/png/638636-200.png';
-    }
-
-    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
-        return url;
-    }
-
-    if (url.startsWith('/uploads/')) {
-        return `https://localhost:7075${url}`;
-    }
-
-    if (url.includes('.') && !url.startsWith('/')) {
-        return `https://localhost:7075/uploads/agents/${url}`;
-    }
-
-    if (url.startsWith('uploads/')) {
-        return `https://localhost:7075/${url}`;
-    }
-
-    return 'https://static.thenounproject.com/png/638636-200.png';
-};
-
-// Custom DatePicker component to fix the random date jumping issue
-const StableDatePicker = ({ value, onChange, disabled }) => {
-    const disabledDate = (current) => {
-        // Cannot select days before today
-        return current && current < moment().startOf('day');
-    };
-
-    return (
-        <DatePicker
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-            disabledDate={disabledDate}
-            style={{ width: '100%' }}
-            placeholder="Select date"
-            format="YYYY-MM-DD"
-            getPopupContainer={trigger => trigger.parentNode}
-            inputReadOnly={false}
-            allowClear={true}
-            // Key prop to force re-render and prevent state corruption
-            key={value ? value.valueOf() : 'empty'}
-        />
-    );
-};
-
-// Custom TimePicker component
-const StableTimePicker = ({ value, onChange, disabled }) => {
-    const disabledTime = () => {
-        const currentHour = moment().hour();
-        const currentMinute = moment().minute();
-
-        return {
-            disabledHours: () => {
-                const hours = [];
-                // If selected date is today, disable past hours
-                for (let i = 0; i < currentHour; i++) {
-                    hours.push(i);
-                }
-                return hours;
-            },
-            disabledMinutes: (selectedHour) => {
-                if (selectedHour === currentHour) {
-                    const minutes = [];
-                    for (let i = 0; i < currentMinute; i++) {
-                        minutes.push(i);
-                    }
-                    return minutes;
-                }
-                return [];
-            }
-        };
-    };
-
-    return (
-        <TimePicker
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-            disabledTime={disabledTime}
-            style={{ width: '100%' }}
-            placeholder="Select time"
-            format="HH:mm"
-            minuteStep={15}
-            showNow={false}
-            getPopupContainer={trigger => trigger.parentNode}
-            inputReadOnly={false}
-            allowClear={true}
-            // Key prop to force re-render and prevent state corruption
-            key={value ? value.valueOf() : 'empty'}
-        />
-    );
-};
+const { Content, Sider } = Layout;
+const { Title, Text } = Typography;
+const { Option } = Select;
 
 const PropertySearchPage = () => {
+    const { properties, loading, error, refreshProperties } = usePropertyData();
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('newest');
+    const [viewMode, setViewMode] = useState('grid');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(8);
+    const [mobileFilterVisible, setMobileFilterVisible] = useState(false);
+    const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+
     const [filters, setFilters] = useState({
         priceRange: [0, 10000000],
         bedrooms: null,
@@ -165,72 +51,198 @@ const PropertySearchPage = () => {
         squareFeet: [0, 10000]
     });
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
-    const [selectedProperty, setSelectedProperty] = useState(null);
-    const [scheduleLoading, setScheduleLoading] = useState(false);
-    const [form] = Form.useForm();
-    const { user } = useUser();
+    // DEBUG: Log properties and filtering
+    useEffect(() => {
+        console.log('🔍 DEBUG - Total properties:', properties?.length);
+        console.log('🔍 DEBUG - Current filters:', filters);
+        console.log('🔍 DEBUG - Search term:', searchTerm);
+    }, [properties, filters, searchTerm]);
 
-    // Use property data context
-    const {
-        properties,
-        loading,
-        searchProperties,
-        loadProperties
-    } = usePropertyData();
-
-    const [filteredProperties, setFilteredProperties] = useState([]);
-
-    // Phone formatting function
-    const formatPhoneNumber = (phone) => {
-        if (!phone) return 'Not available';
-
-        // Remove any non-digit characters
-        const cleaned = phone.replace(/\D/g, '');
-
-        // Format as (XXX) XXX-XXXX
-        if (cleaned.length === 10) {
-            return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    // Filter properties based on search term and filters - FIXED VERSION
+    const filteredProperties = useMemo(() => {
+        if (!properties || !Array.isArray(properties)) {
+            console.log('❌ No properties array found');
+            return [];
         }
 
-        // Return as is if not standard length
-        return phone;
-    };
+        console.log('🔄 Starting filter process with', properties.length, 'properties');
 
-    // Load properties on component mount
-    useEffect(() => {
-        loadProperties();
+        const filtered = properties.filter(property => {
+            if (!property || !property.id) {
+                console.log('Skipping invalid property:', property);
+                return false;
+            }
+
+            // Search term filter
+            const matchesSearch = !searchTerm ||
+                (property.title && property.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (property.description && property.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (property.address && property.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (property.city && property.city.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            if (!matchesSearch) {
+                console.log('❌ Property failed search filter:', property.title);
+                return false;
+            }
+
+            // Price range filter
+            const price = Number(property.price) || 0;
+            const matchesPrice = price >= filters.priceRange[0] && price <= filters.priceRange[1];
+
+            if (!matchesPrice) {
+                console.log('❌ Property failed price filter:', property.title, 'Price:', price, 'Range:', filters.priceRange);
+                return false;
+            }
+
+            // Bedrooms filter - FIXED: Check if filter is set
+            const bedrooms = Number(property.bedrooms) || 0;
+            const matchesBedrooms = filters.bedrooms === null ||
+                filters.bedrooms === undefined ||
+                bedrooms >= Number(filters.bedrooms);
+
+            if (!matchesBedrooms) {
+                console.log('❌ Property failed bedrooms filter:', property.title, 'Bedrooms:', bedrooms, 'Filter:', filters.bedrooms);
+                return false;
+            }
+
+            // Bathrooms filter - FIXED: Correct variable name
+            const bathrooms = Number(property.bathrooms) || 0;
+            const matchesBathrooms = filters.bathrooms === null ||
+                filters.bathrooms === undefined ||
+                bathrooms >= Number(filters.bathrooms);
+
+            if (!matchesBathrooms) {
+                console.log('❌ Property failed bathrooms filter:', property.title, 'Bathrooms:', bathrooms, 'Filter:', filters.bathrooms);
+                return false;
+            }
+
+            // Property type filter
+            const propertyType = property.propertyType || property.type || '';
+            const matchesPropertyType = filters.propertyType.length === 0 ||
+                filters.propertyType.includes(propertyType);
+
+            if (!matchesPropertyType) {
+                console.log('❌ Property failed type filter:', property.title, 'Type:', propertyType, 'Filter:', filters.propertyType);
+                return false;
+            }
+
+            // Square feet filter (using areaSqm)
+            const areaSqm = Number(property.areaSqm) || 0;
+            const matchesSquareFeet = areaSqm >= filters.squareFeet[0] && areaSqm <= filters.squareFeet[1];
+
+            if (!matchesSquareFeet) {
+                console.log('❌ Property failed area filter:', property.title, 'Area:', areaSqm, 'Range:', filters.squareFeet);
+                return false;
+            }
+
+            // Amenities filter - FIXED: Implement amenities filtering
+            let matchesAmenities = true;
+            if (filters.amenities && filters.amenities.length > 0) {
+                if (!property.amenities) {
+                    matchesAmenities = false;
+                } else {
+                    // Handle both stringified array and actual array
+                    let propertyAmenities = [];
+                    try {
+                        if (typeof property.amenities === 'string') {
+                            propertyAmenities = JSON.parse(property.amenities);
+                        } else if (Array.isArray(property.amenities)) {
+                            propertyAmenities = property.amenities;
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse amenities:', property.amenities);
+                    }
+
+                    matchesAmenities = filters.amenities.every(amenity =>
+                        propertyAmenities.includes(amenity)
+                    );
+                }
+            }
+
+            if (!matchesAmenities) {
+                console.log('❌ Property failed amenities filter:', property.title, 'Amenities:', property.amenities, 'Filter:', filters.amenities);
+                return false;
+            }
+
+            console.log('✅ Property passed all filters:', property.title);
+            return true;
+        });
+
+        console.log('🎯 Filtering complete. Found:', filtered.length, 'properties out of', properties.length);
+        return filtered;
+    }, [properties, searchTerm, filters]);
+
+    // Sort properties
+    const sortedProperties = useMemo(() => {
+        const sorted = [...filteredProperties];
+
+        switch (sortBy) {
+            case 'price-low-high':
+                return sorted.sort((a, b) => (a.price || 0) - (b.price || 0));
+            case 'price-high-low':
+                return sorted.sort((a, b) => (b.price || 0) - (a.price || 0));
+            case 'newest':
+                return sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            case 'oldest':
+                return sorted.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+            case 'size-large-small':
+                return sorted.sort((a, b) => (b.areaSqm || 0) - (a.areaSqm || 0));
+            case 'size-small-large':
+                return sorted.sort((a, b) => (a.areaSqm || 0) - (b.areaSqm || 0));
+            default:
+                return sorted;
+        }
+    }, [filteredProperties, sortBy]);
+
+    // Paginate properties - 8 cards per page
+    const paginatedProperties = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return sortedProperties.slice(startIndex, startIndex + pageSize);
+    }, [sortedProperties, currentPage, pageSize]);
+
+    // Handle filter changes
+    const handleFilterChange = useCallback((newFilters) => {
+        console.log('🔄 Filters changed:', newFilters);
+        setFilters(newFilters);
+        setCurrentPage(1);
     }, []);
 
-    // Apply filters when properties or filters change
-    useEffect(() => {
-        applyFilters();
-    }, [properties, filters, searchQuery]);
+    // Handle search
+    const handleSearch = useCallback((value) => {
+        console.log('🔍 Search term changed:', value);
+        setSearchTerm(value);
+        setCurrentPage(1);
+    }, []);
 
-    const applyFilters = async () => {
-        try {
-            const searchFilters = {
-                searchQuery,
-                ...filters
-            };
-            const results = await searchProperties(searchFilters);
-            setFilteredProperties(results);
-        } catch (error) {
-            console.error('Error applying filters:', error);
-        }
-    };
+    // Handle sort change
+    const handleSortChange = useCallback((value) => {
+        setSortBy(value);
+    }, []);
 
-    const handleSearch = (value) => {
-        setSearchQuery(value);
-    };
+    // Handle page change
+    const handlePageChange = useCallback((page, size) => {
+        setCurrentPage(page);
+        setPageSize(size || 8);
+    }, []);
 
-    const handleFilterChange = (newFilters) => {
-        setFilters(newFilters);
-    };
+    // Toggle filter sidebar
+    const toggleFilterSidebar = useCallback(() => {
+        setIsFilterCollapsed(!isFilterCollapsed);
+    }, [isFilterCollapsed]);
 
-    const clearAllFilters = () => {
+    // Show mobile filter drawer
+    const showMobileFilter = useCallback(() => {
+        setMobileFilterVisible(true);
+    }, []);
+
+    // Close mobile filter drawer
+    const closeMobileFilter = useCallback(() => {
+        setMobileFilterVisible(false);
+    }, []);
+
+    // Reset all filters
+    const handleResetFilters = useCallback(() => {
+        console.log('🔄 Resetting all filters');
         setFilters({
             priceRange: [0, 10000000],
             bedrooms: null,
@@ -239,612 +251,321 @@ const PropertySearchPage = () => {
             amenities: [],
             squareFeet: [0, 10000]
         });
-        setSearchQuery('');
-    };
+        setSearchTerm('');
+        setCurrentPage(1);
+    }, []);
 
-    // Schedule tour functionality
-    const handleScheduleTour = (property) => {
-        if (!user) {
-            message.error('Please log in to schedule a property tour.');
-            return;
+    // Handle errors
+    useEffect(() => {
+        if (error) {
+            message.error('Failed to load properties');
         }
+    }, [error]);
 
-        setSelectedProperty(property);
-        setScheduleModalVisible(true);
-
-        // Pre-populate form with property and agent IDs
-        // Set default schedule date to tomorrow and time to 10:00 AM
-        const defaultScheduleDate = moment().add(1, 'days');
-        const defaultScheduleTime = moment().hour(10).minute(0).second(0);
-
-        form.setFieldsValue({
-            propertyId: property.id,
-            agentId: property.agentId,
-            scheduleDate: defaultScheduleDate,
-            scheduleTime: defaultScheduleTime
-        });
-    };
-
-    // Updated schedule submission handler
-    const handleScheduleSubmit = async (values) => {
-        if (!user) {
-            message.error('Please log in to schedule a tour.');
-            return;
-        }
-
-        setScheduleLoading(true);
-        try {
-            // Combine date and time into a single datetime object
-            const scheduleDateTime = moment(values.scheduleDate)
-                .hour(values.scheduleTime.hour())
-                .minute(values.scheduleTime.minute())
-                .second(0);
-
-            // Format data for API
-            const scheduleData = {
-                ...values,
-                scheduleTime: scheduleDateTime,
-                userId: user.id
-            };
-
-            // Remove individual date and time fields as they're combined now
-            delete scheduleData.scheduleDate;
-            delete scheduleData.scheduleTime;
-
-            // Validate data
-            const validationErrors = scheduleServices.validateScheduleData(scheduleData);
-            if (validationErrors.length > 0) {
-                message.error(validationErrors[0]);
-                setScheduleLoading(false);
-                return;
-            }
-
-            // Create the schedule
-            const response = await scheduleServices.createSchedule(scheduleData);
-
-            message.success('Tour scheduled successfully! The agent will contact you soon.');
-            setScheduleModalVisible(false);
-            form.resetFields();
-
-            console.log('Schedule created:', response);
-
-        } catch (error) {
-            console.error('Error scheduling tour:', error);
-
-            if (error.message?.includes('time slot is not available')) {
-                message.error('The selected time slot is not available. Please choose a different time.');
-            } else if (error.status === 401) {
-                message.error('Please log in to schedule a tour.');
-            } else if (error.status === 400) {
-                message.error(error.message || 'Invalid schedule data. Please check your inputs.');
-            } else if (error.status === 403) {
-                message.error('You do not have permission to schedule a tour.');
-            } else if (error.status === 404) {
-                message.error('Property or agent not found.');
-            } else {
-                message.error('Failed to schedule tour. Please try again.');
-            }
-        } finally {
-            setScheduleLoading(false);
-        }
-    };
-
-    const activeFiltersCount = Object.values(filters).filter(filter =>
-        Array.isArray(filter) ? filter.some(val => val > 0) : filter !== null && filter !== undefined && filter.length > 0
-    ).length + (searchQuery ? 1 : 0);
+    // Reset to first page when search term changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filters]);
 
     return (
-        <Layout style={{
-            minHeight: '100vh',
-            background: 'transparent',
+        <div style={{
             width: '100%',
-            maxWidth: '100%'
+            maxWidth: '100%',
+            padding: '0',
+            background: 'transparent'
         }}>
-            <Content style={{
-                padding: '24px',
-                width: '100%',
-                maxWidth: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center'
+            {/* Header Section */}
+            <div style={{
+                background: 'white',
+                padding: '24px 0',
+                borderBottom: '1px solid #f1f5f9',
+                marginBottom: '0'
             }}>
-                {/* Search Header */}
                 <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '16px',
-                    marginBottom: '24px',
-                    boxShadow: '0 4px 20px rgba(27, 60, 83, 0.08)',
-                    border: '1px solid #e2e8f0',
-                    width: '100%',
-                    maxWidth: '1200px'
-                }}>
-                    <Row gutter={[16, 16]} align="middle" justify="center">
-                        <Col xs={24} lg={18}>
-                            <Search
-                                placeholder="Search by property name, location, or keyword..."
-                                enterButton={<SearchOutlined />}
-                                size="large"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onSearch={handleSearch}
-                                style={{
-                                    width: '100%',
-                                    borderRadius: '12px'
-                                }}
-                            />
-                        </Col>
-                        <Col>
-                            <Button
-                                icon={<FilterOutlined />}
-                                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                                size="large"
-                                style={{
-                                    borderRadius: '12px',
-                                    border: '1px solid #1B3C53',
-                                    color: '#1B3C53',
-                                    background: 'white'
-                                }}
-                            >
-                                {isSidebarCollapsed ? 'Show Filters' : 'Hide Filters'}
-                                {activeFiltersCount > 0 && (
-                                    <Tag color="#1B3C53" style={{ marginLeft: '8px', borderRadius: '10px' }}>
-                                        {activeFiltersCount}
-                                    </Tag>
-                                )}
-                            </Button>
-                        </Col>
-                    </Row>
-
-                    {/* Active Filters Display */}
-                    {activeFiltersCount > 0 && (
-                        <div style={{ marginTop: '16px' }}>
-                            <Space wrap>
-                                <AntText strong style={{ color: '#1B3C53' }}>Active filters:</AntText>
-                                {searchQuery && (
-                                    <Tag
-                                        closable
-                                        onClose={() => setSearchQuery('')}
-                                        style={{ borderRadius: '6px', background: '#f0f9ff', borderColor: '#1B3C53' }}
-                                    >
-                                        Search: "{searchQuery}"
-                                    </Tag>
-                                )}
-                                {filters.propertyType.map(type => (
-                                    <Tag
-                                        key={type}
-                                        closable
-                                        onClose={() => handleFilterChange({
-                                            ...filters,
-                                            propertyType: filters.propertyType.filter(t => t !== type)
-                                        })}
-                                        style={{ borderRadius: '6px' }}
-                                    >
-                                        Type: {type}
-                                    </Tag>
-                                ))}
-                                <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<CloseOutlined />}
-                                    onClick={clearAllFilters}
-                                    style={{ color: '#64748b' }}
-                                >
-                                    Clear all
-                                </Button>
-                            </Space>
-                        </div>
-                    )}
-                </div>
-
-                {/* Main Content Area */}
-                <div style={{
-                    width: '100%',
                     maxWidth: '1200px',
-                    display: 'flex',
-                    justifyContent: 'center'
+                    margin: '0 auto',
+                    padding: '0 16px'
                 }}>
-                    <Row gutter={[24, 24]} style={{ margin: 0, width: '100%' }}>
-                        {/* Filters Sidebar */}
-                        {!isSidebarCollapsed && (
-                            <Col xs={24} md={8} lg={6}>
+                    <Row gutter={[16, 16]} align="middle">
+                        {/* Title Section */}
+                        <Col xs={24} md={12}>
+                            <Title level={2} style={{
+                                margin: 0,
+                                color: '#1B3C53',
+                                fontSize: 'clamp(24px, 5vw, 28px)',
+                                textAlign: window.innerWidth < 768 ? 'center' : 'left'
+                            }}>
+                                Find Your Perfect Property
+                            </Title>
+                            <Text style={{
+                                color: '#64748b',
+                                fontSize: '16px',
+                                display: 'block',
+                                textAlign: window.innerWidth < 768 ? 'center' : 'left'
+                            }}>
+                                {filteredProperties.length} properties available
+                                {filteredProperties.length !== properties?.length &&
+                                    ` (of ${properties?.length} total)`
+                                }
+                            </Text>
+                        </Col>
+
+                        {/* Controls Section */}
+                        <Col xs={24} md={12}>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '16px',
+                                alignItems: window.innerWidth < 768 ? 'stretch' : 'flex-end'
+                            }}>
+                                {/* Search and Sort Row */}
                                 <div style={{
-                                    background: 'white',
-                                    borderRadius: '16px',
-                                    boxShadow: '0 4px 20px rgba(27, 60, 83, 0.08)',
-                                    border: '1px solid #e2e8f0',
-                                    height: 'fit-content',
-                                    position: 'sticky',
-                                    top: '24px'
+                                    display: 'flex',
+                                    flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+                                    gap: '12px',
+                                    width: '100%',
+                                    justifyContent: window.innerWidth < 768 ? 'stretch' : 'flex-end'
                                 }}>
-                                    <PropertyFilterSidebar
-                                        filters={filters}
-                                        onFilterChange={handleFilterChange}
-                                        isCollapsed={isSidebarCollapsed}
+                                    {/* Search Input */}
+                                    <Input
+                                        placeholder="Search properties..."
+                                        prefix={<SearchOutlined />}
+                                        value={searchTerm}
+                                        onChange={(e) => handleSearch(e.target.value)}
+                                        style={{
+                                            width: window.innerWidth < 768 ? '100%' :
+                                                window.innerWidth < 992 ? '250px' : '300px',
+                                            minWidth: '200px'
+                                        }}
+                                        size="large"
+                                        allowClear
                                     />
-                                </div>
-                            </Col>
-                        )}
 
-                        {/* Properties Grid */}
-                        <Col xs={24} md={isSidebarCollapsed ? 24 : 16} lg={isSidebarCollapsed ? 24 : 18}>
-                            <Row gutter={[24, 24]}>
-                                {filteredProperties.map(property => (
-                                    <Col xs={24} key={property.id}>
-                                        <PropertyCard
-                                            property={property}
-                                            onScheduleTour={handleScheduleTour}
-                                        />
-                                    </Col>
-                                ))}
-                            </Row>
-
-                            {/* No Results State */}
-                            {filteredProperties.length === 0 && !loading && (
-                                <div style={{
-                                    textAlign: 'center',
-                                    padding: '80px 20px',
-                                    color: '#64748b',
-                                    background: 'white',
-                                    borderRadius: '16px',
-                                    boxShadow: '0 4px 20px rgba(27, 60, 83, 0.08)',
-                                    border: '1px solid #e2e8f0'
-                                }}>
-                                    <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🏠</div>
-                                    <h3 style={{ color: '#1B3C53', marginBottom: '8px' }}>
-                                        No properties found
-                                    </h3>
-                                    <p style={{ marginBottom: '24px' }}>
-                                        Try adjusting your filters or search terms to see more results
-                                    </p>
-                                    <Button
-                                        type="primary"
-                                        onClick={clearAllFilters}
-                                        style={{ borderRadius: '8px' }}
+                                    {/* Sort Select */}
+                                    <Select
+                                        value={sortBy}
+                                        onChange={handleSortChange}
+                                        style={{
+                                            width: window.innerWidth < 768 ? '100%' : '180px',
+                                            minWidth: '160px'
+                                        }}
+                                        size="large"
                                     >
-                                        Clear all filters
+                                        <Option value="newest">Newest First</Option>
+                                        <Option value="oldest">Oldest First</Option>
+                                        <Option value="price-low-high">Price: Low to High</Option>
+                                        <Option value="price-high-low">Price: High to Low</Option>
+                                        <Option value="size-large-small">Size: Large to Small</Option>
+                                        <Option value="size-small-large">Size: Small to Large</Option>
+                                    </Select>
+                                </div>
+
+                                {/* View Toggles and Filter Row */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    justifyContent: window.innerWidth < 768 ? 'center' : 'flex-end',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    {/* Reset Filters Button */}
+                                    <Button
+                                        onClick={handleResetFilters}
+                                        size="large"
+                                        style={{
+                                            borderColor: '#ff4d4f',
+                                            color: '#ff4d4f'
+                                        }}
+                                    >
+                                        Reset Filters
+                                    </Button>
+
+                                    {/* View Mode Toggle - Hidden on mobile */}
+                                    <Button.Group
+                                        size="large"
+                                        style={{
+                                            display: window.innerWidth < 768 ? 'none' : 'inline-block'
+                                        }}
+                                    >
+                                        <Button
+                                            type={viewMode === 'grid' ? 'primary' : 'default'}
+                                            icon={<AppstoreOutlined />}
+                                            onClick={() => setViewMode('grid')}
+                                            title="Grid View"
+                                        />
+                                        <Button
+                                            type={viewMode === 'landscape' ? 'primary' : 'default'}
+                                            icon={<PicLeftOutlined />}
+                                            onClick={() => setViewMode('landscape')}
+                                            title="Landscape View"
+                                        />
+                                    </Button.Group>
+
+                                    {/* Mobile Filter Button */}
+                                    <Button
+                                        icon={<FilterOutlined />}
+                                        onClick={showMobileFilter}
+                                        size="large"
+                                        style={{
+                                            display: window.innerWidth < 768 ? 'inline-block' : 'none'
+                                        }}
+                                    >
+                                        Filters
                                     </Button>
                                 </div>
-                            )}
-
-                            {/* Loading State */}
-                            {loading && (
-                                <div style={{
-                                    textAlign: 'center',
-                                    padding: '80px 20px',
-                                    color: '#64748b',
-                                    background: 'white',
-                                    borderRadius: '16px'
-                                }}>
-                                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏳</div>
-                                    <h3 style={{ color: '#1B3C53', marginBottom: '8px' }}>
-                                        Loading properties...
-                                    </h3>
-                                </div>
-                            )}
+                            </div>
                         </Col>
                     </Row>
                 </div>
+            </div>
 
-                {/* Schedule Tour Modal */}
-                <Modal
-                    title={
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <CalendarOutlined style={{ color: '#1B3C53' }} />
-                            <div>
-                                <div style={{ fontSize: '18px', fontWeight: '600', color: '#1B3C53' }}>Schedule a Property Tour</div>
-                                <div style={{ fontSize: '12px', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
-                                    Complete the form below to schedule your viewing
-                                </div>
-                            </div>
-                        </div>
-                    }
-                    open={scheduleModalVisible}
-                    onCancel={() => {
-                        setScheduleModalVisible(false);
-                        form.resetFields();
-                    }}
-                    footer={null}
-                    width={600}
-                    style={{ top: 20 }}
-                    destroyOnClose
-                    maskClosable={!scheduleLoading}
-                    closable={!scheduleLoading}
-                >
-                    <Spin spinning={scheduleLoading} tip="Scheduling your tour...">
-                        {/* Property Information */}
-                        <div style={{
-                            background: '#f8fafc',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            marginBottom: '16px',
-                            border: '1px solid #e2e8f0'
-                        }}>
-                            <Text strong style={{
-                                color: '#1B3C53',
-                                fontSize: '14px',
-                                display: 'block',
-                                marginBottom: '4px'
-                            }}>
-                                PROPERTY
-                            </Text>
-                            <Text strong style={{
-                                color: '#334155',
-                                fontSize: '15px',
-                                display: 'block',
-                                marginBottom: '4px'
-                            }}>
-                                {selectedProperty?.title}
-                            </Text>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <EnvironmentOutlined style={{
-                                    marginRight: '6px',
-                                    color: '#64748b',
-                                    fontSize: '12px'
-                                }} />
-                                <Text type="secondary" style={{
-                                    fontSize: '13px',
-                                    color: '#64748b'
-                                }}>
-                                    {selectedProperty?.location || selectedProperty?.address || 'Location not specified'}
-                                </Text>
-                            </div>
-                        </div>
-
-                        {/* Agent Information */}
-                        <div style={{
-                            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            marginBottom: '20px',
-                            border: '1px solid #e2e8f0'
-                        }}>
-                            <Text strong style={{
-                                color: '#1B3C53',
-                                fontSize: '14px',
-                                display: 'block',
-                                marginBottom: '12px'
-                            }}>
-                                ASSIGNED AGENT
-                            </Text>
-
-                            <Row gutter={12} align="middle">
-                                <Col span={6}>
-                                    <div style={{
-                                        width: '80px',
-                                        height: '80px',
-                                        borderRadius: '8px',
-                                        overflow: 'hidden',
-                                        border: '2px solid #e2e8f0'
-                                    }}>
-                                        <img
-                                            alt={selectedProperty?.agent ? `${selectedProperty.agent.firstName} ${selectedProperty.agent.lastName}` : 'Agent'}
-                                            src={selectedProperty?.agent?.baseMember?.profilePictureUrl ?
-                                                processAgentImageUrl(selectedProperty.agent.baseMember.profilePictureUrl) :
-                                                'https://static.thenounproject.com/png/638636-200.png'}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover'
-                                            }}
-                                            onError={(e) => {
-                                                e.target.src = 'https://static.thenounproject.com/png/638636-200.png';
-                                            }}
-                                        />
-                                    </div>
-                                </Col>
-
-                                <Col span={18}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <Text strong style={{
-                                            color: '#1B3C53',
-                                            fontSize: '16px',
-                                            display: 'block'
-                                        }}>
-                                            {selectedProperty?.agent ?
-                                                `${selectedProperty.agent.firstName} ${selectedProperty.agent.lastName}` :
-                                                'Agent not assigned'
-                                            }
-                                        </Text>
-
-                                        {selectedProperty?.agent?.specialization && (
-                                            <div>
-                                                <Text style={{
-                                                    color: '#64748b',
-                                                    fontSize: '12px',
-                                                    fontWeight: '500',
-                                                    display: 'block'
-                                                }}>
-                                                    Specialization:
-                                                </Text>
-                                                <Text style={{
-                                                    color: '#1B3C53',
-                                                    fontSize: '12px',
-                                                    display: 'block'
-                                                }}>
-                                                    {selectedProperty.agent.specialization}
-                                                </Text>
-                                            </div>
-                                        )}
-
-                                        <div style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px',
-                                            background: 'rgba(255, 255, 255, 0.7)',
-                                            borderRadius: '6px',
-                                            padding: '8px',
-                                            marginTop: '4px'
-                                        }}>
-                                            {/* Phone Number */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <PhoneOutlined style={{ fontSize: '12px', color: '#1B3C53' }} />
-                                                <Text style={{ fontSize: '12px', color: '#1B3C53', fontWeight: '500' }}>
-                                                    Phone:
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        fontSize: '12px',
-                                                        color: '#1B3C53',
-                                                        cursor: selectedProperty?.agent?.cellPhoneNo ? 'pointer' : 'default',
-                                                        textDecoration: selectedProperty?.agent?.cellPhoneNo ? 'underline' : 'none',
-                                                        fontWeight: '500'
-                                                    }}
-                                                    onClick={() => {
-                                                        if (selectedProperty?.agent?.cellPhoneNo && selectedProperty.agent.cellPhoneNo !== 'Not available') {
-                                                            window.open(`tel:${selectedProperty.agent.cellPhoneNo}`);
-                                                        }
-                                                    }}
-                                                >
-                                                    {selectedProperty?.agent?.cellPhoneNo ?
-                                                        formatPhoneNumber(selectedProperty.agent.cellPhoneNo) :
-                                                        'Not available'
-                                                    }
-                                                </Text>
-                                            </div>
-
-                                            {/* Email */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <MailOutlined style={{ fontSize: '12px', color: '#1B3C53' }} />
-                                                <Text style={{ fontSize: '12px', color: '#1B3C53', fontWeight: '500' }}>
-                                                    Email:
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        fontSize: '12px',
-                                                        color: '#1B3C53',
-                                                        cursor: selectedProperty?.agent?.email ? 'pointer' : 'default',
-                                                        textDecoration: selectedProperty?.agent?.email ? 'underline' : 'none',
-                                                        fontWeight: '500'
-                                                    }}
-                                                    onClick={() => {
-                                                        if (selectedProperty?.agent?.email && selectedProperty.agent.email !== 'Not available') {
-                                                            window.open(`mailto:${selectedProperty.agent.email}`);
-                                                        }
-                                                    }}
-                                                >
-                                                    {selectedProperty?.agent?.email || 'Not available'}
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Col>
-                            </Row>
-                        </div>
-
-                        {/* Schedule Tour Form */}
-                        <Form
-                            form={form}
-                            layout="vertical"
-                            onFinish={handleScheduleSubmit}
-                            disabled={scheduleLoading}
+            {/* Main Content */}
+            <Layout style={{
+                background: 'transparent',
+                maxWidth: '1600px',
+                margin: '0 auto',
+                padding: '24px 16px'
+            }}>
+                <Row gutter={[24, 24]}>
+                    {/* Property Results */}
+                    <Col xs={24}>
+                        <Card
+                            style={{
+                                background: 'white',
+                                borderRadius: '12px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                border: '1px solid #f1f5f9'
+                            }}
+                            bodyStyle={{ padding: '16px' }}
                         >
-                            {/* Schedule Date */}
-                            <Form.Item
-                                name="scheduleDate"
-                                label="Preferred Date"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: 'Please select a date for the tour'
-                                    },
-                                    {
-                                        validator: (_, value) => {
-                                            if (value && value.isBefore(moment().startOf('day'))) {
-                                                return Promise.reject(new Error('Please select a future date'));
-                                            }
-                                            return Promise.resolve();
-                                        }
+                            {loading ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '60px 20px'
+                                }}>
+                                    <Spin size="large" />
+                                    <div style={{ marginTop: '16px' }}>
+                                        <Text style={{ color: '#64748b' }}>
+                                            Loading properties...
+                                        </Text>
+                                    </div>
+                                </div>
+                            ) : paginatedProperties.length === 0 ? (
+                                <Empty
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                    description={
+                                        <div>
+                                            <Text style={{ color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                                                No properties found matching your criteria
+                                            </Text>
+                                            <Button onClick={handleResetFilters}>
+                                                Reset All Filters
+                                            </Button>
+                                        </div>
                                     }
-                                ]}
-                            >
-                                <StableDatePicker disabled={scheduleLoading} />
-                            </Form.Item>
-
-                            {/* Schedule Time */}
-                            <Form.Item
-                                name="scheduleTime"
-                                label="Preferred Time"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: 'Please select a time for the tour'
-                                    },
-                                    {
-                                        validator: (_, value) => {
-                                            const selectedDate = form.getFieldValue('scheduleDate');
-                                            if (value && selectedDate && selectedDate.isSame(moment(), 'day')) {
-                                                const currentTime = moment();
-                                                const selectedDateTime = moment(selectedDate)
-                                                    .hour(value.hour())
-                                                    .minute(value.minute());
-
-                                                if (selectedDateTime.isBefore(currentTime)) {
-                                                    return Promise.reject(new Error('Please select a future time'));
-                                                }
-                                            }
-                                            return Promise.resolve();
-                                        }
-                                    }
-                                ]}
-                            >
-                                <StableTimePicker disabled={scheduleLoading} />
-                            </Form.Item>
-
-                            {/* Additional Notes */}
-                            <Form.Item
-                                name="notes"
-                                label="Additional Notes (Optional)"
-                            >
-                                <Input.TextArea
-                                    rows={3}
-                                    placeholder="Any special requests, questions, or specific areas you'd like to see..."
-                                    maxLength={500}
-                                    showCount
-                                    disabled={scheduleLoading}
-                                />
-                            </Form.Item>
-
-                            {/* Hidden fields */}
-                            <Form.Item name="propertyId" hidden>
-                                <Input />
-                            </Form.Item>
-                            <Form.Item name="agentId" hidden>
-                                <Input />
-                            </Form.Item>
-
-                            <Form.Item style={{ marginBottom: 0 }}>
-                                <Button
-                                    type="primary"
-                                    htmlType="submit"
-                                    block
-                                    loading={scheduleLoading}
                                     style={{
-                                        borderRadius: '8px',
-                                        height: '40px',
-                                        fontWeight: '600',
-                                        fontSize: '14px',
-                                        background: '#1B3C53',
-                                        borderColor: '#1B3C53'
+                                        padding: '60px 20px'
                                     }}
-                                >
-                                    {scheduleLoading ? 'Scheduling...' : 'Schedule Tour'}
-                                </Button>
-                            </Form.Item>
+                                />
+                            ) : (
+                                <>
+                                    {/* Debug Info */}
+                                    <div style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: '#f8f9fa',
+                                        borderRadius: '6px',
+                                        marginBottom: '16px',
+                                        border: '1px solid #e9ecef'
+                                    }}>
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            Showing {paginatedProperties.length} of {filteredProperties.length} filtered properties (from {properties?.length} total)
+                                        </Text>
+                                    </div>
 
-                            <div style={{
-                                textAlign: 'center',
-                                marginTop: '12px',
-                                fontSize: '11px',
-                                color: '#64748b'
-                            }}>
-                                The agent will contact you to confirm your tour schedule.
-                            </div>
-                        </Form>
-                    </Spin>
-                </Modal>
-            </Content>
-        </Layout>
+                                    {/* Property Grid/Landscape */}
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns:
+                                                viewMode === 'grid' || window.innerWidth < 768 ?
+                                                    'repeat(auto-fill, minmax(min(100%, 350px), 1fr))' :
+                                                    viewMode === 'landscape' ?
+                                                        'repeat(auto-fill, minmax(min(100%, 500px), 1fr))' : 'none',
+                                            gap: '24px',
+                                            width: '100%',
+                                            alignItems: 'stretch',
+                                            justifyItems: 'center'
+                                        }}
+                                    >
+                                        {paginatedProperties.map((property) => (
+                                            <div
+                                                key={property.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    width: '100%',
+                                                    height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '280px' : 'auto',
+                                                    minHeight: 'auto',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                <PropertyCard
+                                                    property={property}
+                                                    showActions={false}
+                                                    viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%'
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Pagination */}
+                                    {sortedProperties.length > pageSize && (
+                                        <div style={{
+                                            marginTop: '32px',
+                                            display: 'flex',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <Pagination
+                                                current={currentPage}
+                                                pageSize={pageSize}
+                                                total={sortedProperties.length}
+                                                onChange={handlePageChange}
+                                                showSizeChanger
+                                                showQuickJumper
+                                                showTotal={(total, range) =>
+                                                    `${range[0]}-${range[1]} of ${total} properties`
+                                                }
+                                                pageSizeOptions={['8', '16', '24', '48']}
+                                                responsive={true}
+                                            />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </Card>
+                    </Col>
+                </Row>
+            </Layout>
+
+            {/* Mobile Filter Drawer */}
+            <Drawer
+                title="Filters"
+                placement="right"
+                onClose={closeMobileFilter}
+                open={mobileFilterVisible}
+                width={320}
+                bodyStyle={{ padding: '0' }}
+            >
+                <PropertyFilterSidebar
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    isCollapsed={false}
+                />
+            </Drawer>
+        </div>
     );
 };
 

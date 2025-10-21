@@ -1,6 +1,5 @@
 ﻿using Realstate_servcices.Server.Dto.Auth;
 using Realstate_servcices.Server.Repository.UserDAO;
-
 namespace Realstate_servcices.Server.Services.Authentication
 {
     public interface IPasswordResetService

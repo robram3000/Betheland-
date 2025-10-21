@@ -1,28 +1,36 @@
-﻿// ChatPage.jsx
+﻿// ChatPage.jsx - Updated with agent data integration
 import React, { useState, useRef, useEffect } from 'react';
 import {
     Row, Col, Card, Input, Avatar, Typography, List, Badge, Button, Space,
-    Tabs, message, Drawer, Popover
+    Tabs, message, Drawer, Popover, Upload, Modal
 } from 'antd';
 import {
-    SearchOutlined, MoreOutlined, WechatOutlined, TeamOutlined,
-    SendOutlined, PhoneOutlined, VideoCameraOutlined, InfoCircleOutlined,
-    MenuOutlined, SmileOutlined
+    SearchOutlined, MoreOutlined, WechatOutlined,
+    SendOutlined, InfoCircleOutlined,
+    LeftOutlined, SmileOutlined, EyeOutlined,
+    PaperClipOutlined, FileImageOutlined, FileOutlined,
+    PlayCircleOutlined, DeleteOutlined
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 
 const { Search } = Input;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
-const ChatPage = () => {
+const ChatPage = ({ propertyChatData }) => {
+    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeChat, setActiveChat] = useState(1);
+    const [activeChat, setActiveChat] = useState(null);
     const [newMessage, setNewMessage] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [sidebarVisible, setSidebarVisible] = useState(false);
     const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
+    const [fileList, setFileList] = useState([]);
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
     const textAreaRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // Common emojis for the picker
     const commonEmojis = [
@@ -40,120 +48,63 @@ const ChatPage = () => {
         '😾'
     ];
 
-    // Mock chat data matching your image structure
-    const chats = [
-        {
-            id: 1,
-            name: 'Account Sandoval',
-            lastMessage: 'Ranked 5% by your message >7%',
-            time: '2m',
-            unread: 3,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-            online: true,
-            messages: [
-                { id: 1, text: 'Hello! 👋 I need help with my account', sender: 'them', time: '2:30 PM' },
-                { id: 2, text: 'Sure, what seems to be the problem? 😊', sender: 'me', time: '2:31 PM' },
-                { id: 3, text: 'Ranked 5% by your message >7% 📈', sender: 'them', time: '2:32 PM' }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Data Engineering Pilipvax',
-            lastMessage: 'ATL, SCA, DAT, GET type A+',
-            time: '5m',
-            unread: 0,
-            type: 'group',
-            avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop',
-            online: false,
-            members: 24,
-            messages: [
-                { id: 1, text: 'Welcome to the Data Engineering group!', sender: 'them', time: '1:30 PM' }
-            ]
-        },
-        {
-            id: 3,
-            name: 'Data Engineering Software',
-            lastMessage: 'Display Cloud Allowance B+',
-            time: '2h',
-            unread: 1,
-            type: 'group',
-            avatar: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=150&h=150&fit=crop',
-            online: false,
-            members: 15,
-            messages: [
-                { id: 1, text: 'Cloud allowance updated for this month', sender: 'them', time: '12:30 PM' }
-            ]
-        },
-        {
-            id: 4,
-            name: 'Dolphin',
-            lastMessage: 'Yes, Yes Are... Its...',
-            time: '3h',
-            unread: 0,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face',
-            online: true,
-            messages: [
-                { id: 1, text: 'Hi there!', sender: 'them', time: '11:30 AM' }
-            ]
-        },
-        {
-            id: 5,
-            name: 'FIZZS XP25-26',
-            lastMessage: 'Android, IT, IT Graph Millions C... Ah',
-            time: '4h',
-            unread: 0,
-            type: 'group',
-            avatar: 'https://images.unsplash.com/photo-1568992688065-536aad8a12f6?w=150&h=150&fit=crop',
-            online: false,
-            members: 8,
-            messages: [
-                { id: 1, text: 'Meeting scheduled for tomorrow', sender: 'them', time: '10:30 AM' }
-            ]
-        },
-        {
-            id: 6,
-            name: 'MASSIVAX RECOMMENDATION',
-            lastMessage: 'Private https://youtu.be.com/Yn... St',
-            time: '5h',
-            unread: 12,
-            type: 'community',
-            avatar: 'https://images.unsplash.com/photo-1547658719-da2b51169166?w=150&h=150&fit=crop',
-            online: false,
-            members: 156,
-            messages: [
-                { id: 1, text: 'Check out this new recommendation!', sender: 'them', time: '9:30 AM' }
-            ]
-        },
-        {
-            id: 7,
-            name: 'MD',
-            lastMessage: 'Jobs (Sounds ring top) - 1.5 long... >3h',
-            time: '3h',
-            unread: 0,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-            online: false,
-            messages: [
-                { id: 1, text: 'Hello!', sender: 'them', time: '9:00 AM' }
-            ]
-        },
-        {
-            id: 8,
-            name: 'Data Engineering Job Opportunities',
-            lastMessage: 'Titan Agent started a solution... So...',
-            time: '8h',
-            unread: 0,
-            type: 'group',
-            avatar: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=150&h=150&fit=crop',
-            online: false,
-            members: 42,
-            messages: [
-                { id: 1, text: 'New job posting available', sender: 'them', time: '8:30 AM' }
-            ]
+  
+
+    const [chats, setChats] = useState(initialChats);
+
+    // Use property chat data if available
+    useEffect(() => {
+        if (propertyChatData) {
+            console.log('Property chat data received:', propertyChatData);
+
+            // Create a new chat entry for the agent
+            const agentChatId = `agent-${propertyChatData.agent?.id || Date.now()}`;
+
+            const newAgentChat = {
+                id: agentChatId,
+                name: propertyChatData.agent?.name || 'Contact Agent',
+                lastMessage: 'Property enquiry',
+                time: 'Now',
+                unread: 1,
+                type: 'direct',
+                avatar: propertyChatData.agent?.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+                online: true,
+                isAgentChat: true,
+                agentData: propertyChatData.agent,
+                propertyData: propertyChatData.property,
+                messages: [
+                    {
+                        id: 1,
+                        text: `Hi! I'm interested in the property at ${propertyChatData.property?.address}`,
+                        sender: 'me',
+                        time: 'Just now'
+                    }
+                ]
+            };
+
+            // Check if this agent chat already exists
+            const existingAgentChatIndex = chats.findIndex(chat =>
+                chat.id === agentChatId || chat.isAgentChat
+            );
+
+            if (existingAgentChatIndex === -1) {
+                // Add new agent chat to the beginning of the list
+                setChats(prev => [newAgentChat, ...prev]);
+            } else {
+                // Update existing agent chat
+                const updatedChats = [...chats];
+                updatedChats[existingAgentChatIndex] = {
+                    ...updatedChats[existingAgentChatIndex],
+                    ...newAgentChat,
+                    unread: updatedChats[existingAgentChatIndex].unread + 1
+                };
+                setChats(updatedChats);
+            }
+
+            // Set this as active chat
+            setActiveChat(agentChatId);
         }
-    ];
+    }, [propertyChatData]);
 
     const filteredChats = chats.filter(chat => {
         if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -162,20 +113,56 @@ const ChatPage = () => {
         if (activeTab === 'unread' && chat.unread === 0) {
             return false;
         }
-        if (activeTab === 'groups' && chat.type === 'direct') {
-            return false;
-        }
         return true;
     });
 
     const activeChatData = chats.find(chat => chat.id === activeChat);
 
     const handleSendMessage = () => {
-        if (newMessage.trim() === '') return;
+        if (newMessage.trim() === '' && fileList.length === 0) return;
 
-        // In a real app, you would add this message to the chat
+        // Create message with files
+        const messageData = {
+            text: newMessage,
+            files: fileList.map(file => ({
+                name: file.name,
+                type: file.type,
+                url: file.url || URL.createObjectURL(file),
+                size: file.size
+            }))
+        };
+
+        // Add message to active chat
+        if (activeChatData) {
+            const newMessageObj = {
+                id: Date.now(),
+                text: newMessage,
+                sender: 'me',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                files: fileList.length > 0 ? fileList.map(file => ({
+                    name: file.name,
+                    type: file.type,
+                    url: file.url || URL.createObjectURL(file),
+                    size: file.size
+                })) : undefined
+            };
+
+            setChats(prev => prev.map(chat =>
+                chat.id === activeChat
+                    ? {
+                        ...chat,
+                        messages: [...chat.messages, newMessageObj],
+                        lastMessage: newMessage,
+                        time: 'Now',
+                        unread: 0
+                    }
+                    : chat
+            ));
+        }
+
         message.success('Message sent! 🎉');
         setNewMessage('');
+        setFileList([]);
         setEmojiPickerVisible(false);
     };
 
@@ -188,7 +175,6 @@ const ChatPage = () => {
             const newText = text.substring(0, start) + emoji + text.substring(end);
             setNewMessage(newText);
 
-            // Focus back to textarea and set cursor position
             setTimeout(() => {
                 textArea.focus();
                 textArea.setSelectionRange(start + emoji.length, start + emoji.length);
@@ -213,15 +199,240 @@ const ChatPage = () => {
         scrollToBottom();
     }, [activeChatData?.messages]);
 
-    const getChatIcon = (type) => {
-        switch (type) {
-            case 'group':
-                return <TeamOutlined style={{ color: '#1B3C53', marginRight: 4 }} />;
-            case 'community':
-                return <WechatOutlined style={{ color: '#1B3C53', marginRight: 4 }} />;
-            default:
-                return null;
+    // File handling functions
+    const beforeUpload = (file) => {
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (!isImage && !isVideo) {
+            message.error('You can only upload image or video files!');
+            return false;
         }
+
+        const isLt10M = file.size / 1024 / 1024 < 10;
+        if (!isLt10M) {
+            message.error('File must be smaller than 10MB!');
+            return false;
+        }
+
+        // Add file to fileList
+        setFileList(prev => [...prev, file]);
+        return false; // Prevent automatic upload
+    };
+
+    const handleFileRemove = (file) => {
+        setFileList(prev => prev.filter(f => f.uid !== file.uid));
+    };
+
+    const handlePreview = (file) => {
+        if (file.type.startsWith('image/')) {
+            setPreviewImage(file.url || URL.createObjectURL(file));
+            setPreviewVisible(true);
+        } else if (file.type.startsWith('video/')) {
+            // For videos, we'll open in a new tab or use a video player
+            const videoUrl = file.url || URL.createObjectURL(file);
+            window.open(videoUrl, '_blank');
+        }
+    };
+
+    const getFileIcon = (file) => {
+        if (file.type.startsWith('image/')) {
+            return <FileImageOutlined style={{ color: '#52c41a' }} />;
+        } else if (file.type.startsWith('video/')) {
+            return <PlayCircleOutlined style={{ color: '#1890ff' }} />;
+        }
+        return <FileOutlined />;
+    };
+
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Format price in Philippine Pesos
+    const formatPrice = (price) => {
+        if (typeof price === 'number') {
+            return `₱${price.toLocaleString('en-PH')}`;
+        }
+        return price || '₱0';
+    };
+
+    // Property Card Component (inside chat messages)
+    const PropertyCard = () => {
+        if (!activeChatData?.propertyData) return null;
+
+        const property = activeChatData.propertyData;
+
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'flex-start',
+                marginBottom: '16px',
+                padding: '0 8px'
+            }}>
+                <div style={{
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    maxWidth: '100%',
+                    width: '100%',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start'
+                    }}>
+                        {/* Property Image */}
+                        <img
+                            src={property.mainImage}
+                            alt={property.title}
+                            style={{
+                                width: '70px',
+                                height: '70px',
+                                objectFit: 'cover',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                flexShrink: 0
+                            }}
+                            onError={(e) => {
+                                e.target.src = '/default-property.jpg';
+                            }}
+                        />
+
+                        {/* Property Details */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <Text strong style={{
+                                color: '#1B3C53',
+                                fontSize: '14px',
+                                display: 'block',
+                                marginBottom: '4px',
+                                lineHeight: '1.2'
+                            }}>
+                                {property.title}
+                            </Text>
+
+                            <div style={{
+                                color: '#64748b',
+                                fontSize: '11px',
+                                marginBottom: '6px',
+                                lineHeight: '1.2'
+                            }}>
+                                {property.address}
+                            </div>
+
+                            {/* Property Features */}
+                            <div style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                                alignItems: 'center',
+                                fontSize: '10px',
+                                color: '#64748b',
+                                marginBottom: '6px'
+                            }}>
+                                <span>🏠 {property.propertyType}</span>
+                                <span>🛏️ {property.bedrooms}</span>
+                                <span>🚿 {property.bathrooms}</span>
+                                <span>📏 {property.areaSqft}</span>
+                            </div>
+
+                            {/* Price and View Button */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <Text strong style={{
+                                    color: '#1B3C53',
+                                    fontSize: '13px'
+                                }}>
+                                    {formatPrice(property.price)}
+                                </Text>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<EyeOutlined />}
+                                    onClick={() => navigate('/property', { state: { propertyId: property.id } })}
+                                    style={{
+                                        background: '#1B3C53',
+                                        borderColor: '#1B3C53',
+                                        borderRadius: '4px',
+                                        fontSize: '10px',
+                                        padding: '2px 6px',
+                                        height: '22px'
+                                    }}
+                                >
+                                    View
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // File attachment preview component
+    const FileAttachments = () => {
+        if (fileList.length === 0) return null;
+
+        return (
+            <div style={{
+                padding: '8px 16px',
+                borderBottom: '1px solid #f1f5f9',
+                background: '#fafafa'
+            }}>
+                <Text strong style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                    Attachments ({fileList.length})
+                </Text>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {fileList.map((file, index) => (
+                        <div
+                            key={file.uid || index}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                padding: '6px 8px',
+                                maxWidth: '200px'
+                            }}
+                        >
+                            <div style={{ marginRight: '8px', fontSize: '16px' }}>
+                                {getFileIcon(file)}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={{
+                                    fontSize: '11px',
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {file.name}
+                                </Text>
+                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                    {formatFileSize(file.size)}
+                                </Text>
+                            </div>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<DeleteOutlined style={{ fontSize: '12px', color: '#ff4d4f' }} />}
+                                onClick={() => handleFileRemove(file)}
+                                style={{ marginLeft: '4px', padding: '2px', height: 'auto' }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
     };
 
     // Simple emoji picker component
@@ -256,29 +467,50 @@ const ChatPage = () => {
     const chatListContent = (
         <Card
             style={{
-                boxShadow: '0 2px 8px rgba(27, 60, 83, 0.08)',
                 border: '1px solid #e2e8f0',
                 height: '100%',
                 background: '#ffffff',
-                borderRadius: 0 // Remove border radius from card
+                borderRadius: 0,
+                margin: 0
             }}
-            bodyStyle={{ padding: 0 }}
+            bodyStyle={{
+                padding: 0,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
+            }}
         >
             {/* Search Header */}
-            <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9' }}>
-                <Title level={4} style={{ color: '#1B3C53', marginBottom: '12px', fontSize: '16px' }}>
+            <div style={{
+                padding: '16px',
+                borderBottom: '1px solid #f1f5f9',
+                flexShrink: 0
+            }}>
+                <Title level={4} style={{
+                    color: '#1B3C53',
+                    marginBottom: '12px',
+                    fontSize: '16px',
+                    margin: 0
+                }}>
                     Search Messenger
                 </Title>
                 <Search
                     placeholder="Search messages..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ borderRadius: 0 }} // Remove border radius from search
+                    style={{
+                        borderRadius: 0,
+                        width: '100%'
+                    }}
                 />
             </div>
 
-            {/* Tabs */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+            {/* Tabs - Only All and Unread */}
+            <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid #f1f5f9',
+                flexShrink: 0
+            }}>
                 <Tabs
                     activeKey={activeTab}
                     onChange={setActiveTab}
@@ -286,13 +518,17 @@ const ChatPage = () => {
                     items={[
                         { key: 'all', label: 'All' },
                         { key: 'unread', label: 'Unread' },
-                        { key: 'groups', label: 'Groups' },
                     ]}
+                    style={{ width: '100%' }}
                 />
             </div>
 
             {/* Chat List */}
-            <div style={{ height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+            <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                minHeight: 0
+            }}>
                 <List
                     dataSource={filteredChats}
                     renderItem={(chat) => (
@@ -304,35 +540,59 @@ const ChatPage = () => {
                                 borderBottom: '1px solid #f8fafc',
                                 transition: 'background-color 0.2s',
                                 margin: 0,
-                                borderRadius: 0 // Remove border radius from list items
+                                borderRadius: 0
                             }}
                             onClick={() => {
                                 setActiveChat(chat.id);
                                 setSidebarVisible(false);
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                width: '100%'
+                            }}>
                                 <Badge
                                     dot={chat.online}
                                     color="#52c41a"
                                     offset={[-4, 28]}
-                                    style={{
-                                        display: chat.type === 'direct' ? 'block' : 'none'
-                                    }}
                                 >
-                                    <Avatar src={chat.avatar} size="default" />
+                                    <Avatar
+                                        src={chat.avatar}
+                                        size="default"
+                                        style={{ flexShrink: 0 }}
+                                    />
                                 </Badge>
-                                <div style={{ flex: 1, marginLeft: '10px', minWidth: 0 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Text strong style={{ color: '#1B3C53', fontSize: '13px' }}>
+                                <div style={{
+                                    flex: 1,
+                                    marginLeft: '10px',
+                                    minWidth: 0,
+                                    overflow: 'hidden'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        width: '100%'
+                                    }}>
+                                        <Text strong style={{
+                                            color: '#1B3C53',
+                                            fontSize: '13px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
                                             {chat.name}
                                         </Text>
-                                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                                        <Text type="secondary" style={{
+                                            fontSize: '11px',
+                                            flexShrink: 0,
+                                            marginLeft: '8px'
+                                        }}>
                                             {chat.time}
                                         </Text>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '2px' }}>
-                                        {getChatIcon(chat.type)}
+                                    <div style={{ marginTop: '2px' }}>
                                         <Text
                                             style={{
                                                 color: '#64748b',
@@ -340,7 +600,8 @@ const ChatPage = () => {
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
                                                 whiteSpace: 'nowrap',
-                                                flex: 1
+                                                display: 'block',
+                                                width: '100%'
                                             }}
                                         >
                                             {chat.lastMessage}
@@ -353,7 +614,8 @@ const ChatPage = () => {
                                         style={{
                                             marginLeft: '6px',
                                             background: '#1B3C53',
-                                            fontSize: '10px'
+                                            fontSize: '10px',
+                                            flexShrink: 0
                                         }}
                                     />
                                 )}
@@ -369,27 +631,41 @@ const ChatPage = () => {
         <div style={{
             width: '100%',
             height: '100%',
-            minHeight: 'calc(100vh - 64px)', // Adjusted for removed footer
             display: 'flex',
             flexDirection: 'column',
             padding: 0,
-            margin: 0
+            margin: 0,
+            overflow: 'hidden'
         }}>
-            <Row gutter={[16, 0]} style={{ flex: 1, minHeight: 0, margin: 0, height: '100%' }}>
-                {/* Chat List Sidebar - Hidden on mobile */}
-                <Col xs={0} md={8} lg={6} style={{ padding: 0 }}>
+            <Row gutter={0} style={{
+                flex: 1,
+                margin: 0,
+                height: '100%',
+                width: '100%'
+            }}>
+                {/* Chat List Sidebar - Always on left */}
+                <Col xs={0} md={6} lg={5} style={{
+                    padding: 0,
+                    margin: 0,
+                    height: '100%',
+                    borderRight: '1px solid #e2e8f0'
+                }}>
                     {chatListContent}
                 </Col>
 
-                {/* Chat Area */}
-                <Col xs={24} md={16} lg={18} style={{ padding: 0 }}>
+                {/* Chat Area - Takes remaining space */}
+                <Col xs={24} md={18} lg={19} style={{
+                    padding: 0,
+                    margin: 0,
+                    height: '100%'
+                }}>
                     <Card
                         style={{
-                            border: '1px solid #e2e8f0',
+                            border: 'none',
                             height: '100%',
-                            minHeight: '500px',
                             margin: 0,
-                            borderRadius: 0 // Remove border radius from main card
+                            borderRadius: 0,
+                            width: '100%'
                         }}
                         bodyStyle={{
                             padding: 0,
@@ -403,57 +679,84 @@ const ChatPage = () => {
                             <>
                                 {/* Chat Header */}
                                 <div style={{
-                                    padding: '16px 20px',
+                                    padding: '12px 16px',
                                     borderBottom: '1px solid #f1f5f9',
                                     background: 'white',
                                     flexShrink: 0,
-                                    borderRadius: 0 // Remove border radius
+                                    borderRadius: 0
                                 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Space size="small">
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        width: '100%'
+                                    }}>
+                                        <Space size="small" style={{ flex: 1 }}>
+                                            {/* Mobile Back Button - Only visible on mobile */}
+                                            <Button
+                                                type="text"
+                                                icon={<LeftOutlined />}
+                                                onClick={() => setSidebarVisible(true)}
+                                                style={{
+                                                    color: '#1B3C53',
+                                                    padding: '4px 8px',
+                                                    display: { xs: 'block', md: 'none' }
+                                                }}
+                                                className="mobile-back-button"
+                                            />
                                             <Badge
-                                                dot={activeChatData.online && activeChatData.type === 'direct'}
+                                                dot={activeChatData.online}
                                                 color="#52c41a"
                                                 offset={[-2, 28]}
                                             >
                                                 <Avatar
-                                                    size={40}
+                                                    size={36}
                                                     src={activeChatData.avatar}
-                                                    style={{ border: '1px solid #e2e8f0' }}
+                                                    style={{
+                                                        border: '1px solid #e2e8f0',
+                                                        flexShrink: 0
+                                                    }}
                                                 />
                                             </Badge>
-                                            <div>
-                                                <Title level={4} style={{ margin: 0, color: '#1B3C53', fontSize: '16px' }}>
+                                            <div style={{ minWidth: 0, flex: 1 }}>
+                                                <Title level={4} style={{
+                                                    margin: 0,
+                                                    color: '#1B3C53',
+                                                    fontSize: '15px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
                                                     {activeChatData.name}
                                                 </Title>
-                                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                                    {activeChatData.type === 'direct' ?
-                                                        (activeChatData.online ? 'Online 🟢' : 'Last seen recently') :
-                                                        `${activeChatData.members} members 👥`
-                                                    }
+                                                <Text type="secondary" style={{
+                                                    fontSize: '11px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'block'
+                                                }}>
+                                                    {activeChatData.online ? 'Online 🟢' : 'Last seen recently'}
+                                                    {activeChatData.isAgentChat && ' • Real Estate Agent'}
                                                 </Text>
                                             </div>
                                         </Space>
-                                        <Space size="small">
-                                            <Button
-                                                type="text"
-                                                icon={<PhoneOutlined />}
-                                                style={{ color: '#1B3C53', padding: '4px 8px' }}
-                                            />
-                                            <Button
-                                                type="text"
-                                                icon={<VideoCameraOutlined />}
-                                                style={{ color: '#1B3C53', padding: '4px 8px' }}
-                                            />
+                                        <Space size="small" style={{ flexShrink: 0 }}>
                                             <Button
                                                 type="text"
                                                 icon={<InfoCircleOutlined />}
-                                                style={{ color: '#1B3C53', padding: '4px 8px' }}
+                                                style={{
+                                                    color: '#1B3C53',
+                                                    padding: '4px 8px'
+                                                }}
                                             />
                                             <Button
                                                 type="text"
                                                 icon={<MoreOutlined />}
-                                                style={{ color: '#1B3C53', padding: '4px 8px' }}
+                                                style={{
+                                                    color: '#1B3C53',
+                                                    padding: '4px 8px'
+                                                }}
                                             />
                                         </Space>
                                     </div>
@@ -462,20 +765,30 @@ const ChatPage = () => {
                                 {/* Messages Area */}
                                 <div style={{
                                     flex: 1,
-                                    padding: '16px 20px',
+                                    padding: '12px 8px',
                                     overflowY: 'auto',
                                     background: '#fafafa',
-                                    minHeight: 0
+                                    minHeight: 0,
+                                    display: 'flex',
+                                    flexDirection: 'column'
                                 }}>
-                                    {activeChatData.messages && activeChatData.messages.length > 0 ? (
-                                        <Space direction="vertical" style={{ width: '100%' }} size="small">
-                                            {activeChatData.messages.map(message => (
+                                    <Space direction="vertical" style={{
+                                        width: '100%',
+                                        flex: 1
+                                    }} size="small">
+                                        {/* Property Card - Inside messages area */}
+                                        {activeChatData.isAgentChat && <PropertyCard />}
+
+                                        {/* Regular Messages */}
+                                        {activeChatData.messages && activeChatData.messages.length > 0 ? (
+                                            activeChatData.messages.map(message => (
                                                 <div
                                                     key={message.id}
                                                     style={{
                                                         display: 'flex',
                                                         justifyContent: message.sender === 'me' ? 'flex-end' : 'flex-start',
-                                                        marginBottom: '8px'
+                                                        marginBottom: '8px',
+                                                        width: '100%'
                                                     }}
                                                 >
                                                     <div
@@ -483,9 +796,9 @@ const ChatPage = () => {
                                                             background: message.sender === 'me' ? '#1B3C53' : 'white',
                                                             color: message.sender === 'me' ? 'white' : '#1B3C53',
                                                             padding: '8px 12px',
-                                                            borderRadius: 0, // Remove border radius from messages
+                                                            borderRadius: '8px',
                                                             border: message.sender === 'me' ? 'none' : '1px solid #e2e8f0',
-                                                            maxWidth: '75%',
+                                                            maxWidth: '85%',
                                                             wordBreak: 'break-word'
                                                         }}
                                                     >
@@ -500,35 +813,65 @@ const ChatPage = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                            <div ref={messagesEndRef} />
-                                        </Space>
-                                    ) : (
-                                        <div style={{
-                                            textAlign: 'center',
-                                            color: '#64748b',
-                                            padding: '30px',
-                                            height: '100%',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            justifyContent: 'center',
-                                            alignItems: 'center'
-                                        }}>
-                                            <WechatOutlined style={{ fontSize: '40px', marginBottom: '12px' }} />
-                                            <Text style={{ fontSize: '14px' }}>No messages yet. Start a conversation! 💬</Text>
-                                        </div>
-                                    )}
+                                            ))
+                                        ) : (
+                                            <div style={{
+                                                textAlign: 'center',
+                                                color: '#64748b',
+                                                padding: '20px',
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
+                                            }}>
+                                                <WechatOutlined style={{ fontSize: '32px', marginBottom: '8px' }} />
+                                                <Text style={{ fontSize: '13px' }}>No messages yet. Start a conversation! 💬</Text>
+                                            </div>
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </Space>
                                 </div>
 
-                                {/* Message Input */}
+                                {/* File Attachments Preview */}
+                                <FileAttachments />
+
+                                {/* Message Input - Fixed at bottom */}
                                 <div style={{
-                                    padding: '16px 20px',
+                                    padding: '12px 16px',
                                     borderTop: '1px solid #f1f5f9',
                                     background: 'white',
                                     flexShrink: 0,
-                                    borderRadius: 0 // Remove border radius
+                                    borderRadius: 0,
+                                    position: 'sticky',
+                                    bottom: 0,
+                                    width: '100%'
                                 }}>
-                                    <Space.Compact style={{ width: '100%' }}>
+                                    <Space.Compact style={{
+                                        width: '100%',
+                                        display: 'flex'
+                                    }}>
+                                        {/* File Upload Button */}
+                                        <Upload
+                                            beforeUpload={beforeUpload}
+                                            fileList={fileList}
+                                            multiple
+                                            showUploadList={false}
+                                            accept="image/*,video/*"
+                                        >
+                                            <Button
+                                                type="text"
+                                                icon={<PaperClipOutlined />}
+                                                style={{
+                                                    borderRadius: '8px 0 0 8px',
+                                                    color: '#64748b',
+                                                    borderRight: 'none',
+                                                    height: 'auto',
+                                                    padding: '8px 12px',
+                                                    flexShrink: 0
+                                                }}
+                                            />
+                                        </Upload>
                                         <Popover
                                             content={<EmojiPickerContent />}
                                             trigger="click"
@@ -540,11 +883,13 @@ const ChatPage = () => {
                                                 type="text"
                                                 icon={<SmileOutlined />}
                                                 style={{
-                                                    borderRadius: 0, // Remove border radius
+                                                    borderRadius: 0,
                                                     color: '#64748b',
                                                     borderRight: 'none',
+                                                    borderLeft: 'none',
                                                     height: 'auto',
-                                                    padding: '8px 12px'
+                                                    padding: '8px 12px',
+                                                    flexShrink: 0
                                                 }}
                                             />
                                         </Popover>
@@ -556,24 +901,26 @@ const ChatPage = () => {
                                             placeholder="Type a message... 😊"
                                             autoSize={{ minRows: 1, maxRows: 3 }}
                                             style={{
-                                                borderRadius: 0, // Remove border radius
+                                                borderRadius: 0,
                                                 resize: 'none',
                                                 borderLeft: 'none',
                                                 borderRight: 'none',
-                                                fontSize: '14px'
+                                                fontSize: '14px',
+                                                flex: 1
                                             }}
                                         />
                                         <Button
                                             type="primary"
                                             icon={<SendOutlined />}
                                             onClick={handleSendMessage}
-                                            disabled={!newMessage.trim()}
+                                            disabled={!newMessage.trim() && fileList.length === 0}
                                             style={{
-                                                borderRadius: 0, // Remove border radius
+                                                borderRadius: '0 8px 8px 0',
                                                 background: '#1B3C53',
                                                 borderColor: '#1B3C53',
                                                 height: 'auto',
-                                                padding: '8px 12px'
+                                                padding: '8px 12px',
+                                                flexShrink: 0
                                             }}
                                         >
                                             Send
@@ -589,18 +936,39 @@ const ChatPage = () => {
                                 height: '100%',
                                 flexDirection: 'column',
                                 color: '#64748b',
-                                padding: '30px'
+                                padding: '20px'
                             }}>
-                                <WechatOutlined style={{ fontSize: '48px', marginBottom: '12px' }} />
-                                <Title level={3} style={{ color: '#64748b', textAlign: 'center', fontSize: '18px', marginBottom: '8px' }}>
+                                <WechatOutlined style={{ fontSize: '40px', marginBottom: '12px' }} />
+                                <Title level={3} style={{
+                                    color: '#64748b',
+                                    textAlign: 'center',
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                }}>
                                     Select a chat to start messaging 💭
                                 </Title>
-                                <Text style={{ textAlign: 'center', fontSize: '14px' }}>Choose a conversation from the list to begin</Text>
+                                <Text style={{
+                                    textAlign: 'center',
+                                    fontSize: '13px'
+                                }}>
+                                    Choose a conversation from the list to begin
+                                </Text>
                             </div>
                         )}
                     </Card>
                 </Col>
             </Row>
+
+            {/* Image Preview Modal */}
+            <Modal
+                open={previewVisible}
+                footer={null}
+                onCancel={() => setPreviewVisible(false)}
+                width="auto"
+                style={{ maxWidth: '90vw' }}
+            >
+                <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+            </Modal>
 
             {/* Mobile Drawer */}
             <Drawer
@@ -608,7 +976,7 @@ const ChatPage = () => {
                 placement="left"
                 onClose={() => setSidebarVisible(false)}
                 open={sidebarVisible}
-                width={300}
+                width="100%"
                 styles={{ body: { padding: 0 } }}
             >
                 {chatListContent}

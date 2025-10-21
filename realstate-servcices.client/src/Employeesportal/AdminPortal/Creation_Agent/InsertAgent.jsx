@@ -22,7 +22,6 @@ import {
 } from 'antd';
 import agentService from './Services/AgentService';
 import {
-   
     useAgentErrorHandler,
     createAgentServiceWithErrorHandling
 } from './Services/AgentErrorHandler';
@@ -44,6 +43,7 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
     const [error, setError] = useState(null);
     const [currentStep, setCurrentStep] = useState(0);
     const [missingFields, setMissingFields] = useState([]);
+    const [uploading, setUploading] = useState(false);
     const { handleError } = useAgentErrorHandler();
 
     useEffect(() => {
@@ -57,7 +57,8 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             setSubmittedData({
                 username: agent.username,
                 email: agent.email,
-                password: '********'
+                password: '********',
+                profilePictureUrl: agent.profilePictureUrl
             });
         }
     }, [agent, form]);
@@ -81,6 +82,12 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             }
             if (field === 'cellPhoneNo' && !values.cellPhoneNo) {
                 currentMissing.push('Cell Phone');
+            } else if (field === 'cellPhoneNo' && values.cellPhoneNo) {
+                // Additional validation for exact 11 digits
+                const cleanPhone = values.cellPhoneNo.replace(/\D/g, '');
+                if (cleanPhone.length !== 11) {
+                    currentMissing.push('Cell Phone (must be 11 digits)');
+                }
             }
             if (field === 'email' && !values.email) {
                 currentMissing.push('Email');
@@ -137,7 +144,14 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
 
             if (!allValues.firstName) missingFields.push('First Name');
             if (!allValues.lastName) missingFields.push('Last Name');
-            if (!allValues.cellPhoneNo) missingFields.push('Cell Phone');
+            if (!allValues.cellPhoneNo) {
+                missingFields.push('Cell Phone');
+            } else {
+                const cleanPhone = allValues.cellPhoneNo.replace(/\D/g, '');
+                if (cleanPhone.length !== 11) {
+                    missingFields.push('Cell Phone (must be 11 digits)');
+                }
+            }
             if (!allValues.email) missingFields.push('Email');
             if (!allValues.licenseNumber) missingFields.push('License Number');
             if (!agent && !allValues.username) missingFields.push('Username');
@@ -150,11 +164,18 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 return;
             }
 
-            // Prepare agent data - SIMPLIFIED: Don't transform any data here
+            // Prepare agent data with profile picture - FIXED: Use 'photourl' as backend expects
             const agentData = {
                 ...allValues,
-                profilePictureUrl: imageUrl,
+                photourl: imageUrl, // This is the key field the backend expects
+                profilePictureUrl: imageUrl, // Also include for consistency
             };
+
+            // Debug log
+            console.log('=== DEBUG: Submitting agent data ===');
+            console.log('Image URL:', imageUrl);
+            console.log('Agent data being sent:', agentData);
+            console.log('=== END DEBUG ===');
 
             // Handle specialization - ensure it's properly formatted as JSON string
             if (Array.isArray(agentData.specialization)) {
@@ -171,8 +192,6 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             // Remove confirmPassword from the data sent to API
             delete agentData.confirmPassword;
 
-            console.log('Submitting agent data:', agentData);
-
             let result;
             if (agent) {
                 result = await enhancedAgentService.updateAgent(agent.id, agentData);
@@ -188,7 +207,8 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             setSubmittedData({
                 username: allValues.username,
                 email: allValues.email,
-                password: allValues.password || '********'
+                password: allValues.password || '********',
+                profilePictureUrl: imageUrl
             });
 
             setShowAccountInfo(true);
@@ -216,24 +236,68 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         }
     };
 
-    const handleImageUpload = (info) => {
+    const handleImageUpload = async (options) => {
+        const { file, onSuccess, onError } = options;
+
+        setUploading(true);
         clearError();
 
-        if (info.file.status === 'uploading') {
-            return;
-        }
+        try {
+            console.log('Uploading profile picture...', file);
 
-        if (info.file.status === 'done') {
-            // Get the response from the server
-            const response = info.file.response;
+            // Use your agentService to upload the image
+            const response = await agentService.uploadImage(file);
+
+            console.log('Upload response:', response);
+
             if (response && response.success) {
-                setImageUrl(response.url);
-                message.success('Image uploaded successfully');
+                // Extract URL from different possible response structures
+                let uploadedUrl = response.url || response.data?.url || response.profilePictureUrl || response.imageUrl;
+
+                // If response.data exists and has url property
+                if (!uploadedUrl && response.data && typeof response.data === 'object') {
+                    uploadedUrl = response.data.url || response.data.imageUrl;
+                }
+
+                // If still no URL, check the entire response structure
+                if (!uploadedUrl) {
+                    console.warn('No URL found in expected locations, checking full response:', response);
+                    // Try to find URL in the response object
+                    const findUrlInObject = (obj) => {
+                        for (let key in obj) {
+                            if (typeof obj[key] === 'string' && obj[key].includes('/uploads/')) {
+                                return obj[key];
+                            }
+                            if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                const found = findUrlInObject(obj[key]);
+                                if (found) return found;
+                            }
+                        }
+                        return null;
+                    };
+
+                    uploadedUrl = findUrlInObject(response);
+                }
+
+                if (!uploadedUrl) {
+                    throw new Error('Upload successful but no image URL returned in response');
+                }
+
+                setImageUrl(uploadedUrl);
+                onSuccess(response);
+                message.success('Profile picture uploaded successfully');
+                console.log('Profile picture uploaded successfully:', uploadedUrl);
             } else {
-                message.error(response?.message || 'Upload failed');
+                const errorMsg = response?.message || 'Upload failed';
+                onError(new Error(errorMsg));
+                message.error(errorMsg);
             }
-        } else if (info.file.status === 'error') {
-            message.error('Upload failed');
+        } catch (error) {
+            console.error('Upload error:', error);
+            onError(error);
+            message.error('Failed to upload profile picture');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -363,15 +427,14 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         );
     };
 
-    // Fixed Upload component that doesn't use invalid 'value' prop
+    // Fixed Upload component with proper image handling
     const ProfilePictureUpload = () => (
         <Upload
-            name="avatar"
+            name="file"
             listType="picture-card"
             className="avatar-uploader"
             showUploadList={false}
-            action="/api/agent/upload"
-            onChange={handleImageUpload}
+            customRequest={handleImageUpload}
             beforeUpload={(file) => {
                 const isImage = file.type.startsWith('image/');
                 if (!isImage) {
@@ -386,12 +449,24 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 }
                 return true;
             }}
+            disabled={uploading}
         >
             {imageUrl ? (
-                <img src={imageUrl} alt="avatar" style={{ width: '100%' }} />
+                <img
+                    src={imageUrl}
+                    alt="avatar"
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                    }}
+                />
             ) : (
                 <div>
-                    <div style={{ marginTop: 4, fontSize: '12px' }}>Upload Photo</div>
+                    <div style={{ marginTop: 8 }}>
+                        {uploading ? 'Uploading...' : 'Upload'}
+                    </div>
+                    <div style={{ fontSize: '12px' }}>Profile Photo</div>
                 </div>
             )}
         </Upload>
@@ -470,13 +545,24 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="Cell Phone"
                                 name="cellPhoneNo"
-                                rules={[{ required: true, message: 'Please enter phone number' }]}
+                                rules={[
+                                    { required: true, message: 'Please enter phone number' },
+                                    {
+                                        pattern: /^\d{11}$/,
+                                        message: 'Phone number must be exactly 11 digits'
+                                    }
+                                ]}
                                 style={{ marginBottom: 0 }}
                             >
                                 <Input
-                                    placeholder="Enter phone number"
+                                    placeholder="Enter 11-digit number"
                                     onChange={clearError}
                                     size="small"
+                                    maxLength={11}
+                                    onInput={(e) => {
+                                        // Only allow numbers
+                                        e.target.value = e.target.value.replace(/\D/g, '');
+                                    }}
                                 />
                             </Form.Item>
                         </Col>
@@ -763,6 +849,13 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                                 <ProfilePictureUpload />
                             </div>
+                            {imageUrl && (
+                                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                                    <Text type="success" style={{ fontSize: '12px' }}>
+                                        ✓ Profile picture uploaded
+                                    </Text>
+                                </div>
+                            )}
                         </Col>
                     </Row>
 
@@ -933,6 +1026,23 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             </Text>
                         </div>
 
+                        {/* Show profile picture in success view */}
+                        {submittedData?.profilePictureUrl && (
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <img
+                                    src={submittedData.profilePictureUrl}
+                                    alt="Profile"
+                                    style={{
+                                        width: 100,
+                                        height: 100,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '2px solid #d9d9d9'
+                                    }}
+                                />
+                            </div>
+                        )}
+
                         <Card
                             title="Account Information"
                             type="inner"
@@ -957,6 +1067,11 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                         </Text>
                                     </div>
                                 </Descriptions.Item>
+                                {submittedData?.profilePictureUrl && (
+                                    <Descriptions.Item label="Profile Picture">
+                                        <Text type="success">Uploaded ✓</Text>
+                                    </Descriptions.Item>
+                                )}
                                 <Descriptions.Item label="Status">
                                     <Text type="success">Active</Text>
                                 </Descriptions.Item>

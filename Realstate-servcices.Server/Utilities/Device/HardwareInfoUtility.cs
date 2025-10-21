@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Management;
 using System.Text;
-
 namespace Realstate_servcices.Server.Utilities.Device
 {
     public class HardwareInfoUtility
@@ -171,7 +170,7 @@ namespace Realstate_servcices.Server.Utilities.Device
                 {
                     if (ulong.TryParse(obj["AvailablePhysicalMemory"]?.ToString(), out var availableMemory))
                     {
-                        return availableMemory / 1024; // Convert to MB
+                        return availableMemory / 1024; 
                     }
                 }
             }

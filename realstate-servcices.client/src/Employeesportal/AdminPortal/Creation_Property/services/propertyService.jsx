@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import propertyMapper from './PropertyMapper.jsx';
 
 const API_BASE_URL = '/api';
@@ -49,9 +49,9 @@ class PropertyService {
 
             const formData = new FormData();
             const propertyDto = {
-                title: propertyData.title,
+                title: propertyData.title?.trim(),
                 type: propertyData.type,
-                description: propertyData.description,
+                description: propertyData.description, // No trim to preserve formatting
                 price: propertyData.price,
                 status: propertyData.status,
                 listedDate: propertyData.listedDate,
@@ -184,18 +184,39 @@ class PropertyService {
         }
     }
 
-    // Get all properties
     async getAllProperties() {
         try {
+            console.log('🔍 Fetching all properties from API...');
             const response = await this.client.get('/CreationProperty');
+            console.log('📦 API Response structure:', {
+                status: response.status,
+                hasData: !!response.data,
+                dataKeys: response.data ? Object.keys(response.data) : 'no data',
+                success: response.data?.success,
+                propertiesCount: response.data?.properties?.length || 0
+            });
 
-            if (response.data && response.data.success) {
-                return propertyMapper.toFrontendList(response.data.properties);
+            if (response.data) {
+                // Handle different response structures
+                if (response.data.success && response.data.properties) {
+                    console.log('✅ Properties found:', response.data.properties.length);
+                    return response.data.properties;
+                } else if (Array.isArray(response.data)) {
+                    console.log('✅ Direct array response:', response.data.length);
+                    return response.data;
+                } else if (response.data.properties) {
+                    console.log('✅ Properties in data.properties:', response.data.properties.length);
+                    return response.data.properties;
+                } else {
+                    console.log('❌ Unexpected response structure:', response.data);
+                    return [];
+                }
             } else {
-                throw new Error(response.data.message || 'Failed to fetch properties');
+                console.log('❌ No data in response');
+                return [];
             }
         } catch (error) {
-            console.error('Error getting all properties:', error);
+            console.error('❌ Error fetching all properties:', error);
             throw error;
         }
     }

@@ -1,7 +1,6 @@
 ﻿using Realstate_servcices.Server.Dto.Device;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
 namespace Realstate_servcices.Server.Services.Device
 {
     public interface IDeviceInfoService

@@ -1,61 +1,42 @@
 // BaseChat.jsx
 import { Layout, ConfigProvider } from 'antd';
 import ChatPage from './ChatPage';
-import { GlobalNavigation } from '../Navigation/index'; // Remove Footer import
+import { GlobalNavigation } from '../Navigation/index';
+import { useLocation } from 'react-router-dom';
 
 const { Content } = Layout;
 
 const theme = {
     token: {
         colorPrimary: '#1B3C53',
-        borderRadius: 0, // Remove border radius globally
+        borderRadius: 0,
         colorBgContainer: '#ffffff',
         colorBgLayout: 'transparent',
-    },
-    components: {
-        Layout: {
-            bodyBg: 'transparent',
-            headerBg: '#ffffff',
-        },
     },
 };
 
 const BaseChat = () => {
+    const location = useLocation();
+    const propertyChatData = location.state?.propertyChat;
+
     return (
         <ConfigProvider theme={theme}>
             <Layout style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column'
+                height: '100vh',
+                overflow: 'hidden',
+                margin: 0,
+                padding: 0
             }}>
                 <GlobalNavigation />
                 <Content style={{
-                    background: 'transparent',
                     padding: 0,
                     margin: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    flex: 1,
-                    justifyContent: 'center', 
-                    alignItems: 'center' 
+                    height: 'calc(100vh - 64px)', 
+                    overflow: 'hidden',
+                    background: 'transparent'
                 }}>
-                    <div style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        padding: '0',
-                        margin: '0',
-                        width: '100%',
-                        maxWidth: '1400px', 
-                        overflow: 'hidden',
-                        justifyContent: 'center' 
-                    }}>
-                        <ChatPage />
-                    </div>
+                    <ChatPage propertyChatData={propertyChatData} />
                 </Content>
-          
             </Layout>
         </ConfigProvider>
     );

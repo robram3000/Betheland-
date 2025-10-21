@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.Wishlist;
-
 namespace Realstate_servcices.Server.Services.Wishlist
 {
     public interface IWishlistService

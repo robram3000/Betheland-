@@ -1,10 +1,38 @@
 import moment from 'moment';
 
+// Your image processing algorithm
+const processImageUrl = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+        return '/default-agent.jpg';
+    }
+
+    // Already full URL
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        return url;
+    }
+
+    // Server path - prepend base URL
+    if (url.startsWith('/uploads/')) {
+        return `https://localhost:7075${url}`;
+    }
+
+    // Relative path without leading slash
+    if (url.includes('.') && !url.startsWith('/')) {
+        return `https://localhost:7075/uploads/agents/${url}`;
+    }
+
+    // uploads/ path
+    if (url.startsWith('uploads/')) {
+        return `https://localhost:7075/${url}`;
+    }
+
+    return '/default-agent.jpg';
+};
+
 export const agentMapper = {
     toCreateRequest: (formData) => {
         console.log('DEBUG - Mapping to create request:', formData);
 
-        // Simple license expiry handling - just pass through whatever value we have
         const requestData = {
             firstName: formData.firstName,
             middleName: formData.middleName || '',
@@ -13,7 +41,7 @@ export const agentMapper = {
             cellPhoneNo: formData.cellPhoneNo,
             licenseNumber: formData.licenseNumber,
             bio: formData.bio || '',
-            licenseExpiry: formData.licenseExpiry || null, // Just pass through, let backend handle format
+            licenseExpiry: formData.licenseExpiry || null,
             experience: formData.experience || '',
             specialization: formData.specialization || '[]',
             officeAddress: formData.officeAddress || '',
@@ -27,12 +55,13 @@ export const agentMapper = {
             email: formData.email,
             username: formData.username,
             password: formData.password,
+            photourl: formData.photourl || formData.profilePictureUrl || '',
+            profilePictureUrl: formData.profilePictureUrl || formData.photourl || '',
         };
 
         console.log('DEBUG - Mapped create request:', requestData);
         return requestData;
     },
-
     toUpdateRequest: (formData) => {
         console.log('DEBUG - Mapping to update request:', formData);
 
@@ -44,28 +73,66 @@ export const agentMapper = {
             cellPhoneNo: formData.cellPhoneNo,
             licenseNumber: formData.licenseNumber,
             bio: formData.bio || '',
-            licenseExpiry: formData.licenseExpiry || null, 
+            licenseExpiry: formData.licenseExpiry
+                ? (typeof formData.licenseExpiry === 'string'
+                    ? formData.licenseExpiry
+                    : formData.licenseExpiry.format('YYYY-MM-DD'))
+                : null,
             experience: formData.experience || '',
-            specialization: formData.specialization || '[]',
+            specialization: Array.isArray(formData.specialization)
+                ? JSON.stringify(formData.specialization)
+                : (formData.specialization || '[]'),
             officeAddress: formData.officeAddress || '',
             officePhone: formData.officePhone || '',
             website: formData.website || '',
-            languages: formData.languages || '',
+            languages: Array.isArray(formData.languages)
+                ? JSON.stringify(formData.languages)
+                : (formData.languages || '[]'),
             education: formData.education || '',
             awards: formData.awards || '',
             yearsOfExperience: formData.yearsOfExperience || 0,
             brokerageName: formData.brokerageName || '',
             isVerified: formData.isVerified || false,
+            profilePictureUrl: formData.profilePictureUrl || formData.photourl || ''
         };
 
         if (formData.password) {
             updateData.password = formData.password;
         }
 
-        console.log('DEBUG - Mapped update request:', updateData);
         return updateData;
     },
     toFrontend: (backendData) => {
+        // Process image URL using your algorithm
+        let profilePictureUrl = processImageUrl(backendData.profilePictureUrl || backendData.photourl || '');
+
+        // Parse specialization and languages
+        let specialization = [];
+        if (backendData.specialization) {
+            if (typeof backendData.specialization === 'string') {
+                try {
+                    specialization = JSON.parse(backendData.specialization);
+                } catch (e) {
+                    specialization = backendData.specialization.split(',').map(s => s.trim());
+                }
+            } else {
+                specialization = backendData.specialization;
+            }
+        }
+
+        let languages = [];
+        if (backendData.languages) {
+            if (typeof backendData.languages === 'string') {
+                try {
+                    languages = JSON.parse(backendData.languages);
+                } catch (e) {
+                    languages = backendData.languages.split(',').map(l => l.trim());
+                }
+            } else {
+                languages = backendData.languages;
+            }
+        }
+
         return {
             id: backendData.id,
             baseMemberId: backendData.baseMemberId,
@@ -80,15 +147,11 @@ export const agentMapper = {
             bio: backendData.bio,
             licenseExpiry: backendData.licenseExpiry ? moment(backendData.licenseExpiry) : null,
             experience: backendData.experience,
-            specialization: backendData.specialization ?
-                (typeof backendData.specialization === 'string'
-                    ? JSON.parse(backendData.specialization)
-                    : backendData.specialization)
-                : [],
+            specialization: specialization,
             officeAddress: backendData.officeAddress,
             officePhone: backendData.officePhone,
             website: backendData.website,
-            languages: backendData.languages,
+            languages: languages,
             education: backendData.education,
             awards: backendData.awards,
             yearsOfExperience: backendData.yearsOfExperience,
@@ -98,7 +161,7 @@ export const agentMapper = {
             status: backendData.status,
             createdAt: backendData.createdAt,
             dateRegistered: backendData.dateRegistered,
-            profilePictureUrl: backendData.profilePictureUrl,
+            profilePictureUrl: profilePictureUrl,
         };
     },
 

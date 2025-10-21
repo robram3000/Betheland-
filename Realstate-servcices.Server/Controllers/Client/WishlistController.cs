@@ -167,7 +167,6 @@ namespace Realstate_servcices.Server.Controllers.Client
                 if (!int.TryParse(userIdClaim, out int userId))
                     return BadRequest("Invalid user ID");
 
-                // Find client associated with this user
                 var client = await _context.Clients
                     .FirstOrDefaultAsync(c => c.BaseMemberId == userId);
 

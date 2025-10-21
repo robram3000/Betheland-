@@ -1,277 +1,481 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Tag, Typography, Space, Divider, Button, message, Avatar, Skeleton, Row, Col, Tooltip, Empty } from 'antd';
+import { Card, Typography, Space, Button, message, Avatar, Skeleton, Row, Col, Tooltip, Modal, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useWishlistData } from './Services/WishlistAdded';
 import { useUser } from '../Authpage/Services/UserContextService';
-import { agentService } from './Services/GetAgent';
+import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
 
-// Import from React Icons instead of Ant Design
+// React Icons
 import {
     FaHeart,
     FaRegHeart,
     FaCalendarAlt,
     FaComments,
     FaEye,
-    FaUser,
-    FaPhone,
-    FaEnvelope,
+    FaBed,
+    FaBath,
     FaCar,
-    FaCoffee,
     FaHome,
-    FaBed, // For bedrooms
-    FaBath, // For bathrooms
     FaMapMarkerAlt,
-    FaShower,
-    FaHotTub,
     FaStar,
-    FaCrown,
-    FaTrophy,
-    FaGift,
-    FaRocket,
-    FaBolt,
-    FaLightbulb,
-    FaTools,
-    FaCog,
-    FaBuilding,
-    FaBox
+    FaChevronLeft,
+    FaChevronRight,
+    FaTimes,
+    FaUtensils
 } from 'react-icons/fa';
 
-const { Title, Text } = Typography;
-
-// Custom SVG bath icons component (optional - you can use FaIcons instead)
-const CustomBathIcons = {
-    Bathtub: ({ size = 16, color = "currentColor" }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-            <path d="M20,12H4V4H20M20,2H4C2.9,2,2,2.9,2,4V12C2,13.1,2.9,14,4,14H8V16H4V18H8C9.1,18,10,17.1,10,16V14H14V16C14,17.1,14.9,18,16,18H20V16H16V14H20C21.1,14,22,13.1,22,12V4C22,2.9,21.1,2,20,2Z" />
-        </svg>
-    ),
-    Shower: ({ size = 16, color = "currentColor" }) => (
-        <FaShower size={size} color={color} />
-    ),
-    WaterDrop: ({ size = 16, color = "currentColor" }) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-            <path d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" />
-        </svg>
-    ),
-    Spa: ({ size = 16, color = "currentColor" }) => (
-        <FaHotTub size={size} color={color} />
-    )
-};
+const { Text, Title } = Typography;
 
 const PropertyCard = ({
     property,
     onScheduleTour,
     onChat,
-    showActions = true
+    showActions = true,
+    viewMode = 'grid'
 }) => {
     const navigate = useNavigate();
     const { isAuthenticated } = useUser();
     const {
         toggleWishlist,
         isPropertyInWishlist,
-        loading: wishlistLoading,
         wishlistPropertyIds,
         refreshWishlist
     } = useWishlistData();
 
     const [isFavorite, setIsFavorite] = useState(false);
-    const [isCheckingWishlist, setIsCheckingWishlist] = useState(true);
     const [isToggling, setIsToggling] = useState(false);
-    const [showLoading, setShowLoading] = useState(false);
     const [agent, setAgent] = useState(null);
     const [loadingAgent, setLoadingAgent] = useState(false);
     const [imageError, setImageError] = useState(false);
-    const [agentImageError, setAgentImageError] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [galleryImageIndex, setGalleryImageIndex] = useState(0);
 
-    // Add agent caching
-    const [agentCache, setAgentCache] = useState({});
+    // Swipe functionality state
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
 
-    // Validate property data - Enhanced validation
+    // Validate property data
     const isValidProperty = property && property.id && property.title;
+
+    // Get all property images
+    const getPropertyImages = () => {
+        const images = [];
+
+        // Add main image if available
+        if (property.mainImage) {
+            images.push(property.mainImage);
+        }
+
+        // Add property images array if available
+        if (property.propertyImages && Array.isArray(property.propertyImages)) {
+            property.propertyImages.forEach(img => {
+                if (img.imageUrl) images.push(img.imageUrl);
+            });
+        }
+
+        // Add imageUrls array if available
+        if (property.imageUrls && Array.isArray(property.imageUrls)) {
+            property.imageUrls.forEach(url => {
+                if (url) images.push(url);
+            });
+        }
+
+        // Remove duplicates and return
+        const uniqueImages = [...new Set(images.filter(img => img && img.trim() !== ''))];
+        return uniqueImages.length > 0 ? uniqueImages : ['/default-property.jpg'];
+    };
+
+    const propertyImages = getPropertyImages();
+    const hasMultipleImages = propertyImages.length > 1;
+
+    // Get amenities for display - MAX 3 AMENITIES
+    const getDisplayAmenities = () => {
+        if (!property.amenities || !Array.isArray(property.amenities)) return [];
+
+        // Return only first 3 amenities for display
+        return property.amenities.slice(0, 3);
+    };
+
+    const displayAmenities = getDisplayAmenities();
+    const hasMoreAmenities = property.amenities && property.amenities.length > 3;
+
+    // Touch swipe handlers
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > 50;
+        const isRightSwipe = distance < -50;
+
+        if (isLeftSwipe && hasMultipleImages) {
+            nextImage();
+        } else if (isRightSwipe && hasMultipleImages) {
+            prevImage();
+        }
+
+        setTouchStart(null);
+        setTouchEnd(null);
+    };
+
+    // Mouse drag handlers for desktop
+    const [mouseStart, setMouseStart] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleMouseDown = (e) => {
+        setIsDragging(true);
+        setMouseStart(e.clientX);
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        setTouchEnd(e.clientX);
+    };
+
+    const handleMouseUp = () => {
+        if (!mouseStart || !touchEnd) {
+            setIsDragging(false);
+            return;
+        }
+
+        const distance = mouseStart - touchEnd;
+        const isLeftSwipe = distance > 50;
+        const isRightSwipe = distance < -50;
+
+        if (isLeftSwipe && hasMultipleImages) {
+            nextImage();
+        } else if (isRightSwipe && hasMultipleImages) {
+            prevImage();
+        }
+
+        setIsDragging(false);
+        setMouseStart(null);
+        setTouchEnd(null);
+    };
+
+    // Navigation functions for image slider
+    const nextImage = (e) => {
+        if (e) e.stopPropagation();
+        setCurrentImageIndex((prevIndex) =>
+            prevIndex === propertyImages.length - 1 ? 0 : prevIndex + 1
+        );
+    };
+
+    const prevImage = (e) => {
+        if (e) e.stopPropagation();
+        setCurrentImageIndex((prevIndex) =>
+            prevIndex === 0 ? propertyImages.length - 1 : prevIndex - 1
+        );
+    };
+
+    // Gallery navigation functions
+    const nextGalleryImage = () => {
+        setGalleryImageIndex((prevIndex) =>
+            prevIndex === propertyImages.length - 1 ? 0 : prevIndex + 1
+        );
+    };
+
+    const prevGalleryImage = () => {
+        setGalleryImageIndex((prevIndex) =>
+            prevIndex === 0 ? propertyImages.length - 1 : prevIndex - 1
+        );
+    };
+
+    // Open gallery modal
+    const openGallery = (e) => {
+        e.stopPropagation();
+        setGalleryImageIndex(currentImageIndex);
+        setIsGalleryOpen(true);
+    };
+
+    // Close gallery modal
+    const closeGallery = () => {
+        setIsGalleryOpen(false);
+    };
+
+    // Reset image index when property changes
+    useEffect(() => {
+        setCurrentImageIndex(0);
+    }, [property?.id]);
+
+    // Keyboard navigation for gallery
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!isGalleryOpen) return;
+
+            if (e.key === 'ArrowRight') {
+                nextGalleryImage();
+            } else if (e.key === 'ArrowLeft') {
+                prevGalleryImage();
+            } else if (e.key === 'Escape') {
+                closeGallery();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isGalleryOpen]);
 
     // Helper functions
     const getAgentName = (agent) => {
         if (!agent) return 'Agent Not Assigned';
-
         const nameParts = [
             agent.firstName,
             agent.middleName,
             agent.lastName,
-            agent.suffix
         ].filter(part => part && part.trim() !== '');
-
         return nameParts.join(' ').trim() || 'Agent Not Assigned';
     };
 
-    const getAgentContactInfo = (agent) => {
-        if (!agent) {
-            return {
-                phone: 'Not available',
-                email: 'Not available',
-                specialization: 'Not specified'
-            };
-        }
-
-        // Enhanced contact info extraction
-        const phone = agent.cellPhoneNo ||
-            agent.phoneNumber ||
-            agent.baseMember?.phoneNumber ||
-            'Not available';
-
-        const email = agent.email ||
-            agent.baseMember?.email ||
-            'Not available';
-
-        return {
-            phone: phone,
-            email: email,
-            specialization: agent.specialization || 'Not specified'
+    // Get property type color
+    const getPropertyTypeColor = (type) => {
+        const typeColors = {
+            residential: 'blue',
+            commercial: 'green',
+            industrial: 'orange',
+            land: 'brown',
+            rental: 'purple',
+            sale: 'red',
+            apartment: 'geekblue',
+            house: 'cyan',
+            default: 'gray'
         };
+        return typeColors[type?.toLowerCase()] || typeColors.default;
     };
 
-    // Helper function to format full address with zipcode, province, country
-    const getFullAddress = (property) => {
+    // Get property type display name - FIXED: Use propertyType if available
+    const getPropertyTypeDisplay = () => {
+        // Prefer propertyType over type
+        const type = property.propertyType || property.type;
+
+        const typeNames = {
+            residential: 'Residential',
+            commercial: 'Commercial',
+            industrial: 'Industrial',
+            land: 'Land',
+            rental: 'For Rent',
+            sale: 'For Sale',
+            apartment: 'Apartment',
+            house: 'House',
+            default: 'Property'
+        };
+        return typeNames[type?.toLowerCase()] || typeNames.default;
+    };
+
+    // Format complete address
+    const formatCompleteAddress = () => {
         const addressParts = [
             property.address,
             property.city,
             property.state,
-            property.zipCode,
-            property.country
+            property.zipCode
         ].filter(part => part && part.trim() !== '');
 
-        return addressParts.join(', ') || 'Location not specified';
+        return addressParts.join(', ') || 'Address not specified';
     };
 
-    // Function to get bath icon based on bathroom count
-    const getBathIcon = (bathroomCount) => {
-        const bathIcons = [
-            // For 1 bathroom - simple icons
-            () => <FaBath size={12} />,
-            () => <CustomBathIcons.WaterDrop />,
-            () => <FaShower size={12} />,
-
-            // For 2 bathrooms - medium luxury
-            () => <FaStar size={12} />,
-            () => <CustomBathIcons.Shower />,
-            () => <FaLightbulb size={12} />,
-
-            // For 3+ bathrooms - premium icons
-            () => <FaTrophy size={12} />,
-            () => <FaCrown size={12} />,
-            () => <CustomBathIcons.Bathtub />,
-            () => <FaGift size={12} />,
-            () => <CustomBathIcons.Spa />,
-            () => <FaRocket size={12} />,
-            () => <FaBolt size={12} />,
-        ];
-
-        const iconIndex = Math.min(bathroomCount - 1, bathIcons.length - 1);
-        const BathIcon = bathIcons[Math.max(iconIndex, 0)];
-
-        return <BathIcon />;
+    // Image processing
+    const processImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return '/default-property.jpg';
+        }
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+        return '/default-property.jpg';
     };
 
-    // DEBUG: Add logging to see what's happening
-    useEffect(() => {
-        console.log('DEBUG - PropertyCard mounted:', {
-            propertyId: property?.id,
-            agentId: property?.agentId,
-            hasAgentInProp: !!property?.agent,
-            agentData: property?.agent
-        });
-    }, [property]);
+    // Process agent image URL
+    const processAgentImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return '/default-avatar.jpg';
+        }
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/agents/${url}`;
+        }
+        return '/default-avatar.jpg';
+    };
 
-    // Enhanced fetchAgent function with better error handling
-    const fetchAgent = useCallback(async () => {
-        if (!property?.agentId) {
-            console.log("DEBUG - No agent ID provided:", property?.agentId);
-            setAgent(null);
+    // Price formatting - Philippine Pesos
+    const formatPrice = (price) => {
+        if (!price && price !== 0) return 'Price on request';
+        const priceNum = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, "")) : price;
+        return `₱${priceNum.toLocaleString()}`;
+    };
+
+    // Area formatting
+    const formatArea = (areaSqm) => {
+        if (!areaSqm) return '0 sqm';
+        const hectares = areaSqm / 10000;
+        if (hectares >= 1) {
+            return `${hectares.toFixed(2)}ha • Lifestyle`;
+        }
+        return `${areaSqm.toLocaleString()} sqm`;
+    };
+
+    // Get brokerage name
+    const getBrokerageName = () => {
+        if (agent?.brokerageName) {
+            return agent.brokerageName;
+        }
+        return 'Real Estate';
+    };
+
+    // Wishlist handler
+    const handleToggleFavorite = async (e, propertyId, isCurrentlyFavorite) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        if (!isValidProperty) return;
+        if (!isAuthenticated) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=add to wishlist`);
             return;
         }
 
-        // Check cache first to prevent unnecessary API calls
-        if (agentCache[property.agentId]) {
-            console.log("DEBUG - Using cached agent:", agentCache[property.agentId]);
-            setAgent(agentCache[property.agentId]);
+        try {
+            setIsToggling(true);
+            setIsFavorite(!isCurrentlyFavorite);
+            await toggleWishlist(propertyId, !isCurrentlyFavorite);
+            await refreshWishlist();
+            message.success(!isCurrentlyFavorite ? 'Added to wishlist' : 'Removed from wishlist');
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+            message.error('Failed to update wishlist');
+            setIsFavorite(isCurrentlyFavorite);
+        } finally {
+            setIsToggling(false);
+        }
+    };
+
+    // Action handlers
+    const handleScheduleTour = (e) => {
+        e.stopPropagation();
+        if (!isValidProperty) {
+            message.warning('Invalid property data');
+            return;
+        }
+        if (!isAuthenticated) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=schedule a tour`);
+            return;
+        }
+        if (onScheduleTour) {
+            onScheduleTour({
+                ...property,
+                agent: agent
+            });
+        }
+    };
+
+    const handleChat = (e) => {
+        e.stopPropagation();
+        if (!isValidProperty) {
+            message.warning('Invalid property data');
+            return;
+        }
+        if (!isAuthenticated) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=chat with agent`);
+            return;
+        }
+        if (onChat) {
+            onChat(property);
+        }
+    };
+
+    const handleViewDetails = (e) => {
+        e.stopPropagation();
+        if (isValidProperty) {
+            console.log('DEBUG - View details clicked, navigating with property ID:', property.id);
+
+            navigate('/properties/view', {
+                state: {
+                    propertyId: property.id
+                }
+            });
+        }
+    };
+
+    const handleCardClick = () => {
+        if (isValidProperty) {
+            console.log('DEBUG - Card clicked, navigating with property ID:', property.id);
+
+            navigate('/properties/view', {
+                state: {
+                    propertyId: property.id
+                }
+            });
+        }
+    };
+
+    // Fetch agent data
+    const fetchAgent = useCallback(async () => {
+        if (!property?.agentId) {
+            console.log('No agentId found for property:', property?.id);
+            setAgent(null);
             return;
         }
 
         try {
             setLoadingAgent(true);
-            console.log("DEBUG - Fetching agent with ID:", property.agentId);
+            console.log('Fetching agent for property:', property.id, 'agentId:', property.agentId);
 
-            // Use the enhanced agent service with fallbacks
-            let agentData = await agentService.getAgentWithFallback(property.agentId);
-
-            console.log("DEBUG - Agent data received:", agentData);
-
-            if (agentData) {
-                setAgent(agentData);
-                // Update cache
-                setAgentCache(prev => ({
-                    ...prev,
-                    [property.agentId]: agentData
-                }));
-            } else {
-                console.log("DEBUG - No agent data found for ID:", property.agentId);
-                setAgent(null);
-            }
-        } catch (error) {
-            console.error('Error fetching agent:', error);
-            setAgent(null);
-        } finally {
-            setLoadingAgent(false);
-        }
-    }, [property?.agentId, agentCache]);
-
-    // Enhanced agent handling with multiple fallbacks
-    useEffect(() => {
-        if (!isValidProperty) return;
-
-        console.log('DEBUG - Agent handling effect:', {
-            agentId: property.agentId,
-            hasAgentInProperty: !!property.agent,
-            currentAgent: agent
-        });
-
-        // If agent data is already in property, use it
-        if (property.agent && property.agent.id === property.agentId) {
-            console.log('DEBUG - Using agent from property data');
-            setAgent(property.agent);
-            // Update cache
-            setAgentCache(prev => ({
-                ...prev,
-                [property.agentId]: property.agent
-            }));
-        }
-        // If we have agentId but no agent data, fetch it
-        else if (property.agentId && !agent) {
-            console.log('DEBUG - Fetching agent data');
-            fetchAgent();
-        }
-        // If no agentId, set agent to null
-        else if (!property.agentId) {
-            console.log('DEBUG - No agent ID, setting agent to null');
-            setAgent(null);
-        }
-    }, [property, agent, fetchAgent, isValidProperty]);
-
-    // Enhanced wishlist status checking
-    useEffect(() => {
-        const checkWishlistStatus = async () => {
-            if (!property?.id) {
-                setIsCheckingWishlist(false);
+            // First, check if we already have valid agent data in the property
+            if (property.agent && property.agent.id && property.agent.firstName) {
+                console.log('Using agent data from property object:', property.agent);
+                setAgent(property.agent);
                 return;
             }
 
-            try {
-                setIsCheckingWishlist(true);
+            // Try to fetch agent data
+            const agentData = await agentService.getAgentWithFallback(property.agentId);
 
-                // Always check local first for immediate response
+            if (agentData && agentData.id) {
+                console.log('Agent data fetched successfully:', agentData);
+                setAgent(agentData);
+            } else {
+                console.warn('No agent data found, setting to fallback');
+                setAgent(agentService.getFallbackAgent(property.agentId));
+            }
+        } catch (error) {
+            console.error('Error fetching agent:', error);
+            // Set fallback agent
+            setAgent(agentService.getFallbackAgent(property.agentId));
+        } finally {
+            setLoadingAgent(false);
+        }
+    }, [property?.agentId, property?.agent]);
+
+    // Wishlist status
+    useEffect(() => {
+        const checkWishlistStatus = async () => {
+            if (!property?.id) return;
+
+            try {
                 const localCheck = wishlistPropertyIds?.includes(property.id);
                 setIsFavorite(localCheck);
 
-                // Then verify with server if authenticated
                 if (isAuthenticated) {
                     try {
                         const serverCheck = await isPropertyInWishlist(property.id);
@@ -279,17 +483,13 @@ const PropertyCard = ({
                             setIsFavorite(serverCheck);
                         }
                     } catch (serverError) {
-                        console.warn('Server wishlist check failed, using local:', serverError);
-                        // Keep local state if server check fails
+                        console.warn('Server wishlist check failed:', serverError);
                     }
                 }
             } catch (error) {
                 console.error('Error checking wishlist status:', error);
-                // Fallback to local check
                 const localCheck = wishlistPropertyIds?.includes(property.id);
                 setIsFavorite(localCheck);
-            } finally {
-                setIsCheckingWishlist(false);
             }
         };
 
@@ -298,801 +498,818 @@ const PropertyCard = ({
         }
     }, [property?.id, isPropertyInWishlist, isAuthenticated, wishlistPropertyIds, isValidProperty]);
 
-    const handleCardClick = () => {
-        if (isValidProperty) {
-            navigate('/properties/view', { state: { property, agent } });
+    // Agent handling
+    useEffect(() => {
+        if (!isValidProperty) return;
+
+        console.log('PropertyCard - Agent handling effect:', {
+            propertyId: property.id,
+            agentId: property.agentId,
+            hasAgentData: !!property.agent,
+            currentAgent: agent
+        });
+
+        if (property.agent && property.agent.id === property.agentId) {
+            console.log('Using agent data from property');
+            setAgent(property.agent);
+        } else if (property.agentId && !agent) {
+            console.log('Fetching agent data');
+            fetchAgent();
+        } else if (!property.agentId) {
+            console.log('No agent ID, setting agent to null');
+            setAgent(null);
+        }
+    }, [property, agent, fetchAgent, isValidProperty]);
+
+    // Layout configuration based on view mode
+    const getCardLayout = () => {
+        switch (viewMode) {
+            case 'landscape':
+                return {
+                    cardStyle: {
+                        width: '100%',
+                        display: 'flex',
+                        flexDirection: 'row',
+                        height: '100%',
+                        overflow: 'hidden'
+                    },
+                    imageStyle: {
+                        width: '40%',
+                        height: '100%',
+                        minWidth: '250px'
+                    },
+                    contentStyle: {
+                        width: '60%',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                    },
+                    featuresStyle: {
+                        display: 'flex',
+                        gap: '12px',
+                        marginBottom: '12px',
+                        padding: '12px 0',
+                        borderTop: '1px solid #f0f0f0',
+                        borderBottom: '1px solid #f0f0f0',
+                        flexWrap: 'wrap'
+                    }
+                };
+            default: // grid
+                return {
+                    cardStyle: {
+                        width: '100%',
+                        height: 'auto'
+                    },
+                    imageStyle: {
+                        height: '280px'
+                    },
+                    contentStyle: {
+                        padding: '16px'
+                    },
+                    featuresStyle: {
+                        display: 'flex',
+                        gap: '16px',
+                        marginBottom: '16px',
+                        padding: '12px 0',
+                        borderTop: '1px solid #f0f0f0',
+                        borderBottom: '1px solid #f0f0f0',
+                        flexWrap: 'wrap'
+                    }
+                };
         }
     };
 
-    const getSpecializationDisplay = (specialization) => {
-        if (!specialization) return 'Not specified';
+    const layout = getCardLayout();
 
-        try {
-            if (Array.isArray(specialization)) {
-                return specialization.join(', ');
-            }
-
-            if (typeof specialization === 'string') {
-                if (specialization.startsWith('[')) {
-                    const parsed = JSON.parse(specialization);
-                    return Array.isArray(parsed) ? parsed.join(', ') : specialization;
-                }
-                return specialization;
-            }
-
-            return 'Not specified';
-        } catch (error) {
-            console.error('Error parsing specialization:', error);
-            return 'Not specified';
-        }
-    };
-
-    const getAmenities = () => {
-        if (!property?.amenities) return [];
-
-        try {
-            if (Array.isArray(property.amenities)) {
-                return property.amenities.filter(amenity => amenity && amenity.trim() !== '');
-            }
-
-            if (typeof property.amenities === 'string') {
-                if (property.amenities.startsWith('[')) {
-                    const parsed = JSON.parse(property.amenities);
-                    return Array.isArray(parsed) ? parsed.filter(a => a && a.trim() !== '') : [];
-                }
-
-                // Handle comma-separated string
-                return property.amenities.split(',').map(item => item.trim()).filter(item => item !== '');
-            }
-
-            return [];
-        } catch (error) {
-            console.error('Error parsing amenities:', error);
-            return [];
-        }
-    };
-
-    const requireAuth = (actionName = 'perform this action') => {
-        if (!isAuthenticated) {
-            const returnUrl = window.location.pathname + window.location.search;
-            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent(actionName)}`);
-            return false;
-        }
-        return true;
-    };
-
-    const handleToggleFavorite = async (e, propertyId, isCurrentlyFavorite) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        if (isWishlistButtonDisabled || !isValidProperty) {
-            return;
-        }
-
-        if (!requireAuth('add to wishlist')) {
-            return;
-        }
-
-        try {
-            setIsToggling(true);
-            setShowLoading(true);
-
-            // Optimistic update
-            setIsFavorite(!isCurrentlyFavorite);
-
-            await toggleWishlist(propertyId, !isCurrentlyFavorite);
-            await refreshWishlist();
-
-            message.success(!isCurrentlyFavorite ? 'Added to wishlist' : 'Removed from wishlist');
-        } catch (error) {
-            console.error('Error updating wishlist:', error);
-            message.error('Failed to update wishlist');
-            // Revert optimistic update
-            setIsFavorite(isCurrentlyFavorite);
-        } finally {
-            setIsToggling(false);
-            setShowLoading(false);
-        }
-    };
-
-    const handleScheduleTour = (e) => {
-        e.stopPropagation();
-
-        if (!isValidProperty) {
-            message.warning('Invalid property data');
-            return;
-        }
-
-        if (!requireAuth('schedule a tour')) {
-            return;
-        }
-
-        if (onScheduleTour) {
-            onScheduleTour({
-                ...property,
-                agent: agent
-            });
-        } else {
-            navigate('/schedule', { state: { property, agent } });
-        }
-    };
-
-    const handleChat = (e) => {
-        e.stopPropagation();
-
-        if (!isValidProperty) {
-            message.warning('Invalid property data');
-            return;
-        }
-
-        if (!requireAuth('chat with agent')) {
-            return;
-        }
-
-        if (onChat) {
-            onChat(property);
-        } else {
-            navigate('/messages', { state: { property, agent } });
-        }
-    };
-
-    const handleViewDetails = (e) => {
-        e.stopPropagation();
-        if (isValidProperty) {
-            navigate('/properties/view', { state: { property, agent } });
-        } else {
-            message.warning('Invalid property data');
-        }
-    };
-
-    const handleCallAgent = (e) => {
-        e.stopPropagation();
-
-        const contactInfo = getAgentContactInfo(agent);
-        if (contactInfo.phone === 'Not available') {
-            message.warning('No phone number available for this agent');
-            return;
-        }
-
-        if (!requireAuth('call agent')) {
-            return;
-        }
-
-        window.open(`tel:${contactInfo.phone}`);
-    };
-
-    const handleEmailAgent = (e) => {
-        e.stopPropagation();
-
-        const contactInfo = getAgentContactInfo(agent);
-        if (contactInfo.email === 'Not available') {
-            message.warning('No email available for this agent');
-            return;
-        }
-
-        if (!requireAuth('email agent')) {
-            return;
-        }
-
-        window.open(`mailto:${contactInfo.email}`);
-    };
-
-    const formatPesoPrice = (price) => {
-        if (!price && price !== 0) return 'Price on request';
-
-        const priceNum = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, "")) : price;
-
-        if (priceNum >= 1000000) {
-            return `₱${(priceNum / 1000000).toFixed(1)}M`;
-        } else if (priceNum >= 1000) {
-            return `₱${(priceNum / 1000).toFixed(0)}K`;
-        }
-        return `₱${priceNum.toLocaleString()}`;
-    };
-
-    const getStatusColor = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'available':
-                return 'green';
-            case 'sold':
-                return 'red';
-            case 'pending':
-                return 'orange';
-            case 'rented':
-                return 'blue';
-            default:
-                return 'default';
-        }
-    };
-
-    const getStatusText = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'available':
-                return 'Available';
-            case 'sold':
-                return 'Sold';
-            case 'pending':
-                return 'Pending';
-            case 'rented':
-                return 'Rented';
-            default:
-                return status || 'Available';
-        }
-    };
-
-    // FIXED: Improved image URL processing
-    const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-property.jpg';
-        }
-
-        // Already full URL
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-
-        // Server path - prepend base URL
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-
-        // Relative path without leading slash
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-
-        //uploads/ path
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-
-        return '/default-property.jpg';
-    };
-
-    // FIXED: Improved agent image URL processing
-    const processAgentImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-avatar.jpg';
-        }
-
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/agents/${url}`;
-        }
-
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-
-        return '/default-avatar.jpg';
-    };
-
-    const formatPhoneNumber = (phone) => {
-        if (!phone || phone === 'Not available') return 'Not available';
-
-        const cleaned = phone.replace(/\D/g, '');
-
-        if (cleaned.length === 10) {
-            return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-        }
-
-        if (cleaned.length === 11 && cleaned.startsWith('1')) {
-            return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
-        }
-
-        return phone;
-    };
-
-    const convertToSqm = (sqft) => {
-        if (!sqft) return 0;
-        const sqftNum = typeof sqft === 'string' ? parseFloat(sqft) : sqft;
-        return Math.round(sqftNum * 0.092903);
-    };
-
-    // Return empty card for invalid properties
     if (!isValidProperty) {
-        return (
-            <Card
-                style={{
-                    height: '350px',
-                    border: '1px dashed #d9d9d9',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-            >
-                <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Invalid property data"
-                />
-            </Card>
-        );
+        return null;
     }
 
-    // Enhanced property data extraction
-    const mainImage = property.mainImage ||
-        (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
-        (property.imageUrls && property.imageUrls[0]) ||
-        '/default-property.jpg';
-
-    const processedImage = processImageUrl(mainImage);
-
+    const currentImage = propertyImages[currentImageIndex];
+    const processedImage = processImageUrl(currentImage);
     const agentName = getAgentName(agent);
-    const contactInfo = getAgentContactInfo(agent);
-    const agentImage = agent ? processAgentImageUrl(agent.profilePictureUrl || agent.baseMember?.profilePictureUrl) : '/default-avatar.jpg';
-
-    // Enhanced area calculation
-    const areaSqm = convertToSqm(property.areaSqft || property.squareFeet || property.areaSqm || 0);
-
-    const amenities = getAmenities();
-    const displayAmenities = amenities.slice(0, 3);
-    const hasMoreAmenities = amenities.length > 3;
-
-    const isWishlistButtonDisabled = wishlistLoading || isToggling || isCheckingWishlist || !property?.id;
-
-    // DEBUG: Log final agent state
-    console.log('DEBUG - Final agent display state:', {
-        agentId: property.agentId,
-        agent,
-        agentName,
-        contactInfo,
-        loadingAgent
-    });
+    const areaSqm = property.areaSqm || 0;
+    const completeAddress = formatCompleteAddress();
+    const brokerageName = getBrokerageName();
+    const propertyTypeDisplay = getPropertyTypeDisplay();
 
     return (
-        <Card
-            hoverable
-            style={{
-                height: '350px',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                border: '1px solid #e2e8f0',
-                borderRadius: '16px',
-                overflow: 'hidden'
-            }}
-            bodyStyle={{ padding: '16px', height: '100%' }}
-        >
-            <Row gutter={16} style={{ height: '100%' }}>
-                <Col span={8}>
-                    <div style={{ position: 'relative', height: '100%' }}>
+        <>
+            <Card
+                hoverable
+                style={{
+                    ...layout.cardStyle,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    borderRadius: '12px', // Rounded corners
+                    marginBottom: '0'
+                }}
+                bodyStyle={{ padding: '0' }}
+                onClick={handleCardClick}
+            >
+                {/* Top Section with Agent Photo and Branding - Only for Grid View */}
+                {viewMode === 'grid' && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        backgroundColor: '#f8fafc',
+                        borderBottom: '1px solid #e2e8f0'
+                    }}>
+                        {/* Left side - Agent info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {loadingAgent ? (
+                                <Skeleton.Avatar active size={40} />
+                            ) : (
+                                <Avatar
+                                    size={40}
+                                    src={agent?.profilePictureUrl ? processAgentImageUrl(agent.profilePictureUrl) : null}
+                                    style={{
+                                        backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
+                                        border: '2px solid #1B3C53'
+                                    }}
+                                >
+                                    {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
+                                </Avatar>
+                            )}
+                            <div>
+                                {loadingAgent ? (
+                                    <Skeleton.Input active size="small" style={{ width: 120, height: 16 }} />
+                                ) : (
+                                    <Text strong style={{ fontSize: '14px', color: '#1B3C53', display: 'block' }}>
+                                        {agentName}
+                                    </Text>
+                                )}
+                                <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                                    Real Estate Agent
+                                </Text>
+                            </div>
+                        </div>
+
+                        {/* Right side - Brokerage Name */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontFamily: 'Arial, sans-serif'
+                        }}>
+                            <div style={{
+                                width: '24px',
+                                height: '24px',
+                                backgroundColor: '#1B3C53',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                            }}>
+                                {brokerageName.charAt(0).toUpperCase()}
+                            </div>
+                            <Text strong style={{
+                                fontSize: '16px',
+                                color: '#1B3C53',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {brokerageName}
+                            </Text>
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Content Container */}
+                <div style={viewMode === 'landscape' ? {
+                    display: 'flex',
+                    width: '100%',
+                    height: '100%'
+                } : {}}>
+
+                    {/* Image Section with Swipe Support */}
+                    <div
+                        style={{
+                            position: 'relative',
+                            ...layout.imageStyle,
+                            overflow: 'hidden',
+                            backgroundColor: '#f8fafc',
+                            flexShrink: 0,
+                            cursor: isDragging ? 'grabbing' : 'grab'
+                        }}
+                        className="image-section"
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
                         <img
                             alt={property.title}
                             src={imageError ? '/default-property.jpg' : processedImage}
                             style={{
-                                height: '100%',
                                 width: '100%',
+                                height: '100%',
                                 objectFit: 'cover',
-                                borderRadius: '8px',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                display: 'block',
+                                transition: isDragging ? 'none' : 'transform 0.3s ease',
+                                userSelect: 'none'
                             }}
-                            onClick={handleCardClick}
+                            onClick={openGallery}
                             onError={(e) => {
                                 if (!imageError) {
                                     setImageError(true);
                                     e.target.src = '/default-property.jpg';
                                 }
                             }}
-                            onLoad={() => setImageError(false)}
+                            onMouseEnter={(e) => {
+                                if (!isDragging) {
+                                    e.target.style.transform = 'scale(1.05)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)';
+                            }}
+                            draggable="false"
                         />
+
+                        {/* Property Type Badge - FIXED: Now properly displays property type */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '12px',
+                            left: '12px',
+                            zIndex: 5
+                        }}>
+                            <Tag
+                                color={getPropertyTypeColor(property.propertyType || property.type)}
+                                style={{
+                                    borderRadius: '6px',
+                                    fontWeight: '500',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                {propertyTypeDisplay}
+                            </Tag>
+                        </div>
+
+                        {/* Image Navigation Dots - Mobile Friendly */}
+                        {hasMultipleImages && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: '12px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                display: 'flex',
+                                gap: '6px',
+                                zIndex: 5
+                            }}>
+                                {propertyImages.map((_, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: index === currentImageIndex ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentImageIndex(index);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Image Navigation Arrows - Hidden on mobile, show on hover */}
+                        {hasMultipleImages && (
+                            <>
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '8px',
+                                        transform: 'translateY(-50%)',
+                                        cursor: 'pointer',
+                                        background: 'rgba(255, 255, 255, 0.9)',
+                                        borderRadius: '50%',
+                                        width: '32px',
+                                        height: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backdropFilter: 'blur(4px)',
+                                        border: '1px solid #e2e8f0',
+                                        zIndex: 10,
+                                        transition: 'all 0.2s ease',
+                                        opacity: 0
+                                    }}
+                                    className="image-nav-arrow"
+                                    onClick={prevImage}
+                                    title="Previous image"
+                                >
+                                    <FaChevronLeft style={{ color: '#1B3C53', fontSize: '14px' }} />
+                                </div>
+
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        right: '8px',
+                                        transform: 'translateY(-50%)',
+                                        cursor: 'pointer',
+                                        background: 'rgba(255, 255, 255, 0.9)',
+                                        borderRadius: '50%',
+                                        width: '32px',
+                                        height: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backdropFilter: 'blur(4px)',
+                                        border: '1px solid #e2e8f0',
+                                        zIndex: 10,
+                                        transition: 'all 0.2s ease',
+                                        opacity: 0
+                                    }}
+                                    className="image-nav-arrow"
+                                    onClick={nextImage}
+                                    title="Next image"
+                                >
+                                    <FaChevronRight style={{ color: '#1B3C53', fontSize: '14px' }} />
+                                </div>
+                            </>
+                        )}
+
+                        {/* Wishlist Heart */}
                         <div
                             style={{
                                 position: 'absolute',
-                                top: '8px',
-                                right: '8px',
-                                cursor: isWishlistButtonDisabled ? 'not-allowed' : 'pointer',
+                                top: '12px',
+                                right: '12px',
+                                cursor: 'pointer',
                                 background: 'rgba(255, 255, 255, 0.9)',
                                 borderRadius: '50%',
-                                width: '32px',
-                                height: '32px',
+                                width: '36px',
+                                height: '36px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 backdropFilter: 'blur(4px)',
-                                zIndex: 2,
-                                opacity: isWishlistButtonDisabled ? 0.6 : 1
+                                border: '1px solid #e2e8f0',
+                                zIndex: 10,
+                                transition: 'all 0.2s ease'
                             }}
                             onClick={(e) => handleToggleFavorite(e, property.id, isFavorite)}
-                            title={isWishlistButtonDisabled ? 'Updating...' : (isFavorite ? 'Remove from wishlist' : 'Add to wishlist')}
+                            title={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
                         >
-                            {showLoading ? (
+                            {isToggling ? (
                                 <div style={{
-                                    width: '14px',
-                                    height: '14px',
+                                    width: '16px',
+                                    height: '16px',
                                     border: '2px solid #f0f0f0',
                                     borderTop: '2px solid #ff4d4f',
                                     borderRadius: '50%',
                                     animation: 'spin 1s linear infinite'
                                 }} />
                             ) : isFavorite ? (
-                                <FaHeart style={{ color: '#ff4d4f', fontSize: '16px' }} />
+                                <FaHeart style={{ color: '#ff4d4f', fontSize: '18px' }} />
                             ) : (
-                                <FaRegHeart style={{ color: '#64748b', fontSize: '16px' }} />
+                                <FaRegHeart style={{ color: '#64748b', fontSize: '18px' }} />
                             )}
                         </div>
-
-                        <div style={{
-                            position: 'absolute',
-                            top: '8px',
-                            left: '8px'
-                        }}>
-                            <Tag
-                                color="#1B3C53"
-                                style={{
-                                    margin: 0,
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    fontWeight: '500',
-                                    fontSize: '12px'
-                                }}
-                            >
-                                {property.propertyType || property.type || 'Property'}
-                            </Tag>
-                        </div>
                     </div>
-                </Col>
 
-                <Col span={16}>
-                    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ flex: '0 0 auto' }}>
-                            <Row justify="space-between" align="top">
-                                <Col flex="auto">
-                                    <Title
-                                        level={4}
-                                        style={{
-                                            margin: 0,
-                                            fontSize: '16px',
-                                            lineHeight: '1.4',
-                                            color: '#1B3C53',
-                                            fontWeight: '600',
-                                            cursor: 'pointer'
-                                        }}
-                                        onClick={handleCardClick}
-                                    >
-                                        {property.title || 'Untitled Property'}
-                                    </Title>
-                                    {/* UPDATED: Location display with full address */}
-                                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
-                                        <FaMapMarkerAlt style={{ marginRight: '4px', color: '#64748b', fontSize: '12px' }} />
-                                        <Text type="secondary" style={{ fontSize: '12px', color: '#64748b' }}>
-                                            {getFullAddress(property)}
-                                        </Text>
-                                    </div>
-                                </Col>
-                                <Col flex="none">
-                                    <Title level={3} style={{
-                                        margin: 0,
-                                        color: '#1B3C53',
-                                        fontSize: '20px',
-                                        fontWeight: '700',
-                                        textAlign: 'right'
-                                    }}>
-                                        {formatPesoPrice(property.price)}
-                                    </Title>
-                                    {property.pricePerSqft && (
-                                        <Text type="secondary" style={{ fontSize: '10px', color: '#64748b', textAlign: 'right', display: 'block' }}>
-                                            ₱{Math.round(property.pricePerSqft * 10.7639)?.toLocaleString()}/sqm
-                                        </Text>
-                                    )}
-                                </Col>
-                            </Row>
-                        </div>
-
-                        <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
-
-                        {/* UPDATED: Property features with icons including garage and kitchen */}
-                        <div style={{ flex: '0 0 auto' }}>
-                            <Space size="small" wrap>
-                                <Tooltip title="Bedrooms">
-                                    <Tag style={{
-                                        background: '#f0f9ff',
-                                        border: '1px solid #1B3C53',
-                                        color: '#1B3C53',
-                                        borderRadius: '6px',
-                                        margin: 0,
-                                        fontSize: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}>
-                                        <FaBed size={12} />
-                                        {property.bedrooms || 0}
-                                    </Tag>
-                                </Tooltip>
-                                <Tooltip title="Bathrooms">
-                                    <Tag style={{
-                                        background: '#f0f9ff',
-                                        border: '1px solid #1B3C53',
-                                        color: '#1B3C53',
-                                        borderRadius: '6px',
-                                        margin: 0,
-                                        fontSize: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}>
-                                        {/* UPDATED: Dynamic bath icon based on bathroom count */}
-                                        {getBathIcon(property.bathrooms || 0)}
-                                        {property.bathrooms || 0}
-                                    </Tag>
-                                </Tooltip>
-                                <Tooltip title="Area">
-                                    <Tag style={{
-                                        background: '#f0f9ff',
-                                        border: '1px solid #1B3C53',
-                                        color: '#1B3C53',
-                                        borderRadius: '6px',
-                                        margin: 0,
-                                        fontSize: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}>
-                                        <FaHome size={12} />
-                                        {areaSqm.toLocaleString()} sqm
-                                    </Tag>
-                                </Tooltip>
-                                {/* NEW: Garage with icon */}
-                                {property.garage > 0 && (
-                                    <Tooltip title="Garage">
-                                        <Tag style={{
-                                            background: '#f0fdf4',
-                                            border: '1px solid #16a34a',
-                                            color: '#166534',
-                                            borderRadius: '6px',
-                                            margin: 0,
-                                            fontSize: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            <FaCar size={12} />
-                                            {property.garage}
-                                        </Tag>
-                                    </Tooltip>
-                                )}
-                                {/* NEW: Kitchen with icon */}
-                                {property.kitchen > 0 && (
-                                    <Tooltip title="Kitchen">
-                                        <Tag style={{
-                                            background: '#fff7ed',
-                                            border: '1px solid #ea580c',
-                                            color: '#9a3412',
-                                            borderRadius: '6px',
-                                            margin: 0,
-                                            fontSize: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            <FaCoffee size={12} />
-                                            {property.kitchen}
-                                        </Tag>
-                                    </Tooltip>
-                                )}
-                            </Space>
-                        </div>
-
-                        {amenities.length > 0 && (
-                            <>
-                                <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
-                                <div style={{ flex: '0 0 auto' }}>
-                                    <Space size={[4, 4]} wrap>
-                                        {displayAmenities.map((amenity, index) => (
-                                            <Tag
-                                                key={index}
-                                                style={{
-                                                    background: '#f0fdf4',
-                                                    border: '1px solid #16a34a',
-                                                    color: '#166534',
-                                                    borderRadius: '4px',
-                                                    margin: 0,
-                                                    fontSize: '10px',
-                                                    padding: '2px 6px',
-                                                    lineHeight: '1.2'
-                                                }}
-                                            >
-                                                {amenity}
-                                            </Tag>
-                                        ))}
-                                        {hasMoreAmenities && (
-                                            <Tag
-                                                style={{
-                                                    background: '#f8fafc',
-                                                    border: '1px solid #64748b',
-                                                    color: '#64748b',
-                                                    borderRadius: '4px',
-                                                    margin: 0,
-                                                    fontSize: '10px',
-                                                    padding: '2px 6px',
-                                                    lineHeight: '1.2'
-                                                }}
-                                            >
-                                                +{amenities.length - 3} more
-                                            </Tag>
-                                        )}
-                                    </Space>
-                                </div>
-                            </>
-                        )}
-
-                        <Divider style={{ margin: '8px 0', background: '#f1f5f9' }} />
-
-                        {/* FIXED: Agent display section with better fallbacks */}
-                        <div style={{ flex: '1 1 auto', minHeight: '0' }}>
-                            {loadingAgent ? (
-                                <Skeleton avatar paragraph={{ rows: 2 }} />
-                            ) : (
-                                <div style={{
-                                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px',
-                                    padding: '12px',
-                                    marginBottom: '8px'
-                                }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        marginBottom: '8px'
-                                    }}>
+                    {/* Content Section */}
+                    <div style={layout.contentStyle}>
+                        {/* Agent Info for Landscape Mode */}
+                        {viewMode === 'landscape' && (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: '12px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {loadingAgent ? (
+                                        <Skeleton.Avatar active size={32} />
+                                    ) : (
                                         <Avatar
                                             size={32}
-                                            src={agentImageError ? '/default-avatar.jpg' : agentImage}
-                                            alt={agentName}
-                                            icon={!agentImage && <FaUser />}
-                                            onError={(e) => {
-                                                if (!agentImageError) {
-                                                    setAgentImageError(true);
-                                                    e.target.src = '/default-avatar.jpg';
-                                                }
+                                            src={agent?.profilePictureUrl ? processAgentImageUrl(agent.profilePictureUrl) : null}
+                                            style={{
+                                                backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
+                                                border: '2px solid #1B3C53'
                                             }}
-                                            onLoad={() => setAgentImageError(false)}
-                                        />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Text strong style={{ color: '#1B3C53', fontSize: '12px', display: 'block', lineHeight: '1.2' }}>
+                                        >
+                                            {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
+                                        </Avatar>
+                                    )}
+                                    <div>
+                                        {loadingAgent ? (
+                                            <Skeleton.Input active size="small" style={{ width: 100, height: 14 }} />
+                                        ) : (
+                                            <Text strong style={{ fontSize: '13px', color: '#1B3C53', display: 'block' }}>
                                                 {agentName}
                                             </Text>
-                                            <Text type="secondary" style={{ fontSize: '10px', display: 'block', lineHeight: '1.2' }}>
-                                                {getSpecializationDisplay(contactInfo.specialization)}
-                                            </Text>
-                                        </div>
-                                    </div>
-
-                                    <div style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '4px',
-                                        background: 'rgba(255, 255, 255, 0.7)',
-                                        borderRadius: '6px',
-                                        padding: '8px'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <FaPhone style={{ fontSize: '10px', color: '#1B3C53' }} />
-                                            <Tooltip title={contactInfo.phone !== 'Not available' ? 'Click to call' : 'No phone number available'}>
-                                                <Text
-                                                    style={{
-                                                        fontSize: '10px',
-                                                        color: contactInfo.phone !== 'Not available' ? '#1B3C53' : '#64748b',
-                                                        cursor: contactInfo.phone !== 'Not available' ? 'pointer' : 'default',
-                                                        textDecoration: contactInfo.phone !== 'Not available' ? 'underline' : 'none',
-                                                        fontWeight: '500'
-                                                    }}
-                                                    onClick={contactInfo.phone !== 'Not available' ? handleCallAgent : undefined}
-                                                >
-                                                    {formatPhoneNumber(contactInfo.phone)}
-                                                </Text>
-                                            </Tooltip>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <FaEnvelope style={{ fontSize: '10px', color: '#1B3C53' }} />
-                                            <Tooltip title={contactInfo.email !== 'Not available' ? 'Click to email' : 'No email available'}>
-                                                <Text
-                                                    style={{
-                                                        fontSize: '10px',
-                                                        color: contactInfo.email !== 'Not available' ? '#1B3C53' : '#64748b',
-                                                        cursor: contactInfo.email !== 'Not available' ? 'pointer' : 'default',
-                                                        textDecoration: contactInfo.email !== 'Not available' ? 'underline' : 'none',
-                                                        fontWeight: '500'
-                                                    }}
-                                                    onClick={contactInfo.email !== 'Not available' ? handleEmailAgent : undefined}
-                                                >
-                                                    {contactInfo.email}
-                                                </Text>
-                                            </Tooltip>
-                                        </div>
+                                        )}
+                                        <Text style={{ fontSize: '11px', color: '#64748b' }}>
+                                            Real Estate Agent
+                                        </Text>
                                     </div>
                                 </div>
-                            )}
-                        </div>
 
-                        {showActions && (
-                            <div style={{ flex: '0 0 auto', marginTop: '12px' }}>
-                                <Space.Compact style={{ width: '100%' }}>
-                                    <Button
-                                        type="primary"
-                                        icon={<FaCalendarAlt />}
-                                        onClick={handleScheduleTour}
-                                        style={{
-                                            borderRadius: '6px 0 0 6px',
-                                            background: '#1B3C53',
-                                            borderColor: '#1B3C53',
-                                            fontWeight: '600',
-                                            flex: 1,
-                                            fontSize: '12px',
-                                            height: '32px'
-                                        }}
-                                    >
-                                        Tour
-                                    </Button>
-                                    <Button
-                                        icon={<FaComments />}
-                                        onClick={handleChat}
-                                        style={{
-                                            borderRadius: '0',
-                                            borderColor: '#1B3C53',
-                                            color: '#1B3C53',
-                                            fontWeight: '600',
-                                            flex: 1,
-                                            fontSize: '12px',
-                                            height: '32px'
-                                        }}
-                                    >
-                                        Chat
-                                    </Button>
-                                    <Button
-                                        type="primary"
-                                        icon={<FaEye />}
-                                        onClick={handleViewDetails}
-                                        style={{
-                                            borderRadius: '0 6px 6px 0',
-                                            background: '#1890ff',
-                                            borderColor: '#1890ff',
-                                            fontWeight: '600',
-                                            flex: 1,
-                                            fontSize: '12px',
-                                            height: '32px'
-                                        }}
-                                    >
-                                        View
-                                    </Button>
-                                </Space.Compact>
+                                {/* Brokerage Name */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontFamily: 'Arial, sans-serif'
+                                }}>
+                                    <div style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        backgroundColor: '#1B3C53',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '10px',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {brokerageName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <Text strong style={{
+                                        fontSize: '14px',
+                                        color: '#1B3C53',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        {brokerageName}
+                                    </Text>
+                                </div>
                             </div>
                         )}
 
-                        {property.status && property.status !== 'available' && (
-                            <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                                <Tag
-                                    color={getStatusColor(property.status)}
+                        {/* Title and Price */}
+                        <div style={{ marginBottom: '8px' }}>
+                            <Title
+                                level={viewMode === 'landscape' ? 4 : 5}
+                                style={{
+                                    margin: 0,
+                                    color: '#1B3C53',
+                                    fontSize: viewMode === 'landscape' ? '18px' : '16px',
+                                    lineHeight: '1.3'
+                                }}
+                            >
+                                {property.title}
+                            </Title>
+                            <Text strong style={{
+                                fontSize: viewMode === 'landscape' ? '20px' : '18px',
+                                color: '#1B3C53',
+                                display: 'block',
+                                marginTop: '4px'
+                            }}>
+                                {formatPrice(property.price)}
+                            </Text>
+                        </div>
+
+                        {/* Address */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12px' }}>
+                            <FaMapMarkerAlt style={{
+                                marginRight: '6px',
+                                color: '#64748b',
+                                fontSize: '12px',
+                                marginTop: '2px',
+                                flexShrink: 0
+                            }} />
+                            <Text style={{
+                                fontSize: viewMode === 'landscape' ? '13px' : '12px',
+                                color: '#64748b',
+                                lineHeight: '1.4'
+                            }}>
+                                {completeAddress}
+                            </Text>
+                        </div>
+
+                        {/* Property Features */}
+                        <div style={layout.featuresStyle}>
+                            <Tooltip title="Bedrooms">
+                                <Space size={4} style={{ alignItems: 'center' }}>
+                                    <FaBed style={{ color: '#666', fontSize: '12px' }} />
+                                    <Text style={{
+                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                        fontWeight: '500'
+                                    }}>
+                                        {property.bedrooms || 0}
+                                    </Text>
+                                </Space>
+                            </Tooltip>
+
+                            <Tooltip title="Bathrooms">
+                                <Space size={4} style={{ alignItems: 'center' }}>
+                                    <FaBath style={{ color: '#666', fontSize: '12px' }} />
+                                    <Text style={{
+                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                        fontWeight: '500'
+                                    }}>
+                                        {property.bathrooms || 0}
+                                    </Text>
+                                </Space>
+                            </Tooltip>
+
+                            <Tooltip title="Kitchen">
+                                <Space size={4} style={{ alignItems: 'center' }}>
+                                    <FaUtensils style={{ color: '#666', fontSize: '12px' }} />
+                                    <Text style={{
+                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                        fontWeight: '500'
+                                    }}>
+                                        {property.kitchen || 0}
+                                    </Text>
+                                </Space>
+                            </Tooltip>
+
+                            <Tooltip title="Garage">
+                                <Space size={4} style={{ alignItems: 'center' }}>
+                                    <FaCar style={{ color: '#666', fontSize: '12px' }} />
+                                    <Text style={{
+                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                        fontWeight: '500'
+                                    }}>
+                                        {property.garage || 0}
+                                    </Text>
+                                </Space>
+                            </Tooltip>
+
+                            <Tooltip title="Area">
+                                <Space size={4} style={{ alignItems: 'center' }}>
+                                    <FaHome style={{ color: '#666', fontSize: '12px' }} />
+                                    <Text style={{
+                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                        fontWeight: '500'
+                                    }}>
+                                        {formatArea(areaSqm)}
+                                    </Text>
+                                </Space>
+                            </Tooltip>
+                        </div>
+
+                        {/* Amenities Section - MAX 3 AMENITIES */}
+                        {displayAmenities.length > 0 && (
+                            <div style={{
+                                marginBottom: '12px',
+                                padding: '8px 0'
+                            }}>
+                                <Text strong style={{
+                                    fontSize: viewMode === 'landscape' ? '13px' : '12px',
+                                    color: '#1B3C53',
+                                    display: 'block',
+                                    marginBottom: '6px'
+                                }}>
+                        
+                                </Text>
+                                <div style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '6px'
+                                }}>
+                                    {/* Show only 3 amenities */}
+                                    {displayAmenities.map((amenity, index) => (
+                                        <Tag
+                                            key={index}
+                                            style={{
+                                                fontSize: viewMode === 'landscape' ? '11px' : '10px',
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                backgroundColor: '#f1f5f9',
+                                                color: '#475569',
+                                                border: '1px solid #e2e8f0',
+                                                margin: 0
+                                            }}
+                                        >
+                                            {amenity}
+                                        </Tag>
+                                    ))}
+                                    {/* Show "+X more" only if there are more than 3 amenities */}
+                                    {hasMoreAmenities && (
+                                        <Tag
+                                            style={{
+                                                fontSize: viewMode === 'landscape' ? '11px' : '10px',
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                backgroundColor: '#1B3C53',
+                                                color: 'white',
+                                                border: 'none',
+                                                margin: 0
+                                            }}
+                                        >
+                                            +{property.amenities.length - 3} more
+                                        </Tag>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        {showActions && (
+                            <div style={{
+                                display: 'flex',
+                                gap: '8px',
+                                marginTop: viewMode === 'landscape' ? 'auto' : '12px'
+                            }}>
+                                <Button
+                                    type="primary"
+                                    icon={<FaCalendarAlt />}
+                                    onClick={handleScheduleTour}
                                     style={{
-                                        borderRadius: '4px',
-                                        fontWeight: '500',
-                                        margin: 0,
-                                        fontSize: '10px'
+                                        flex: 1,
+                                        background: 'linear-gradient(135deg, #1B3C53, #2D556E)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontWeight: '500'
                                     }}
+                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
                                 >
-                                    {getStatusText(property.status)}
-                                </Tag>
+                                    Tour
+                                </Button>
+
+                                <Button
+                                    icon={<FaComments />}
+                                    onClick={handleChat}
+                                    style={{
+                                        flex: 1,
+                                        borderRadius: '8px',
+                                        fontWeight: '500'
+                                    }}
+                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
+                                >
+                                    Chat
+                                </Button>
+
+                                <Button
+                                    icon={<FaEye />}
+                                    onClick={handleViewDetails}
+                                    style={{
+                                        flex: 1,
+                                        borderRadius: '8px',
+                                        fontWeight: '500'
+                                    }}
+                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
+                                >
+                                    View
+                                </Button>
                             </div>
                         )}
                     </div>
-                </Col>
-            </Row>
-            <style>
-                {`
+                </div>
+            </Card>
+
+            {/* Image Gallery Modal */}
+            <Modal
+                open={isGalleryOpen}
+                onCancel={closeGallery}
+                footer={null}
+                width="90vw"
+                style={{
+                    maxWidth: '1200px',
+                    top: '20px'
+                }}
+                bodyStyle={{
+                    padding: '0',
+                    height: '80vh',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#000'
+                }}
+                closeIcon={
+                    <div style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        zIndex: 1001,
+                        background: 'rgba(0,0,0,0.7)',
+                        borderRadius: '50%',
+                        width: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        cursor: 'pointer'
+                    }}>
+                        <FaTimes size={20} />
+                    </div>
+                }
+            >
+                <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <img
+                        src={processImageUrl(propertyImages[galleryImageIndex])}
+                        alt={`Property ${galleryImageIndex + 1}`}
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain'
+                        }}
+                        onError={(e) => {
+                            e.target.src = '/default-property.jpg';
+                        }}
+                    />
+
+                    {propertyImages.length > 1 && (
+                        <>
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    left: '20px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'rgba(255,255,255,0.9)',
+                                    borderRadius: '50%',
+                                    width: '50px',
+                                    height: '50px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: '1px solid #e2e8f0'
+                                }}
+                                onClick={prevGalleryImage}
+                            >
+                                <FaChevronLeft size={20} color="#1B3C53" />
+                            </div>
+
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    right: '20px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'rgba(255,255,255,0.9)',
+                                    borderRadius: '50%',
+                                    width: '50px',
+                                    height: '50px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: '1px solid #e2e8f0'
+                                }}
+                                onClick={nextGalleryImage}
+                            >
+                                <FaChevronRight size={20} color="#1B3C53" />
+                            </div>
+
+                            <div style={{
+                                position: 'absolute',
+                                bottom: '20px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                display: 'flex',
+                                gap: '8px'
+                            }}>
+                                {propertyImages.map((_, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            width: '12px',
+                                            height: '12px',
+                                            borderRadius: '50%',
+                                            backgroundColor: index === galleryImageIndex ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                            cursor: 'pointer'
+                                        }}
+                                        onClick={() => setGalleryImageIndex(index)}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </Modal>
+
+            <style jsx>{`
+                .image-section:hover .image-nav-arrow {
+                    opacity: 1 !important;
+                }
+                
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
-                `}
-            </style>
-        </Card>
+            `}</style>
+        </>
     );
 };
 

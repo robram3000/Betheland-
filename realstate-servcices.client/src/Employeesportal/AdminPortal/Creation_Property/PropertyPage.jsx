@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
     Button,
@@ -16,7 +16,8 @@ import {
     Dropdown,
     Menu,
     Row,
-    Col
+    Col,
+    Divider
 } from 'antd';
 import {
     SearchOutlined,
@@ -29,7 +30,11 @@ import {
     CloseOutlined,
     UserSwitchOutlined,
     MoreOutlined,
-    UserOutlined
+    UserOutlined,
+    MailOutlined,
+    PhoneOutlined,
+    PictureOutlined,
+    PlayCircleOutlined
 } from '@ant-design/icons';
 import {
     FaBed,
@@ -60,6 +65,108 @@ const PropertyPage = () => {
     const [rejectReason, setRejectReason] = useState('');
     const [agentsCache, setAgentsCache] = useState({});
     const [agentLoading, setAgentLoading] = useState({});
+    const [mediaModalVisible, setMediaModalVisible] = useState(false);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
+    // Image processing function
+    const processImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return '/default-property.jpg';
+        }
+
+        // Already full URL
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+
+        // Server path - prepend base URL
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+
+        // Relative path without leading slash
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+
+        // uploads/ path
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+
+        return '/default-property.jpg';
+    };
+
+    // Get all media for a property
+    const getAllMedia = (property) => {
+        const media = [];
+
+        // Add main image
+        if (property.mainImage) {
+            media.push({
+                type: 'image',
+                url: processImageUrl(property.mainImage),
+                title: 'Main Image'
+            });
+        }
+
+        // Add property images
+        if (property.propertyImages && property.propertyImages.length > 0) {
+            property.propertyImages.forEach((img, index) => {
+                if (img.imageUrl) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(img.imageUrl),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add image URLs
+        if (property.imageUrls && property.imageUrls.length > 0) {
+            property.imageUrls.forEach((url, index) => {
+                if (url) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(url),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add videos
+        if (property.videoUrls && property.videoUrls.length > 0) {
+            property.videoUrls.forEach((url, index) => {
+                if (url) {
+                    media.push({
+                        type: 'video',
+                        url: processImageUrl(url),
+                        title: `Video ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add property video
+        if (property.propertyVideo) {
+            media.push({
+                type: 'video',
+                url: processImageUrl(property.propertyVideo),
+                title: 'Property Video'
+            });
+        }
+
+        return media;
+    };
+
+    // Open media gallery
+    const handleOpenMedia = (property, index = 0) => {
+        setSelectedProperty(property);
+        setCurrentMediaIndex(index);
+        setMediaModalVisible(true);
+    };
 
     // Improved agent data loader with proper state updates
     const loadAgentData = useCallback(async (agentId) => {
@@ -417,7 +524,7 @@ const PropertyPage = () => {
         const contactInfo = [];
         if (agent.email) contactInfo.push(agent.email);
         if (agent.cellPhoneNo) contactInfo.push(agent.cellPhoneNo);
-        return contactInfo.join(' � ');
+        return contactInfo.join(' • ');
     };
 
     const getAgentAvatar = (agent) => {
@@ -443,7 +550,7 @@ const PropertyPage = () => {
         const content = (
             <Space size={[4, 4]} wrap>
                 {displayAmenities.map((amenity, index) => (
-                    <Tag key={index} size="small" color="blue">
+                    <Tag key={index} size="small" color="#1e3a8a" style={{ color: 'white', border: 'none' }}>
                         {amenity}
                     </Tag>
                 ))}
@@ -460,7 +567,7 @@ const PropertyPage = () => {
                         }
                         trigger={['click']}
                     >
-                        <Tag size="small" color="blue" style={{ cursor: 'pointer' }}>
+                        <Tag size="small" color="#1e3a8a" style={{ cursor: 'pointer', color: 'white', border: 'none' }}>
                             +{remainingAmenities.length} more
                         </Tag>
                     </Dropdown>
@@ -469,6 +576,51 @@ const PropertyPage = () => {
         );
 
         return content;
+    };
+
+    // Render media preview
+    const renderMediaPreview = (property) => {
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const imageCount = allMedia.filter(m => m.type === 'image').length;
+        const videoCount = allMedia.filter(m => m.type === 'video').length;
+
+        return (
+            <Space direction="vertical" size={8} align="center">
+                <Button
+                    type="primary"
+                    icon={<PictureOutlined />}
+                    size="small"
+                    onClick={() => handleOpenMedia(property)}
+                    style={{
+                        backgroundColor: '#1e3a8a',
+                        borderColor: '#1e3a8a',
+                        fontWeight: 500
+                    }}
+                >
+                    View Media
+                </Button>
+                {hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>
+                        <div>
+                            <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                            {imageCount} image{imageCount !== 1 ? 's' : ''}
+                        </div>
+                        {videoCount > 0 && (
+                            <div>
+                                <PlayCircleOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                                {videoCount} video{videoCount !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {!hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#999', textAlign: 'center' }}>
+                        No media
+                    </div>
+                )}
+            </Space>
+        );
     };
 
     const actionMenu = (record) => (
@@ -534,43 +686,72 @@ const PropertyPage = () => {
             title: 'Property',
             dataIndex: 'title',
             key: 'property',
-            render: (text, record) => (
-                <Space direction="vertical" size={4}>
-                    <Space>
-                        <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
-                            <Avatar
-                                src={record.mainImage || record.propertyImages?.[0]?.imageUrl}
-                                shape="square"
-                                style={{ backgroundColor: '#1a365d' }}
-                            >
-                                {text?.[0]?.toUpperCase()}
-                            </Avatar>
-                        </Badge>
-                        <div>
-                            <div style={{ fontWeight: 500 }}>{text || 'Untitled Property'}</div>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                {record.address ? `${record.address}, ${record.city}, ${record.zipCode}` : 'No address'}
+            render: (text, record) => {
+                // Process the image URL
+                const mainImage = record.mainImage ||
+                    (record.propertyImages && record.propertyImages[0]?.imageUrl) ||
+                    (record.imageUrls && record.imageUrls[0]) ||
+                    '/default-property.jpg';
+
+                const processedImage = processImageUrl(mainImage);
+
+                return (
+                    <Space direction="vertical" size={4}>
+                        <Space>
+                            <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
+                                <Avatar
+                                    src={processedImage}
+                                    shape="square"
+                                    style={{
+                                        backgroundColor: '#1a365d',
+                                        width: 50,
+                                        height: 50,
+                                        objectFit: 'cover'
+                                    }}
+                                    onError={(e) => {
+                                        e.target.src = '/default-property.jpg';
+                                    }}
+                                >
+                                    {text?.[0]?.toUpperCase()}
+                                </Avatar>
+                            </Badge>
+                            <div>
+                                <div style={{ fontWeight: 500 }}>{text || 'Untitled Property'}</div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>
+                                    {record.address ? `${record.address}, ${record.city}, ${record.zipCode}` : 'No address'}
+                                </div>
+                                <Divider style={{ margin: '8px 0' }} />
+                                <div style={{ fontSize: '11px', color: '#888' }}>
+                                    <Tag color="#1e3a8a" style={{ color: 'white', border: 'none' }} size="small">
+                                        {record.type || 'N/A'}
+                                    </Tag>
+                                </div>
                             </div>
-                            <div style={{ fontSize: '11px', color: '#888' }}>
-                                <Tag color="cyan" size="small">{record.type || 'N/A'}</Tag>
-                            </div>
+                        </Space>
+                        {/* Amenities row */}
+                        <div style={{ marginLeft: 40 }}>
+                            {renderAmenities(record.amenities)}
                         </div>
                     </Space>
-                    {/* Amenities row */}
-                    <div style={{ marginLeft: 40 }}>
-                        {renderAmenities(record.amenities)}
-                    </div>
-                </Space>
-            ),
+                );
+            },
         },
         {
             title: 'Details',
             key: 'details',
             render: (_, record) => (
                 <Space direction="vertical" size={8}>
-                    <div style={{ fontWeight: 500, color: '#1890ff' }}>
-                        {record.price ? `$${record.price.toLocaleString()}` : 'Not set'}
+                    <div style={{
+                        fontWeight: 500,
+                        color: 'black',
+                        backgroundColor: 'primary',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #e6f7ff'
+                    }}>
+                        {record.price ? `${record.price.toLocaleString()}` : 'Not set'}
                     </div>
+                    <Divider style={{ margin: '8px 0' }} />
                     <Space size={12}>
                         <Tooltip title="Bedrooms">
                             <Space size={4}>
@@ -599,6 +780,11 @@ const PropertyPage = () => {
                     </Space>
                 </Space>
             ),
+        },
+        {
+            title: 'Media',
+            key: 'media',
+            render: (_, record) => renderMediaPreview(record),
         },
         {
             title: 'Status',
@@ -634,7 +820,20 @@ const PropertyPage = () => {
                         </Space>
                         {getAgentContactInfo(agent) && (
                             <div style={{ fontSize: '11px', color: '#888' }}>
-                                {getAgentContactInfo(agent)}
+                                <Space direction="vertical" size={2}>
+                                    {agent.email && (
+                                        <Space size={4}>
+                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.email}</span>
+                                        </Space>
+                                    )}
+                                    {agent.cellPhoneNo && (
+                                        <Space size={4}>
+                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.cellPhoneNo}</span>
+                                        </Space>
+                                    )}
+                                </Space>
                             </div>
                         )}
                         {record.agentId && !agent && (
@@ -840,9 +1039,12 @@ const PropertyPage = () => {
                             {selectedProperty.mainImage && (
                                 <Image
                                     width={200}
-                                    src={selectedProperty.mainImage}
+                                    src={processImageUrl(selectedProperty.mainImage)}
                                     alt={selectedProperty.title}
                                     fallback="/fallback-image.png"
+                                    onError={(e) => {
+                                        e.target.src = '/fallback-image.png';
+                                    }}
                                 />
                             )}
                         </div>
@@ -861,7 +1063,10 @@ const PropertyPage = () => {
                                     <strong>Price:</strong> {selectedProperty.price ? `$${selectedProperty.price.toLocaleString()}` : 'Not set'}
                                 </div>
                                 <div style={{ marginBottom: 16 }}>
-                                    <strong>Type:</strong> {selectedProperty.type || 'N/A'}
+                                    <strong>Type:</strong>
+                                    <Tag color="#1e3a8a" style={{ color: 'white', border: 'none', marginLeft: 8 }}>
+                                        {selectedProperty.type || 'N/A'}
+                                    </Tag>
                                 </div>
                             </Col>
                             <Col span={12}>
@@ -917,7 +1122,20 @@ const PropertyPage = () => {
                                         </Space>
                                         {getAgentContactInfo(selectedProperty.agent) && (
                                             <div style={{ fontSize: '12px', color: '#666' }}>
-                                                {getAgentContactInfo(selectedProperty.agent)}
+                                                <Space direction="vertical" size={2}>
+                                                    {selectedProperty.agent.email && (
+                                                        <Space size={4}>
+                                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                                            <span>{selectedProperty.agent.email}</span>
+                                                        </Space>
+                                                    )}
+                                                    {selectedProperty.agent.cellPhoneNo && (
+                                                        <Space size={4}>
+                                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                                            <span>{selectedProperty.agent.cellPhoneNo}</span>
+                                                        </Space>
+                                                    )}
+                                                </Space>
                                             </div>
                                         )}
                                         {selectedProperty.agentId && !selectedProperty.agent && (
@@ -927,6 +1145,127 @@ const PropertyPage = () => {
                                 </div>
                             </Col>
                         </Row>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Media Gallery Modal */}
+            <Modal
+                title="Property Media Gallery"
+                open={mediaModalVisible}
+                onCancel={() => setMediaModalVisible(false)}
+                footer={null}
+                width={800}
+                style={{ top: 20 }}
+            >
+                {selectedProperty && (
+                    <div>
+                        {(() => {
+                            const allMedia = getAllMedia(selectedProperty);
+                            const currentMedia = allMedia[currentMediaIndex];
+
+                            if (allMedia.length === 0) {
+                                return (
+                                    <div style={{ textAlign: 'center', padding: '40px' }}>
+                                        <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                        <div style={{ color: '#999' }}>No media available for this property</div>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div>
+                                    <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                        {currentMedia.type === 'image' ? (
+                                            <Image
+                                                width="100%"
+                                                style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                                src={currentMedia.url}
+                                                alt={currentMedia.title}
+                                                fallback="/fallback-image.png"
+                                                onError={(e) => {
+                                                    e.target.src = '/fallback-image.png';
+                                                }}
+                                            />
+                                        ) : (
+                                            <video
+                                                controls
+                                                style={{ width: '100%', maxHeight: '400px' }}
+                                                src={currentMedia.url}
+                                            >
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        )}
+                                    </div>
+
+                                    <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                        <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
+                                    </div>
+
+                                    {allMedia.length > 1 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+                                            <Button
+                                                onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
+                                                disabled={allMedia.length <= 1}
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
+                                                disabled={allMedia.length <= 1}
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Media Thumbnails */}
+                                    {allMedia.length > 1 && (
+                                        <div style={{ marginTop: 16 }}>
+                                            <Divider>All Media ({allMedia.length})</Divider>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                                {allMedia.map((media, index) => (
+                                                    <div
+                                                        key={index}
+                                                        style={{
+                                                            width: 60,
+                                                            height: 60,
+                                                            border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                                            borderRadius: 4,
+                                                            overflow: 'hidden',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        onClick={() => setCurrentMediaIndex(index)}
+                                                    >
+                                                        {media.type === 'image' ? (
+                                                            <img
+                                                                src={media.url}
+                                                                alt={media.title}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onError={(e) => {
+                                                                    e.target.src = '/fallback-image.png';
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <div style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                backgroundColor: '#f0f0f0',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}>
+                                                                <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </Modal>

@@ -12,7 +12,7 @@ namespace Realstate_servcices.Server.Entity.AuthenticationLog
         [Required]
         [MaxLength(50)]
         public string SettingType { get; set; } = string.Empty;
-        // 'password_policy', 'login_policy', 'session_policy', 'lockout_policy'
+ 
 
         [Required]
         [MaxLength(255)]
@@ -24,7 +24,7 @@ namespace Realstate_servcices.Server.Entity.AuthenticationLog
         [Required]
         [MaxLength(50)]
         public string DataType { get; set; } = "string";
-        // 'string', 'int', 'bool', 'json'
+  
 
         [Column(TypeName = "text")]
         public string? Value { get; set; }

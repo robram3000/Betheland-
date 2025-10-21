@@ -1,9 +1,8 @@
-﻿// OTPService.cs - Fixed version
+﻿
 using Realstate_servcices.Server.Dto.OTP;
 using Realstate_servcices.Server.Entity.OTP;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
-
 namespace Realstate_servcices.Server.Services.SMTP.rollout
 {
     public class OTPService : IOTPService
@@ -27,7 +26,7 @@ namespace Realstate_servcices.Server.Services.SMTP.rollout
         {
             try
             {
-                // Existing validation code remains the same...
+               
                 if (!IsValidEmail(request.Email))
                 {
                     return new OTPResponse

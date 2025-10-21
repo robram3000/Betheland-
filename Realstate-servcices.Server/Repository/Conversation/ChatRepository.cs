@@ -1,0 +1,72 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Realstate_servcices.Server.Data;
+using Realstate_servcices.Server.Entity.Chat;
+namespace Realstate_servcices.Server.Repository.Conversation
+{
+    public class ChatRepository : IChatRepository
+    {
+        private readonly ApplicationDbContext _context;
+
+        public ChatRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<Chat?> GetByIdAsync(int id)
+        {
+            return await _context.Chats
+                .Include(c => c.Participants)
+                .ThenInclude(p => p.BaseMember)
+                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
+                .FirstOrDefaultAsync(c => c.Id == id);
+        }
+
+        public async Task<Chat?> GetByChatNoAsync(Guid chatNo)
+        {
+            return await _context.Chats
+                .FirstOrDefaultAsync(c => c.ChatNo == chatNo);
+        }
+
+        public async Task<List<Chat>> GetUserChatsAsync(int userId)
+        {
+            return await _context.Chats
+                .Include(c => c.Participants.Where(p => p.IsActive))
+                .ThenInclude(p => p.BaseMember)
+                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == userId && p.IsActive))
+                .OrderByDescending(c => c.UpdatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Chat> CreateAsync(Chat chat)
+        {
+            _context.Chats.Add(chat);
+            await _context.SaveChangesAsync();
+            return chat;
+        }
+
+        public async Task<Chat> UpdateAsync(Chat chat)
+        {
+            chat.UpdatedAt = DateTime.UtcNow;
+            _context.Chats.Update(chat);
+            await _context.SaveChangesAsync();
+            return chat;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var chat = await _context.Chats.FindAsync(id);
+            if (chat == null) return false;
+
+            _context.Chats.Remove(chat);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> UserHasAccessToChatAsync(int userId, int chatId)
+        {
+            return await _context.ChatParticipants
+                .AnyAsync(p => p.ChatId == chatId && p.BaseMemberId == userId && p.IsActive);
+        }
+    }
+}

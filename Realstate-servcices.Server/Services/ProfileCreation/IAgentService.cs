@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.Register;
-
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
     public interface IAgentService

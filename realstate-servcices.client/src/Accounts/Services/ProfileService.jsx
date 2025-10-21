@@ -43,10 +43,9 @@ class ProfileService {
                 createdAt: clientData.createdAt,
                 dateRegistered: clientData.dateRegistered,
                 profilePicture: clientData.profilePictureUrl || clientData.profilePicture,
-                address: clientData.address // Make sure this line is present
-            };
+                address: clientData.address 
 
-            console.log('📋 ProfileService - Mapped data:', mappedData); // Debug log
+      
 
             return {
                 success: true,

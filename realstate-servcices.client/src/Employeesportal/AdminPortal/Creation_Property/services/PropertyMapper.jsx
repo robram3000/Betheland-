@@ -34,7 +34,7 @@ export const propertyMapper = {
             const createRequest = {
                 property: {
                     title: formData.title?.trim() || '',
-                    description: formData.description?.trim() || '',
+                    description: formData.description || '', // REMOVED .trim() to preserve formatting
                     type: formData.type || 'residential',
                     price: parseFloat(formData.price) || 0,
                     status: formData.status || 'draft',
@@ -103,7 +103,7 @@ export const propertyMapper = {
                 property: {
                     id: parseInt(formData.id) || 0,
                     title: formData.title?.trim() || '',
-                    description: formData.description?.trim() || '',
+                    description: formData.description || '', // REMOVED .trim() to preserve formatting
                     type: formData.type || 'residential',
                     price: parseFloat(formData.price) || 0,
                     status: formData.status || 'draft',
@@ -157,7 +157,7 @@ export const propertyMapper = {
                 id: backendData.id || 0,
                 propertyNo: backendData.propertyNo || '',
                 title: backendData.title || '',
-                description: backendData.description || '',
+                description: backendData.description || '', // Preserve exact formatting
                 type: backendData.type || 'residential',
                 price: parseFloat(backendData.price) || 0,
                 status: backendData.status || 'draft',
@@ -320,7 +320,7 @@ export const propertyMapper = {
             const createRequest = {
                 property: {
                     title: propertyData.title?.trim() || '',
-                    description: propertyData.description?.trim() || '',
+                    description: propertyData.description || '', // REMOVED .trim() to preserve formatting
                     type: propertyData.type || 'residential',
                     price: parseFloat(propertyData.price) || 0,
                     status: propertyData.status || 'draft',
@@ -406,7 +406,7 @@ export const propertyMapper = {
                 property: {
                     id: parseInt(propertyData.id) || 0,
                     title: propertyData.title?.trim() || '',
-                    description: propertyData.description?.trim() || '',
+                    description: propertyData.description || '', // REMOVED .trim() to preserve formatting
                     type: propertyData.type || 'residential',
                     price: parseFloat(propertyData.price) || 0,
                     status: propertyData.status || 'draft',

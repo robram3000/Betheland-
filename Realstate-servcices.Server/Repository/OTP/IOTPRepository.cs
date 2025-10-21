@@ -1,6 +1,4 @@
 ﻿using Realstate_servcices.Server.Entity.OTP;
-
-
 namespace Realstate_servcices.Server.Repository.OTP
 {
     public interface IOTPRepository

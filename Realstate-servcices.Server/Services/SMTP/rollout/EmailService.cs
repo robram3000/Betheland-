@@ -2,7 +2,6 @@
 using System.Net.Mail;
 using Microsoft.Extensions.Configuration;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
-
 namespace Realstate_servcices.Server.Services.SMTP.rollout
 {
     public class EmailService : IEmailService

@@ -1,4 +1,4 @@
-﻿// ClientService.cs
+﻿
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Realstate_servcices.Server.Data;
@@ -7,7 +7,6 @@ using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Utilities.Storage;
-
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
     public class ClientService : IClientService

@@ -2,7 +2,6 @@
 using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.ProfileCreation;
-
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
     public class AgentService : IAgentService
@@ -32,8 +31,13 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
 
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-                var baseMember = await _baseMemberRepository.CreateBaseMemberAsync(
-                    request.Email, request.Username, passwordHash, "Agent");
+                // Ensure Photourl is properly passed and handled
+                var baseMember = await _baseMemberRepository.CreateBaseAgentMemberAsync(
+                    request.Email,
+                    request.Username,
+                    passwordHash,
+                    "Agent",
+                    request.Photourl ?? string.Empty); // Make sure this isn't null
 
                 var agent = await _agentRepository.CreateAgentAsync(request, baseMember.Id);
 
@@ -53,7 +57,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 };
             }
         }
-
         public async Task<AgentResponse?> GetAgentByBaseMemberIdAsync(int baseMemberId)
         {
             try
@@ -210,6 +213,13 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                     return new RegisterResponse { Success = false, Message = "Agent not found" };
                 }
 
+                // Update base member profile picture if provided
+                if (!string.IsNullOrEmpty(request.ProfilePictureUrl))
+                {
+                    var imageUrl = request.ProfilePictureUrl ;
+                    await _baseMemberRepository.UpdateProfilePictureAsync(agent.BaseMemberId, imageUrl);
+                }
+
                 await _agentRepository.UpdateAgentAsync(id, request);
                 return new RegisterResponse { Success = true, Message = "Agent updated successfully" };
             }
@@ -218,7 +228,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating agent: {ex.Message}" };
             }
         }
-
 
         public async Task<RegisterResponse> UpdateAgentStatusAsync(int id, string status)
         {

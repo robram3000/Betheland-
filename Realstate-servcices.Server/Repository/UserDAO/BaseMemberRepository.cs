@@ -1,7 +1,9 @@
 ﻿// BaseMemberRepository.cs
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Member;
+using Realstate_servcices.Server.Enum;
 
 namespace Realstate_servcices.Server.Repository.UserDAO
 {
@@ -25,6 +27,24 @@ namespace Realstate_servcices.Server.Repository.UserDAO
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 status = "Active"
+            };
+
+            _context.BaseMembers.Add(baseMember);
+            await _context.SaveChangesAsync();
+            return baseMember;
+        }
+
+        public async Task<BaseMember> CreateBaseAgentMemberAsync(string email, string username, string passwordHash, string role, string profilePictureUrl)
+        {
+            var baseMember = new BaseMember
+            {
+                Email = email,
+                Username = username,
+                PasswordHash = passwordHash,
+                Role = role,
+                ProfilePictureUrl = profilePictureUrl, 
+                status = "Active",
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.BaseMembers.Add(baseMember);

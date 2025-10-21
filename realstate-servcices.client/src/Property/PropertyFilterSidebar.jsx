@@ -21,7 +21,12 @@ const { Option } = Select;
 const { Group: CheckboxGroup } = Checkbox;
 
 const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
-    const propertyTypes = ['House', 'Apartment', 'Condo', 'Villa', 'Penthouse', 'Studio', 'Townhouse'];
+    // Updated property types to include all possible types
+    const propertyTypes = [
+        'House', 'Apartment', 'Condo', 'Villa', 'Penthouse',
+        'Studio', 'Townhouse', 'Commercial', 'Land', 'Farm',
+        'Residential', 'Industrial', 'Office', 'Retail'
+    ];
     const amenities = ['Pool', 'Garden', 'Garage', 'Gym', 'Security', 'Parking', 'Balcony', 'Fireplace'];
 
     const updateFilter = (key, value) => {
@@ -161,133 +166,6 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
 
                     <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
-                    {/* Bedrooms & Bathrooms */}
-                    <div>
-                        <Text strong style={{
-                            color: '#1B3C53',
-                            marginBottom: '8px',
-                            display: 'block',
-                            fontSize: '13px'
-                        }}>
-                            Rooms
-                        </Text>
-                        <Space direction="vertical" style={{ width: '100%' }} size="small">
-                            <div>
-                                <Text style={{
-                                    display: 'block',
-                                    marginBottom: '4px',
-                                    fontSize: '12px'
-                                }}>
-                                    Bedrooms
-                                </Text>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Any"
-                                    value={filters.bedrooms}
-                                    onChange={value => updateFilter('bedrooms', value)}
-                                    allowClear
-                                    size="small"
-                                    dropdownStyle={{ borderRadius: '8px' }}
-                                >
-                                    <Option value={1}>1+</Option>
-                                    <Option value={2}>2+</Option>
-                                    <Option value={3}>3+</Option>
-                                    <Option value={4}>4+</Option>
-                                    <Option value={5}>5+</Option>
-                                </Select>
-                            </div>
-                            <div>
-                                <Text style={{
-                                    display: 'block',
-                                    marginBottom: '4px',
-                                    fontSize: '12px'
-                                }}>
-                                    Bathrooms
-                                </Text>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Any"
-                                    value={filters.bathrooms}
-                                    onChange={value => updateFilter('bathrooms', value)}
-                                    allowClear
-                                    size="small"
-                                >
-                                    <Option value={1}>1+</Option>
-                                    <Option value={2}>2+</Option>
-                                    <Option value={3}>3+</Option>
-                                    <Option value={4}>4+</Option>
-                                </Select>
-                            </div>
-                        </Space>
-                    </div>
-
-                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
-
-                    {/* Square Footage */}
-                    <div>
-                        <Text strong style={{
-                            color: '#1B3C53',
-                            marginBottom: '8px',
-                            display: 'block',
-                            fontSize: '13px'
-                        }}>
-                            Square Footage
-                        </Text>
-                        <Space direction="vertical" style={{ width: '100%' }} size="small">
-                            <Slider
-                                range
-                                min={0}
-                                max={10000}
-                                step={100}
-                                value={filters.squareFeet}
-                                onChange={(value) => updateFilter('squareFeet', value)}
-                                tooltip={{ formatter: value => `${value} sq ft` }}
-                                trackStyle={{ background: '#1B3C53', height: '4px' }}
-                                handleStyle={{
-                                    borderColor: '#1B3C53',
-                                    height: '16px',
-                                    width: '16px',
-                                    marginTop: '-6px'
-                                }}
-                                railStyle={{ background: '#e2e8f0', height: '4px' }}
-                            />
-                            <Row gutter={8}>
-                                <Col span={12}>
-                                    <InputNumber
-                                        style={{
-                                            width: '100%',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '6px',
-                                            fontSize: '12px'
-                                        }}
-                                        value={filters.squareFeet[0]}
-                                        formatter={value => `${value} sq ft`}
-                                        parser={value => value.replace(' sq ft', '')}
-                                        onChange={value => updateFilter('squareFeet', [value, filters.squareFeet[1]])}
-                                        size="small"
-                                    />
-                                </Col>
-                                <Col span={12}>
-                                    <InputNumber
-                                        style={{
-                                            width: '100%',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '6px',
-                                            fontSize: '12px'
-                                        }}
-                                        value={filters.squareFeet[1]}
-                                        formatter={value => `${value} sq ft`}
-                                        parser={value => value.replace(' sq ft', '')}
-                                        onChange={value => updateFilter('squareFeet', [filters.squareFeet[0], value])}
-                                        size="small"
-                                    />
-                                </Col>
-                            </Row>
-                        </Space>
-                    </div>
-
-                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
-
                     {/* Property Type */}
                     <div>
                         <Text strong style={{
@@ -301,26 +179,112 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                         <CheckboxGroup
                             value={filters.propertyType}
                             onChange={value => updateFilter('propertyType', value)}
-                            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+                            style={{ width: '100%' }}
                         >
-                            {propertyTypes.map(type => (
-                                <Checkbox
-                                    key={type}
-                                    value={type}
-                                    style={{
-                                        margin: 0,
-                                        padding: '6px 8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid transparent',
-                                        transition: 'all 0.2s',
-                                        fontSize: '12px'
-                                    }}
-                                    className="filter-checkbox"
-                                >
-                                    {type}
-                                </Checkbox>
-                            ))}
+                            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                {propertyTypes.map(type => (
+                                    <Checkbox
+                                        key={type}
+                                        value={type}
+                                        style={{
+                                            fontSize: '12px',
+                                            marginLeft: '0',
+                                            width: '100%',
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        className="hover-checkbox"
+                                    >
+                                        {type}
+                                    </Checkbox>
+                                ))}
+                            </Space>
                         </CheckboxGroup>
+                    </div>
+
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
+
+                    {/* Bedrooms & Bathrooms */}
+                    <Row gutter={12}>
+                        <Col span={12}>
+                            <Text strong style={{
+                                color: '#1B3C53',
+                                marginBottom: '8px',
+                                display: 'block',
+                                fontSize: '13px'
+                            }}>
+                                Bedrooms
+                            </Text>
+                            <Select
+                                value={filters.bedrooms}
+                                onChange={value => updateFilter('bedrooms', value)}
+                                placeholder="Any"
+                                style={{ width: '100%' }}
+                                size="small"
+                                allowClear
+                            >
+                                <Option value={1}>1+</Option>
+                                <Option value={2}>2+</Option>
+                                <Option value={3}>3+</Option>
+                                <Option value={4}>4+</Option>
+                                <Option value={5}>5+</Option>
+                            </Select>
+                        </Col>
+                        <Col span={12}>
+                            <Text strong style={{
+                                color: '#1B3C53',
+                                marginBottom: '8px',
+                                display: 'block',
+                                fontSize: '13px'
+                            }}>
+                                Bathrooms
+                            </Text>
+                            <Select
+                                value={filters.bathrooms}
+                                onChange={value => updateFilter('bathrooms', value)}
+                                placeholder="Any"
+                                style={{ width: '100%' }}
+                                size="small"
+                                allowClear
+                            >
+                                <Option value={1}>1+</Option>
+                                <Option value={2}>2+</Option>
+                                <Option value={3}>3+</Option>
+                                <Option value={4}>4+</Option>
+                            </Select>
+                        </Col>
+                    </Row>
+
+                    <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
+
+                    {/* Square Feet */}
+                    <div>
+                        <Text strong style={{
+                            color: '#1B3C53',
+                            marginBottom: '8px',
+                            display: 'block',
+                            fontSize: '13px'
+                        }}>
+                            Area (sqm)
+                        </Text>
+                        <Slider
+                            range
+                            min={0}
+                            max={10000}
+                            step={100}
+                            value={filters.squareFeet}
+                            onChange={(value) => updateFilter('squareFeet', value)}
+                            tooltip={{ formatter: value => `${value} sqm` }}
+                            trackStyle={{ background: '#1B3C53', height: '4px' }}
+                            handleStyle={{
+                                borderColor: '#1B3C53',
+                                height: '16px',
+                                width: '16px',
+                                marginTop: '-6px'
+                            }}
+                            railStyle={{ background: '#e2e8f0', height: '4px' }}
+                        />
                     </div>
 
                     <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
@@ -338,46 +302,31 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                         <CheckboxGroup
                             value={filters.amenities}
                             onChange={value => updateFilter('amenities', value)}
-                            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+                            style={{ width: '100%' }}
                         >
-                            {amenities.map(amenity => (
-                                <Checkbox
-                                    key={amenity}
-                                    value={amenity}
-                                    style={{
-                                        margin: 0,
-                                        padding: '6px 8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid transparent',
-                                        transition: 'all 0.2s',
-                                        fontSize: '12px'
-                                    }}
-                                >
-                                    {amenity}
-                                </Checkbox>
-                            ))}
+                            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                {amenities.map(amenity => (
+                                    <Checkbox
+                                        key={amenity}
+                                        value={amenity}
+                                        style={{
+                                            fontSize: '12px',
+                                            marginLeft: '0',
+                                            width: '100%',
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        className="hover-checkbox"
+                                    >
+                                        {amenity}
+                                    </Checkbox>
+                                ))}
+                            </Space>
                         </CheckboxGroup>
                     </div>
                 </Space>
             </div>
-
-            <style jsx>{`
-                :global(.filter-checkbox:hover) {
-                    background: #f8fafc;
-                    border-color: #e2e8f0 !important;
-                }
-                :global(.ant-checkbox-wrapper-checked) {
-                    background: #f0f9ff;
-                    border-color: #1B3C53 !important;
-                }
-                :global(.ant-checkbox-wrapper) {
-                    font-size: 12px;
-                }
-                :global(.ant-slider-handle) {
-                    width: 16px;
-                    height: 16px;
-                }
-            `}</style>
         </div>
     );
 };

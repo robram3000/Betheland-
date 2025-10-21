@@ -9,7 +9,6 @@ const SettingsPage = () => {
 
     const onFinish = (values) => {
         console.log('Settings values:', values);
-        // Handle settings submission
     };
 
     return (

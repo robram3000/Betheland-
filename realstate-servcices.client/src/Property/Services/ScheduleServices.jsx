@@ -6,10 +6,11 @@ class ScheduleServices {
     async createSchedule(scheduleData) {
         try {
             const response = await api.post('/Scheduling', scheduleData);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error creating schedule:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to create schedule';
+            throw new Error(errorMessage);
         }
     }
 
@@ -17,7 +18,7 @@ class ScheduleServices {
     async getScheduleById(id) {
         try {
             const response = await api.get(`/Scheduling/${id}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error fetching schedule:', error);
             throw error;
@@ -28,7 +29,7 @@ class ScheduleServices {
     async getSchedulesByAgent(agentId) {
         try {
             const response = await api.get(`/Scheduling/agent/${agentId}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error fetching agent schedules:', error);
             throw error;
@@ -39,7 +40,7 @@ class ScheduleServices {
     async getSchedulesByClient(clientId) {
         try {
             const response = await api.get(`/Scheduling/client/${clientId}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error fetching client schedules:', error);
             throw error;
@@ -50,7 +51,7 @@ class ScheduleServices {
     async getSchedulesByProperty(propertyId) {
         try {
             const response = await api.get(`/Scheduling/property/${propertyId}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error fetching property schedules:', error);
             throw error;
@@ -61,7 +62,7 @@ class ScheduleServices {
     async getUpcomingSchedules(days = 7) {
         try {
             const response = await api.get(`/Scheduling/upcoming?days=${days}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error fetching upcoming schedules:', error);
             throw error;
@@ -72,7 +73,7 @@ class ScheduleServices {
     async updateSchedule(id, updateData) {
         try {
             const response = await api.put(`/Scheduling/${id}`, updateData);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error updating schedule:', error);
             throw error;
@@ -83,7 +84,7 @@ class ScheduleServices {
     async cancelSchedule(id) {
         try {
             const response = await api.patch(`/Scheduling/${id}/cancel`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error canceling schedule:', error);
             throw error;
@@ -94,7 +95,7 @@ class ScheduleServices {
     async completeSchedule(id) {
         try {
             const response = await api.patch(`/Scheduling/${id}/complete`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error completing schedule:', error);
             throw error;
@@ -105,7 +106,7 @@ class ScheduleServices {
     async deleteSchedule(id) {
         try {
             const response = await api.delete(`/Scheduling/${id}`);
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error deleting schedule:', error);
             throw error;
@@ -121,7 +122,7 @@ class ScheduleServices {
                     scheduleTime: scheduleTime.toISOString()
                 }
             });
-            return response;
+            return response.data;
         } catch (error) {
             console.error('Error checking time slot availability:', error);
             throw error;
@@ -134,7 +135,7 @@ class ScheduleServices {
             propertyId: formData.propertyId,
             agentId: formData.agentId,
             clientId: clientId,
-            scheduleTime: formData.scheduleTime.format('YYYY-MM-DDTHH:mm:ss'),
+            scheduleTime: formData.scheduleTime,
             notes: formData.notes || '',
             status: "Scheduled"
         };

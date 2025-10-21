@@ -7,5 +7,6 @@
         public int ClientId { get; set; }
         public DateTime ScheduleTime { get; set; }
         public string? Notes { get; set; }
+        public string status { get; set; }
     }
 }

@@ -70,7 +70,7 @@ const ProfilePage = () => {
                 zipCode: profileData.zipCode,
                 gender: profileData.gender,
             });
-            console.log('🔄 Form fields set with address:', profileData.address); // Debug log
+            console.log('🔄 Form fields set with address:', profileData.address); 
         }
     }, [profileData, form]);
 
@@ -111,19 +111,15 @@ const ProfilePage = () => {
     const handleImageError = () => {
         setProfileImageError(true);
     };
-
-    // Process image URL similar to GlobalNavigation
     const processImageUrl = (url) => {
         if (!url || typeof url !== 'string' || url.trim() === '') {
             return null;
         }
 
-        // If it's already a full URL, return as is
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
             return url;
         }
 
-        // Handle different path formats
         if (url.startsWith('/uploads/')) {
             return `https://localhost:7075${url}`;
         }

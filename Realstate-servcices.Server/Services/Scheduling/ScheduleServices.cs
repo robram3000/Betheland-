@@ -3,7 +3,6 @@ using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Properties;
 using Realstate_servcices.Server.Repository.ScheduleDao;
-
 namespace Realstate_servcices.Server.Services.Scheduling
 {
     public class SchedulingServices : ISchedulingServices
@@ -53,7 +52,22 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<ScheduleResponseDto> CreateScheduleAsync(CreateScheduleDto createDto)
         {
-            // Validate time slot availability
+           
+            if (createDto == null)
+                throw new ArgumentNullException(nameof(createDto));
+
+            if (createDto.PropertyId <= 0)
+                throw new InvalidOperationException("Invalid property ID.");
+
+            if (createDto.AgentId <= 0)
+                throw new InvalidOperationException("Invalid agent ID.");
+
+            if (createDto.ClientId <= 0)
+                throw new InvalidOperationException("Invalid client ID.");
+
+            if (createDto.ScheduleTime < DateTime.UtcNow)
+                throw new InvalidOperationException("Schedule time must be in the future.");
+
             var isAvailable = await _schedulingRepository.IsTimeSlotAvailableAsync(
                 createDto.AgentId, createDto.ScheduleTime);
 
@@ -68,9 +82,10 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 AgentId = createDto.AgentId,
                 ClientId = createDto.ClientId,
                 ScheduleTime = createDto.ScheduleTime,
-                Notes = createDto.Notes,
-                Status = "Scheduled",
-                CreatedAt = DateTime.UtcNow
+                Notes = createDto.Notes ?? string.Empty,
+                Status = createDto.status ?? "Scheduled",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             var createdSchedule = await _schedulingRepository.CreateAsync(schedule);
@@ -79,6 +94,9 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<ScheduleResponseDto?> UpdateScheduleAsync(int id, UpdateScheduleDto updateDto)
         {
+            if (updateDto == null)
+                throw new ArgumentNullException(nameof(updateDto));
+
             var existingSchedule = await _schedulingRepository.GetByIdAsync(id);
             if (existingSchedule == null)
                 return null;
@@ -86,6 +104,9 @@ namespace Realstate_servcices.Server.Services.Scheduling
             // If time is changed, check availability
             if (existingSchedule.ScheduleTime != updateDto.ScheduleTime)
             {
+                if (updateDto.ScheduleTime < DateTime.UtcNow)
+                    throw new InvalidOperationException("Schedule time must be in the future.");
+
                 var isAvailable = await _schedulingRepository.IsTimeSlotAvailableAsync(
                     existingSchedule.AgentId, updateDto.ScheduleTime);
 
@@ -96,8 +117,8 @@ namespace Realstate_servcices.Server.Services.Scheduling
             }
 
             existingSchedule.ScheduleTime = updateDto.ScheduleTime;
-            existingSchedule.Status = updateDto.Status;
-            existingSchedule.Notes = updateDto.Notes;
+            existingSchedule.Status = updateDto.Status ?? existingSchedule.Status;
+            existingSchedule.Notes = updateDto.Notes ?? existingSchedule.Notes;
             existingSchedule.UpdatedAt = DateTime.UtcNow;
 
             var updatedSchedule = await _schedulingRepository.UpdateAsync(existingSchedule);
@@ -135,6 +156,12 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<bool> IsTimeSlotAvailableAsync(int agentId, DateTime scheduleTime)
         {
+            if (agentId <= 0)
+                throw new ArgumentException("Invalid agent ID");
+
+            if (scheduleTime < DateTime.UtcNow)
+                return false;
+
             return await _schedulingRepository.IsTimeSlotAvailableAsync(agentId, scheduleTime);
         }
 
