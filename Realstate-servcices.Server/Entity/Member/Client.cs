@@ -2,7 +2,7 @@
 using Realstate_servcices.Server.Entity.Chat;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.Properties;
-
+using Realstate_servcices.Server.Entity.Schedule;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

@@ -29,13 +29,13 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "roberto@realestate.com",
-  "username": "roberto_dc1234",
-  "password": "Ramirez@2k13",
-  "firstName": "Roberto",
-  "middleName": "Santos",
-  "lastName": "Admin",
-  "suffix": "Jr.",
+  "email": "acecentsandoval10@gmail.com",
+  "username": "Acecent@2k13",
+  "password": "Acecent@2k13",
+  "firstName": "Acecent",
+  "middleName": "O",
+  "lastName": "Sandobal",
+  "suffix": "Jr",
   "cellPhoneNo": "09123456789",
   "licenseNumber": "LIC-987654",
   "bio": "Experienced real estate agent specializing in luxury properties with 8+ years in the industry. Committed to providing exceptional service to clients.",

@@ -2,6 +2,7 @@
 using Realstate_servcices.Server.Entity.Chat;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.Properties;
+using Realstate_servcices.Server.Entity.Schedule;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -82,14 +83,14 @@ namespace Realstate_servcices.Server.Entity.member
         [Required]
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 
-
         [ForeignKey("BaseMemberId")]
         public virtual BaseMember BaseMember { get; set; } = null!;
 
         public virtual ICollection<PropertyHouse>? Properties { get; set; }
         public virtual ICollection<ScheduleProperties>? ScheduleProperties { get; set; }
+        public virtual AgentScheduleConfig? AgentScheduleConfig { get; set; }
+        public virtual ICollection<AgentAvailability> AgentAvailabilities { get; set; } = new List<AgentAvailability>();
+        public virtual ICollection<AgentTimeOff> AgentTimeOffs { get; set; } = new List<AgentTimeOff>();
         public ICollection<Rating> Ratings { get; set; } = new List<Rating>();
-
-
     }
-}   
+}

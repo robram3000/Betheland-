@@ -1,4 +1,4 @@
-﻿// PropertySearchPage.jsx (FIXED VERSION - Corrected Filtering)
+﻿// PropertySearchPage.jsx (FIXED VERSION - Debugging Enabled)
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Layout,
@@ -48,129 +48,70 @@ const PropertySearchPage = () => {
         bathrooms: null,
         propertyType: [],
         amenities: [],
-        squareFeet: [0, 10000]
+        squareFeet: [0, 100000] // Increased max area to accommodate larger properties
     });
 
-    // DEBUG: Log properties and filtering
+    // DEBUG: Comprehensive logging
     useEffect(() => {
-        console.log('🔍 DEBUG - Total properties:', properties?.length);
-        console.log('🔍 DEBUG - Current filters:', filters);
-        console.log('🔍 DEBUG - Search term:', searchTerm);
-    }, [properties, filters, searchTerm]);
+        console.log('🔍 DEBUG - PropertySearchPage State:', {
+            totalProperties: properties?.length,
+            loading: loading,
+            error: error,
+            searchTerm: searchTerm,
+            filters: filters,
+            currentPage: currentPage
+        });
 
-    // Filter properties based on search term and filters - FIXED VERSION
+        if (properties && properties.length > 0) {
+            console.log('📋 Sample Property Data:', properties[0]);
+            console.log('🏠 All Property IDs:', properties.map(p => p.id));
+        }
+    }, [properties, loading, error, searchTerm, filters, currentPage]);
+
+    // SIMPLIFIED: Filter properties - Only basic search for now
     const filteredProperties = useMemo(() => {
         if (!properties || !Array.isArray(properties)) {
             console.log('❌ No properties array found');
             return [];
         }
 
-        console.log('🔄 Starting filter process with', properties.length, 'properties');
+        console.log('🔄 Starting SIMPLIFIED filter process with', properties.length, 'properties');
 
-        const filtered = properties.filter(property => {
+        // TEMPORARY: Return all properties without complex filtering
+        const allProperties = properties.filter(property => {
             if (!property || !property.id) {
                 console.log('Skipping invalid property:', property);
                 return false;
             }
-
-            // Search term filter
-            const matchesSearch = !searchTerm ||
-                (property.title && property.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (property.description && property.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (property.address && property.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (property.city && property.city.toLowerCase().includes(searchTerm.toLowerCase()));
-
-            if (!matchesSearch) {
-                console.log('❌ Property failed search filter:', property.title);
-                return false;
-            }
-
-            // Price range filter
-            const price = Number(property.price) || 0;
-            const matchesPrice = price >= filters.priceRange[0] && price <= filters.priceRange[1];
-
-            if (!matchesPrice) {
-                console.log('❌ Property failed price filter:', property.title, 'Price:', price, 'Range:', filters.priceRange);
-                return false;
-            }
-
-            // Bedrooms filter - FIXED: Check if filter is set
-            const bedrooms = Number(property.bedrooms) || 0;
-            const matchesBedrooms = filters.bedrooms === null ||
-                filters.bedrooms === undefined ||
-                bedrooms >= Number(filters.bedrooms);
-
-            if (!matchesBedrooms) {
-                console.log('❌ Property failed bedrooms filter:', property.title, 'Bedrooms:', bedrooms, 'Filter:', filters.bedrooms);
-                return false;
-            }
-
-            // Bathrooms filter - FIXED: Correct variable name
-            const bathrooms = Number(property.bathrooms) || 0;
-            const matchesBathrooms = filters.bathrooms === null ||
-                filters.bathrooms === undefined ||
-                bathrooms >= Number(filters.bathrooms);
-
-            if (!matchesBathrooms) {
-                console.log('❌ Property failed bathrooms filter:', property.title, 'Bathrooms:', bathrooms, 'Filter:', filters.bathrooms);
-                return false;
-            }
-
-            // Property type filter
-            const propertyType = property.propertyType || property.type || '';
-            const matchesPropertyType = filters.propertyType.length === 0 ||
-                filters.propertyType.includes(propertyType);
-
-            if (!matchesPropertyType) {
-                console.log('❌ Property failed type filter:', property.title, 'Type:', propertyType, 'Filter:', filters.propertyType);
-                return false;
-            }
-
-            // Square feet filter (using areaSqm)
-            const areaSqm = Number(property.areaSqm) || 0;
-            const matchesSquareFeet = areaSqm >= filters.squareFeet[0] && areaSqm <= filters.squareFeet[1];
-
-            if (!matchesSquareFeet) {
-                console.log('❌ Property failed area filter:', property.title, 'Area:', areaSqm, 'Range:', filters.squareFeet);
-                return false;
-            }
-
-            // Amenities filter - FIXED: Implement amenities filtering
-            let matchesAmenities = true;
-            if (filters.amenities && filters.amenities.length > 0) {
-                if (!property.amenities) {
-                    matchesAmenities = false;
-                } else {
-                    // Handle both stringified array and actual array
-                    let propertyAmenities = [];
-                    try {
-                        if (typeof property.amenities === 'string') {
-                            propertyAmenities = JSON.parse(property.amenities);
-                        } else if (Array.isArray(property.amenities)) {
-                            propertyAmenities = property.amenities;
-                        }
-                    } catch (e) {
-                        console.warn('Failed to parse amenities:', property.amenities);
-                    }
-
-                    matchesAmenities = filters.amenities.every(amenity =>
-                        propertyAmenities.includes(amenity)
-                    );
-                }
-            }
-
-            if (!matchesAmenities) {
-                console.log('❌ Property failed amenities filter:', property.title, 'Amenities:', property.amenities, 'Filter:', filters.amenities);
-                return false;
-            }
-
-            console.log('✅ Property passed all filters:', property.title);
             return true;
         });
 
-        console.log('🎯 Filtering complete. Found:', filtered.length, 'properties out of', properties.length);
-        return filtered;
-    }, [properties, searchTerm, filters]);
+        console.log('✅ After basic validation:', allProperties.length, 'properties');
+
+        // Only apply search term filter for now
+        if (searchTerm) {
+            const query = searchTerm.toLowerCase().trim();
+            const searched = allProperties.filter(property => {
+                const searchFields = [
+                    property.title,
+                    property.description,
+                    property.address,
+                    property.city,
+                    property.state,
+                    property.propertyType
+                ].filter(field => field && typeof field === 'string');
+
+                return searchFields.some(field =>
+                    field.toLowerCase().includes(query)
+                );
+            });
+            console.log('🔍 After search filter:', searched.length, 'properties');
+            return searched;
+        }
+
+        console.log('🎯 Returning all properties:', allProperties.length);
+        return allProperties;
+    }, [properties, searchTerm]); // Removed filters dependency for now
 
     // Sort properties
     const sortedProperties = useMemo(() => {
@@ -197,7 +138,15 @@ const PropertySearchPage = () => {
     // Paginate properties - 8 cards per page
     const paginatedProperties = useMemo(() => {
         const startIndex = (currentPage - 1) * pageSize;
-        return sortedProperties.slice(startIndex, startIndex + pageSize);
+        const paginated = sortedProperties.slice(startIndex, startIndex + pageSize);
+        console.log('📄 Pagination:', {
+            currentPage,
+            pageSize,
+            startIndex,
+            total: sortedProperties.length,
+            showing: paginated.length
+        });
+        return paginated;
     }, [sortedProperties, currentPage, pageSize]);
 
     // Handle filter changes
@@ -249,7 +198,7 @@ const PropertySearchPage = () => {
             bathrooms: null,
             propertyType: [],
             amenities: [],
-            squareFeet: [0, 10000]
+            squareFeet: [0, 100000]
         });
         setSearchTerm('');
         setCurrentPage(1);
@@ -258,7 +207,8 @@ const PropertySearchPage = () => {
     // Handle errors
     useEffect(() => {
         if (error) {
-            message.error('Failed to load properties');
+            message.error(`Failed to load properties: ${error}`);
+            console.error('❌ Property loading error:', error);
         }
     }, [error]);
 
@@ -266,6 +216,16 @@ const PropertySearchPage = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filters]);
+
+    // Force refresh if no properties after loading
+    useEffect(() => {
+        if (!loading && properties && properties.length === 0) {
+            console.log('🔄 No properties found, attempting refresh...');
+            refreshProperties().catch(err => {
+                console.error('❌ Refresh failed:', err);
+            });
+        }
+    }, [loading, properties, refreshProperties]);
 
     return (
         <div style={{
@@ -303,9 +263,9 @@ const PropertySearchPage = () => {
                                 display: 'block',
                                 textAlign: window.innerWidth < 768 ? 'center' : 'left'
                             }}>
-                                {filteredProperties.length} properties available
+                                {properties?.length || 0} properties available
                                 {filteredProperties.length !== properties?.length &&
-                                    ` (of ${properties?.length} total)`
+                                    ` (${filteredProperties.length} filtered)`
                                 }
                             </Text>
                         </Col>
@@ -450,13 +410,28 @@ const PropertySearchPage = () => {
                                         </Text>
                                     </div>
                                 </div>
+                            ) : error ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '60px 20px'
+                                }}>
+                                    <Text type="danger" style={{ display: 'block', marginBottom: '16px' }}>
+                                        Error loading properties: {error}
+                                    </Text>
+                                    <Button onClick={refreshProperties} type="primary">
+                                        Retry
+                                    </Button>
+                                </div>
                             ) : paginatedProperties.length === 0 ? (
                                 <Empty
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                     description={
                                         <div>
                                             <Text style={{ color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                                                No properties found matching your criteria
+                                                {properties?.length === 0
+                                                    ? 'No properties found'
+                                                    : 'No properties match your search criteria'
+                                                }
                                             </Text>
                                             <Button onClick={handleResetFilters}>
                                                 Reset All Filters
@@ -478,7 +453,8 @@ const PropertySearchPage = () => {
                                         border: '1px solid #e9ecef'
                                     }}>
                                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                                            Showing {paginatedProperties.length} of {filteredProperties.length} filtered properties (from {properties?.length} total)
+                                            Showing {paginatedProperties.length} of {filteredProperties.length} properties
+                                            {searchTerm && ` (filtered by: "${searchTerm}")`}
                                         </Text>
                                     </div>
 
@@ -490,7 +466,7 @@ const PropertySearchPage = () => {
                                                 viewMode === 'grid' || window.innerWidth < 768 ?
                                                     'repeat(auto-fill, minmax(min(100%, 350px), 1fr))' :
                                                     viewMode === 'landscape' ?
-                                                        'repeat(auto-fill, minmax(min(100%, 500px), 1fr))' : 'none',
+                                                        'repeat(auto-fill, minmax(min(100%, 550px), 1fr))' : 'none', // Increased min width for landscape
                                             gap: '24px',
                                             width: '100%',
                                             alignItems: 'stretch',
@@ -503,7 +479,7 @@ const PropertySearchPage = () => {
                                                 style={{
                                                     display: 'flex',
                                                     width: '100%',
-                                                    height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '280px' : 'auto',
+                                                    height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '320px' : 'auto', // Increased height
                                                     minHeight: 'auto',
                                                     justifyContent: 'center'
                                                 }}
@@ -512,6 +488,7 @@ const PropertySearchPage = () => {
                                                     property={property}
                                                     showActions={false}
                                                     viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
+                                                    landscapeHeight="320px" // Increased height for landscape
                                                     style={{
                                                         width: '100%',
                                                         height: '100%'

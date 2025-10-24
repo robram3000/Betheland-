@@ -33,13 +33,13 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
             key: 'chat',
             icon: <MessageOutlined />,
             label: 'Chat',
-            path: '/admin/chat'
+            path: '/portal/agent/all-chats'
         },
         {
             key: 'appointments',
             icon: <CalendarOutlined />,
             label: 'Appointment',
-            path: '/admin/appointments'
+            path: '/portal/agent/schedule'
         },
         {
             key: 'properties',
@@ -182,7 +182,6 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick }) => {
                 />
             </div>
 
-            <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
         </Sider>
     );
 };

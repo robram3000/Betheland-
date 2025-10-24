@@ -11,6 +11,13 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
         private readonly ILocalStorageVideo _videoStorage;
         private readonly ILogger<CreatePropertyService> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the CreatePropertyService class
+        /// </summary>
+        /// <param name="propertyRepository">The repository for property data operations</param>
+        /// <param name="imageStorage">The service for image storage operations</param>
+        /// <param name="videoStorage">The service for video storage operations</param>
+        /// <param name="logger">The logger for tracking service operations</param>
         public CreatePropertyService(
             ICreatePropertyRepository propertyRepository,
             ILocalstorageImage imageStorage,
@@ -23,6 +30,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             _logger = logger;
         }
 
+        /// <summary>
+        /// Creates a new property with the provided details
+        /// </summary>
+        /// <param name="request">The property creation request containing property data, images, and videos</param>
+        /// <returns>A response indicating success or failure with the created property details</returns>
         public async Task<PropertyResponse> CreatePropertyAsync(CreatePropertyRequest request)
         {
             try
@@ -133,6 +145,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves a property by its unique identifier
+        /// </summary>
+        /// <param name="id">The unique identifier of the property to retrieve</param>
+        /// <returns>A response containing the property details or an error message</returns>
         public async Task<PropertyResponse> GetPropertyByIdAsync(int id)
         {
             try
@@ -173,6 +190,10 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves all properties from the system
+        /// </summary>
+        /// <returns>A response containing all properties or an error message</returns>
         public async Task<PropertiesResponse> GetAllPropertiesAsync()
         {
             try
@@ -204,6 +225,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves all properties associated with a specific owner
+        /// </summary>
+        /// <param name="ownerId">The unique identifier of the property owner</param>
+        /// <returns>A response containing the owner's properties or an error message</returns>
         public async Task<PropertiesResponse> GetPropertiesByOwnerIdAsync(int ownerId)
         {
             try
@@ -233,6 +259,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves all properties managed by a specific agent
+        /// </summary>
+        /// <param name="agentId">The unique identifier of the property agent</param>
+        /// <returns>A response containing the agent's properties or an error message</returns>
         public async Task<PropertiesResponse> GetPropertiesByAgentIdAsync(int agentId)
         {
             try
@@ -262,6 +293,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves all properties with a specific status
+        /// </summary>
+        /// <param name="status">The status to filter properties by (e.g., "Available", "Sold", "Rented")</param>
+        /// <returns>A response containing properties with the specified status or an error message</returns>
         public async Task<PropertiesResponse> GetPropertiesByStatusAsync(string status)
         {
             try
@@ -291,6 +327,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Searches properties based on the provided search term
+        /// </summary>
+        /// <param name="searchTerm">The term to search for in property titles, descriptions, addresses, etc.</param>
+        /// <returns>A response containing matching properties or an error message</returns>
         public async Task<PropertiesResponse> SearchPropertiesAsync(string searchTerm)
         {
             try
@@ -320,6 +361,12 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Updates an existing property with new information
+        /// </summary>
+        /// <param name="id">The unique identifier of the property to update</param>
+        /// <param name="request">The update request containing new property data, images, and videos</param>
+        /// <returns>A response indicating success or failure with the updated property details</returns>
         public async Task<PropertyResponse> UpdatePropertyAsync(int id, UpdatePropertyRequest request)
         {
             try
@@ -420,6 +467,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Deletes a property from the system
+        /// </summary>
+        /// <param name="id">The unique identifier of the property to delete</param>
+        /// <returns>A response indicating success or failure of the deletion</returns>
         public async Task<PropertyResponse> DeletePropertyAsync(int id)
         {
             try
@@ -455,6 +507,12 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Adds images to an existing property
+        /// </summary>
+        /// <param name="propertyId">The unique identifier of the property to add images to</param>
+        /// <param name="imageUrls">List of image URLs to add to the property</param>
+        /// <returns>A response indicating success or failure with the updated property details</returns>
         public async Task<PropertyResponse> AddPropertyImagesAsync(int propertyId, List<string> imageUrls)
         {
             try
@@ -492,6 +550,12 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Adds videos to an existing property
+        /// </summary>
+        /// <param name="propertyId">The unique identifier of the property to add videos to</param>
+        /// <param name="videoUrls">List of video URLs to add to the property</param>
+        /// <returns>A response indicating success or failure with the updated property details</returns>
         public async Task<PropertyResponse> AddPropertyVideosAsync(int propertyId, List<string> videoUrls)
         {
             try
@@ -541,6 +605,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             }
         }
 
+        /// <summary>
+        /// Maps a PropertyDto to a PropertyHouse entity
+        /// </summary>
+        /// <param name="dto">The data transfer object containing property information</param>
+        /// <returns>A PropertyHouse entity populated with the DTO data</returns>
         private PropertyHouse MapToPropertyEntity(PropertyDto dto)
         {
             return new PropertyHouse
@@ -575,6 +644,11 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
             };
         }
 
+        /// <summary>
+        /// Maps a PropertyHouse entity to a PropertyDto
+        /// </summary>
+        /// <param name="property">The property entity to map</param>
+        /// <returns>A PropertyDto populated with the entity data and related images/videos</returns>
         private PropertyDto MapToPropertyDto(PropertyHouse property)
         {
             return new PropertyDto

@@ -99,8 +99,8 @@ const AdminLayout = ({ children }) => {
                             marginLeft: mobileView ? 0 : (collapsed ? 80 : 280),
                             marginTop: 64,
                             transition: 'all 0.2s',
-                            background: '#f5f5f5',
-                            padding: mobileView ? '0 12px' : '0 24px',
+                            background: '#f5f5f5'
+
                         }}
                     >
                         <Content
@@ -113,7 +113,7 @@ const AdminLayout = ({ children }) => {
                                 border: '1px solid #f0f0f0',
                                 maxWidth: '100%',
                                 overflow: 'hidden',
-                                padding: mobileView ? '16px' : '24px',
+                                padding: 0, 
                             }}
                         >
                             {children}

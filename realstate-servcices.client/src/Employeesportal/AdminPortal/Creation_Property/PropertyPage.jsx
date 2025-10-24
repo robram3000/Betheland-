@@ -51,7 +51,7 @@ import agentService from '../Creation_Agent/Services/AgentService';
 const { Search } = Input;
 const { Option } = Select;
 
-const PropertyPage = () => {
+const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -68,32 +68,33 @@ const PropertyPage = () => {
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
-    // Image processing function
-    const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-property.jpg';
+    // Notify parent component when filters change
+    useEffect(() => {
+        if (onFilterUpdate) {
+            onFilterUpdate(searchText, statusFilter, typeFilter);
         }
+    }, [searchText, statusFilter, typeFilter, onFilterUpdate]);
 
-        // Already full URL
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
-
-        // Server path - prepend base URL
         if (url.startsWith('/uploads/')) {
             return `https://localhost:7075${url}`;
         }
-
-        // Relative path without leading slash
         if (url.includes('.') && !url.startsWith('/')) {
             return `https://localhost:7075/uploads/properties/${url}`;
         }
-
-        // uploads/ path
         if (url.startsWith('uploads/')) {
             return `https://localhost:7075/${url}`;
         }
-
+        if (url.startsWith('/uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
         return '/default-property.jpg';
     };
 
@@ -390,6 +391,11 @@ const PropertyPage = () => {
 
                     // Remove from state immediately
                     setProperties(prev => prev.filter(prop => prop.id !== propertyId));
+
+                    // Notify parent of update
+                    if (onPropertiesUpdate) {
+                        onPropertiesUpdate();
+                    }
                 } catch (error) {
                     console.error('Delete error:', error);
                     message.error(error.message || 'Failed to delete property');
@@ -407,6 +413,11 @@ const PropertyPage = () => {
             setProperties(prev => prev.map(prop =>
                 prop.id === propertyId ? { ...prop, status: 'approved' } : prop
             ));
+
+            // Notify parent of update
+            if (onPropertiesUpdate) {
+                onPropertiesUpdate();
+            }
         } catch (error) {
             console.error('Approve error:', error);
             message.error(error.message || 'Failed to approve property');
@@ -424,6 +435,11 @@ const PropertyPage = () => {
             setProperties(prev => prev.map(prop =>
                 prop.id === propertyId ? { ...prop, status: 'rejected' } : prop
             ));
+
+            // Notify parent of update
+            if (onPropertiesUpdate) {
+                onPropertiesUpdate();
+            }
         } catch (error) {
             console.error('Reject error:', error);
             message.error(error.message || 'Failed to reject property');
@@ -458,6 +474,9 @@ const PropertyPage = () => {
     const handleSuccess = () => {
         loadProperties();
         handleModalClose();
+        if (onPropertiesUpdate) {
+            onPropertiesUpdate();
+        }
     };
 
     const handleHandlerChangeSuccess = async (property, newAgentId) => {
@@ -540,12 +559,33 @@ const PropertyPage = () => {
 
     // Render amenities with dropdown for more than 3 items
     const renderAmenities = (amenities) => {
-        if (!amenities || amenities.length === 0) {
+        // Parse amenities if it's a JSON string, otherwise ensure it's an array
+        let amenitiesArray = [];
+
+        try {
+            if (typeof amenities === 'string') {
+                // Try to parse as JSON
+                amenitiesArray = JSON.parse(amenities);
+            } else if (Array.isArray(amenities)) {
+                // Already an array
+                amenitiesArray = amenities;
+            }
+        } catch (error) {
+            console.error('Error parsing amenities:', error);
+            amenitiesArray = [];
+        }
+
+        // Final safety check
+        if (!Array.isArray(amenitiesArray)) {
+            amenitiesArray = [];
+        }
+
+        if (amenitiesArray.length === 0) {
             return <span style={{ color: '#999' }}>No amenities</span>;
         }
 
-        const displayAmenities = amenities.slice(0, 3);
-        const remainingAmenities = amenities.slice(3);
+        const displayAmenities = amenitiesArray.slice(0, 3);
+        const remainingAmenities = amenitiesArray.slice(3);
 
         const content = (
             <Space size={[4, 4]} wrap>
@@ -749,7 +789,7 @@ const PropertyPage = () => {
                         borderRadius: '4px',
                         border: '1px solid #e6f7ff'
                     }}>
-                        {record.price ? `${record.price.toLocaleString()}` : 'Not set'}
+                        {record.price ? `₱${record.price.toLocaleString()}` : 'Not set'}
                     </div>
                     <Divider style={{ margin: '8px 0' }} />
                     <Space size={12}>
@@ -928,6 +968,8 @@ const PropertyPage = () => {
 
     return (
         <div>
+            {/* NO HELMET SECTION - Now managed by PropertyLayout */}
+
             <Card>
                 <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <Space wrap>
@@ -1060,7 +1102,7 @@ const PropertyPage = () => {
                                     <strong>Address:</strong> {selectedProperty.address ? `${selectedProperty.address}, ${selectedProperty.city}, ${selectedProperty.state} ${selectedProperty.zipCode}` : 'No address'}
                                 </div>
                                 <div style={{ marginBottom: 16 }}>
-                                    <strong>Price:</strong> {selectedProperty.price ? `$${selectedProperty.price.toLocaleString()}` : 'Not set'}
+                                    <strong>Price:</strong> {selectedProperty.price ? `₱${selectedProperty.price.toLocaleString()}` : 'Not set'}
                                 </div>
                                 <div style={{ marginBottom: 16 }}>
                                     <strong>Type:</strong>

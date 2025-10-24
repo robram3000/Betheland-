@@ -9,6 +9,7 @@ using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Repositories;
 using Realstate_servcices.Server.Repository.Conversation;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
@@ -18,6 +19,7 @@ using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.Conversation;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
+using Realstate_servcices.Server.Services.Scheduling;
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
 using Realstate_servcices.Server.Services.SMTP.rollout;
@@ -81,7 +83,7 @@ builder.Services.AddScoped<ICreatePropertyService, CreatePropertyService>();
 builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
 builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<IProfilePictureService, ProfilePictureService>();
-builder.Services.AddScoped<ILocalStorageVideo , LocalStorageVideo>();
+builder.Services.AddScoped<ILocalStorageVideo, LocalStorageVideo>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IChatParticipantRepository, ChatParticipantRepository>();
@@ -91,6 +93,15 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<ILocalStorageChatImage, LocalStorageChatImage>();
 builder.Services.AddScoped<ILocalStorageChatVideo, LocalStorageChatVideo>();
+builder.Services.AddScoped<ISchedulePropertiesService, SchedulePropertiesService>();
+builder.Services.AddScoped<IAgentTimeOffService, AgentTimeOffService>();
+builder.Services.AddScoped<IAgentScheduleConfigService, AgentScheduleConfigService>();
+builder.Services.AddScoped<IAgentAvailabilityService, AgentAvailabilityService>();
+builder.Services.AddScoped<ISchedulePropertiesRepository, SchedulePropertiesRepository>();
+builder.Services.AddScoped<IAgentTimeOffRepository, AgentTimeOffRepository>();
+builder.Services.AddScoped<IAgentScheduleConfigRepository, AgentScheduleConfigRepository>();
+builder.Services.AddScoped<IAgentAvailabilityRepository, AgentAvailabilityRepository>();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -121,7 +132,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 104857600; 
+    options.MultipartBodyLengthLimit = 104857600;
 });
 builder.Services.AddSpaStaticFiles(configuration =>
 {
@@ -129,7 +140,7 @@ builder.Services.AddSpaStaticFiles(configuration =>
 });
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; 
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);
 });
@@ -153,6 +164,7 @@ builder.Services.AddSingleton<IMapper>(serviceProvider =>
         cfg.AddProfile<NotificationMappingProfile>();
         cfg.CreateMap<ChatDto, Chat>();
         cfg.CreateMap<MessageDto, Message>();
+    
 
     });
 

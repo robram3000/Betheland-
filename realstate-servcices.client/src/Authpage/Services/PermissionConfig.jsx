@@ -62,15 +62,16 @@ export const routePermissions = {
     '/portal/admin/analytics': ['SuperAdmin', 'Admin'],
     '/portal/admin/properties': ['SuperAdmin', 'Admin'],
     '/portal/admin/agent': ['SuperAdmin', 'Admin'],
-
+    '/portal/admin/schedules': ['SuperAdmin', 'Admin'],
     // Agent Routes
     '/portal/agent': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/all-properties': ['SuperAdmin', 'Admin', 'Agent'],
-    '/portal/agent/all-schedule': ['SuperAdmin', 'Admin', 'Agent'],
+    '/portal/agent/schedule': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/my-properties': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/my-schedule': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/clients': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/profile': ['SuperAdmin', 'Admin', 'Agent'],
+    '/portal/agent/all-chats': ['SuperAdmin' , 'Admin' , 'Agent'] , 
 
     // Client Routes
     '/profile': ['SuperAdmin', 'Admin', 'Agent', 'Client'],

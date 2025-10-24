@@ -4,36 +4,55 @@ using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Repository.Properties
 {
+    /// <summary>
+    /// Repository for managing Property entities in the database
+    /// Implements ICreatePropertyRepository interface for property operations
+    /// </summary>
     public class CreatePropertyRepository : ICreatePropertyRepository
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CreatePropertyRepository> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of CreatePropertyRepository
+        /// </summary>
+        /// <param name="context">The application database context for data access</param>
+        /// <param name="logger">The logger for logging operations and errors</param>
         public CreatePropertyRepository(ApplicationDbContext context, ILogger<CreatePropertyRepository> logger)
         {
             _context = context;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Creates a new property in the database
+        /// </summary>
+        /// <param name="property">The PropertyHouse entity to create</param>
+        /// <returns>Newly created PropertyHouse entity</returns>
+        /// <exception cref="Exception">Thrown when database error occurs or creation fails</exception>
         public async Task<PropertyHouse> CreatePropertyAsync(PropertyHouse property)
         {
             try
             {
                 _logger.LogInformation("Creating new property with title: {Title}", property.Title);
 
+                // Generate PropertyNo if not provided
                 if (property.PropertyNo == Guid.Empty)
                 {
                     property.PropertyNo = Guid.NewGuid();
                 }
 
+                // Set timestamps
                 property.CreatedAt = DateTime.UtcNow;
                 property.UpdatedAt = DateTime.UtcNow;
 
+                // Set default ListedDate if not provided
                 if (property.ListedDate == DateTime.MinValue)
                 {
                     property.ListedDate = DateTime.UtcNow;
                 }
 
+                // Validate and set optional foreign keys
                 if (property.OwnerId <= 0)
                 {
                     property.OwnerId = null;
@@ -62,6 +81,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Retrieves a property by its unique identifier
+        /// </summary>
+        /// <param name="id">The unique ID of the property</param>
+        /// <returns>PropertyHouse entity if found, null otherwise</returns>
+        /// <exception cref="Exception">Thrown when retrieval fails</exception>
         public async Task<PropertyHouse?> GetPropertyByIdAsync(int id)
         {
             try
@@ -90,6 +115,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Updates an existing property
+        /// </summary>
+        /// <param name="property">The PropertyHouse entity with updated information</param>
+        /// <returns>Updated PropertyHouse entity if found, null otherwise</returns>
+        /// <exception cref="Exception">Thrown when update fails or property not found</exception>
         public async Task<PropertyHouse?> UpdatePropertyAsync(PropertyHouse property)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -154,6 +185,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Deletes a property from the database
+        /// </summary>
+        /// <param name="id">The ID of the property to delete</param>
+        /// <returns>True if deletion was successful, false if property was not found</returns>
+        /// <exception cref="Exception">Thrown when deletion fails</exception>
         public async Task<bool> DeletePropertyAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -218,6 +255,11 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Retrieves all properties from the database
+        /// </summary>
+        /// <returns>Collection of all PropertyHouse entities</returns>
+        /// <exception cref="Exception">Thrown when retrieval fails</exception>
         public async Task<IEnumerable<PropertyHouse>> GetAllPropertiesAsync()
         {
             try
@@ -243,6 +285,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Retrieves properties by owner ID
+        /// </summary>
+        /// <param name="ownerId">The ID of the property owner</param>
+        /// <returns>Collection of PropertyHouse entities for the specified owner</returns>
+        /// <exception cref="Exception">Thrown when retrieval fails</exception>
         public async Task<IEnumerable<PropertyHouse>> GetPropertiesByOwnerIdAsync(int ownerId)
         {
             try
@@ -269,6 +317,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Retrieves properties by agent ID
+        /// </summary>
+        /// <param name="agentId">The ID of the agent</param>
+        /// <returns>Collection of PropertyHouse entities for the specified agent</returns>
+        /// <exception cref="Exception">Thrown when retrieval fails</exception>
         public async Task<IEnumerable<PropertyHouse>> GetPropertiesByAgentIdAsync(int agentId)
         {
             try
@@ -295,6 +349,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Retrieves properties by status
+        /// </summary>
+        /// <param name="status">The status to filter by (e.g., "Available", "Sold", "Rented")</param>
+        /// <returns>Collection of PropertyHouse entities with the specified status</returns>
+        /// <exception cref="Exception">Thrown when retrieval fails</exception>
         public async Task<IEnumerable<PropertyHouse>> GetPropertiesByStatusAsync(string status)
         {
             try
@@ -321,6 +381,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Searches properties based on search term
+        /// </summary>
+        /// <param name="searchTerm">The term to search in title, description, address, etc.</param>
+        /// <returns>Collection of PropertyHouse entities matching the search criteria</returns>
+        /// <exception cref="Exception">Thrown when search fails</exception>
         public async Task<IEnumerable<PropertyHouse>> SearchPropertiesAsync(string searchTerm)
         {
             try
@@ -359,6 +425,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Checks if a property exists with the specified ID
+        /// </summary>
+        /// <param name="id">The ID to check for existence</param>
+        /// <returns>True if property exists, false otherwise</returns>
+        /// <exception cref="Exception">Thrown when check fails</exception>
         public async Task<bool> PropertyExistsAsync(int id)
         {
             try
@@ -374,6 +446,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Checks if an owner exists with the specified ID
+        /// </summary>
+        /// <param name="ownerId">The owner ID to check for existence</param>
+        /// <returns>True if owner exists, false otherwise</returns>
+        /// <exception cref="Exception">Thrown when check fails</exception>
         public async Task<bool> OwnerExistsAsync(int ownerId)
         {
             try
@@ -389,6 +467,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Adds property images to an existing property
+        /// </summary>
+        /// <param name="propertyId">The ID of the property to add images to</param>
+        /// <param name="images">List of PropertyImage entities to add</param>
+        /// <exception cref="Exception">Thrown when adding images fails</exception>
         public async Task AddPropertyImagesAsync(int propertyId, List<PropertyImage> images)
         {
             try
@@ -412,6 +496,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Adds property videos to an existing property
+        /// </summary>
+        /// <param name="propertyId">The ID of the property to add videos to</param>
+        /// <param name="videos">List of PropertyVideo entities to add</param>
+        /// <exception cref="Exception">Thrown when adding videos fails</exception>
         public async Task AddPropertyVideosAsync(int propertyId, List<PropertyVideo> videos)
         {
             try
@@ -435,6 +525,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Updates property videos for an existing property (replaces all existing videos)
+        /// </summary>
+        /// <param name="propertyId">The ID of the property to update videos for</param>
+        /// <param name="videos">List of new PropertyVideo entities</param>
+        /// <exception cref="Exception">Thrown when updating videos fails</exception>
         public async Task UpdatePropertyVideosAsync(int propertyId, List<PropertyVideo> videos)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -469,6 +565,12 @@ namespace Realstate_servcices.Server.Repository.Properties
             }
         }
 
+        /// <summary>
+        /// Updates property images for an existing property (replaces all existing images)
+        /// </summary>
+        /// <param name="propertyId">The ID of the property to update images for</param>
+        /// <param name="images">List of new PropertyImage entities</param>
+        /// <exception cref="Exception">Thrown when updating images fails</exception>
         public async Task UpdatePropertyImagesAsync(int propertyId, List<PropertyImage> images)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();

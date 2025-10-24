@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWishlistData } from './Services/WishlistAdded';
 import { useUser } from '../Authpage/Services/UserContextService';
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
-
+import { processImageUrl } from './Imagehelper'; // Adjust path as needed
 // React Icons
 import {
     FaHeart,
@@ -31,7 +31,8 @@ const PropertyCard = ({
     onScheduleTour,
     onChat,
     showActions = true,
-    viewMode = 'grid'
+    viewMode = 'grid',
+    landscapeHeight = '320px'
 }) => {
     const navigate = useNavigate();
     const { isAuthenticated } = useUser();
@@ -59,25 +60,26 @@ const PropertyCard = ({
     const isValidProperty = property && property.id && property.title;
 
     // Get all property images
+    // Get all property images
     const getPropertyImages = () => {
         const images = [];
 
-        // Add main image if available
+        // Add main image if available (PROCESSED)
         if (property.mainImage) {
-            images.push(property.mainImage);
+            images.push(processImageUrl(property.mainImage, 'property'));
         }
 
-        // Add property images array if available
+        // Add property images array if available (PROCESSED)
         if (property.propertyImages && Array.isArray(property.propertyImages)) {
             property.propertyImages.forEach(img => {
-                if (img.imageUrl) images.push(img.imageUrl);
+                if (img.imageUrl) images.push(processImageUrl(img.imageUrl, 'property'));
             });
         }
 
-        // Add imageUrls array if available
+        // Add imageUrls array if available (PROCESSED)
         if (property.imageUrls && Array.isArray(property.imageUrls)) {
             property.imageUrls.forEach(url => {
-                if (url) images.push(url);
+                if (url) images.push(processImageUrl(url, 'property'));
             });
         }
 
@@ -89,7 +91,7 @@ const PropertyCard = ({
     const propertyImages = getPropertyImages();
     const hasMultipleImages = propertyImages.length > 1;
 
-    // Get amenities for display - MAX 3 AMENITIES
+    // Get amenities for display - MAX 3 AMENITIES (Only for grid view)
     const getDisplayAmenities = () => {
         if (!property.amenities || !Array.isArray(property.amenities)) return [];
 
@@ -235,39 +237,193 @@ const PropertyCard = ({
         return nameParts.join(' ').trim() || 'Agent Not Assigned';
     };
 
-    // Get property type color
+    // Get property type color - UPDATED: Added colors for all property types
     const getPropertyTypeColor = (type) => {
+        if (!type) return 'gray';
+
+        const lowerType = type.toLowerCase();
+
         const typeColors = {
-            residential: 'blue',
-            commercial: 'green',
-            industrial: 'orange',
-            land: 'brown',
-            rental: 'purple',
-            sale: 'red',
-            apartment: 'geekblue',
-            house: 'cyan',
-            default: 'gray'
+            // Residential - blue shades
+            'house': 'blue',
+            'apartment': 'geekblue',
+            'condo': 'cyan',
+            'townhouse': 'blue',
+            'duplex': 'blue',
+            'triplex': 'blue',
+            'fourplex': 'blue',
+            'mobile home': 'blue',
+            'manufactured home': 'blue',
+            'single family home': 'blue',
+            'multi family home': 'blue',
+            'studio': 'blue',
+            'loft': 'blue',
+            'villa': 'blue',
+            'bungalow': 'blue',
+            'cabin': 'blue',
+            'cottage': 'blue',
+            'farmhouse': 'blue',
+            'ranch': 'blue',
+            'mansion': 'blue',
+            'estate': 'blue',
+            'penthouse': 'blue',
+            'residential': 'blue',
+
+            // Commercial - green shades
+            'retail space': 'green',
+            'office space': 'green',
+            'warehouse': 'green',
+            'industrial': 'green',
+            'storage unit': 'green',
+            'parking space': 'green',
+            'hotel': 'green',
+            'motel': 'green',
+            'restaurant': 'green',
+            'bar': 'green',
+            'showroom': 'green',
+            'medical office': 'green',
+            'mixed use': 'green',
+            'commercial': 'green',
+
+            // Land - orange/brown shades
+            'land': 'orange',
+            'agricultural': 'orange',
+            'residential lot': 'orange',
+            'commercial lot': 'orange',
+            'farmland': 'orange',
+            'ranch land': 'orange',
+            'timberland': 'orange',
+            'recreational land': 'orange',
+
+            // Special purpose - purple shades
+            'church': 'purple',
+            'school': 'purple',
+            'hospital': 'purple',
+            'clinic': 'purple',
+            'student housing': 'purple',
+            'senior living': 'purple',
+            'bed and breakfast': 'purple',
+            'vacation home': 'purple',
+            'timeshare': 'purple',
+            'resort': 'purple',
+            'specialpurpose': 'purple',
+
+            // Transaction types
+            'rental': 'purple',
+            'sale': 'red',
+
+            'default': 'gray'
         };
-        return typeColors[type?.toLowerCase()] || typeColors.default;
+
+        // Try exact match first
+        if (typeColors[lowerType]) {
+            return typeColors[lowerType];
+        }
+
+        // Try partial matching
+        for (const [key, color] of Object.entries(typeColors)) {
+            if (lowerType.includes(key) || key.includes(lowerType)) {
+                return color;
+            }
+        }
+
+        return typeColors.default;
     };
 
-    // Get property type display name - FIXED: Use propertyType if available
+    // Get property type display name - FIXED: Now properly handles all property types including Condo
     const getPropertyTypeDisplay = () => {
         // Prefer propertyType over type
         const type = property.propertyType || property.type;
+        if (!type) return 'Property';
 
+        const lowerType = type.toLowerCase();
+
+        // Comprehensive mapping of all property types
         const typeNames = {
-            residential: 'Residential',
-            commercial: 'Commercial',
-            industrial: 'Industrial',
-            land: 'Land',
-            rental: 'For Rent',
-            sale: 'For Sale',
-            apartment: 'Apartment',
-            house: 'House',
-            default: 'Property'
+            // Residential types
+            'house': 'House',
+            'apartment': 'Apartment',
+            'condo': 'Condo',
+            'townhouse': 'Townhouse',
+            'duplex': 'Duplex',
+            'triplex': 'Triplex',
+            'fourplex': 'Fourplex',
+            'mobile home': 'Mobile Home',
+            'manufactured home': 'Manufactured Home',
+            'single family home': 'Single Family Home',
+            'multi family home': 'Multi Family Home',
+            'studio': 'Studio',
+            'loft': 'Loft',
+            'villa': 'Villa',
+            'bungalow': 'Bungalow',
+            'cabin': 'Cabin',
+            'cottage': 'Cottage',
+            'farmhouse': 'Farmhouse',
+            'ranch': 'Ranch',
+            'mansion': 'Mansion',
+            'estate': 'Estate',
+            'penthouse': 'Penthouse',
+
+            // Commercial types
+            'retail space': 'Retail Space',
+            'office space': 'Office Space',
+            'warehouse': 'Warehouse',
+            'industrial': 'Industrial',
+            'storage unit': 'Storage Unit',
+            'parking space': 'Parking Space',
+            'hotel': 'Hotel',
+            'motel': 'Motel',
+            'restaurant': 'Restaurant',
+            'bar': 'Bar',
+            'showroom': 'Showroom',
+            'medical office': 'Medical Office',
+            'mixed use': 'Mixed Use',
+
+            // Land types
+            'land': 'Land',
+            'agricultural': 'Agricultural',
+            'residential lot': 'Residential Lot',
+            'commercial lot': 'Commercial Lot',
+            'farmland': 'Farmland',
+            'ranch land': 'Ranch Land',
+            'timberland': 'Timberland',
+            'recreational land': 'Recreational Land',
+
+            // Special purpose types
+            'church': 'Church',
+            'school': 'School',
+            'hospital': 'Hospital',
+            'clinic': 'Clinic',
+            'student housing': 'Student Housing',
+            'senior living': 'Senior Living',
+            'bed and breakfast': 'Bed and Breakfast',
+            'vacation home': 'Vacation Home',
+            'timeshare': 'Timeshare',
+            'resort': 'Resort',
+
+            // General categories (fallbacks)
+            'residential': 'Residential',
+            'commercial': 'Commercial',
+            'land': 'Land',
+            'specialpurpose': 'Special Purpose',
+            'rental': 'For Rent',
+            'sale': 'For Sale'
         };
-        return typeNames[type?.toLowerCase()] || typeNames.default;
+
+        // First try exact match
+        if (typeNames[lowerType]) {
+            return typeNames[lowerType];
+        }
+
+        // If no exact match, try partial matching for flexibility
+        for (const [key, value] of Object.entries(typeNames)) {
+            if (lowerType.includes(key) || key.includes(lowerType)) {
+                return value;
+            }
+        }
+
+        // If still no match, return the original type with proper capitalization
+        return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
     };
 
     // Format complete address
@@ -282,41 +438,6 @@ const PropertyCard = ({
         return addressParts.join(', ') || 'Address not specified';
     };
 
-    // Image processing
-    const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-property.jpg';
-        }
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        return '/default-property.jpg';
-    };
-
-    // Process agent image URL
-    const processAgentImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-avatar.jpg';
-        }
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/agents/${url}`;
-        }
-        return '/default-avatar.jpg';
-    };
-
-    // Price formatting - Philippine Pesos
     const formatPrice = (price) => {
         if (!price && price !== 0) return 'Price on request';
         const priceNum = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, "")) : price;
@@ -530,26 +651,26 @@ const PropertyCard = ({
                         width: '100%',
                         display: 'flex',
                         flexDirection: 'row',
-                        height: '100%',
+                        height: landscapeHeight,
                         overflow: 'hidden'
                     },
                     imageStyle: {
-                        width: '40%',
+                        width: '45%',
                         height: '100%',
-                        minWidth: '250px'
+                        minWidth: '300px'
                     },
                     contentStyle: {
-                        width: '60%',
-                        padding: '16px',
+                        width: '55%',
+                        padding: '20px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between'
                     },
                     featuresStyle: {
                         display: 'flex',
-                        gap: '12px',
-                        marginBottom: '12px',
-                        padding: '12px 0',
+                        gap: '16px',
+                        marginBottom: '16px',
+                        padding: '16px 0',
                         borderTop: '1px solid #f0f0f0',
                         borderBottom: '1px solid #f0f0f0',
                         flexWrap: 'wrap'
@@ -587,7 +708,7 @@ const PropertyCard = ({
     }
 
     const currentImage = propertyImages[currentImageIndex];
-    const processedImage = processImageUrl(currentImage);
+    const processedImage = currentImage;
     const agentName = getAgentName(agent);
     const areaSqm = property.areaSqm || 0;
     const completeAddress = formatCompleteAddress();
@@ -602,57 +723,208 @@ const PropertyCard = ({
                     ...layout.cardStyle,
                     overflow: 'hidden',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                    borderRadius: '12px', // Rounded corners
+                    borderRadius: '12px',
                     marginBottom: '0'
                 }}
-                bodyStyle={{ padding: '0' }}
+                bodyStyle={{
+                    padding: '0',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: viewMode === 'landscape' ? 'row' : 'column'
+                }}
                 onClick={handleCardClick}
             >
-                {/* Top Section with Agent Photo and Branding - Only for Grid View */}
-                {viewMode === 'grid' && (
+                {/* Image Section with Swipe Support */}
+                <div
+                    style={{
+                        position: 'relative',
+                        ...layout.imageStyle,
+                        overflow: 'hidden',
+                        backgroundColor: '#f8fafc',
+                        flexShrink: 0,
+                        cursor: isDragging ? 'grabbing' : 'grab'
+                    }}
+                    className="image-section"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                >
+                    <img
+                        alt={property.title}
+                        src={imageError ? '/default-property.jpg' : currentImage}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            cursor: 'pointer',
+                            display: 'block',
+                            transition: isDragging ? 'none' : 'transform 0.3s ease',
+                            userSelect: 'none'
+                        }}
+                        onClick={openGallery}
+                        onError={(e) => {
+                            if (!imageError) {
+                                setImageError(true);
+                                e.target.src = '/default-property.jpg';
+                            }
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isDragging) {
+                                e.target.style.transform = 'scale(1.05)';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)';
+                        }}
+                        draggable="false"
+                    />
+
+                    {/* Property Type Badge */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '12px',
+                        zIndex: 5
+                    }}>
+                        <Tag
+                            color={getPropertyTypeColor(property.propertyType || property.type)}
+                            style={{
+                                borderRadius: '6px',
+                                fontWeight: '500',
+                                fontSize: '12px'
+                            }}
+                        >
+                            {propertyTypeDisplay}
+                        </Tag>
+                    </div>
+
+                    {/* Image Navigation Dots */}
+                    {hasMultipleImages && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '12px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            display: 'flex',
+                            gap: '6px',
+                            zIndex: 5
+                        }}>
+                            {propertyImages.map((_, index) => (
+                                <div
+                                    key={index}
+                                    style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: index === currentImageIndex ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentImageIndex(index);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Wishlist Heart */}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            cursor: 'pointer',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: '50%',
+                            width: '36px',
+                            height: '36px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backdropFilter: 'blur(4px)',
+                            border: '1px solid #e2e8f0',
+                            zIndex: 10,
+                            transition: 'all 0.2s ease'
+                        }}
+                        onClick={(e) => handleToggleFavorite(e, property.id, isFavorite)}
+                        title={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
+                    >
+                        {isToggling ? (
+                            <div style={{
+                                width: '16px',
+                                height: '16px',
+                                border: '2px solid #f0f0f0',
+                                borderTop: '2px solid #ff4d4f',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite'
+                            }} />
+                        ) : isFavorite ? (
+                            <FaHeart style={{ color: '#ff4d4f', fontSize: '18px' }} />
+                        ) : (
+                            <FaRegHeart style={{ color: '#64748b', fontSize: '18px' }} />
+                        )}
+                    </div>
+                </div>
+
+                {/* Content Section */}
+                <div style={{
+                    ...layout.contentStyle,
+                    flex: 1
+                }}>
+                    {/* Agent Info for All Modes */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        backgroundColor: '#f8fafc',
-                        borderBottom: '1px solid #e2e8f0'
+                        marginBottom: '16px'
                     }}>
-                        {/* Left side - Agent info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             {loadingAgent ? (
-                                <Skeleton.Avatar active size={40} />
+                                <Skeleton.Avatar active size={36} />
                             ) : (
-                                <Avatar
-                                    size={40}
-                                    src={agent?.profilePictureUrl ? processAgentImageUrl(agent.profilePictureUrl) : null}
-                                    style={{
-                                        backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
-                                        border: '2px solid #1B3C53'
-                                    }}
-                                >
-                                    {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
-                                </Avatar>
+                                    <Avatar
+                                        size={36}
+                                        src={agent?.profilePictureUrl ? processImageUrl(agent.profilePictureUrl, 'agent') : null}
+                                        style={{
+                                            backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
+                                            border: '2px solid #1B3C53'
+                                        }}
+                                    >
+                                        {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
+                                    </Avatar>
                             )}
                             <div>
                                 {loadingAgent ? (
                                     <Skeleton.Input active size="small" style={{ width: 120, height: 16 }} />
                                 ) : (
-                                    <Text strong style={{ fontSize: '14px', color: '#1B3C53', display: 'block' }}>
+                                    <Text strong style={{
+                                        fontSize: viewMode === 'landscape' ? '15px' : '14px',
+                                        color: '#1B3C53',
+                                        display: 'block'
+                                    }}>
                                         {agentName}
                                     </Text>
                                 )}
-                                <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '12px' : '11px',
+                                    color: '#64748b'
+                                }}>
                                     Real Estate Agent
                                 </Text>
                             </div>
                         </div>
 
-                        {/* Right side - Brokerage Name */}
+                        {/* Brokerage Name */}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '8px',
                             fontFamily: 'Arial, sans-serif'
                         }}>
                             <div style={{
@@ -670,7 +942,7 @@ const PropertyCard = ({
                                 {brokerageName.charAt(0).toUpperCase()}
                             </div>
                             <Text strong style={{
-                                fontSize: '16px',
+                                fontSize: viewMode === 'landscape' ? '14px' : '12px',
                                 color: '#1B3C53',
                                 letterSpacing: '0.5px'
                             }}>
@@ -678,494 +950,220 @@ const PropertyCard = ({
                             </Text>
                         </div>
                     </div>
-                )}
 
-                {/* Main Content Container */}
-                <div style={viewMode === 'landscape' ? {
-                    display: 'flex',
-                    width: '100%',
-                    height: '100%'
-                } : {}}>
-
-                    {/* Image Section with Swipe Support */}
-                    <div
-                        style={{
-                            position: 'relative',
-                            ...layout.imageStyle,
-                            overflow: 'hidden',
-                            backgroundColor: '#f8fafc',
-                            flexShrink: 0,
-                            cursor: isDragging ? 'grabbing' : 'grab'
-                        }}
-                        className="image-section"
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                    >
-                        <img
-                            alt={property.title}
-                            src={imageError ? '/default-property.jpg' : processedImage}
+                    {/* Title and Price */}
+                    <div style={{ marginBottom: '12px' }}>
+                        <Title
+                            level={viewMode === 'landscape' ? 4 : 5}
                             style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                cursor: 'pointer',
-                                display: 'block',
-                                transition: isDragging ? 'none' : 'transform 0.3s ease',
-                                userSelect: 'none'
+                                margin: 0,
+                                color: '#1B3C53',
+                                fontSize: viewMode === 'landscape' ? '18px' : '16px',
+                                lineHeight: '1.3'
                             }}
-                            onClick={openGallery}
-                            onError={(e) => {
-                                if (!imageError) {
-                                    setImageError(true);
-                                    e.target.src = '/default-property.jpg';
-                                }
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isDragging) {
-                                    e.target.style.transform = 'scale(1.05)';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'scale(1)';
-                            }}
-                            draggable="false"
-                        />
-
-                        {/* Property Type Badge - FIXED: Now properly displays property type */}
-                        <div style={{
-                            position: 'absolute',
-                            top: '12px',
-                            left: '12px',
-                            zIndex: 5
-                        }}>
-                            <Tag
-                                color={getPropertyTypeColor(property.propertyType || property.type)}
-                                style={{
-                                    borderRadius: '6px',
-                                    fontWeight: '500',
-                                    fontSize: '12px'
-                                }}
-                            >
-                                {propertyTypeDisplay}
-                            </Tag>
-                        </div>
-
-                        {/* Image Navigation Dots - Mobile Friendly */}
-                        {hasMultipleImages && (
-                            <div style={{
-                                position: 'absolute',
-                                bottom: '12px',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                display: 'flex',
-                                gap: '6px',
-                                zIndex: 5
-                            }}>
-                                {propertyImages.map((_, index) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            width: '8px',
-                                            height: '8px',
-                                            borderRadius: '50%',
-                                            backgroundColor: index === currentImageIndex ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCurrentImageIndex(index);
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Image Navigation Arrows - Hidden on mobile, show on hover */}
-                        {hasMultipleImages && (
-                            <>
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: '8px',
-                                        transform: 'translateY(-50%)',
-                                        cursor: 'pointer',
-                                        background: 'rgba(255, 255, 255, 0.9)',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        backdropFilter: 'blur(4px)',
-                                        border: '1px solid #e2e8f0',
-                                        zIndex: 10,
-                                        transition: 'all 0.2s ease',
-                                        opacity: 0
-                                    }}
-                                    className="image-nav-arrow"
-                                    onClick={prevImage}
-                                    title="Previous image"
-                                >
-                                    <FaChevronLeft style={{ color: '#1B3C53', fontSize: '14px' }} />
-                                </div>
-
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        right: '8px',
-                                        transform: 'translateY(-50%)',
-                                        cursor: 'pointer',
-                                        background: 'rgba(255, 255, 255, 0.9)',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        backdropFilter: 'blur(4px)',
-                                        border: '1px solid #e2e8f0',
-                                        zIndex: 10,
-                                        transition: 'all 0.2s ease',
-                                        opacity: 0
-                                    }}
-                                    className="image-nav-arrow"
-                                    onClick={nextImage}
-                                    title="Next image"
-                                >
-                                    <FaChevronRight style={{ color: '#1B3C53', fontSize: '14px' }} />
-                                </div>
-                            </>
-                        )}
-
-                        {/* Wishlist Heart */}
-                        <div
-                            style={{
-                                position: 'absolute',
-                                top: '12px',
-                                right: '12px',
-                                cursor: 'pointer',
-                                background: 'rgba(255, 255, 255, 0.9)',
-                                borderRadius: '50%',
-                                width: '36px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backdropFilter: 'blur(4px)',
-                                border: '1px solid #e2e8f0',
-                                zIndex: 10,
-                                transition: 'all 0.2s ease'
-                            }}
-                            onClick={(e) => handleToggleFavorite(e, property.id, isFavorite)}
-                            title={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
                         >
-                            {isToggling ? (
-                                <div style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    border: '2px solid #f0f0f0',
-                                    borderTop: '2px solid #ff4d4f',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                }} />
-                            ) : isFavorite ? (
-                                <FaHeart style={{ color: '#ff4d4f', fontSize: '18px' }} />
-                            ) : (
-                                <FaRegHeart style={{ color: '#64748b', fontSize: '18px' }} />
-                            )}
-                        </div>
+                            {property.title}
+                        </Title>
+                        <Text strong style={{
+                            fontSize: viewMode === 'landscape' ? '20px' : '18px',
+                            color: '#1B3C53',
+                            display: 'block',
+                            marginTop: '6px'
+                        }}>
+                            {formatPrice(property.price)}
+                        </Text>
                     </div>
 
-                    {/* Content Section */}
-                    <div style={layout.contentStyle}>
-                        {/* Agent Info for Landscape Mode */}
-                        {viewMode === 'landscape' && (
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                marginBottom: '12px'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {loadingAgent ? (
-                                        <Skeleton.Avatar active size={32} />
-                                    ) : (
-                                        <Avatar
-                                            size={32}
-                                            src={agent?.profilePictureUrl ? processAgentImageUrl(agent.profilePictureUrl) : null}
-                                            style={{
-                                                backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
-                                                border: '2px solid #1B3C53'
-                                            }}
-                                        >
-                                            {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
-                                        </Avatar>
-                                    )}
-                                    <div>
-                                        {loadingAgent ? (
-                                            <Skeleton.Input active size="small" style={{ width: 100, height: 14 }} />
-                                        ) : (
-                                            <Text strong style={{ fontSize: '13px', color: '#1B3C53', display: 'block' }}>
-                                                {agentName}
-                                            </Text>
-                                        )}
-                                        <Text style={{ fontSize: '11px', color: '#64748b' }}>
-                                            Real Estate Agent
-                                        </Text>
-                                    </div>
-                                </div>
+                    {/* Address */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <FaMapMarkerAlt style={{
+                            marginRight: '8px',
+                            color: '#64748b',
+                            fontSize: '14px',
+                            marginTop: '2px',
+                            flexShrink: 0
+                        }} />
+                        <Text style={{
+                            fontSize: viewMode === 'landscape' ? '14px' : '12px',
+                            color: '#64748b',
+                            lineHeight: '1.4'
+                        }}>
+                            {completeAddress}
+                        </Text>
+                    </div>
 
-                                {/* Brokerage Name */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontFamily: 'Arial, sans-serif'
+                    {/* Property Features */}
+                    <div style={layout.featuresStyle}>
+                        <Tooltip title="Bedrooms">
+                            <Space size={6} style={{ alignItems: 'center' }}>
+                                <FaBed style={{ color: '#666', fontSize: '14px' }} />
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '14px' : '11px',
+                                    fontWeight: '500'
                                 }}>
-                                    <div style={{
-                                        width: '20px',
-                                        height: '20px',
-                                        backgroundColor: '#1B3C53',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'white',
-                                        fontSize: '10px',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        {brokerageName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <Text strong style={{
-                                        fontSize: '14px',
-                                        color: '#1B3C53',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        {brokerageName}
-                                    </Text>
-                                </div>
-                            </div>
-                        )}
+                                    {property.bedrooms || 0}
+                                </Text>
+                            </Space>
+                        </Tooltip>
 
-                        {/* Title and Price */}
-                        <div style={{ marginBottom: '8px' }}>
-                            <Title
-                                level={viewMode === 'landscape' ? 4 : 5}
-                                style={{
-                                    margin: 0,
-                                    color: '#1B3C53',
-                                    fontSize: viewMode === 'landscape' ? '18px' : '16px',
-                                    lineHeight: '1.3'
-                                }}
-                            >
-                                {property.title}
-                            </Title>
+                        <Tooltip title="Bathrooms">
+                            <Space size={6} style={{ alignItems: 'center' }}>
+                                <FaBath style={{ color: '#666', fontSize: '14px' }} />
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '14px' : '11px',
+                                    fontWeight: '500'
+                                }}>
+                                    {property.bathrooms || 0}
+                                </Text>
+                            </Space>
+                        </Tooltip>
+
+                        <Tooltip title="Kitchen">
+                            <Space size={6} style={{ alignItems: 'center' }}>
+                                <FaUtensils style={{ color: '#666', fontSize: '14px' }} />
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '14px' : '11px',
+                                    fontWeight: '500'
+                                }}>
+                                    {property.kitchen || 0}
+                                </Text>
+                            </Space>
+                        </Tooltip>
+
+                        <Tooltip title="Garage">
+                            <Space size={6} style={{ alignItems: 'center' }}>
+                                <FaCar style={{ color: '#666', fontSize: '14px' }} />
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '14px' : '11px',
+                                    fontWeight: '500'
+                                }}>
+                                    {property.garage || 0}
+                                </Text>
+                            </Space>
+                        </Tooltip>
+
+                        <Tooltip title="Area">
+                            <Space size={6} style={{ alignItems: 'center' }}>
+                                <FaHome style={{ color: '#666', fontSize: '14px' }} />
+                                <Text style={{
+                                    fontSize: viewMode === 'landscape' ? '14px' : '11px',
+                                    fontWeight: '500'
+                                }}>
+                                    {formatArea(areaSqm)}
+                                </Text>
+                            </Space>
+                        </Tooltip>
+                    </div>
+
+                    {/* Amenities Section - ONLY FOR GRID VIEW */}
+                    {viewMode === 'grid' && displayAmenities.length > 0 && (
+                        <div style={{
+                            marginBottom: '16px',
+                            padding: '12px 0'
+                        }}>
                             <Text strong style={{
-                                fontSize: viewMode === 'landscape' ? '20px' : '18px',
+                                fontSize: '12px',
                                 color: '#1B3C53',
                                 display: 'block',
-                                marginTop: '4px'
+                                marginBottom: '8px'
                             }}>
-                                {formatPrice(property.price)}
+                                Amenities
                             </Text>
-                        </div>
-
-                        {/* Address */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12px' }}>
-                            <FaMapMarkerAlt style={{
-                                marginRight: '6px',
-                                color: '#64748b',
-                                fontSize: '12px',
-                                marginTop: '2px',
-                                flexShrink: 0
-                            }} />
-                            <Text style={{
-                                fontSize: viewMode === 'landscape' ? '13px' : '12px',
-                                color: '#64748b',
-                                lineHeight: '1.4'
-                            }}>
-                                {completeAddress}
-                            </Text>
-                        </div>
-
-                        {/* Property Features */}
-                        <div style={layout.featuresStyle}>
-                            <Tooltip title="Bedrooms">
-                                <Space size={4} style={{ alignItems: 'center' }}>
-                                    <FaBed style={{ color: '#666', fontSize: '12px' }} />
-                                    <Text style={{
-                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
-                                        fontWeight: '500'
-                                    }}>
-                                        {property.bedrooms || 0}
-                                    </Text>
-                                </Space>
-                            </Tooltip>
-
-                            <Tooltip title="Bathrooms">
-                                <Space size={4} style={{ alignItems: 'center' }}>
-                                    <FaBath style={{ color: '#666', fontSize: '12px' }} />
-                                    <Text style={{
-                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
-                                        fontWeight: '500'
-                                    }}>
-                                        {property.bathrooms || 0}
-                                    </Text>
-                                </Space>
-                            </Tooltip>
-
-                            <Tooltip title="Kitchen">
-                                <Space size={4} style={{ alignItems: 'center' }}>
-                                    <FaUtensils style={{ color: '#666', fontSize: '12px' }} />
-                                    <Text style={{
-                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
-                                        fontWeight: '500'
-                                    }}>
-                                        {property.kitchen || 0}
-                                    </Text>
-                                </Space>
-                            </Tooltip>
-
-                            <Tooltip title="Garage">
-                                <Space size={4} style={{ alignItems: 'center' }}>
-                                    <FaCar style={{ color: '#666', fontSize: '12px' }} />
-                                    <Text style={{
-                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
-                                        fontWeight: '500'
-                                    }}>
-                                        {property.garage || 0}
-                                    </Text>
-                                </Space>
-                            </Tooltip>
-
-                            <Tooltip title="Area">
-                                <Space size={4} style={{ alignItems: 'center' }}>
-                                    <FaHome style={{ color: '#666', fontSize: '12px' }} />
-                                    <Text style={{
-                                        fontSize: viewMode === 'landscape' ? '12px' : '11px',
-                                        fontWeight: '500'
-                                    }}>
-                                        {formatArea(areaSqm)}
-                                    </Text>
-                                </Space>
-                            </Tooltip>
-                        </div>
-
-                        {/* Amenities Section - MAX 3 AMENITIES */}
-                        {displayAmenities.length > 0 && (
-                            <div style={{
-                                marginBottom: '12px',
-                                padding: '8px 0'
-                            }}>
-                                <Text strong style={{
-                                    fontSize: viewMode === 'landscape' ? '13px' : '12px',
-                                    color: '#1B3C53',
-                                    display: 'block',
-                                    marginBottom: '6px'
-                                }}>
-                        
-                                </Text>
-                                <div style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '6px'
-                                }}>
-                                    {/* Show only 3 amenities */}
-                                    {displayAmenities.map((amenity, index) => (
-                                        <Tag
-                                            key={index}
-                                            style={{
-                                                fontSize: viewMode === 'landscape' ? '11px' : '10px',
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                backgroundColor: '#f1f5f9',
-                                                color: '#475569',
-                                                border: '1px solid #e2e8f0',
-                                                margin: 0
-                                            }}
-                                        >
-                                            {amenity}
-                                        </Tag>
-                                    ))}
-                                    {/* Show "+X more" only if there are more than 3 amenities */}
-                                    {hasMoreAmenities && (
-                                        <Tag
-                                            style={{
-                                                fontSize: viewMode === 'landscape' ? '11px' : '10px',
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                backgroundColor: '#1B3C53',
-                                                color: 'white',
-                                                border: 'none',
-                                                margin: 0
-                                            }}
-                                        >
-                                            +{property.amenities.length - 3} more
-                                        </Tag>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        {showActions && (
                             <div style={{
                                 display: 'flex',
-                                gap: '8px',
-                                marginTop: viewMode === 'landscape' ? 'auto' : '12px'
+                                flexWrap: 'wrap',
+                                gap: '8px'
                             }}>
-                                <Button
-                                    type="primary"
-                                    icon={<FaCalendarAlt />}
-                                    onClick={handleScheduleTour}
-                                    style={{
-                                        flex: 1,
-                                        background: 'linear-gradient(135deg, #1B3C53, #2D556E)',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontWeight: '500'
-                                    }}
-                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
-                                >
-                                    Tour
-                                </Button>
-
-                                <Button
-                                    icon={<FaComments />}
-                                    onClick={handleChat}
-                                    style={{
-                                        flex: 1,
-                                        borderRadius: '8px',
-                                        fontWeight: '500'
-                                    }}
-                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
-                                >
-                                    Chat
-                                </Button>
-
-                                <Button
-                                    icon={<FaEye />}
-                                    onClick={handleViewDetails}
-                                    style={{
-                                        flex: 1,
-                                        borderRadius: '8px',
-                                        fontWeight: '500'
-                                    }}
-                                    size={viewMode === 'landscape' ? 'small' : 'middle'}
-                                >
-                                    View
-                                </Button>
+                                {/* Show only 3 amenities */}
+                                {displayAmenities.map((amenity, index) => (
+                                    <Tag
+                                        key={index}
+                                        style={{
+                                            fontSize: '10px',
+                                            padding: '4px 10px',
+                                            borderRadius: '12px',
+                                            backgroundColor: '#f1f5f9',
+                                            color: '#475569',
+                                            border: '1px solid #e2e8f0',
+                                            margin: 0
+                                        }}
+                                    >
+                                        {amenity}
+                                    </Tag>
+                                ))}
+                                {/* Show "+X more" only if there are more than 3 amenities */}
+                                {hasMoreAmenities && (
+                                    <Tag
+                                        style={{
+                                            fontSize: '10px',
+                                            padding: '4px 10px',
+                                            borderRadius: '12px',
+                                            backgroundColor: '#1B3C53',
+                                            color: 'white',
+                                            border: 'none',
+                                            margin: 0
+                                        }}
+                                    >
+                                        +{property.amenities.length - 3} more
+                                    </Tag>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {showActions && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '12px',
+                            marginTop: viewMode === 'landscape' ? 'auto' : '12px'
+                        }}>
+                            <Button
+                                type="primary"
+                                icon={<FaCalendarAlt />}
+                                onClick={handleScheduleTour}
+                                style={{
+                                    flex: 1,
+                                    background: 'linear-gradient(135deg, #1B3C53, #2D556E)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: '500',
+                                    height: '40px'
+                                }}
+                                size="middle"
+                            >
+                                {viewMode === 'landscape' ? 'Schedule Tour' : 'Tour'}
+                            </Button>
+
+                            <Button
+                                icon={<FaComments />}
+                                onClick={handleChat}
+                                style={{
+                                    flex: 1,
+                                    borderRadius: '8px',
+                                    fontWeight: '500',
+                                    height: '40px'
+                                }}
+                                size="middle"
+                            >
+                                {viewMode === 'landscape' ? 'Chat' : 'Chat'}
+                            </Button>
+
+                            <Button
+                                icon={<FaEye />}
+                                onClick={handleViewDetails}
+                                style={{
+                                    flex: 1,
+                                    borderRadius: '8px',
+                                    fontWeight: '500',
+                                    height: '40px'
+                                }}
+                                size="middle"
+                            >
+                                {viewMode === 'landscape' ? 'View Details' : 'View'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </Card>
 
@@ -1216,7 +1214,7 @@ const PropertyCard = ({
                     justifyContent: 'center'
                 }}>
                     <img
-                        src={processImageUrl(propertyImages[galleryImageIndex])}
+                        src={processImageUrl(propertyImages[galleryImageIndex], 'property')}
                         alt={`Property ${galleryImageIndex + 1}`}
                         style={{
                             maxWidth: '100%',

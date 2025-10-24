@@ -1,0 +1,46 @@
+{
+  "_map-vendor-BpM_4WFD.js": {
+    "file": "js/map-vendor-BpM_4WFD.js",
+    "name": "map-vendor",
+    "imports": [
+      "_react-vendor-DewLI3y5.js"
+    ]
+  },
+  "_react-vendor-DewLI3y5.js": {
+    "file": "js/react-vendor-DewLI3y5.js",
+    "name": "react-vendor"
+  },
+  "_ui-vendor-CXhKQSpI.js": {
+    "file": "js/ui-vendor-CXhKQSpI.js",
+    "name": "ui-vendor",
+    "imports": [
+      "_react-vendor-DewLI3y5.js"
+    ]
+  },
+  "_utils-vendor-BWPHJ6wA.js": {
+    "file": "js/utils-vendor-BWPHJ6wA.js",
+    "name": "utils-vendor"
+  },
+  "index.html": {
+    "file": "js/index-CxJHFZ_N.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_react-vendor-DewLI3y5.js",
+      "_utils-vendor-BWPHJ6wA.js",
+      "_ui-vendor-CXhKQSpI.js",
+      "_map-vendor-BpM_4WFD.js"
+    ],
+    "css": [
+      "css/index-Bnu4YgSl.css"
+    ],
+    "assets": [
+      "images/Betheland-BgFlwRXi.png"
+    ]
+  },
+  "src/assets/Betheland.png": {
+    "file": "images/Betheland-BgFlwRXi.png",
+    "src": "src/assets/Betheland.png"
+  }
+}

@@ -43,7 +43,6 @@ const ApprovalQueue = ({ onUpdate }) => {
     const loadPendingProperties = async () => {
         setLoading(true);
         try {
-          
             const data = await propertyService.getPropertiesByStatus('pending');
             console.log('Pending properties loaded:', data);
             setPendingProperties(data || []);
@@ -83,7 +82,6 @@ const ApprovalQueue = ({ onUpdate }) => {
         setSelectedProperty(property);
         setViewModalVisible(true);
     };
-
 
     const processImageUrl = (url) => {
         if (!url) return '/default-property.jpg';
@@ -239,6 +237,8 @@ const ApprovalQueue = ({ onUpdate }) => {
 
     return (
         <div>
+            {/* NO HELMET SECTION - Now managed by PropertyLayout */}
+
             {/* Stats Cards */}
             <div style={{ marginBottom: 24 }}>
                 <Row gutter={16}>

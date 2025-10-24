@@ -16,6 +16,7 @@ import {
     AppstoreOutlined,
     BarChartOutlined,
     UserOutlined,
+    CalendarOutlined
 } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -53,6 +54,12 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             icon: <UserOutlined />,
             label: 'Agents',
             path: '/portal/admin/agent'
+        },
+        {
+            key: 'schedule-management',
+            icon: <CalendarOutlined />,
+            label: 'Schedule Management',
+            path: '/portal/admin/schedules'
         }
     ];
 
@@ -114,7 +121,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
         }
     }, [location.pathname]);
 
-    // For mobile drawer, use different styling
+
     if (isMobileDrawer) {
         return (
             <div style={{

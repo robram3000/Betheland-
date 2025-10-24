@@ -48,9 +48,8 @@ const ChatPage = ({ propertyChatData }) => {
         '😾'
     ];
 
-  
-
-    const [chats, setChats] = useState(initialChats);
+    // Initialize with empty chats array
+    const [chats, setChats] = useState([]);
 
     // Use property chat data if available
     useEffect(() => {
@@ -945,13 +944,15 @@ const ChatPage = ({ propertyChatData }) => {
                                     fontSize: '16px',
                                     marginBottom: '8px'
                                 }}>
-                                    Select a chat to start messaging 💭
+                                    {chats.length === 0 ? 'No chats yet 💭' : 'Select a chat to start messaging 💭'}
                                 </Title>
                                 <Text style={{
                                     textAlign: 'center',
                                     fontSize: '13px'
                                 }}>
-                                    Choose a conversation from the list to begin
+                                    {chats.length === 0
+                                        ? 'Start a conversation from a property page to begin chatting with agents'
+                                        : 'Choose a conversation from the list to begin'}
                                 </Text>
                             </div>
                         )}

@@ -1,7 +1,7 @@
 ﻿using Realstate_servcices.Server.Entity.member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Realstate_servcices.Server.Entity.Properties;
+using Realstate_servcices.Server.Entity.Schedule;
 namespace Realstate_servcices.Server.Entity.Properties
 {
     public class PropertyHouse

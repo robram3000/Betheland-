@@ -4,6 +4,7 @@ import PropertySearchPage from './PropertySearchPage';
 import { GlobalNavigation, Footer } from '../Navigation/index';
 import { PropertyDataProvider } from './Services/GetdataProperty';
 import { WishlistDataProvider } from './Services/WishlistAdded';
+import { Helmet } from 'react-helmet';
 
 const { Content } = Layout;
 
@@ -18,6 +19,9 @@ const theme = {
 const BaseProperty = () => {
     return (
         <ConfigProvider theme={theme}>
+            <Helmet>
+                <title>Betheland | Property</title>
+            </Helmet>
             <WishlistDataProvider>
                 <PropertyDataProvider>
                     <Layout style={{

@@ -4,17 +4,29 @@ using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Services.ProfileCreation;
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
+
+    /// <summary>
+    /// Service for managing agent profiles and operations
+    /// </summary>
     public class AgentService : IAgentService
     {
         private readonly IBaseMemberRepository _baseMemberRepository;
         private readonly IAgentRepository _agentRepository;
-
+        /// <summary>
+        /// Initializes a new instance of the AgentService class
+        /// </summary>
+        /// <param name="baseMemberRepository">Repository for base member data operations</param>
+        /// <param name="agentRepository">Repository for agent-specific data operations</param>
         public AgentService(IBaseMemberRepository baseMemberRepository, IAgentRepository agentRepository)
         {
             _baseMemberRepository = baseMemberRepository;
             _agentRepository = agentRepository;
         }
-
+        /// <summary>
+        /// Creates a new agent profile with validation for duplicate email and username
+        /// </summary>
+        /// <param name="request">Agent registration data including email, username, password, license information, and profile details</param>
+        /// <returns>Registration response indicating success or failure</returns>
         public async Task<RegisterResponse> CreateAgentAsync(AgentRegisterRequest request)
         {
             try
@@ -57,6 +69,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 };
             }
         }
+
+        /// <summary>
+        /// Retrieves an agent by their base member ID
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the base member</param>
+        /// <returns>Agent response with complete profile information or null if not found</returns>
         public async Task<AgentResponse?> GetAgentByBaseMemberIdAsync(int baseMemberId)
         {
             try
@@ -108,6 +126,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves an agent by their agent ID
+        /// </summary>
+        /// <param name="id">The unique identifier of the agent</param>
+        /// <returns>Agent response with complete profile information or null if not found</returns>
+
         public async Task<AgentResponse?> GetAgentAsync(int id)
         {
             try
@@ -158,6 +182,10 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 throw;
             }
         }
+        /// <summary>
+        /// Retrieves all agents in the system with their complete profile information
+        /// </summary>
+        /// <returns>List of all agent responses with complete profile information</returns>
 
         public async Task<List<AgentResponse>> GetAllAgentsAsync()
         {
@@ -202,7 +230,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 throw;
             }
         }
-
+        /// <summary>
+        /// Updates an existing agent's profile information including profile picture
+        /// </summary>
+        /// <param name="id">The unique identifier of the agent to update</param>
+        /// <param name="request">Updated agent data including profile information and picture URL</param>
+        /// <returns>Registration response indicating success or failure of the update</returns>
         public async Task<RegisterResponse> UpdateAgentAsync(int id, AgentUpdateRequest request)
         {
             try
@@ -228,7 +261,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating agent: {ex.Message}" };
             }
         }
-
+        /// <summary>
+        /// Updates the status of an agent and handles verification status accordingly
+        /// </summary>
+        /// <param name="id">The unique identifier of the agent</param>
+        /// <param name="status">The new status to assign to the agent (Verified, Inactive, Suspended, etc.)</param>
+        /// <returns>Registration response indicating success or failure</returns>
         public async Task<RegisterResponse> UpdateAgentStatusAsync(int id, string status)
         {
             try
@@ -259,7 +297,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating agent status: {ex.Message}" };
             }
         }
-
+        /// <summary>
+        /// Deletes an agent profile from the system
+        /// </summary>
+        /// <param name="id">The unique identifier of the agent to delete</param>
+        /// <returns>Registration response indicating success or failure</returns>
         public async Task<RegisterResponse> DeleteAgentAsync(int id)
         {
             try

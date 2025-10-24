@@ -9,6 +9,9 @@ using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Utilities.Storage;
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
+    /// <summary>
+    /// Service implementation for managing client profiles and operations
+    /// </summary>
     public class ClientService : IClientService
     {
         private readonly IBaseMemberRepository _baseMemberRepository;
@@ -16,6 +19,16 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         private readonly IProfilePictureService _profilePictureService;
         private readonly ILogger<ClientService> _logger;
         private readonly ApplicationDbContext _context;
+
+
+        /// <summary>
+        /// Initializes a new instance of the ClientService class
+        /// </summary>
+        /// <param name="baseMemberRepository">Repository for base member data operations</param>
+        /// <param name="clientRepository">Repository for client-specific data operations</param>
+        /// <param name="profilePictureService">Service for profile picture management</param>
+        /// <param name="logger">Logger for tracking service operations and errors</param>
+        /// <param name="context">Database context for entity framework operations</param>
 
         public ClientService(
             IBaseMemberRepository baseMemberRepository,
@@ -30,6 +43,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             _logger = logger;
             _context = context;
         }
+        /// <summary>
+        /// Creates a new client profile with validation for duplicate email and username
+        /// </summary>
+        /// <param name="request">Client registration data including email, username, password, and personal information</param>
+        /// <returns>Registration response indicating success or failure</returns>
 
         public async Task<RegisterResponse> CreateClientAsync(ClientRegisterRequest request)
         {
@@ -69,6 +87,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 };
             }
         }
+
+        /// <summary>
+        /// Retrieves a complete client profile by base member ID including personal and base member information
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the base member</param>
+        /// <returns>Client response with complete profile information or null if not found</returns>
 
         public async Task<ClientResponse?> GetClientAsync(int baseMemberId)
         {
@@ -115,6 +139,10 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             }
         }
 
+        /// <summary>
+        /// Retrieves all clients with their complete profile information
+        /// </summary>
+        /// <returns>List of all client responses with complete profile information</returns>
         public async Task<List<ClientResponse>> GetAllClientsAsync()
         {
             try
@@ -148,7 +176,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new List<ClientResponse>();
             }
         }
-
+        /// <summary>
+        /// Updates an existing client's profile information
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client to update</param>
+        /// <param name="request">Updated client data including personal information</param>
+        /// <returns>Registration response indicating success or failure of the update</returns>
         public async Task<RegisterResponse> UpdateClientAsync(int baseMemberId, ClientUpdateRequest request)
         {
             try
@@ -168,7 +201,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating client: {ex.Message}" };
             }
         }
-
+        /// <summary>
+        /// Updates the status of a client (Active, Inactive, Suspended, etc.)
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client</param>
+        /// <param name="status">The new status to assign to the client</param>
+        /// <returns>Registration response indicating success or failure</returns>
         public async Task<RegisterResponse> UpdateClientStatusAsync(int baseMemberId, string status)
         {
             try
@@ -188,7 +226,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating client status: {ex.Message}" };
             }
         }
-
+        /// <summary>
+        /// Deletes a client profile from the system
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client to delete</param>
+        /// <returns>Registration response indicating success or failure</returns>
         public async Task<RegisterResponse> DeleteClientAsync(int baseMemberId)
         {
             try
@@ -208,17 +250,30 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             }
         }
 
-        // Profile picture methods
+        /// <summary>
+        /// Uploads a profile picture for a client using the profile picture service
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client</param>
+        /// <param name="file">The image file to upload as profile picture</param>
+        /// <returns>Profile picture response with upload result and URL</returns>
         public async Task<ProfilePictureResponse> UploadProfilePictureAsync(int baseMemberId, IFormFile file)
         {
             return await _profilePictureService.UploadProfilePictureAsync(baseMemberId, file);
         }
-
+        /// <summary>
+        /// Deletes the profile picture of a client using the profile picture service
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client</param>
+        /// <returns>Profile picture response indicating success or failure</returns>
         public async Task<ProfilePictureResponse> DeleteProfilePictureAsync(int baseMemberId)
         {
             return await _profilePictureService.DeleteProfilePictureAsync(baseMemberId);
         }
-
+        /// <summary>
+        /// Retrieves the profile picture URL of a client using the profile picture service
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the client</param>
+        /// <returns>Profile picture URL string or null if not found</returns>
         public async Task<string?> GetProfilePictureAsync(int baseMemberId)
         {
             return await _profilePictureService.GetProfilePictureAsync(baseMemberId);

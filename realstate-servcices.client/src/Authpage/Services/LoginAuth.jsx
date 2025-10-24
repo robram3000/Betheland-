@@ -176,7 +176,6 @@ class AuthService {
         }
     }
 
-    // Get current user info
     getCurrentUser() {
         const userData = localStorage.getItem('userData') ||
             sessionStorage.getItem('userData');
@@ -198,7 +197,7 @@ class AuthService {
                 userType: user.userType,
                 username: payload.unique_name || payload.sub || user.username,
                 role: payload.role || user.userType,
-                profilePicture: user.profilePicture, // ✅ Use the stored property name
+                profilePicture: user.profilePicture,
                 expiresAt: new Date(payload.exp * 1000),
                 rememberMe: !!localStorage.getItem('authToken')
             };
@@ -208,7 +207,6 @@ class AuthService {
         }
     }
 
-    // Refresh token
     async refreshToken() {
         try {
             const refreshToken = localStorage.getItem('refreshToken') ||
@@ -248,8 +246,6 @@ class AuthService {
             };
         }
     }
-
-    // Forgot password
     async forgotPassword(email) {
         try {
             const response = await api.post('/Login/forgot-password', { email });
@@ -275,8 +271,6 @@ class AuthService {
             };
         }
     }
-
-    // Reset password
     async resetPassword(token, newPassword, confirmPassword) {
         try {
             const response = await api.post('/Login/reset-password', {
@@ -306,8 +300,6 @@ class AuthService {
             };
         }
     }
-
-    // Change password (for authenticated users)
     async changePassword(currentPassword, newPassword) {
         try {
             const response = await api.post('/Login/change-password', {
@@ -336,8 +328,6 @@ class AuthService {
             };
         }
     }
-
-    // Verify email
     async verifyEmail(token) {
         try {
             const response = await api.post('/Login/verify-email', { token });
@@ -363,8 +353,6 @@ class AuthService {
             };
         }
     }
-
-    // Check if email exists
     async checkEmailExists(email) {
         try {
             const response = await api.post('/Login/check-email', { email });
@@ -379,8 +367,6 @@ class AuthService {
             };
         }
     }
-
-    // Check if username exists
     async checkUsernameExists(username) {
         try {
             const response = await api.post('/Login/check-username', { username });
@@ -397,6 +383,5 @@ class AuthService {
     }
 }
 
-// Create singleton instance
 const authService = new AuthService();
 export default authService;

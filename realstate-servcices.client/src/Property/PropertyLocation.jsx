@@ -1,4 +1,4 @@
-﻿// Updated PropertyLocation.jsx with integrated schedule services
+﻿// Updated PropertyLocation.jsx with disabled form for non-logged-in users
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -82,6 +82,8 @@ const PropertyLocation = ({ property, agent }) => {
         if (authenticated) {
             const user = authService.getCurrentUser();
             setCurrentUser(user);
+            console.log('Current user object:', user); // Debug log
+            console.log('User ID:', user?.userId); // Debug log
         }
     };
 
@@ -90,22 +92,16 @@ const PropertyLocation = ({ property, agent }) => {
         !isNaN(parseFloat(property.latitude)) &&
         !isNaN(parseFloat(property.longitude));
 
-    // Default coordinates (fallback)
-    const defaultPosition = [-33.9249, 18.4241]; // Cape Town coordinates
+
+    const defaultPosition = [-33.9249, 18.4241];
 
     const position = hasValidCoordinates
         ? [parseFloat(property.latitude), parseFloat(property.longitude)]
         : defaultPosition;
-
-    // Description handling
     const description = property?.description || 'No description available for this property.';
     const shortDescription = description.length > 200 ? description.substring(0, 200) + '...' : description;
-
-    // Amenities handling
     const amenities = property?.amenities || [];
     const displayedAmenities = showAllAmenities ? amenities : amenities.slice(0, 6);
-
-    // Handler functions for buttons
     const handleFavoriteClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -115,16 +111,12 @@ const PropertyLocation = ({ property, agent }) => {
         setIsFavorited(!isFavorited);
         console.log('Favorite clicked:', !isFavorited);
     };
-
-    // In PropertyLocation.jsx - update the handleChatClick function
     const handleChatClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
             navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('chat with agent')}`);
             return;
         }
-
-        // Pass property data to chat with complete agent information
         const chatData = {
             property: {
                 id: property?.id,
@@ -154,7 +146,6 @@ const PropertyLocation = ({ property, agent }) => {
     };
 
     const handleAgentCardScheduleClick = () => {
-        // Scroll to schedule section instead of showing overlay
         const scheduleSection = document.querySelector('.property-location-schedule-section');
         if (scheduleSection) {
             scheduleSection.scrollIntoView({ behavior: 'smooth' });
@@ -192,8 +183,8 @@ const PropertyLocation = ({ property, agent }) => {
         setIsScheduling(true);
 
         try {
-            // Get client ID from auth
-            const clientId = currentUser?.id;
+            // ✅ FIXED: Use userId instead of id
+            const clientId = currentUser?.userId;
 
             if (!clientId) {
                 setScheduleError('Unable to identify user. Please log in again.');
@@ -334,7 +325,7 @@ const PropertyLocation = ({ property, agent }) => {
                         className="property-location-schedule-overlay-input"
                         min={new Date().toISOString().split('T')[0]}
                         required
-                        disabled={isScheduling}
+                        disabled={!isLoggedIn || isScheduling}
                     />
                 </div>
                 <div className="property-location-schedule-overlay-input-group">
@@ -347,7 +338,7 @@ const PropertyLocation = ({ property, agent }) => {
                         onChange={(e) => setScheduleTime(e.target.value)}
                         className="property-location-schedule-overlay-input"
                         required
-                        disabled={isScheduling}
+                        disabled={!isLoggedIn || isScheduling}
                     />
                 </div>
             </div>
@@ -362,14 +353,14 @@ const PropertyLocation = ({ property, agent }) => {
                     className="property-location-schedule-overlay-textarea"
                     placeholder="What would you like to ask the agent? For example: I'd like to see the backyard and ask about recent renovations..."
                     rows="4"
-                    disabled={isScheduling}
+                    disabled={!isLoggedIn || isScheduling}
                 />
             </div>
 
             <button
                 type="submit"
                 className="property-location-schedule-overlay-submit-btn"
-                disabled={isScheduling}
+                disabled={!isLoggedIn || isScheduling}
             >
                 {isScheduling ? (
                     <>
@@ -379,7 +370,7 @@ const PropertyLocation = ({ property, agent }) => {
                 ) : (
                     <>
                         <FaCalendarPlus style={{ marginRight: '8px' }} />
-                        Send Enquiry to {agent?.firstName || 'Agent'}
+                        {isLoggedIn ? `Send Enquiry to ${agent?.firstName || 'Agent'}` : 'Sign In to Schedule'}
                     </>
                 )}
             </button>

@@ -39,17 +39,20 @@ import agentService from '../Creation_Agent/Services/agentService';
 import amenities from './services/amenities';
 import statusOptions from './services/Status';
 import propertyTypeOptions from './services/propertyTypeOption';
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
 const { Option } = Select;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Step } = Steps;
 const { Panel } = Collapse;
+
 const DEFAULT_PROPERTY_TYPES = [
     'House',
     'Apartment',
@@ -62,6 +65,7 @@ const DEFAULT_PROPERTY_TYPES = [
     'Farm',
     'Other'
 ];
+
 const DEFAULT_STATUS_OPTIONS = [
     'draft',
     'available',
@@ -70,6 +74,7 @@ const DEFAULT_STATUS_OPTIONS = [
     'pending',
     'expired'
 ];
+
 const DEFAULT_PH_COORDINATES = [14.1999, 121.4290];
 const DEFAULT_ZOOM = 15;
 
@@ -712,9 +717,10 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
 
-            // Convert amenities array to comma-separated string if it's an array
+            // ✅ FIX: Convert amenities array to comma-separated string for backend
             let amenitiesValue = allValues.amenities;
             if (Array.isArray(amenitiesValue)) {
+                // Convert array to comma-separated string
                 amenitiesValue = amenitiesValue.join(', ');
             } else if (!amenitiesValue) {
                 amenitiesValue = '';
@@ -742,7 +748,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 areaSqm: parseInt(allValues.areaSqm) || 0,
                 propertyAge: parseInt(allValues.propertyAge) || 0,
                 propertyFloor: parseInt(allValues.propertyFloor) || 1,
-                amenities: amenitiesValue, // This is now a string instead of array
+                amenities: amenitiesValue, // ✅ Now this is a string (comma-separated)
                 ownerId: allValues.ownerId ? parseInt(allValues.ownerId) : null,
                 agentId: allValues.agentId ? parseInt(allValues.agentId) : null,
             };
@@ -1281,7 +1287,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         country: 'Philippines',
                         state: 'Laguna',
                         city: 'Magdalena',
-                        type: 'House'
+                        type: 'House',
+                        amenities: [] // ✅ Ensure amenities starts as empty array
                     }}
                 >
                     <div style={{ marginBottom: 16 }}>

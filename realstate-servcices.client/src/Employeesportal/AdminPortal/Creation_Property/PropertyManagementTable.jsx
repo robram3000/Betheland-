@@ -77,6 +77,12 @@ const PropertyManagementTable = () => {
         if (url.startsWith('uploads/')) {
             return `https://localhost:7075/${url}`;
         }
+        if (url.startsWith('/uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
         return '/default-property.jpg';
     };
 

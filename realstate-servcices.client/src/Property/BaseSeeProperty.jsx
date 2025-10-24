@@ -26,9 +26,7 @@ const BaseSeePropertySimple = () => {
 
     // Process agent image URL
     const processAgentImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-avatar.jpg';
-        }
+        if (!url) return '/default-property.jpg';
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
@@ -36,12 +34,21 @@ const BaseSeePropertySimple = () => {
             return `https://localhost:7075${url}`;
         }
         if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/agents/${url}`;
+            return `https://localhost:7075/uploads/properties/${url}`;
         }
-        return '/default-avatar.jpg';
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        return '/default-property.jpg';
     };
+   
 
-    // Process property data
     const processPropertyData = (property) => {
         if (!property) return null;
 

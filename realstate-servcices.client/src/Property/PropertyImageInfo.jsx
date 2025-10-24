@@ -66,22 +66,26 @@ const PropertyImageInfo = ({ property, agent }) => {
 
     // Process image URL - SIMPLIFIED
     const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-property.jpg';
-        }
-
-        // If it's already a full URL, return as is
+        if (!url) return url;
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
-
-        // If it starts with /, add localhost
-        if (url.startsWith('/')) {
+        if (url.startsWith('/uploads/')) {
             return `https://localhost:7075${url}`;
         }
-
-        // Default to uploads/properties
-        return `https://localhost:7075/uploads/properties/${url}`;
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `http://betheland.runasp.net/${url}`;
+        }
+        return url;
     };
 
     // Touch handlers for swipe

@@ -20,16 +20,15 @@ import SuperAdminLayout from './Employeesportal/SuperAdminPortal/Navigation/admi
 import AdminLayout from './Employeesportal/AdminPortal/Navigation/adminlayout.jsx'
 import BaseScheduling from './Scheduling/BaseScheduling.jsx'
 import PropertyManagementPage from './Employeesportal/AgentPortal/Properties/PropertyManagementPage.jsx'
-import ScheduleManagementPage from './Employeesportal/AgentPortal/Appointment/ScheduleManagementPage.jsx'
+import AgentScheduleLayout from './Employeesportal/AgentPortal/Appointment/AgentScheduleLayout.jsx'
 import AgentLayout from './Employeesportal/AgentPortal/Navigation/adminlayout.jsx'
 import AgentProfile from './Employeesportal/AgentPortal/Profile/AgentProfile.jsx'
 
 
 import AgentLayoutadmn from './Employeesportal/AdminPortal/Creation_Agent/agentlayoutadmn.jsx'
 import PropertyLayout from './Employeesportal/AdminPortal/Creation_Property/Propertylayout.jsx'
-
-
-
+import ScheduleLayout from './Employeesportal/AdminPortal/appointment/Schedulelayout.jsx'
+import BaseChatagent from './Employeesportal/AgentPortal/Conversation/BaseChatagent'
 
 
 createRoot(document.getElementById('root')).render(
@@ -157,10 +156,17 @@ createRoot(document.getElementById('root')).render(
                             requiredRole="Admin"
                             requiredPermission="manage_properties"
                         >
-                            <PropertyLayout/>
+                            <PropertyLayout />
                         </ProtectedRoute>
                     } />
-
+                    <Route path="/portal/admin/schedules" element={
+                        <ProtectedRoute
+                            requiredRole="Admin"
+                            requiredPermission="manage_schedule"
+                        >
+                            <ScheduleLayout/>
+                        </ProtectedRoute>
+                    } />
 
 
                
@@ -173,10 +179,11 @@ createRoot(document.getElementById('root')).render(
                             <PropertyLayout />
                         </ProtectedRoute>
                     } />
+                    
+                 
 
-    
+                    {/* #################################################### AGENT ROUTES ################################################################## */}
 
-                    {/* Add individual agent routes if needed */}
                     <Route path="/portal/agent/all-properties" element={
                         <ProtectedRoute requiredRole="Agent">
                             <AgentLayout>
@@ -184,6 +191,19 @@ createRoot(document.getElementById('root')).render(
                             </AgentLayout>
                         </ProtectedRoute>
                     } />
+
+                    {/* ############## AGENT Chats #################### */}
+                    <Route path="/portal/agent/all-chats" element={
+                        <ProtectedRoute requiredRole="Agent"
+                            requiredPermission="manage_profile"
+                        >
+                            <AgentLayout>
+                              
+                            </AgentLayout>
+                         
+                        </ProtectedRoute>
+                    } />
+
                     <Route path="/portal/agent/profile" element={
                         <ProtectedRoute requiredRole="Agent"
                             requiredPermission= "manage_profile"
@@ -193,15 +213,14 @@ createRoot(document.getElementById('root')).render(
                             </AgentLayout>
                         </ProtectedRoute>
                     } />
-
-
-                    <Route path="/portal/agent/all-schedule" element={
+                    <Route path="/portal/agent/schedule" element={
                         <ProtectedRoute requiredRole="Agent">
                             <AgentLayout>
-                                <ScheduleManagementPage />
+                                <AgentScheduleLayout />
                             </AgentLayout>
                         </ProtectedRoute>
                     } />
+
 
                     {/* Fallback route */}
                     <Route path="*" element={<BaseLandingPage />} />

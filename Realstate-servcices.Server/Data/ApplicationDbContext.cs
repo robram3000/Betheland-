@@ -5,6 +5,7 @@ using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.OTP;
 using Realstate_servcices.Server.Entity.Properties;
+using Realstate_servcices.Server.Entity.Schedule;
 
 namespace Realstate_servcices.Server.Data
 {
@@ -33,19 +34,23 @@ namespace Realstate_servcices.Server.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationPreference> NotificationPreferences { get; set; }
 
+        // Schedule-related DbSets
+        public DbSet<AgentAvailability> AgentAvailabilities { get; set; }
+        public DbSet<AgentTimeOff> AgentTimeOffs { get; set; }
+        public DbSet<AgentScheduleConfig> AgentScheduleConfigs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<BaseMember>()
-        .HasIndex(u => u.Email)
-        .IsUnique();
+                .HasIndex(u => u.Email)
+                .IsUnique();
 
             modelBuilder.Entity<BaseMember>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
 
-         
             modelBuilder.Entity<BaseMember>()
                 .HasOne(bm => bm.Agent)
                 .WithOne(a => a.BaseMember)
@@ -71,24 +76,23 @@ namespace Realstate_servcices.Server.Data
                 .HasIndex(np => np.BaseMemberId)
                 .IsUnique();
 
-    
             modelBuilder.Entity<ChatParticipant>()
                 .HasOne(cp => cp.Chat)
                 .WithMany(c => c.Participants)
                 .HasForeignKey(cp => cp.ChatId)
-                .OnDelete(DeleteBehavior.Cascade); 
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<ChatParticipant>()
                 .HasOne(cp => cp.BaseMember)
                 .WithMany()
                 .HasForeignKey(cp => cp.BaseMemberId)
-                .OnDelete(DeleteBehavior.Restrict); 
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Message>()
                 .HasOne(m => m.Chat)
                 .WithMany(c => c.Messages)
                 .HasForeignKey(m => m.ChatId)
-                .OnDelete(DeleteBehavior.Cascade); 
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Message>()
                 .HasOne(m => m.Sender)
@@ -100,22 +104,20 @@ namespace Realstate_servcices.Server.Data
                 .HasOne(mf => mf.Message)
                 .WithMany(m => m.MessageFiles)
                 .HasForeignKey(mf => mf.MessageId)
-                .OnDelete(DeleteBehavior.Cascade); 
+                .OnDelete(DeleteBehavior.Cascade);
 
-      
             modelBuilder.Entity<MessageReaction>()
                 .HasOne(mr => mr.Message)
                 .WithMany(m => m.Reactions)
                 .HasForeignKey(mr => mr.MessageId)
-                .OnDelete(DeleteBehavior.Restrict); 
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<MessageReaction>()
                 .HasOne(mr => mr.BaseMember)
                 .WithMany()
                 .HasForeignKey(mr => mr.BaseMemberId)
-                .OnDelete(DeleteBehavior.Restrict); 
+                .OnDelete(DeleteBehavior.Restrict);
 
-  
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.BaseMember)
                 .WithMany()
@@ -126,13 +128,13 @@ namespace Realstate_servcices.Server.Data
                 .HasOne(n => n.Chat)
                 .WithMany(c => c.Notifications)
                 .HasForeignKey(n => n.ChatId)
-                .OnDelete(DeleteBehavior.Restrict); 
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.Message)
                 .WithMany(m => m.Notifications)
                 .HasForeignKey(n => n.MessageId)
-                .OnDelete(DeleteBehavior.Restrict); 
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<NotificationPreference>()
                 .HasOne(np => np.BaseMember)
@@ -150,11 +152,11 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => new { e.Email, e.IsUsed, e.ExpirationTime });
                 entity.HasIndex(e => e.CreatedAt);
             });
+
             modelBuilder.Entity<Rating>(entity =>
             {
                 entity.HasKey(e => e.Id);
 
-  
                 entity.Property(e => e.RatingNo).IsRequired();
                 entity.Property(e => e.Stars).IsRequired();
                 entity.Property(e => e.Comment).HasMaxLength(1000);
@@ -164,7 +166,6 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);
 
-        
                 entity.HasOne(r => r.Rater)
                     .WithMany()
                     .HasForeignKey(r => r.RaterId)
@@ -190,11 +191,8 @@ namespace Realstate_servcices.Server.Data
                     .HasForeignKey(r => r.ChatId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-          
                 entity.HasIndex(e => e.RatingNo).IsUnique();
             });
-
-
 
             modelBuilder.Entity<BaseMember>(entity =>
             {
@@ -378,12 +376,16 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // Updated ScheduleProperties configuration
             modelBuilder.Entity<ScheduleProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.ScheduleNo).IsRequired();
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Scheduled");
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.ScheduleTime).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt);
 
                 // Relationships
                 entity.HasOne(sp => sp.Property)
@@ -400,6 +402,11 @@ namespace Realstate_servcices.Server.Data
                       .WithMany(c => c.ScheduleProperties)
                       .HasForeignKey(sp => sp.ClientId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                // Index for better performance
+                entity.HasIndex(e => e.ScheduleNo).IsUnique();
+                entity.HasIndex(e => e.ScheduleTime);
+                entity.HasIndex(e => e.Status);
             });
 
             modelBuilder.Entity<WishlistProperties>(entity =>
@@ -423,7 +430,78 @@ namespace Realstate_servcices.Server.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // AgentAvailability configuration
+            modelBuilder.Entity<AgentAvailability>(entity =>
+            {
+                entity.HasKey(e => e.Id);
 
+                entity.Property(e => e.AgentId).IsRequired();
+                entity.Property(e => e.DayOfWeek).IsRequired();
+                entity.Property(e => e.StartTime).IsRequired();
+                entity.Property(e => e.EndTime).IsRequired();
+                entity.Property(e => e.IsAvailable).IsRequired().HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt);
+
+                // Relationship with Agent
+                entity.HasOne(aa => aa.Agent)
+                      .WithMany(a => a.AgentAvailabilities)
+                      .HasForeignKey(aa => aa.AgentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => new { e.AgentId, e.DayOfWeek });
+                entity.HasIndex(e => e.IsAvailable);
+            });
+
+            // AgentTimeOff configuration
+            modelBuilder.Entity<AgentTimeOff>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.AgentId).IsRequired();
+                entity.Property(e => e.StartDate).IsRequired();
+                entity.Property(e => e.EndDate).IsRequired();
+                entity.Property(e => e.Reason).HasMaxLength(500);
+                entity.Property(e => e.IsApproved).HasDefaultValue(false);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt);
+
+                // Relationship with Agent
+                entity.HasOne(ato => ato.Agent)
+                      .WithMany(a => a.AgentTimeOffs)
+                      .HasForeignKey(ato => ato.AgentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => new { e.AgentId, e.StartDate, e.EndDate });
+                entity.HasIndex(e => e.IsApproved);
+            });
+
+            modelBuilder.Entity<AgentScheduleConfig>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.AgentId).IsRequired();
+                entity.Property(e => e.DayStartTime).IsRequired(); // Changed from WorkingHoursStart
+                entity.Property(e => e.DayEndTime).IsRequired();   // Changed from WorkingHoursEnd
+                entity.Property(e => e.SlotDurationMinutes).IsRequired().HasDefaultValue(60); // Changed from AppointmentDuration
+                entity.Property(e => e.BufferTimeMinutes).IsRequired().HasDefaultValue(15);   // Changed from BufferTime
+                entity.Property(e => e.MaxAppointmentsPerDay).IsRequired().HasDefaultValue(8);
+                entity.Property(e => e.AllowWeekendAppointments).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.AdvanceBookingDays).IsRequired().HasDefaultValue(30);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt);
+
+                // Relationship with Agent (one-to-one)
+                entity.HasOne(asc => asc.Agent)
+                      .WithOne(a => a.AgentScheduleConfig)
+                      .HasForeignKey<AgentScheduleConfig>(asc => asc.AgentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => e.AgentId).IsUnique();
+            });
         }
     }
 }

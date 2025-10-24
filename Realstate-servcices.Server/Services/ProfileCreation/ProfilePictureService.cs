@@ -3,12 +3,20 @@ using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Utilities.Storage;
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
+    /// <summary>
+    /// Service implementation for managing profile pictures for members
+    /// </summary>
     public class ProfilePictureService : IProfilePictureService
     {
         private readonly IBaseMemberRepository _baseMemberRepository;
         private readonly ILocalstorageImage _localStorageImage;
         private readonly ILogger<ProfilePictureService> _logger;
-
+        /// <summary>
+        /// Initializes a new instance of the ProfilePictureService class
+        /// </summary>
+        /// <param name="baseMemberRepository">Repository for base member data operations</param>
+        /// <param name="localStorageImage">Service for local image storage operations</param>
+        /// <param name="logger">Logger for tracking service operations and errors</param>
         public ProfilePictureService(
             IBaseMemberRepository baseMemberRepository,
             ILocalstorageImage localStorageImage,
@@ -18,7 +26,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             _localStorageImage = localStorageImage;
             _logger = logger;
         }
-
+        /// <summary>
+        /// Uploads and validates a profile picture for a member
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the member</param>
+        /// <param name="file">The image file to upload as profile picture (JPEG, PNG, GIF, WebP, BMP, max 10MB)</param>
+        /// <returns>Profile picture response with upload result and URL</returns>
         public async Task<ProfilePictureResponse> UploadProfilePictureAsync(int baseMemberId, IFormFile file)
         {
             try
@@ -74,7 +87,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 };
             }
         }
-
+        /// <summary>
+        /// Deletes the profile picture of a member from both storage and database
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the member</param>
+        /// <returns>Profile picture response indicating success or failure</returns>
         public async Task<ProfilePictureResponse> DeleteProfilePictureAsync(int baseMemberId)
         {
             try
@@ -129,7 +146,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 };
             }
         }
-
+        /// <summary>
+        /// Retrieves the profile picture URL of a member from the database
+        /// </summary>
+        /// <param name="baseMemberId">The unique identifier of the member</param>
+        /// <returns>Profile picture URL string or null if not found</returns>
         public async Task<string?> GetProfilePictureAsync(int baseMemberId)
         {
             try
@@ -143,7 +164,11 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return null;
             }
         }
-
+        /// <summary>
+        /// Validates if the provided file is a supported image type and within size limits
+        /// </summary>
+        /// <param name="file">The image file to validate</param>
+        /// <returns>True if the file is valid, false otherwise</returns>
         private bool IsValidImageFile(IFormFile file)
         {
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
