@@ -67,5 +67,9 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         /// Retrieves a base member by ID
         /// </summary>
         Task<BaseMember?> GetBaseMemberByIdAsync(int id);
+
+        Task<BaseMember?> GetByIdAsync(int id);
+        Task<BaseMember?> GetByEmailAsync(string email);
+        Task<List<BaseMember>> GetByIdsAsync(List<int> ids);
     }
 }

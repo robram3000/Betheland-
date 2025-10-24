@@ -33,7 +33,7 @@ namespace Realstate_servcices.Server.Entity.Chat
         [Required]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
+
         public virtual ICollection<ChatParticipant> Participants { get; set; } = new List<ChatParticipant>();
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
         public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();

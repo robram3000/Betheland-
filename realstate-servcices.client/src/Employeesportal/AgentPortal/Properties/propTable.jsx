@@ -17,7 +17,7 @@ import {
 } from '@ant-design/icons';
 import BaseTableProperty from './BaseTableProperty';
 import PropertyInsert from './PropertyInsert';
-import PropertyUpdate from './PropertyUpdate';
+import PropertyUpdate from './BaseTable';
 import PropertyView from './PropertyView';
 import propertyService from './Services/propertyService';
 import authService from '../../../Authpage/Services/LoginAuth';

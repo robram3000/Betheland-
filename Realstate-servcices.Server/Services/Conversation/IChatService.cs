@@ -10,6 +10,5 @@ namespace Realstate_servcices.Server.Services.Conversation
         Task<bool> DeleteChatAsync(int chatId, int userId);
         Task<ChatParticipantDto> AddParticipantAsync(int chatId, AddParticipantDto addDto, int requesterId);
         Task<bool> RemoveParticipantAsync(int chatId, int participantId, int requesterId);
-
     }
 }

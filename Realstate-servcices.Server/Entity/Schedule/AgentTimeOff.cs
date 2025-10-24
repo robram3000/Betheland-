@@ -21,13 +21,15 @@ namespace Realstate_servcices.Server.Entity.Schedule
 
         [Required]
         [MaxLength(20)]
-        public string Type { get; set; } = "Vacation"; // Vacation, Sick, Personal, etc.
+        public string Type { get; set; } = "Vacation";
 
         [MaxLength(500)]
         public string? Reason { get; set; }
 
         [Required]
         public bool IsApproved { get; set; } = false;
+
+        public bool IsAllDay { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

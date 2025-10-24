@@ -12,8 +12,8 @@ using Realstate_servcices.Server.Data;
 namespace Realstate_servcices.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251021135053_initialcreated")]
-    partial class initialcreated
+    [Migration("20251024163236_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -724,57 +724,6 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("PropertyVideos");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.ScheduleProperties", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AgentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ClientId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("PropertyId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("ScheduleNo")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("ScheduleTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Scheduled");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AgentId");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("PropertyId");
-
-                    b.ToTable("ScheduleProperties");
-                });
-
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.WishlistProperties", b =>
                 {
                     b.Property<int>("Id")
@@ -807,6 +756,246 @@ namespace Realstate_servcices.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("Wishlists");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentAvailability", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsAvailable");
+
+                    b.HasIndex("AgentId", "DayOfWeek");
+
+                    b.ToTable("AgentAvailabilities");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentScheduleConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdvanceBookingDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30);
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AllowWeekendScheduling")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("BufferTimeMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(15);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MaxSchedulesPerDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(8);
+
+                    b.Property<int>("SlotDurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(60);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("WorkDayEnd")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time")
+                        .HasDefaultValue(new TimeSpan(0, 17, 0, 0, 0));
+
+                    b.Property<TimeSpan>("WorkDayStart")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time")
+                        .HasDefaultValue(new TimeSpan(0, 9, 0, 0, 0));
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId")
+                        .IsUnique();
+
+                    b.ToTable("AgentScheduleConfigs");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentTimeOff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAllDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsApproved")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Vacation");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsApproved");
+
+                    b.HasIndex("AgentId", "StartDate", "EndDate");
+
+                    b.ToTable("AgentTimeOffs");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.ScheduleProperties", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MeetingLocation")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("MeetingType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PropertyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReminderSentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ScheduleEndTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ScheduleNo")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ScheduleTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Scheduled");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VirtualMeetingLink")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("PropertyId");
+
+                    b.HasIndex("ScheduleNo")
+                        .IsUnique();
+
+                    b.HasIndex("ScheduleTime");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ScheduleProperties");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Agent", b =>
@@ -1192,7 +1381,59 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Property");
                 });
 
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.ScheduleProperties", b =>
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.WishlistProperties", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
+                        .WithMany("Wishlists")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
+                        .WithMany("Wishlists")
+                        .HasForeignKey("PropertyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Property");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentAvailability", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
+                        .WithMany("AgentAvailabilities")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentScheduleConfig", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
+                        .WithOne("AgentScheduleConfig")
+                        .HasForeignKey("Realstate_servcices.Server.Entity.Schedule.AgentScheduleConfig", "AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentTimeOff", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
+                        .WithMany("AgentTimeOffs")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.ScheduleProperties", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
                         .WithMany("ScheduleProperties")
@@ -1213,25 +1454,6 @@ namespace Realstate_servcices.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
-
-                    b.Navigation("Client");
-
-                    b.Navigation("Property");
-                });
-
-            modelBuilder.Entity("Realstate_servcices.Server.Entity.Properties.WishlistProperties", b =>
-                {
-                    b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
-                        .WithMany("Wishlists")
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
-                        .WithMany("Wishlists")
-                        .HasForeignKey("PropertyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("Client");
 
@@ -1302,6 +1524,12 @@ namespace Realstate_servcices.Server.Migrations
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Agent", b =>
                 {
+                    b.Navigation("AgentAvailabilities");
+
+                    b.Navigation("AgentScheduleConfig");
+
+                    b.Navigation("AgentTimeOffs");
+
                     b.Navigation("Properties");
 
                     b.Navigation("Ratings");

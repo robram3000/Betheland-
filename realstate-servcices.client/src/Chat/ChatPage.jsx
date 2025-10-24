@@ -1,5 +1,4 @@
-﻿// ChatPage.jsx - Updated with agent data integration
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
     Row, Col, Card, Input, Avatar, Typography, List, Badge, Button, Space,
     Tabs, message, Drawer, Popover, Upload, Modal
@@ -12,6 +11,7 @@ import {
     PlayCircleOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import chatService from '../Employeesportal/AdminPortal/Convo/chatService';
 
 const { Search } = Input;
 const { TextArea } = Input;
@@ -32,7 +32,6 @@ const ChatPage = ({ propertyChatData }) => {
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // Common emojis for the picker
     const commonEmojis = [
         '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
         '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
@@ -48,15 +47,12 @@ const ChatPage = ({ propertyChatData }) => {
         '😾'
     ];
 
-    // Initialize with empty chats array
     const [chats, setChats] = useState([]);
 
-    // Use property chat data if available
     useEffect(() => {
         if (propertyChatData) {
             console.log('Property chat data received:', propertyChatData);
 
-            // Create a new chat entry for the agent
             const agentChatId = `agent-${propertyChatData.agent?.id || Date.now()}`;
 
             const newAgentChat = {
@@ -81,16 +77,13 @@ const ChatPage = ({ propertyChatData }) => {
                 ]
             };
 
-            // Check if this agent chat already exists
             const existingAgentChatIndex = chats.findIndex(chat =>
                 chat.id === agentChatId || chat.isAgentChat
             );
 
             if (existingAgentChatIndex === -1) {
-                // Add new agent chat to the beginning of the list
                 setChats(prev => [newAgentChat, ...prev]);
             } else {
-                // Update existing agent chat
                 const updatedChats = [...chats];
                 updatedChats[existingAgentChatIndex] = {
                     ...updatedChats[existingAgentChatIndex],
@@ -100,7 +93,6 @@ const ChatPage = ({ propertyChatData }) => {
                 setChats(updatedChats);
             }
 
-            // Set this as active chat
             setActiveChat(agentChatId);
         }
     }, [propertyChatData]);
@@ -117,47 +109,136 @@ const ChatPage = ({ propertyChatData }) => {
 
     const activeChatData = chats.find(chat => chat.id === activeChat);
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         if (newMessage.trim() === '' && fileList.length === 0) return;
 
-        // Create message with files
-        const messageData = {
+        try {
+            if (activeChatData?.isAgentChat) {
+                await handleSendToAgent();
+            } else {
+                handleSendRegularMessage();
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            message.error('Failed to send message');
+        }
+    };
+
+    const handleSendToAgent = async () => {
+        try {
+            let uploadedFiles = [];
+            if (fileList.length > 0) {
+                for (const file of fileList) {
+                    try {
+                        const uploadResult = await chatService.uploadFile(file);
+                        if (uploadResult.success) {
+                            uploadedFiles.push({
+                                name: file.name,
+                                type: file.type,
+                                url: uploadResult.fileUrl,
+                                size: file.size
+                            });
+                        }
+                    } catch (error) {
+                        console.error('File upload failed:', error);
+                        message.error('File upload failed');
+                        return;
+                    }
+                }
+            }
+
+            let backendChatId = activeChatData.backendChatId;
+
+            if (!backendChatId) {
+                try {
+                    const chatData = {
+                        name: `Chat with ${activeChatData.agentData?.name || 'Agent'}`,
+                        chatType: 'direct',
+                        propertyId: activeChatData.propertyData?.id?.toString(),
+                        participantIds: [activeChatData.agentData?.id].filter(Boolean)
+                    };
+
+                    console.log('Creating backend chat with data:', chatData);
+                    const createdChat = await chatService.createChat(chatData);
+
+                    // FIX: Check if createdChat is valid
+                    if (!createdChat || !createdChat.id) {
+                        console.warn('Chat creation returned invalid data:', createdChat);
+                        // Fallback: Use local chat only
+                        handleSendRegularMessage();
+                        return;
+                    }
+
+                    backendChatId = createdChat.id;
+
+                    setChats(prev => prev.map(chat =>
+                        chat.id === activeChatData.id
+                            ? { ...chat, backendChatId: createdChat.id }
+                            : chat
+                    ));
+
+                } catch (error) {
+                    console.error('Failed to create backend chat:', error);
+                    // FIX: Fallback to regular message instead of showing error
+                    console.log('Falling back to local chat mode');
+                    handleSendRegularMessage();
+                    return;
+                }
+            }
+
+            if (backendChatId) {
+                try {
+                    const messagePayload = {
+                        chatId: backendChatId,
+                        content: newMessage,
+                        messageType: uploadedFiles.length > 0 ? 'file' : 'text',
+                        files: uploadedFiles.length > 0 ? uploadedFiles : undefined
+                    };
+
+                    console.log('Sending message with payload:', messagePayload);
+                    await chatService.sendMessage(messagePayload);
+
+                    // Also update local state for immediate UI feedback
+                    handleSendRegularMessage();
+
+                } catch (error) {
+                    console.error('Failed to send message via service:', error);
+                    // Fallback to local message
+                    handleSendRegularMessage();
+                }
+            }
+        } catch (error) {
+            console.error('Error in handleSendToAgent:', error);
+            // Final fallback
+            handleSendRegularMessage();
+        }
+    };
+
+    const handleSendRegularMessage = () => {
+        const newMessageObj = {
+            id: Date.now(),
             text: newMessage,
-            files: fileList.map(file => ({
+            sender: 'me',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            files: fileList.length > 0 ? fileList.map(file => ({
                 name: file.name,
                 type: file.type,
                 url: file.url || URL.createObjectURL(file),
                 size: file.size
-            }))
+            })) : undefined
         };
 
-        // Add message to active chat
-        if (activeChatData) {
-            const newMessageObj = {
-                id: Date.now(),
-                text: newMessage,
-                sender: 'me',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                files: fileList.length > 0 ? fileList.map(file => ({
-                    name: file.name,
-                    type: file.type,
-                    url: file.url || URL.createObjectURL(file),
-                    size: file.size
-                })) : undefined
-            };
-
-            setChats(prev => prev.map(chat =>
-                chat.id === activeChat
-                    ? {
-                        ...chat,
-                        messages: [...chat.messages, newMessageObj],
-                        lastMessage: newMessage,
-                        time: 'Now',
-                        unread: 0
-                    }
-                    : chat
-            ));
-        }
+        setChats(prev => prev.map(chat =>
+            chat.id === activeChat
+                ? {
+                    ...chat,
+                    messages: [...chat.messages, newMessageObj],
+                    lastMessage: newMessage,
+                    time: 'Now',
+                    unread: 0
+                }
+                : chat
+        ));
 
         message.success('Message sent! 🎉');
         setNewMessage('');
@@ -198,7 +279,6 @@ const ChatPage = ({ propertyChatData }) => {
         scrollToBottom();
     }, [activeChatData?.messages]);
 
-    // File handling functions
     const beforeUpload = (file) => {
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
@@ -214,9 +294,8 @@ const ChatPage = ({ propertyChatData }) => {
             return false;
         }
 
-        // Add file to fileList
         setFileList(prev => [...prev, file]);
-        return false; // Prevent automatic upload
+        return false;
     };
 
     const handleFileRemove = (file) => {
@@ -228,7 +307,6 @@ const ChatPage = ({ propertyChatData }) => {
             setPreviewImage(file.url || URL.createObjectURL(file));
             setPreviewVisible(true);
         } else if (file.type.startsWith('video/')) {
-            // For videos, we'll open in a new tab or use a video player
             const videoUrl = file.url || URL.createObjectURL(file);
             window.open(videoUrl, '_blank');
         }
@@ -251,7 +329,6 @@ const ChatPage = ({ propertyChatData }) => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Format price in Philippine Pesos
     const formatPrice = (price) => {
         if (typeof price === 'number') {
             return `₱${price.toLocaleString('en-PH')}`;
@@ -259,7 +336,6 @@ const ChatPage = ({ propertyChatData }) => {
         return price || '₱0';
     };
 
-    // Property Card Component (inside chat messages)
     const PropertyCard = () => {
         if (!activeChatData?.propertyData) return null;
 
@@ -286,7 +362,6 @@ const ChatPage = ({ propertyChatData }) => {
                         gap: '12px',
                         alignItems: 'flex-start'
                     }}>
-                        {/* Property Image */}
                         <img
                             src={property.mainImage}
                             alt={property.title}
@@ -303,7 +378,6 @@ const ChatPage = ({ propertyChatData }) => {
                             }}
                         />
 
-                        {/* Property Details */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <Text strong style={{
                                 color: '#1B3C53',
@@ -324,7 +398,6 @@ const ChatPage = ({ propertyChatData }) => {
                                 {property.address}
                             </div>
 
-                            {/* Property Features */}
                             <div style={{
                                 display: 'flex',
                                 flexWrap: 'wrap',
@@ -340,7 +413,6 @@ const ChatPage = ({ propertyChatData }) => {
                                 <span>📏 {property.areaSqft}</span>
                             </div>
 
-                            {/* Price and View Button */}
                             <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -376,7 +448,6 @@ const ChatPage = ({ propertyChatData }) => {
         );
     };
 
-    // File attachment preview component
     const FileAttachments = () => {
         if (fileList.length === 0) return null;
 
@@ -434,7 +505,6 @@ const ChatPage = ({ propertyChatData }) => {
         );
     };
 
-    // Simple emoji picker component
     const EmojiPickerContent = () => (
         <div style={{
             width: 280,
@@ -479,7 +549,6 @@ const ChatPage = ({ propertyChatData }) => {
                 flexDirection: 'column'
             }}
         >
-            {/* Search Header */}
             <div style={{
                 padding: '16px',
                 borderBottom: '1px solid #f1f5f9',
@@ -504,7 +573,6 @@ const ChatPage = ({ propertyChatData }) => {
                 />
             </div>
 
-            {/* Tabs - Only All and Unread */}
             <div style={{
                 padding: '12px 16px',
                 borderBottom: '1px solid #f1f5f9',
@@ -522,7 +590,6 @@ const ChatPage = ({ propertyChatData }) => {
                 />
             </div>
 
-            {/* Chat List */}
             <div style={{
                 flex: 1,
                 overflowY: 'auto',
@@ -642,7 +709,6 @@ const ChatPage = ({ propertyChatData }) => {
                 height: '100%',
                 width: '100%'
             }}>
-                {/* Chat List Sidebar - Always on left */}
                 <Col xs={0} md={6} lg={5} style={{
                     padding: 0,
                     margin: 0,
@@ -652,7 +718,6 @@ const ChatPage = ({ propertyChatData }) => {
                     {chatListContent}
                 </Col>
 
-                {/* Chat Area - Takes remaining space */}
                 <Col xs={24} md={18} lg={19} style={{
                     padding: 0,
                     margin: 0,
@@ -676,7 +741,6 @@ const ChatPage = ({ propertyChatData }) => {
                     >
                         {activeChatData ? (
                             <>
-                                {/* Chat Header */}
                                 <div style={{
                                     padding: '12px 16px',
                                     borderBottom: '1px solid #f1f5f9',
@@ -691,7 +755,6 @@ const ChatPage = ({ propertyChatData }) => {
                                         width: '100%'
                                     }}>
                                         <Space size="small" style={{ flex: 1 }}>
-                                            {/* Mobile Back Button - Only visible on mobile */}
                                             <Button
                                                 type="text"
                                                 icon={<LeftOutlined />}
@@ -761,7 +824,6 @@ const ChatPage = ({ propertyChatData }) => {
                                     </div>
                                 </div>
 
-                                {/* Messages Area */}
                                 <div style={{
                                     flex: 1,
                                     padding: '12px 8px',
@@ -775,10 +837,8 @@ const ChatPage = ({ propertyChatData }) => {
                                         width: '100%',
                                         flex: 1
                                     }} size="small">
-                                        {/* Property Card - Inside messages area */}
                                         {activeChatData.isAgentChat && <PropertyCard />}
 
-                                        {/* Regular Messages */}
                                         {activeChatData.messages && activeChatData.messages.length > 0 ? (
                                             activeChatData.messages.map(message => (
                                                 <div
@@ -832,10 +892,8 @@ const ChatPage = ({ propertyChatData }) => {
                                     </Space>
                                 </div>
 
-                                {/* File Attachments Preview */}
                                 <FileAttachments />
 
-                                {/* Message Input - Fixed at bottom */}
                                 <div style={{
                                     padding: '12px 16px',
                                     borderTop: '1px solid #f1f5f9',
@@ -850,7 +908,6 @@ const ChatPage = ({ propertyChatData }) => {
                                         width: '100%',
                                         display: 'flex'
                                     }}>
-                                        {/* File Upload Button */}
                                         <Upload
                                             beforeUpload={beforeUpload}
                                             fileList={fileList}
@@ -960,7 +1017,6 @@ const ChatPage = ({ propertyChatData }) => {
                 </Col>
             </Row>
 
-            {/* Image Preview Modal */}
             <Modal
                 open={previewVisible}
                 footer={null}
@@ -971,7 +1027,6 @@ const ChatPage = ({ propertyChatData }) => {
                 <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
             </Modal>
 
-            {/* Mobile Drawer */}
             <Drawer
                 title="Chats"
                 placement="left"

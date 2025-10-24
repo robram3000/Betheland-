@@ -47,6 +47,7 @@ import InsertProperty from './InsertProperty';
 import ChangeHandlerModal from './ChangeHandlerModal';
 import propertyService from './services/propertyService';
 import agentService from '../Creation_Agent/Services/AgentService';
+import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from './processImageUrl';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -74,100 +75,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
             onFilterUpdate(searchText, statusFilter, typeFilter);
         }
     }, [searchText, statusFilter, typeFilter, onFilterUpdate]);
-
-    const processImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        return '/default-property.jpg';
-    };
-
-    // Get all media for a property
-    const getAllMedia = (property) => {
-        const media = [];
-
-        // Add main image
-        if (property.mainImage) {
-            media.push({
-                type: 'image',
-                url: processImageUrl(property.mainImage),
-                title: 'Main Image'
-            });
-        }
-
-        // Add property images
-        if (property.propertyImages && property.propertyImages.length > 0) {
-            property.propertyImages.forEach((img, index) => {
-                if (img.imageUrl) {
-                    media.push({
-                        type: 'image',
-                        url: processImageUrl(img.imageUrl),
-                        title: `Image ${index + 1}`
-                    });
-                }
-            });
-        }
-
-        // Add image URLs
-        if (property.imageUrls && property.imageUrls.length > 0) {
-            property.imageUrls.forEach((url, index) => {
-                if (url) {
-                    media.push({
-                        type: 'image',
-                        url: processImageUrl(url),
-                        title: `Image ${index + 1}`
-                    });
-                }
-            });
-        }
-
-        // Add videos
-        if (property.videoUrls && property.videoUrls.length > 0) {
-            property.videoUrls.forEach((url, index) => {
-                if (url) {
-                    media.push({
-                        type: 'video',
-                        url: processImageUrl(url),
-                        title: `Video ${index + 1}`
-                    });
-                }
-            });
-        }
-
-        // Add property video
-        if (property.propertyVideo) {
-            media.push({
-                type: 'video',
-                url: processImageUrl(property.propertyVideo),
-                title: 'Property Video'
-            });
-        }
-
-        return media;
-    };
-
-    // Open media gallery
-    const handleOpenMedia = (property, index = 0) => {
-        setSelectedProperty(property);
-        setCurrentMediaIndex(index);
-        setMediaModalVisible(true);
-    };
 
     // Improved agent data loader with proper state updates
     const loadAgentData = useCallback(async (agentId) => {
@@ -548,7 +455,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
 
     const getAgentAvatar = (agent) => {
         if (agent?.profilePictureUrl) {
-            return <Avatar size="small" src={agent.profilePictureUrl} />;
+            return <Avatar size="small" src={processImageUrl(agent.profilePictureUrl)} />;
         }
         return <Avatar size="small" icon={<UserOutlined />} />;
     };
@@ -622,8 +529,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
     const renderMediaPreview = (property) => {
         const allMedia = getAllMedia(property);
         const hasMedia = allMedia.length > 0;
-        const imageCount = allMedia.filter(m => m.type === 'image').length;
-        const videoCount = allMedia.filter(m => m.type === 'video').length;
+        const { imageCount, videoCount } = getMediaCounts(property);
 
         return (
             <Space direction="vertical" size={8} align="center">
@@ -661,6 +567,13 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                 )}
             </Space>
         );
+    };
+
+    // Open media gallery
+    const handleOpenMedia = (property, index = 0) => {
+        setSelectedProperty(property);
+        setCurrentMediaIndex(index);
+        setMediaModalVisible(true);
     };
 
     const actionMenu = (record) => (
@@ -727,20 +640,14 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
             dataIndex: 'title',
             key: 'property',
             render: (text, record) => {
-                // Process the image URL
-                const mainImage = record.mainImage ||
-                    (record.propertyImages && record.propertyImages[0]?.imageUrl) ||
-                    (record.imageUrls && record.imageUrls[0]) ||
-                    '/default-property.jpg';
-
-                const processedImage = processImageUrl(mainImage);
+                const imageUrl = getPropertyImage(record);
 
                 return (
                     <Space direction="vertical" size={4}>
                         <Space>
                             <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
                                 <Avatar
-                                    src={processedImage}
+                                    src={imageUrl}
                                     shape="square"
                                     style={{
                                         backgroundColor: '#1a365d',
@@ -749,7 +656,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                                         objectFit: 'cover'
                                     }}
                                     onError={(e) => {
-                                        e.target.src = '/default-property.jpg';
+                                        e.target.src = processImageUrl('/default-property.jpg');
                                     }}
                                 >
                                     {text?.[0]?.toUpperCase()}
@@ -968,8 +875,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
 
     return (
         <div>
-            {/* NO HELMET SECTION - Now managed by PropertyLayout */}
-
             <Card>
                 <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <Space wrap>
@@ -1081,11 +986,11 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                             {selectedProperty.mainImage && (
                                 <Image
                                     width={200}
-                                    src={processImageUrl(selectedProperty.mainImage)}
+                                    src={getPropertyImage(selectedProperty)}
                                     alt={selectedProperty.title}
-                                    fallback="/fallback-image.png"
+                                    fallback={processImageUrl('/fallback-image.png')}
                                     onError={(e) => {
-                                        e.target.src = '/fallback-image.png';
+                                        e.target.src = processImageUrl('/fallback-image.png');
                                     }}
                                 />
                             )}
@@ -1200,116 +1105,112 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                 width={800}
                 style={{ top: 20 }}
             >
-                {selectedProperty && (
-                    <div>
-                        {(() => {
-                            const allMedia = getAllMedia(selectedProperty);
-                            const currentMedia = allMedia[currentMediaIndex];
+                {selectedProperty && (() => {
+                    const allMedia = getAllMedia(selectedProperty);
+                    const currentMedia = allMedia[currentMediaIndex];
 
-                            if (allMedia.length === 0) {
-                                return (
-                                    <div style={{ textAlign: 'center', padding: '40px' }}>
-                                        <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
-                                        <div style={{ color: '#999' }}>No media available for this property</div>
-                                    </div>
-                                );
-                            }
+                    if (allMedia.length === 0) {
+                        return (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                <div style={{ color: '#999' }}>No media available for this property</div>
+                            </div>
+                        );
+                    }
 
-                            return (
-                                <div>
-                                    <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                        {currentMedia.type === 'image' ? (
-                                            <Image
-                                                width="100%"
-                                                style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                                src={currentMedia.url}
-                                                alt={currentMedia.title}
-                                                fallback="/fallback-image.png"
-                                                onError={(e) => {
-                                                    e.target.src = '/fallback-image.png';
-                                                }}
-                                            />
-                                        ) : (
-                                            <video
-                                                controls
-                                                style={{ width: '100%', maxHeight: '400px' }}
-                                                src={currentMedia.url}
-                                            >
-                                                Your browser does not support the video tag.
-                                            </video>
-                                        )}
-                                    </div>
+                    return (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                {currentMedia.type === 'image' ? (
+                                    <Image
+                                        width="100%"
+                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        src={currentMedia.url}
+                                        alt={currentMedia.title}
+                                        fallback={processImageUrl('/fallback-image.png')}
+                                        onError={(e) => {
+                                            e.target.src = processImageUrl('/fallback-image.png');
+                                        }}
+                                    />
+                                ) : (
+                                    <video
+                                        controls
+                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        src={currentMedia.url}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                )}
+                            </div>
 
-                                    <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                        <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
-                                    </div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
+                            </div>
 
-                                    {allMedia.length > 1 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-                                            <Button
-                                                onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
-                                                disabled={allMedia.length <= 1}
-                                            >
-                                                Previous
-                                            </Button>
-                                            <Button
-                                                onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
-                                                disabled={allMedia.length <= 1}
-                                            >
-                                                Next
-                                            </Button>
-                                        </div>
-                                    )}
-
-                                    {/* Media Thumbnails */}
-                                    {allMedia.length > 1 && (
-                                        <div style={{ marginTop: 16 }}>
-                                            <Divider>All Media ({allMedia.length})</Divider>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                                                {allMedia.map((media, index) => (
-                                                    <div
-                                                        key={index}
-                                                        style={{
-                                                            width: 60,
-                                                            height: 60,
-                                                            border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                                                            borderRadius: 4,
-                                                            overflow: 'hidden',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                        onClick={() => setCurrentMediaIndex(index)}
-                                                    >
-                                                        {media.type === 'image' ? (
-                                                            <img
-                                                                src={media.url}
-                                                                alt={media.title}
-                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                onError={(e) => {
-                                                                    e.target.src = '/fallback-image.png';
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <div style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                backgroundColor: '#f0f0f0',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center'
-                                                            }}>
-                                                                <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                            {allMedia.length > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
+                                        disabled={allMedia.length <= 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
+                                        disabled={allMedia.length <= 1}
+                                    >
+                                        Next
+                                    </Button>
                                 </div>
-                            );
-                        })()}
-                    </div>
-                )}
+                            )}
+
+                            {/* Media Thumbnails */}
+                            {allMedia.length > 1 && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Divider>All Media ({allMedia.length})</Divider>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                        {allMedia.map((media, index) => (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    width: 60,
+                                                    height: 60,
+                                                    border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                                    borderRadius: 4,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => setCurrentMediaIndex(index)}
+                                            >
+                                                {media.type === 'image' ? (
+                                                    <img
+                                                        src={media.url}
+                                                        alt={media.title}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            e.target.src = processImageUrl('/fallback-image.png');
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        backgroundColor: '#f0f0f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
             </Modal>
 
             {/* Change Handler Modal */}

@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import propertyService from './services/propertyService';
+import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from './processImageUrl';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -60,80 +61,6 @@ const PropertyManagementTable = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    // Process image URL for display
-    const processImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        return '/default-property.jpg';
-    };
-
-    const getPropertyImage = (property) => {
-        return processImageUrl(
-            property.mainImage ||
-            (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
-            (property.imageUrls && property.imageUrls[0]) ||
-            '/default-property.jpg'
-        );
-    };
-
-    const getAllMedia = (property) => {
-        const media = [];
-
-        // Add main image
-        if (property.mainImage) {
-            media.push({
-                type: 'image',
-                url: processImageUrl(property.mainImage),
-                title: 'Main Image'
-            });
-        }
-
-        // Add property images
-        if (property.propertyImages && property.propertyImages.length > 0) {
-            property.propertyImages.forEach((img, index) => {
-                if (img.imageUrl) {
-                    media.push({
-                        type: 'image',
-                        url: processImageUrl(img.imageUrl),
-                        title: `Image ${index + 1}`
-                    });
-                }
-            });
-        }
-
-        // Add image URLs
-        if (property.imageUrls && property.imageUrls.length > 0) {
-            property.imageUrls.forEach((url, index) => {
-                if (url) {
-                    media.push({
-                        type: 'image',
-                        url: processImageUrl(url),
-                        title: `Image ${index + 1}`
-                    });
-                }
-            });
-        }
-
-        return media;
     };
 
     const handleOpenMedia = (property, index = 0) => {
@@ -201,7 +128,7 @@ const PropertyManagementTable = () => {
     const renderMediaPreview = (property) => {
         const allMedia = getAllMedia(property);
         const hasMedia = allMedia.length > 0;
-        const imageCount = allMedia.filter(m => m.type === 'image').length;
+        const { imageCount, videoCount } = getMediaCounts(property);
 
         return (
             <Space direction="vertical" size={8} align="center">
@@ -224,6 +151,12 @@ const PropertyManagementTable = () => {
                             <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
                             {imageCount} image{imageCount !== 1 ? 's' : ''}
                         </div>
+                        {videoCount > 0 && (
+                            <div>
+                                <PlayCircleOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                                {videoCount} video{videoCount !== 1 ? 's' : ''}
+                            </div>
+                        )}
                     </div>
                 )}
                 {!hasMedia && (

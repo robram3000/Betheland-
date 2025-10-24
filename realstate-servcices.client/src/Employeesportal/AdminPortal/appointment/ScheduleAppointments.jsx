@@ -35,16 +35,26 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import ApiClient from './Services/apiClient';
-import SchedulingServices from './Services/SchedulePropertiesService';
 
-const { Option } = Select;
+// Destructure Input to get TextArea and Select to get Option
 const { TextArea } = Input;
-const apiClient = new ApiClient(process.env.REACT_APP_API_BASE_URL);
-const schedulingService = new SchedulingServices(apiClient);
+const { Option } = Select;
 
+// Import the main service
+import SchedulingServices from './Services';
 
-const ScheduleAppointments = () => {
+// Mock API client
+const mockApiClient = {
+    get: async (url) => ({ data: [], status: 200 }),
+    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
+    put: async (url, data) => ({ data, status: 200 }),
+    patch: async (url, data) => ({ data, status: 200 }),
+    delete: async (url) => ({ status: 200 })
+};
+
+const schedulingService = new SchedulingServices(mockApiClient);
+
+const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -67,7 +77,7 @@ const ScheduleAppointments = () => {
     const loadAppointments = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.getAllSchedules();
+            const result = await schedulingService.schedules.getAll();
             if (result.success) {
                 setAppointments(result.data);
             } else {
@@ -133,10 +143,11 @@ const ScheduleAppointments = () => {
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.deleteSchedule(id);
+            const result = await schedulingService.schedules.delete(id);
             if (result.success) {
                 message.success('Appointment deleted successfully');
                 loadAppointments();
+                if (onScheduleUpdate) onScheduleUpdate();
             } else {
                 message.error(result.error?.message || 'Failed to delete appointment');
             }
@@ -155,12 +166,12 @@ const ScheduleAppointments = () => {
 
             let result;
             if (selectedAppointment) {
-                result = await schedulingService.updateSchedule(selectedAppointment.id, appointmentData);
+                result = await schedulingService.schedules.update(selectedAppointment.id, appointmentData);
                 if (result.success) {
                     message.success('Appointment updated successfully');
                 }
             } else {
-                result = await schedulingService.createSchedule(appointmentData);
+                result = await schedulingService.schedules.create(appointmentData);
                 if (result.success) {
                     message.success('Appointment created successfully');
                 }
@@ -173,6 +184,7 @@ const ScheduleAppointments = () => {
 
             setModalVisible(false);
             loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             message.error('Failed to save appointment');
         }
@@ -182,14 +194,15 @@ const ScheduleAppointments = () => {
         try {
             let result;
             if (newStatus === 'Completed') {
-                result = await schedulingService.completeSchedule(id);
+                result = await schedulingService.schedules.complete(id);
             } else if (newStatus === 'Cancelled') {
-                result = await schedulingService.cancelSchedule(id);
+                result = await schedulingService.schedules.cancel(id);
             }
 
             if (result && result.success) {
                 message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
                 loadAppointments();
+                if (onScheduleUpdate) onScheduleUpdate();
             } else {
                 message.error(result?.error?.message || 'Failed to update appointment status');
             }

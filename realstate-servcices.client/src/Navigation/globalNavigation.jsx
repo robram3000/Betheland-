@@ -19,9 +19,12 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
 import profileService from '../Accounts/Services/ProfileService';
+import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl'; 
+
 const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
 const useSafeWishlistData = () => {
     try {
         const { useWishlistData } = require('../Property/Services/WishlistAdded');
@@ -40,6 +43,7 @@ const useSafeWishlistData = () => {
         };
     }
 };
+
 const GlobalNavigation = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -91,6 +95,7 @@ const GlobalNavigation = () => {
             type: 'price'
         }
     ]);
+
     const displayWishlistCount = wishlistCount || 0;
     const notificationCount = notifications.filter(notification => !notification.read).length;
     const companyContact = {
@@ -103,39 +108,15 @@ const GlobalNavigation = () => {
         { key: '/about', label: 'About Us' },
         { key: '/contact-us', label: 'Contact Us' }
     ];
-    const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
 
-            return '/default-avatar.jpg';
-        }
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            const fullUrl = `https://localhost:7075${url}`;
-            return fullUrl;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            const fullUrl = `https://localhost:7075/uploads/profile-pictures/${url}`;
-
-            return fullUrl;
-        }
-        if (url.startsWith('uploads/')) {
-            const fullUrl = `https://localhost:7075/${url}`;
-            return fullUrl;
-        }
-        return '/default-avatar.jpg';
-    };
     const loadUserProfile = async () => {
         if (!isLoggedIn) return;
 
         setLoadingProfile(true);
         try {
-
             const result = await profileService.getProfile();
 
             if (result.success && result.data) {
-
                 setProfileData(result.data)
                 setCurrentUser(prev => ({
                     ...prev,
@@ -146,7 +127,7 @@ const GlobalNavigation = () => {
                     lastName: result.data.lastName
                 }));
             } else {
-
+                // Handle no data case
             }
         } catch (error) {
             console.error('💥 GlobalNavigation - Error loading profile:', error);
@@ -154,25 +135,25 @@ const GlobalNavigation = () => {
             setLoadingProfile(false);
         }
     };
+
     const getProfilePictureUrl = () => {
-
         if (profileData?.profilePicture) {
-
             return processImageUrl(profileData.profilePicture);
         }
 
         // Fallback to currentUser data
         if (currentUser?.profilePicture) {
-
             return processImageUrl(currentUser.profilePicture);
         }
 
         console.log("GlobalNavigation - No profile picture found");
         return null;
     };
+
     useEffect(() => {
         checkAuthStatus();
     }, [location]);
+
     useEffect(() => {
         if (isLoggedIn) {
             loadUserProfile();
@@ -180,11 +161,13 @@ const GlobalNavigation = () => {
             setProfileData(null);
         }
     }, [isLoggedIn]);
+
     useEffect(() => {
         if (isLoggedIn) {
             refreshWishlist();
         }
     }, [isLoggedIn, updateTrigger, refreshWishlist]);
+
     useEffect(() => {
         if (isLoggedIn) {
             const interval = setInterval(() => {
@@ -194,6 +177,7 @@ const GlobalNavigation = () => {
             return () => clearInterval(interval);
         }
     }, [isLoggedIn, refreshWishlist]);
+
     const checkAuthStatus = () => {
         const authenticated = authService.isAuthenticated();
         setIsLoggedIn(authenticated);
@@ -207,17 +191,20 @@ const GlobalNavigation = () => {
             setProfileImageError(false);
         }
     };
-    const handleImageError = () => {
 
+    const handleImageError = () => {
         setProfileImageError(true);
     };
+
     const handleMenuClick = (key) => {
         navigate(key);
         setDrawerVisible(false);
     };
+
     const handleLogoClick = () => {
         navigate('/');
     };
+
     const handleWishlistClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -227,17 +214,21 @@ const GlobalNavigation = () => {
         navigate('/wishlist');
         setDrawerVisible(false);
     };
+
     const handleChatClick = () => {
         navigate('/messages');
         setDrawerVisible(false);
     };
+
     const handleScheduleClick = () => {
         navigate('/schedule');
         setDrawerVisible(false);
     };
+
     const handleNotificationsClick = () => {
         navigate('/notifications');
     };
+
     const handleLogout = () => {
         authService.logout();
         setIsLoggedIn(false);
@@ -247,19 +238,23 @@ const GlobalNavigation = () => {
         navigate('/');
         setDrawerVisible(false);
     };
+
     const handleProfileClick = () => {
         navigate('/profile');
         setDrawerVisible(false);
     };
+
     const handleSettingsClick = () => {
         navigate('/settings');
         setDrawerVisible(false);
     };
+
     const refreshProfile = () => {
         if (isLoggedIn) {
             loadUserProfile();
         }
     };
+
     const markAsRead = (notificationId) => {
         setNotifications(prev =>
             prev.map(notif =>
@@ -267,11 +262,13 @@ const GlobalNavigation = () => {
             )
         );
     };
+
     const markAllAsRead = () => {
         setNotifications(prev =>
             prev.map(notif => ({ ...notif, read: true }))
         );
     };
+
     const getDisplayName = () => {
         if (profileData) {
             const { firstName, middleName, lastName, suffix } = profileData;
@@ -282,7 +279,6 @@ const GlobalNavigation = () => {
             if (suffix && suffix.trim() !== '') nameParts.push(suffix.trim());
             if (nameParts.length > 0) {
                 const fullName = nameParts.join(' ');
-
                 return fullName;
             }
         }
@@ -302,6 +298,7 @@ const GlobalNavigation = () => {
 
         return 'User';
     };
+
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'User') return 'U';
@@ -317,9 +314,11 @@ const GlobalNavigation = () => {
             .toUpperCase()
             .slice(0, 2);
     };
+
     const getUserEmail = () => {
         return profileData?.email || currentUser?.email || 'No email';
     };
+
     const notificationContent = (
         <div style={{
             width: 320,
@@ -434,6 +433,7 @@ const GlobalNavigation = () => {
             </div>
         </div>
     );
+
     const getNotificationColor = (type) => {
         const colors = {
             property: '#1890ff',
@@ -443,6 +443,7 @@ const GlobalNavigation = () => {
         };
         return colors[type] || '#1890ff';
     };
+
     const getNotificationIcon = (type) => {
         const icons = {
             property: '🏠',
@@ -452,6 +453,7 @@ const GlobalNavigation = () => {
         };
         return icons[type] || '🔔';
     };
+
     const userMenuItems = [
         {
             key: 'user-info',
@@ -503,8 +505,10 @@ const GlobalNavigation = () => {
             danger: true
         }
     ];
+
     const isDesktop = screens.md;
     const profilePictureUrl = getProfilePictureUrl();
+
     return (
         <>
             {/* First Top Bar - Contact Information & Notification/Wishlist */}
@@ -887,7 +891,7 @@ const GlobalNavigation = () => {
                                         }}
                                         aria-label="Login to your account"
                                     >
-                                            SignUp
+                                        LogIn
                                     </Button>
                                     <Button
                                         type="primary"
@@ -899,7 +903,7 @@ const GlobalNavigation = () => {
                                         }}
                                         aria-label="Register new account"
                                     >
-                                       Join
+                                        Join
                                     </Button>
                                 </div>
                             )
@@ -1301,7 +1305,7 @@ const GlobalNavigation = () => {
                             }}
                             aria-label="Login to your account"
                         >
-                            SignUp
+                            LogIn
                         </Button>
                         <Button
                             size="large"

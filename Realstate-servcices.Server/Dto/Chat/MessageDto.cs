@@ -14,8 +14,8 @@
         public DateTime? ReadAt { get; set; }
         public DateTime? EditedAt { get; set; }
         public BaseMemberDto? Sender { get; set; }
-        public List<MessageFileDto> Files { get; set; } = new();
-        public List<MessageReactionDto> Reactions { get; set; } = new();
+        public List<MessageFileDto> Files { get; set; } = new List<MessageFileDto>();
+        public List<MessageReactionDto> Reactions { get; set; } = new List<MessageReactionDto>();
     }
 
 }

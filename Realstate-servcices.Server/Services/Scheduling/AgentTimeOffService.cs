@@ -8,70 +8,17 @@ namespace Realstate_servcices.Server.Services.Scheduling
     /// </summary>
     public interface IAgentTimeOffService
     {
-        /// <summary>Retrieves a specific time off request by its identifier</summary>
-        /// <param name="id">The unique identifier of the time off request</param>
-        /// <returns>AgentTimeOff entity if found, null otherwise</returns>
         Task<AgentTimeOff> GetTimeOffByIdAsync(int id);
-
-        /// <summary>Retrieves all time off requests in the system</summary>
-        /// <returns>Collection of all AgentTimeOff entities</returns>
         Task<IEnumerable<AgentTimeOff>> GetAllTimeOffsAsync();
-
-        /// <summary>Gets all time off requests for a specific agent</summary>
-        /// <param name="agentId">The identifier of the agent</param>
-        /// <returns>Collection of time off requests for the specified agent</returns>
         Task<IEnumerable<AgentTimeOff>> GetTimeOffsByAgentAsync(int agentId);
-
-        /// <summary>Retrieves upcoming time off requests within the specified days</summary>
-        /// <param name="daysAhead">Number of days to look ahead (default: 30)</param>
-        /// <returns>Collection of upcoming time off requests</returns>
         Task<IEnumerable<AgentTimeOff>> GetUpcomingTimeOffsAsync(int daysAhead = 30);
-
-        /// <summary>Gets time off requests for an agent within a specific date range</summary>
-        /// <param name="agentId">The identifier of the agent</param>
-        /// <param name="startDate">Start date of the range (inclusive)</param>
-        /// <param name="endDate">End date of the range (inclusive)</param>
-        /// <returns>Collection of time off requests within the specified range</returns>
         Task<IEnumerable<AgentTimeOff>> GetTimeOffsByDateRangeAsync(int agentId, DateTime startDate, DateTime endDate);
-
-        /// <summary>Submits a new time off request with conflict validation</summary>
-        /// <param name="timeOff">The time off request to create</param>
-        /// <returns>The created AgentTimeOff entity</returns>
-        /// <exception cref="InvalidOperationException">Thrown when conflicts exist</exception>
         Task<AgentTimeOff> RequestTimeOffAsync(AgentTimeOff timeOff);
-
-        /// <summary>Updates an existing time off request</summary>
-        /// <param name="timeOff">The updated time off entity</param>
-        /// <returns>The updated AgentTimeOff entity</returns>
-        /// <exception cref="KeyNotFoundException">Thrown when time off not found</exception>
         Task<AgentTimeOff> UpdateTimeOffAsync(AgentTimeOff timeOff);
-
-        /// <summary>Approves a pending time off request</summary>
-        /// <param name="id">The identifier of the time off request to approve</param>
-        /// <returns>True if successful, false if not found</returns>
         Task<bool> ApproveTimeOffAsync(int id);
-
-        /// <summary>Rejects a pending time off request</summary>
-        /// <param name="id">The identifier of the time off request to reject</param>
-        /// <returns>True if successful, false if not found</returns>
         Task<bool> RejectTimeOffAsync(int id);
-
-        /// <summary>Deletes a time off request</summary>
-        /// <param name="id">The identifier of the time off request to delete</param>
-        /// <returns>True if successful, false if not found</returns>
         Task<bool> DeleteTimeOffAsync(int id);
-
-        /// <summary>Checks if an agent is available on a specific date</summary>
-        /// <param name="agentId">The identifier of the agent</param>
-        /// <param name="date">The date to check availability for</param>
-        /// <returns>True if agent is available, false if on time off</returns>
         Task<bool> IsAgentAvailableAsync(int agentId, DateTime date);
-
-        /// <summary>Checks for time off conflicts within a date range</summary>
-        /// <param name="agentId">The identifier of the agent</param>
-        /// <param name="startDate">Start date of the proposed time off</param>
-        /// <param name="endDate">End date of the proposed time off</param>
-        /// <returns>True if conflict exists, false otherwise</returns>
         Task<bool> HasTimeOffConflictAsync(int agentId, DateTime startDate, DateTime endDate);
     }
 

@@ -9,6 +9,7 @@ using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Repositories;
 using Realstate_servcices.Server.Repository.Conversation;
 using Realstate_servcices.Server.Repository.OTP;
@@ -101,6 +102,13 @@ builder.Services.AddScoped<ISchedulePropertiesRepository, SchedulePropertiesRepo
 builder.Services.AddScoped<IAgentTimeOffRepository, AgentTimeOffRepository>();
 builder.Services.AddScoped<IAgentScheduleConfigRepository, AgentScheduleConfigRepository>();
 builder.Services.AddScoped<IAgentAvailabilityRepository, AgentAvailabilityRepository>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
+builder.Services.AddScoped<IBaseMemberRepository, BaseMemberRepository>();
+
 
 builder.Services.AddAuthentication(options =>
 {
@@ -155,22 +163,6 @@ builder.Services.Configure<IISServerOptions>(options =>
     options.MaxRequestBodySize = 100 * 1024 * 1024;
 });
 
-builder.Services.AddSingleton<IMapper>(serviceProvider =>
-{
-    var configuration = new MapperConfiguration(cfg =>
-    {
-        cfg.AddProfile<ChatMappingProfile>();
-        cfg.AddProfile<MessageMappingProfile>();
-        cfg.AddProfile<NotificationMappingProfile>();
-        cfg.CreateMap<ChatDto, Chat>();
-        cfg.CreateMap<MessageDto, Message>();
-    
-
-    });
-
-    configuration.AssertConfigurationIsValid();
-    return configuration.CreateMapper();
-});
 var app = builder.Build();
 var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
 if (!Directory.Exists(webRootPath))

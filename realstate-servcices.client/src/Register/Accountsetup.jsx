@@ -48,17 +48,14 @@ const AccountSetup = () => {
         },
     };
 
-    // In the onFinish function of AccountSetup.jsx - UPDATED VERSION:
     const onFinish = async (values) => {
         setShowSpinner(true);
         setLoading(true);
 
         try {
-            // Get stored data from previous steps
             const email = localStorage.getItem('verificationEmail');
             const otpCode = localStorage.getItem('otpCode');
 
-            // Get all basic info from localStorage
             const basicInfo = {
                 firstName: localStorage.getItem('basicInfo_firstName'),
                 middleName: localStorage.getItem('basicInfo_middleName'),
@@ -68,13 +65,6 @@ const AccountSetup = () => {
                 gender: localStorage.getItem('basicInfo_gender')
             };
 
-            console.log('📦 All localStorage data:', {
-                email,
-                otpCode,
-                basicInfo
-            });
-
-            // Combine all registration data with ALL basic information
             const registrationData = {
                 email: email,
                 username: values.username,
@@ -92,18 +82,12 @@ const AccountSetup = () => {
                 otpCode: otpCode
             };
 
-            console.log('🚀 Sending to API:', registrationData);
-
-            // Call registration API
             const result = await RegisterAccountServices.registerClient(registrationData);
-
-            console.log('✅ API Response:', result);
 
             if (result.success) {
                 setCompleted(true);
                 message.success('Account setup completed successfully! Welcome to BeTheLand Real Estate!');
 
-                // Clear ALL local storage data
                 const keysToRemove = [
                     'verificationEmail',
                     'otpVerified',
@@ -118,17 +102,13 @@ const AccountSetup = () => {
 
                 keysToRemove.forEach(key => localStorage.removeItem(key));
 
-                console.log('🧹 Cleared localStorage');
-
                 setTimeout(() => {
                     navigate('/login');
                 }, 2000);
             } else {
-                console.error('❌ Registration failed:', result.message);
                 message.error(result.message || 'Registration failed. Please try again.');
             }
         } catch (error) {
-            console.error('💥 Registration error:', error);
             message.error('Something went wrong. Please try again.');
         } finally {
             setLoading(false);
@@ -185,33 +165,57 @@ const AccountSetup = () => {
             <ConfigProvider theme={theme}>
                 <Layout style={{
                     minHeight: '100vh',
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    background: 'white',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
+                    {/* Silver Background */}
+                    <div className="silver-background">
+                        <div className="silver-grid-overlay"></div>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div
+                                key={`silver-dot-${i}`}
+                                className="silver-property-dot"
+                                style={{
+                                    left: `${10 + i * 12}%`,
+                                    top: `${20 + (i * 8) % 60}%`,
+                                    animationDelay: `${i * 1.5}s`
+                                }}
+                            />
+                        ))}
+                        <div className="silver-location-pin" style={{ top: '20%', left: '15%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '60%', right: '25%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '40%', left: '80%' }}>📍</div>
+                        <div className="silver-building-outline"></div>
+                    </div>
+
                     <Content style={{
-                        padding: '20px',
-                        width: '100%',
-                        maxWidth: '450px',
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        height: '100vh',
+                        padding: '20px'
                     }}>
                         <Card
                             style={{
                                 borderRadius: '16px',
                                 boxShadow: '0 8px 32px rgba(27, 60, 83, 0.12)',
                                 border: '1px solid #e2e8f0',
-                                width: '100%'
+                                width: '100%',
+                                maxWidth: '450px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                                backdropFilter: 'blur(8px)'
                             }}
                             bodyStyle={{
                                 padding: '60px 32px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                textAlign: 'center'
                             }}
                         >
                             <Spin
@@ -264,24 +268,59 @@ const AccountSetup = () => {
             <ConfigProvider theme={theme}>
                 <Layout style={{
                     minHeight: '100vh',
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    background: 'white',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
-                    <Content style={{ padding: '20px', width: '100%', maxWidth: '500px' }}>
+                    {/* Silver Background */}
+                    <div className="silver-background">
+                        <div className="silver-grid-overlay"></div>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div
+                                key={`silver-dot-${i}`}
+                                className="silver-property-dot"
+                                style={{
+                                    left: `${10 + i * 12}%`,
+                                    top: `${20 + (i * 8) % 60}%`,
+                                    animationDelay: `${i * 1.5}s`
+                                }}
+                            />
+                        ))}
+                        <div className="silver-location-pin" style={{ top: '20%', left: '15%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '60%', right: '25%' }}>📍</div>
+                        <div className="silver-location-pin" style={{ top: '40%', left: '80%' }}>📍</div>
+                        <div className="silver-building-outline"></div>
+                    </div>
+
+                    <Content style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100vh',
+                        padding: '20px'
+                    }}>
                         <Card
                             style={{
                                 borderRadius: '16px',
                                 boxShadow: '0 8px 32px rgba(27, 60, 83, 0.12)',
-                                border: '1px solid #e2e8f0'
+                                border: '1px solid #e2e8f0',
+                                width: '100%',
+                                maxWidth: '500px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                                backdropFilter: 'blur(8px)'
                             }}
-                            bodyStyle={{ padding: '40px 32px', textAlign: 'center' }}
+                            bodyStyle={{
+                                padding: '40px',
+                                textAlign: 'center'
+                            }}
                         >
                             <CheckCircleOutlined style={{
                                 fontSize: '64px',
                                 color: '#52c41a',
-                                marginBottom: '20px'
+                                marginBottom: '24px'
                             }} />
                             <Title level={2} style={{
                                 color: '#1B3C53',
@@ -293,32 +332,27 @@ const AccountSetup = () => {
                             </Title>
                             <Text style={{
                                 color: '#64748b',
+                                fontSize: '16px',
                                 display: 'block',
-                                marginBottom: '20px',
-                                fontSize: '16px'
+                                marginBottom: '32px',
+                                lineHeight: '1.6'
                             }}>
-                                Your real estate account has been successfully created.
+                                Your real estate account has been successfully created. You can now log in with your new credentials.
                             </Text>
-                            <div style={{
-                                background: '#f0f9ff',
-                                padding: '16px',
-                                borderRadius: '8px',
-                                marginBottom: '20px',
-                                border: '1px solid #e6f7ff'
-                            }}>
-                                <SafetyCertificateOutlined style={{ color: '#1B3C53', marginRight: '8px' }} />
-                                <Text strong style={{ color: '#1B3C53' }}>
-                                    Premium Real Estate Services Activated
-                                </Text>
-                            </div>
-                            <Text style={{
-                                color: '#64748b',
-                                display: 'block',
-                                marginBottom: '30px'
-                            }}>
-                                Redirecting you to your personalized dashboard...
-                            </Text>
-                            <Spin size="large" />
+                            <Button
+                                type="primary"
+                                size="large"
+                                onClick={() => navigate('/login')}
+                                style={{
+                                    height: '48px',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    padding: '0 32px'
+                                }}
+                            >
+                                Continue to Login
+                            </Button>
                         </Card>
                     </Content>
                 </Layout>
@@ -367,14 +401,12 @@ const AccountSetup = () => {
                     Password Requirements
                 </Text>
                 <div style={{ background: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                    <Text style={{ color: '#64748b', fontSize: '14px', display: 'block', marginBottom: '8px' }}>
-                        For your security, your password must contain:
-                    </Text>
                     <ul style={{ color: '#64748b', fontSize: '13px', margin: 0, paddingLeft: '20px' }}>
-                        <li>At least 8 characters</li>
-                        <li>One uppercase letter</li>
-                        <li>One lowercase letter</li>
-                        <li>One number</li>
+                        <li>At least 8 characters long</li>
+                        <li>One uppercase letter (A-Z)</li>
+                        <li>One lowercase letter (a-z)</li>
+                        <li>One number (0-9)</li>
+                        <li>No spaces allowed</li>
                     </ul>
                 </div>
             </div>
@@ -392,20 +424,177 @@ const AccountSetup = () => {
         <ConfigProvider theme={theme}>
             <Layout style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                background: 'white',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
-                <Content style={{ padding: '20px', width: '100%', maxWidth: '500px' }}>
+                {/* Silver Background */}
+                <div className="silver-background">
+                    <div className="silver-grid-overlay"></div>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                            key={`silver-dot-${i}`}
+                            className="silver-property-dot"
+                            style={{
+                                left: `${10 + i * 12}%`,
+                                top: `${20 + (i * 8) % 60}%`,
+                                animationDelay: `${i * 1.5}s`
+                            }}
+                        />
+                    ))}
+                    <div className="silver-location-pin" style={{ top: '20%', left: '15%' }}>📍</div>
+                    <div className="silver-location-pin" style={{ top: '60%', right: '25%' }}>📍</div>
+                    <div className="silver-location-pin" style={{ top: '40%', left: '80%' }}>📍</div>
+                    <div className="silver-building-outline"></div>
+                </div>
+
+                {/* CSS Styles for Silver Background */}
+                <style>
+                    {`
+                    .silver-background {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        pointer-events: none;
+                        background: white;
+                    }
+
+                    .silver-grid-overlay {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background-image: 
+                            linear-gradient(rgba(192, 192, 192, 0.15) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(192, 192, 192, 0.15) 1px, transparent 1px);
+                        background-size: 40px 40px;
+                        animation: silverGridMove 25s linear infinite;
+                    }
+
+                    @keyframes silverGridMove {
+                        0% {
+                            transform: translate(0, 0);
+                        }
+                        100% {
+                            transform: translate(40px, 40px);
+                        }
+                    }
+
+                    .silver-property-dot {
+                        position: absolute;
+                        width: 8px;
+                        height: 8px;
+                        background: rgba(128, 128, 128, 0.4);
+                        border-radius: 50%;
+                        animation: silverDotPulse 3s ease-in-out infinite;
+                        box-shadow: 0 0 10px rgba(192, 192, 192, 0.3);
+                    }
+
+                    @keyframes silverDotPulse {
+                        0%, 100% {
+                            transform: scale(1);
+                            opacity: 0.4;
+                        }
+                        50% {
+                            transform: scale(1.8);
+                            opacity: 0.7;
+                        }
+                    }
+
+                    .silver-location-pin {
+                        position: absolute;
+                        font-size: 28px;
+                        animation: silverPinFloat 8s ease-in-out infinite;
+                        opacity: 0.3;
+                        filter: grayscale(1) brightness(0.8);
+                    }
+
+                    @keyframes silverPinFloat {
+                        0%, 100% {
+                            transform: translateY(0px) rotate(0deg);
+                        }
+                        25% {
+                            transform: translateY(-15px) rotate(5deg);
+                        }
+                        50% {
+                            transform: translateY(-5px) rotate(-5deg);
+                        }
+                        75% {
+                            transform: translateY(-10px) rotate(3deg);
+                        }
+                    }
+
+                    .silver-building-outline {
+                        position: absolute;
+                        bottom: 0;
+                        left: 5%;
+                        width: 90%;
+                        height: 120px;
+                        border-top: 2px solid rgba(192, 192, 192, 0.3);
+                        background: linear-gradient(transparent, rgba(192, 192, 192, 0.1));
+                    }
+
+                    .silver-building-outline::before {
+                        content: '';
+                        position: absolute;
+                        top: -100px;
+                        left: 15%;
+                        width: 80px;
+                        height: 100px;
+                        border: 2px solid rgba(192, 192, 192, 0.3);
+                        border-bottom: none;
+                        animation: buildingGlow 4s ease-in-out infinite alternate;
+                    }
+
+                    .silver-building-outline::after {
+                        content: '';
+                        position: absolute;
+                        top: -150px;
+                        right: 25%;
+                        width: 60px;
+                        height: 150px;
+                        border: 2px solid rgba(192, 192, 192, 0.3);
+                        border-bottom: none;
+                        animation: buildingGlow 4s ease-in-out infinite alternate;
+                    }
+
+                    @keyframes buildingGlow {
+                        0% {
+                            opacity: 0.3;
+                        }
+                        100% {
+                            opacity: 0.6;
+                        }
+                    }
+                    `}
+                </style>
+
+                <Content style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100vh',
+                    padding: '20px'
+                }}>
                     <Card
                         style={{
                             borderRadius: '16px',
                             boxShadow: '0 8px 32px rgba(27, 60, 83, 0.12)',
-                            border: '1px solid #e2e8f0'
+                            border: '1px solid #e2e8f0',
+                            width: '100%',
+                            maxWidth: '500px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                            backdropFilter: 'blur(8px)'
                         }}
                         bodyStyle={{ padding: '32px' }}
                     >
+                        {/* Header */}
                         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                             <CrownOutlined style={{
                                 fontSize: '48px',
@@ -433,6 +622,7 @@ const AccountSetup = () => {
                             </Text>
                         </div>
 
+                        {/* Information Dropdown */}
                         <Collapse
                             ghost
                             style={{
@@ -463,6 +653,7 @@ const AccountSetup = () => {
                             </Panel>
                         </Collapse>
 
+                        {/* Form */}
                         <Form form={form} onFinish={onFinish} layout="vertical">
                             <Form.Item
                                 name="username"
@@ -571,12 +762,14 @@ const AccountSetup = () => {
                             </Form.Item>
                         </Form>
 
+                        {/* Progress Indicator */}
                         <div style={{ textAlign: 'center', marginTop: '20px' }}>
                             <Text style={{ color: '#64748b', fontSize: '12px' }}>
                                 Step 4 of 4: Email Verification → OTP Verification → Basic Information → Account Setup
                             </Text>
                         </div>
 
+                        {/* Footer Terms */}
                         <div style={{
                             textAlign: 'center',
                             marginTop: '24px',

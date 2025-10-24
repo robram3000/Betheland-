@@ -1,488 +1,428 @@
+// ErrorHandler.js
 
 class SchedulingError extends Error {
-    constructor(message, statusCode, code, details = null) {
+    constructor(message, code, details = null) {
         super(message);
         this.name = 'SchedulingError';
-        this.statusCode = statusCode;
         this.code = code;
         this.details = details;
         this.timestamp = new Date().toISOString();
-        this.isOperational = true; 
-
-        Error.captureStackTrace(this, this.constructor);
     }
 }
 
-class ValidationError extends SchedulingError {
-    constructor(message, details = null) {
-        super(message, 400, 'VALIDATION_ERROR', details);
-        this.name = 'ValidationError';
-    }
-}
-
-class NotFoundError extends SchedulingError {
-    constructor(resource, id = null) {
-        const message = id ? `${resource} with ID ${id} not found` : `${resource} not found`;
-        super(message, 404, 'RESOURCE_NOT_FOUND', { resource, id });
-        this.name = 'NotFoundError';
-    }
-}
-
-class ConflictError extends SchedulingError {
-    constructor(message, details = null) {
-        super(message, 409, 'CONFLICT', details);
-        this.name = 'ConflictError';
-    }
-}
-
-class AuthenticationError extends SchedulingError {
-    constructor(message = 'Authentication required') {
-        super(message, 401, 'AUTHENTICATION_ERROR');
-        this.name = 'AuthenticationError';
-    }
-}
-
-class AuthorizationError extends SchedulingError {
-    constructor(message = 'Insufficient permissions') {
-        super(message, 403, 'AUTHORIZATION_ERROR');
-        this.name = 'AuthorizationError';
-    }
-}
-
-class RateLimitError extends SchedulingError {
-    constructor(message = 'Rate limit exceeded') {
-        super(message, 429, 'RATE_LIMIT_EXCEEDED');
-        this.name = 'RateLimitError';
-    }
-}
-
-class ExternalServiceError extends SchedulingError {
-    constructor(service, message = 'External service error') {
-        super(message, 502, 'EXTERNAL_SERVICE_ERROR', { service });
-        this.name = 'ExternalServiceError';
-    }
-}
-
-class DatabaseError extends SchedulingError {
-    constructor(operation, message = 'Database operation failed') {
-        super(message, 500, 'DATABASE_ERROR', { operation });
-        this.name = 'DatabaseError';
-    }
-}
-
-// Error Codes Catalog
-const ErrorCodes = {
-    // Validation Errors
-    VALIDATION_ERROR: 'VALIDATION_ERROR',
-    INVALID_INPUT: 'INVALID_INPUT',
-    MISSING_REQUIRED_FIELD: 'MISSING_REQUIRED_FIELD',
-    INVALID_DATE_RANGE: 'INVALID_DATE_RANGE',
-    INVALID_TIME_SLOT: 'INVALID_TIME_SLOT',
-
-    // Business Logic Errors
-    SCHEDULING_CONFLICT: 'SCHEDULING_CONFLICT',
-    AGENT_UNAVAILABLE: 'AGENT_UNAVAILABLE',
-    TIME_OFF_CONFLICT: 'TIME_OFF_CONFLICT',
-    MAX_SCHEDULES_EXCEEDED: 'MAX_SCHEDULES_EXCEEDED',
-    INVALID_SCHEDULE_STATUS: 'INVALID_SCHEDULE_STATUS',
-
-    // Resource Errors
-    RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
-    RESOURCE_ALREADY_EXISTS: 'RESOURCE_ALREADY_EXISTS',
-
-    // Authentication & Authorization
-    AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
-    AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
-    INVALID_TOKEN: 'INVALID_TOKEN',
-    EXPIRED_TOKEN: 'EXPIRED_TOKEN',
-
-    // System Errors
-    INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
-    DATABASE_ERROR: 'DATABASE_ERROR',
-    EXTERNAL_SERVICE_ERROR: 'EXTERNAL_SERVICE_ERROR',
-    RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-
-    // Network Errors
-    NETWORK_ERROR: 'NETWORK_ERROR',
-    TIMEOUT_ERROR: 'TIMEOUT_ERROR'
-};
-
-// Error Factory
 class ErrorFactory {
-    // Validation Errors
     static validationError(message, details = null) {
-        return new ValidationError(message, details);
+        return new SchedulingError(message, 'VALIDATION_ERROR', details);
     }
 
-    static invalidInput(field, value, reason) {
-        return new ValidationError(`Invalid ${field}: ${value}`, {
-            field,
-            value,
-            reason
-        });
+    static notFoundError(message, details = null) {
+        return new SchedulingError(message, 'RESOURCE_NOT_FOUND', details);
     }
 
-    static missingRequiredField(field) {
-        return new ValidationError(`Missing required field: ${field}`, { field });
+    static conflictError(message, details = null) {
+        return new SchedulingError(message, 'CONFLICT_ERROR', details);
     }
 
-    static invalidDateRange(startDate, endDate) {
-        return new ValidationError('End date must be after start date', {
-            startDate,
-            endDate
-        });
+    static internalServerError(message, details = null) {
+        return new SchedulingError(message, 'INTERNAL_SERVER_ERROR', details);
     }
 
-    static invalidTimeSlot(startTime, endTime) {
-        return new ValidationError('End time must be after start time', {
-            startTime,
-            endTime
-        });
+    static unauthorizedError(message, details = null) {
+        return new SchedulingError(message, 'UNAUTHORIZED', details);
     }
 
-    // Business Logic Errors
-    static schedulingConflict(agentId, scheduleTime) {
-        return new ConflictError('Scheduling conflict detected', {
-            agentId,
-            scheduleTime,
-            type: 'SCHEDULING_CONFLICT'
-        });
+    static forbiddenError(message, details = null) {
+        return new SchedulingError(message, 'FORBIDDEN', details);
     }
 
-    static agentUnavailable(agentId, dateTime) {
-        return new ConflictError('Agent is not available at the requested time', {
-            agentId,
-            dateTime,
-            type: 'AGENT_UNAVAILABLE'
-        });
+    static agentUnavailableError(message, details = null) {
+        return new SchedulingError(message, 'AGENT_UNAVAILABLE', details);
     }
 
-    static timeOffConflict(agentId, startDate, endDate) {
-        return new ConflictError('Time off request conflicts with existing schedule', {
-            agentId,
-            startDate,
-            endDate,
-            type: 'TIME_OFF_CONFLICT'
-        });
-    }
-
-    static maxSchedulesExceeded(agentId, date, maxAllowed) {
-        return new ConflictError('Maximum schedules per day exceeded', {
-            agentId,
-            date,
-            maxAllowed,
-            current: maxAllowed + 1
-        });
-    }
-
-    static invalidScheduleStatus(currentStatus, targetStatus) {
-        return new ValidationError(`Cannot change status from ${currentStatus} to ${targetStatus}`, {
-            currentStatus,
-            targetStatus
-        });
-    }
-
-    // Resource Errors
-    static notFound(resource, id = null) {
-        return new NotFoundError(resource, id);
-    }
-
-    static resourceAlreadyExists(resource, identifier) {
-        return new ConflictError(`${resource} already exists`, {
-            resource,
-            identifier
-        });
-    }
-
-    // Authentication & Authorization
-    static authenticationError(message = 'Authentication required') {
-        return new AuthenticationError(message);
-    }
-
-    static authorizationError(message = 'Insufficient permissions') {
-        return new AuthorizationError(message);
-    }
-
-    static invalidToken() {
-        return new AuthenticationError('Invalid or malformed token');
-    }
-
-    static expiredToken() {
-        return new AuthenticationError('Token has expired');
-    }
-
-    // System Errors
-    static internalServerError(message = 'Internal server error') {
-        return new SchedulingError(message, 500, ErrorCodes.INTERNAL_SERVER_ERROR);
-    }
-
-    static databaseError(operation, error) {
-        return new DatabaseError(operation, `Database operation failed: ${operation}`);
-    }
-
-    static externalServiceError(service, error) {
-        return new ExternalServiceError(service, `External service error: ${service}`);
-    }
-
-    static rateLimitExceeded(retryAfter = null) {
-        const error = new RateLimitError();
-        if (retryAfter) {
-            error.details = { retryAfter };
-        }
-        return error;
-    }
-
-    // Network Errors
-    static networkError(message = 'Network error occurred') {
-        return new SchedulingError(message, 503, ErrorCodes.NETWORK_ERROR);
-    }
-
-    static timeoutError(service, timeoutMs) {
-        return new SchedulingError(`Request timeout after ${timeoutMs}ms`, 504, ErrorCodes.TIMEOUT_ERROR, {
-            service,
-            timeoutMs
-        });
+    static timeOffConflictError(message, details = null) {
+        return new SchedulingError(message, 'TIME_OFF_CONFLICT', details);
     }
 }
 
-// Error Handler Class
 class ErrorHandler {
-    static handle(error, context = {}) {
-        // Log the error with context
-        this.logError(error, context);
+    constructor() {
+        this.errorConfig = {
+            // Validation Errors
+            VALIDATION_ERROR: {
+                status: 400,
+                message: 'Validation failed'
+            },
+            INVALID_DATE_RANGE: {
+                status: 400,
+                message: 'Invalid date range provided'
+            },
+            CONFLICTING_SCHEDULE: {
+                status: 409,
+                message: 'Schedule conflict detected'
+            },
 
-        // Handle known error types
+            // Agent Availability Errors
+            AGENT_UNAVAILABLE: {
+                status: 400,
+                message: 'Agent is not available at the requested time'
+            },
+            TIME_OFF_CONFLICT: {
+                status: 409,
+                message: 'Time off request conflicts with existing schedule'
+            },
+            MAX_SCHEDULES_EXCEEDED: {
+                status: 400,
+                message: 'Maximum daily schedules limit exceeded'
+            },
+
+            // Resource Errors
+            AGENT_NOT_FOUND: {
+                status: 404,
+                message: 'Agent not found'
+            },
+            SCHEDULE_NOT_FOUND: {
+                status: 404,
+                message: 'Schedule not found'
+            },
+            TIME_OFF_NOT_FOUND: {
+                status: 404,
+                message: 'Time off record not found'
+            },
+            AVAILABILITY_NOT_FOUND: {
+                status: 404,
+                message: 'Availability configuration not found'
+            },
+
+            // Business Logic Errors
+            SCHEDULE_IN_PAST: {
+                status: 400,
+                message: 'Cannot schedule appointments in the past'
+            },
+            INVALID_SCHEDULE_STATUS: {
+                status: 400,
+                message: 'Invalid schedule status transition'
+            },
+            CANCELLATION_TOO_LATE: {
+                status: 400,
+                message: 'Cancellation is not allowed at this time'
+            },
+
+            // System Errors
+            EXTERNAL_SERVICE_ERROR: {
+                status: 502,
+                message: 'External service unavailable'
+            },
+            DATABASE_ERROR: {
+                status: 500,
+                message: 'Database operation failed'
+            },
+            INTERNAL_SERVER_ERROR: {
+                status: 500,
+                message: 'Internal server error'
+            },
+            UNKNOWN_ERROR: {
+                status: 500,
+                message: 'An unexpected error occurred'
+            }
+        };
+    }
+
+    // Create specific error instances
+    createError(code, details = null) {
+        const config = this.errorConfig[code] || this.errorConfig.UNKNOWN_ERROR;
+        return new SchedulingError(config.message, code, details);
+    }
+
+    // Handle API errors
+    handleApiError(error) {
+        console.error('Scheduling API Error:', {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            timestamp: error.timestamp,
+            stack: error.stack
+        });
+
+        // If it's already a SchedulingError, return as is
         if (error instanceof SchedulingError) {
             return this.formatErrorResponse(error);
         }
 
-        // Handle specific database errors
-        if (error.name?.includes('Mongo') || error.code?.includes('SQL')) {
-            return this.formatErrorResponse(
-                ErrorFactory.databaseError(context.operation || 'unknown', error.message)
-            );
+        // Handle HTTP errors
+        if (error.response) {
+            return this.handleHttpError(error);
         }
 
         // Handle network errors
-        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-            return this.formatErrorResponse(
-                ErrorFactory.networkError(error.message)
-            );
+        if (error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
+            const networkError = this.createError('EXTERNAL_SERVICE_ERROR', {
+                originalError: error.message,
+                suggestion: 'Please check your internet connection and try again'
+            });
+            return this.formatErrorResponse(networkError);
         }
 
-        // Handle timeout errors
-        if (error.code === 'ETIMEDOUT') {
-            return this.formatErrorResponse(
-                ErrorFactory.timeoutError(context.service || 'unknown', context.timeoutMs)
-            );
-        }
-
-        // Handle validation errors from libraries like Joi, Yup, etc.
-        if (error.isJoi || error.name === 'ValidationError') {
-            return this.formatErrorResponse(
-                ErrorFactory.validationError('Validation failed', error.details)
-            );
-        }
-
-        // Default to internal server error
-        return this.formatErrorResponse(
-            ErrorFactory.internalServerError(error.message)
-        );
+        // Default unknown error
+        const unknownError = this.createError('UNKNOWN_ERROR', {
+            originalError: error.message,
+            traceId: this.generateTraceId()
+        });
+        return this.formatErrorResponse(unknownError);
     }
 
-    static formatErrorResponse(error) {
-        const response = {
+    // Handle HTTP response errors
+    handleHttpError(error) {
+        const status = error.response?.status;
+        const data = error.response?.data;
+
+        switch (status) {
+            case 400:
+                return this.formatErrorResponse(this.createError('VALIDATION_ERROR', data));
+            case 404:
+                return this.formatErrorResponse(this.createError('SCHEDULE_NOT_FOUND', data));
+            case 409:
+                return this.formatErrorResponse(this.createError('CONFLICTING_SCHEDULE', data));
+            case 500:
+                return this.formatErrorResponse(this.createError('DATABASE_ERROR', data));
+            default:
+                return this.formatErrorResponse(this.createError('UNKNOWN_ERROR', data));
+        }
+    }
+
+    // Format error response for client
+    formatErrorResponse(error) {
+        return {
             success: false,
             error: {
-                message: error.message,
                 code: error.code,
-                statusCode: error.statusCode,
-                timestamp: error.timestamp
+                message: error.message,
+                details: error.details,
+                timestamp: error.timestamp,
+                traceId: error.details?.traceId || this.generateTraceId()
             }
         };
-
-        // Add details if available
-        if (error.details) {
-            response.error.details = error.details;
-        }
-
-        // Add stack trace in development
-        if (process.env.NODE_ENV === 'development') {
-            response.error.stack = error.stack;
-        }
-
-        return response;
     }
 
-    static logError(error, context = {}) {
-        const logEntry = {
-            timestamp: new Date().toISOString(),
-            name: error.name,
-            message: error.message,
-            code: error.code,
-            statusCode: error.statusCode,
-            context,
-            stack: error.stack
+    // Generate unique trace ID for error tracking
+    generateTraceId() {
+        return `SCHED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    // Validation helper methods
+    validateScheduleTime(scheduleTime) {
+        const now = new Date();
+        const scheduleDate = new Date(scheduleTime);
+
+        if (scheduleDate < now) {
+            throw this.createError('SCHEDULE_IN_PAST', {
+                scheduleTime,
+                currentTime: now.toISOString()
+            });
+        }
+
+        // Check if schedule is too far in the future (e.g., 1 year)
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+        if (scheduleDate > oneYearFromNow) {
+            throw this.createError('VALIDATION_ERROR', {
+                scheduleTime,
+                maxAllowed: oneYearFromNow.toISOString(),
+                reason: 'Schedule cannot be more than 1 year in advance'
+            });
+        }
+    }
+
+    validateDateRange(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (start >= end) {
+            throw this.createError('INVALID_DATE_RANGE', {
+                startDate,
+                endDate,
+                reason: 'End date must be after start date'
+            });
+        }
+
+        // Check if date range is too long (e.g., more than 30 days)
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 30) {
+            throw this.createError('INVALID_DATE_RANGE', {
+                startDate,
+                endDate,
+                days: diffDays,
+                maxAllowed: 30,
+                reason: 'Date range cannot exceed 30 days'
+            });
+        }
+    }
+
+    validateTimeOffDates(startDate, endDate, isAllDay = false) {
+        this.validateDateRange(startDate, endDate);
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Maximum time off duration (e.g., 14 days)
+        if (diffDays > 14) {
+            throw this.createError('VALIDATION_ERROR', {
+                startDate,
+                endDate,
+                durationDays: diffDays,
+                maxAllowed: 14,
+                reason: 'Time off request cannot exceed 14 days'
+            });
+        }
+    }
+
+    // Business rule validation
+    validateScheduleLimit(schedulesCount, maxSchedules) {
+        if (schedulesCount >= maxSchedules) {
+            throw this.createError('MAX_SCHEDULES_EXCEEDED', {
+                currentCount: schedulesCount,
+                maxAllowed: maxSchedules,
+                suggestion: 'Please choose a different date or contact administrator'
+            });
+        }
+    }
+
+    validateScheduleStatusTransition(currentStatus, newStatus) {
+        const allowedTransitions = {
+            'Scheduled': ['Cancelled', 'Completed', 'Rescheduled'],
+            'Rescheduled': ['Cancelled', 'Completed'],
+            'Completed': [],
+            'Cancelled': []
         };
 
-        // Different logging levels based on error type
-        if (error.statusCode >= 500) {
-            console.error('?? Server Error:', logEntry);
-        } else if (error.statusCode >= 400) {
-            console.warn('?? Client Error:', logEntry);
-        } else {
-            console.info('?? Operational Error:', logEntry);
-        }
-
-        // You can integrate with logging services here (Sentry, LogRocket, etc.)
-        this.sendToMonitoringService(logEntry);
-    }
-
-    static sendToMonitoringService(logEntry) {
-        // Integrate with your preferred monitoring service
-        // Example: Sentry.captureException(logEntry);
-        // Example: LogRocket.captureException(logEntry);
-
-        if (process.env.NODE_ENV === 'production') {
-            // Production logging logic here
-            console.log('?? Monitoring Service:', logEntry);
+        if (!allowedTransitions[currentStatus]?.includes(newStatus)) {
+            throw this.createError('INVALID_SCHEDULE_STATUS', {
+                currentStatus,
+                newStatus,
+                allowedTransitions: allowedTransitions[currentStatus] || []
+            });
         }
     }
 
-    // Error Recovery Strategies
-    static async withRetry(operation, maxRetries = 3, delayMs = 1000) {
+    // Availability conflict detection
+    checkAvailabilityConflicts(existingSchedules, newSchedule, bufferMinutes = 15) {
+        const newStart = new Date(newSchedule.scheduleTime);
+        const newEnd = new Date(newSchedule.scheduleEndTime || this.calculateEndTime(newSchedule.scheduleTime));
+        const bufferMs = bufferMinutes * 60 * 1000;
+
+        for (const existing of existingSchedules) {
+            const existingStart = new Date(existing.scheduleTime);
+            const existingEnd = new Date(existing.scheduleEndTime || this.calculateEndTime(existing.scheduleTime));
+
+            // Check for overlap with buffer time
+            if (
+                (newStart < existingEnd + bufferMs && newEnd > existingStart - bufferMs) &&
+                existing.status !== 'Cancelled'
+            ) {
+                throw this.createError('CONFLICTING_SCHEDULE', {
+                    newSchedule: {
+                        start: newStart.toISOString(),
+                        end: newEnd.toISOString()
+                    },
+                    conflictingSchedule: {
+                        id: existing.id,
+                        start: existingStart.toISOString(),
+                        end: existingEnd.toISOString(),
+                        status: existing.status
+                    },
+                    bufferMinutes,
+                    suggestion: 'Please choose a different time slot'
+                });
+            }
+        }
+    }
+
+    // Utility method to calculate end time
+    calculateEndTime(startTime, durationMinutes = 60) {
+        const start = new Date(startTime);
+        return new Date(start.getTime() + durationMinutes * 60 * 1000);
+    }
+
+    // Recovery strategies
+    async withRetry(operation, maxRetries = 3, baseDelay = 1000) {
+        let lastError;
+
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 return await operation();
             } catch (error) {
-                if (attempt === maxRetries) {
+                lastError = error;
+
+                // Don't retry on certain errors
+                if (this.isNonRetriableError(error)) {
                     throw error;
                 }
 
-                // Only retry on certain errors
-                if (this.isRetryableError(error)) {
-                    console.warn(`Retry attempt ${attempt} after error:`, error.message);
-                    await this.delay(delayMs * attempt); // Exponential backoff
-                    continue;
+                if (attempt < maxRetries) {
+                    console.warn(`Operation failed, retrying in ${baseDelay}ms (attempt ${attempt}/${maxRetries})`);
+                    await this.delay(baseDelay * attempt); // Exponential backoff
                 }
-
-                throw error;
             }
         }
+
+        throw lastError;
     }
 
-    static isRetryableError(error) {
-        const retryableCodes = [
-            'NETWORK_ERROR',
-            'TIMEOUT_ERROR',
-            'RATE_LIMIT_EXCEEDED',
-            'EXTERNAL_SERVICE_ERROR'
+    isNonRetriableError(error) {
+        const nonRetriableCodes = [
+            'VALIDATION_ERROR',
+            'AGENT_UNAVAILABLE',
+            'SCHEDULE_IN_PAST',
+            'MAX_SCHEDULES_EXCEEDED'
         ];
 
-        return retryableCodes.includes(error.code) ||
-            error.statusCode >= 500 ||
-            error.code === 'ECONNREFUSED' ||
-            error.code === 'ETIMEDOUT';
+        return nonRetriableCodes.includes(error.code) ||
+            (error.response && error.response.status >= 400 && error.response.status < 500);
     }
 
-    static delay(ms) {
+    delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Validation Helper
+    // Static methods for convenience
     static validateRequiredFields(data, requiredFields) {
-        const missingFields = requiredFields.filter(field =>
-            data[field] === undefined || data[field] === null || data[field] === ''
-        );
-
-        if (missingFields.length > 0) {
-            throw ErrorFactory.missingRequiredField(missingFields.join(', '));
-        }
-    }
-
-    static validateDateRange(startDate, endDate) {
-        if (new Date(endDate) <= new Date(startDate)) {
-            throw ErrorFactory.invalidDateRange(startDate, endDate);
-        }
-    }
-
-    static validateTimeRange(startTime, endTime) {
-        if (new Date(`1970-01-01T${endTime}`) <= new Date(`1970-01-01T${startTime}`)) {
-            throw ErrorFactory.invalidTimeSlot(startTime, endTime);
-        }
-    }
-
-    // Global Error Handler for Express/Node.js
-    static globalErrorHandler(err, req, res, next) {
-        const errorResponse = ErrorHandler.handle(err, {
-            method: req.method,
-            url: req.url,
-            userAgent: req.get('User-Agent'),
-            ip: req.ip
+        const missingFields = requiredFields.filter(field => {
+            const value = data[field];
+            return value === undefined || value === null || value === '';
         });
 
-        res.status(errorResponse.error.statusCode).json(errorResponse);
+        if (missingFields.length > 0) {
+            throw ErrorFactory.validationError(`Missing required fields: ${missingFields.join(', ')}`, {
+                missingFields,
+                providedData: data
+            });
+        }
     }
 
-    // Async Error Handler Wrapper (for Express async routes)
-    static catchAsync(fn) {
-        return (req, res, next) => {
-            Promise.resolve(fn(req, res, next)).catch(next);
-        };
+    static handle(error, context = {}) {
+        const handler = new ErrorHandler();
+        const errorResponse = handler.handleApiError(error);
+
+        console.error('Error handled:', {
+            context,
+            error: errorResponse.error
+        });
+
+        return errorResponse;
+    }
+
+    static async withRetry(operation, maxRetries = 3, baseDelay = 1000) {
+        const handler = new ErrorHandler();
+        return await handler.withRetry(operation, maxRetries, baseDelay);
     }
 }
 
-// Utility Functions
-const ErrorUtils = {
-    // Check if error is operational (trusted)
-    isOperationalError(error) {
-        return error instanceof SchedulingError && error.isOperational;
-    },
-
-    // Extract error details for client
-    getClientError(error) {
-        if (error instanceof SchedulingError) {
-            return {
-                message: error.message,
-                code: error.code,
-                details: error.details
-            };
-        }
-
-        return {
-            message: 'An unexpected error occurred',
-            code: 'INTERNAL_SERVER_ERROR'
-        };
-    },
-
-    // Create error from HTTP response
-    fromHttpResponse(response) {
-        if (response.status >= 400) {
-            return new SchedulingError(
-                response.data?.message || `HTTP ${response.status}`,
-                response.status,
-                response.data?.code || 'HTTP_ERROR',
-                response.data?.details
-            );
-        }
-        return null;
-    }
-};
-
-export {
-    SchedulingError,
-    ValidationError,
-    NotFoundError,
-    ConflictError,
-    AuthenticationError,
-    AuthorizationError,
-    RateLimitError,
-    ExternalServiceError,
-    DatabaseError,
-    ErrorCodes,
-    ErrorFactory,
-    ErrorHandler,
-    ErrorUtils
-};
-
-export default ErrorHandler;
+// Export singleton instance and classes
+const errorHandlerInstance = new ErrorHandler();
+export default errorHandlerInstance;
+export { SchedulingError, ErrorFactory, ErrorHandler };

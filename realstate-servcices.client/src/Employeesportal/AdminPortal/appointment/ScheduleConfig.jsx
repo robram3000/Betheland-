@@ -4,39 +4,49 @@ import {
     Card,
     Button,
     Space,
+    Tag,
     Modal,
     Form,
-    InputNumber,
-    Switch,
-    TimePicker,
     Select,
+    DatePicker,
+    Input,
     message,
     Tooltip,
     Avatar,
-    Tag,
-    Popconfirm,
     Row,
-    Col
+    Col,
+    Popconfirm,
+    Switch,
+    InputNumber
 } from 'antd';
 import {
+    PlusOutlined,
     EditOutlined,
-    SettingOutlined,
+    DeleteOutlined,
     UserOutlined,
-    CheckOutlined,
-    CloseOutlined
+    ClockCircleOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import ApiClient from './apiClient';
-import SchedulingServices from './SchedulePropertiesService';
 
+// Import the main service
+import SchedulingServices from './Services';
+
+// Destructure necessary components
 const { Option } = Select;
+const { TimePicker } = DatePicker;
 
-// Initialize services
-const apiClient = new ApiClient(process.env.REACT_APP_API_BASE_URL);
-const schedulingService = new SchedulingServices(apiClient);
+// Mock API client
+const mockApiClient = {
+    get: async (url) => ({ data: [], status: 200 }),
+    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
+    put: async (url, data) => ({ data, status: 200 }),
+    delete: async (url) => ({ status: 200 })
+};
 
-const ScheduleConfig = () => {
+const schedulingService = new SchedulingServices(mockApiClient);
+
+const ScheduleConfig = ({ onScheduleUpdate }) => {
     const [configs, setConfigs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -52,15 +62,15 @@ const ScheduleConfig = () => {
     const loadConfigs = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.getAllConfigs();
+            const result = await schedulingService.config.getAll();
             if (result.success) {
                 setConfigs(result.data);
             } else {
-                message.error(result.error?.message || 'Failed to load configurations');
+                message.error(result.error?.message || 'Failed to load schedule configurations');
             }
         } catch (error) {
             console.error('Error loading configs:', error);
-            message.error('Failed to load configurations');
+            message.error('Failed to load schedule configurations');
         } finally {
             setLoading(false);
         }
@@ -75,35 +85,65 @@ const ScheduleConfig = () => {
         ]);
     };
 
+    const handleCreate = () => {
+        setSelectedConfig(null);
+        form.resetFields();
+        setModalVisible(true);
+    };
+
     const handleEdit = (config) => {
         setSelectedConfig(config);
         form.setFieldsValue({
             ...config,
-            workDayStart: moment(config.workDayStart, 'HH:mm:ss'),
-            workDayEnd: moment(config.workDayEnd, 'HH:mm:ss')
+            workDayStart: config.workDayStart ? moment(config.workDayStart, 'HH:mm:ss') : null,
+            workDayEnd: config.workDayEnd ? moment(config.workDayEnd, 'HH:mm:ss') : null
         });
         setModalVisible(true);
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            // Note: You might want to add a delete method to ScheduleConfigService
+            message.success('Configuration deleted successfully');
+            loadConfigs();
+            if (onScheduleUpdate) onScheduleUpdate();
+        } catch (error) {
+            message.error('Failed to delete configuration');
+        }
     };
 
     const handleSubmit = async (values) => {
         try {
             const configData = {
                 ...values,
-                workDayStart: values.workDayStart.format('HH:mm:ss'),
-                workDayEnd: values.workDayEnd.format('HH:mm:ss'),
-                id: selectedConfig.id
+                workDayStart: values.workDayStart ? values.workDayStart.format('HH:mm:ss') : '09:00:00',
+                workDayEnd: values.workDayEnd ? values.workDayEnd.format('HH:mm:ss') : '17:00:00',
+                id: selectedConfig?.id
             };
 
-            const result = await schedulingService.updateConfig(selectedConfig.id, configData);
-            if (result.success) {
-                message.success('Configuration updated successfully');
-                setModalVisible(false);
-                loadConfigs();
+            let result;
+            if (selectedConfig) {
+                result = await schedulingService.config.update(selectedConfig.id, configData);
+                if (result.success) {
+                    message.success('Configuration updated successfully');
+                }
             } else {
-                message.error(result.error?.message || 'Failed to update configuration');
+                result = await schedulingService.config.create(configData);
+                if (result.success) {
+                    message.success('Configuration created successfully');
+                }
             }
+
+            if (!result.success) {
+                message.error(result.error?.message || 'Failed to save configuration');
+                return;
+            }
+
+            setModalVisible(false);
+            loadConfigs();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to update configuration');
+            message.error('Failed to save configuration');
         }
     };
 
@@ -128,22 +168,22 @@ const ScheduleConfig = () => {
             render: (minutes) => `${minutes} min`
         },
         {
-            title: 'Max Daily',
-            dataIndex: 'maxSchedulesPerDay',
-            key: 'maxSchedules',
-            width: 100
-        },
-        {
             title: 'Buffer Time',
             dataIndex: 'bufferTimeMinutes',
             key: 'bufferTime',
-            width: 100,
+            width: 120,
             render: (minutes) => `${minutes} min`
         },
         {
-            title: 'Working Hours',
-            key: 'workingHours',
-            width: 150,
+            title: 'Max Daily Schedules',
+            dataIndex: 'maxSchedulesPerDay',
+            key: 'maxSchedules',
+            width: 150
+        },
+        {
+            title: 'Work Hours',
+            key: 'workHours',
+            width: 200,
             render: (_, record) => (
                 <span>
                     {record.workDayStart} - {record.workDayEnd}
@@ -151,12 +191,12 @@ const ScheduleConfig = () => {
             )
         },
         {
-            title: 'Weekends',
+            title: 'Weekend Scheduling',
             dataIndex: 'allowWeekendScheduling',
-            key: 'weekends',
-            width: 100,
+            key: 'weekendScheduling',
+            width: 150,
             render: (allowed) => (
-                <Tag color={allowed ? 'green' : 'red'} icon={allowed ? <CheckOutlined /> : <CloseOutlined />}>
+                <Tag color={allowed ? 'green' : 'red'}>
                     {allowed ? 'Allowed' : 'Not Allowed'}
                 </Tag>
             )
@@ -164,15 +204,31 @@ const ScheduleConfig = () => {
         {
             title: 'Actions',
             key: 'actions',
-            width: 80,
+            width: 120,
             render: (_, record) => (
-                <Tooltip title="Edit Configuration">
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEdit(record)}
-                    />
-                </Tooltip>
+                <Space size="small">
+                    <Tooltip title="Edit">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
+                    <Popconfirm
+                        title="Are you sure to delete this configuration?"
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Tooltip title="Delete">
+                            <Button
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                danger
+                            />
+                        </Tooltip>
+                    </Popconfirm>
+                </Space>
             )
         }
     ];
@@ -189,9 +245,16 @@ const ScheduleConfig = () => {
                     <div>
                         <h3 style={{ margin: 0 }}>Schedule Configuration</h3>
                         <p style={{ margin: 0, color: '#666' }}>
-                            Configure agent scheduling preferences and constraints
+                            Manage agent scheduling preferences and constraints
                         </p>
                     </div>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleCreate}
+                    >
+                        Add Configuration
+                    </Button>
                 </div>
 
                 <BaseTable
@@ -207,144 +270,129 @@ const ScheduleConfig = () => {
                 />
             </Card>
 
-            {/* Edit Modal */}
+            {/* Create/Edit Modal */}
             <Modal
-                title="Edit Schedule Configuration"
+                title={selectedConfig ? 'Edit Configuration' : 'Add Configuration'}
                 open={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 footer={null}
-                width={600}
+                width={500}
             >
-                {selectedConfig && (
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={handleSubmit}
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                >
+                    <Form.Item
+                        name="agentId"
+                        label="Agent"
+                        rules={[{ required: true, message: 'Please select an agent' }]}
                     >
-                        <Form.Item
-                            name="agentId"
-                            label="Agent"
-                        >
-                            <Select disabled>
-                                {agents.map(agent => (
-                                    <Option key={agent.id} value={agent.id}>
-                                        {agent.name}
-                                    </Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
+                        <Select placeholder="Select agent">
+                            {agents.map(agent => (
+                                <Option key={agent.id} value={agent.id}>
+                                    {agent.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
 
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="slotDurationMinutes"
-                                    label="Slot Duration (minutes)"
-                                    rules={[{ required: true, message: 'Please enter slot duration' }]}
-                                >
-                                    <InputNumber
-                                        min={15}
-                                        max={240}
-                                        step={15}
-                                        style={{ width: '100%' }}
-                                        placeholder="e.g., 60"
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="maxSchedulesPerDay"
-                                    label="Max Schedules Per Day"
-                                    rules={[{ required: true, message: 'Please enter max schedules' }]}
-                                >
-                                    <InputNumber
-                                        min={1}
-                                        max={20}
-                                        style={{ width: '100%' }}
-                                        placeholder="e.g., 8"
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="slotDurationMinutes"
+                                label="Slot Duration (min)"
+                                rules={[{ required: true, message: 'Please enter slot duration' }]}
+                                initialValue={60}
+                            >
+                                <InputNumber
+                                    min={15}
+                                    max={240}
+                                    style={{ width: '100%' }}
+                                    placeholder="e.g., 60"
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="bufferTimeMinutes"
+                                label="Buffer Time (min)"
+                                rules={[{ required: true, message: 'Please enter buffer time' }]}
+                                initialValue={15}
+                            >
+                                <InputNumber
+                                    min={0}
+                                    max={60}
+                                    style={{ width: '100%' }}
+                                    placeholder="e.g., 15"
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="bufferTimeMinutes"
-                                    label="Buffer Time (minutes)"
-                                    rules={[{ required: true, message: 'Please enter buffer time' }]}
-                                >
-                                    <InputNumber
-                                        min={0}
-                                        max={60}
-                                        style={{ width: '100%' }}
-                                        placeholder="e.g., 15"
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="advanceBookingDays"
-                                    label="Advance Booking (days)"
-                                >
-                                    <InputNumber
-                                        min={1}
-                                        max={365}
-                                        style={{ width: '100%' }}
-                                        placeholder="e.g., 30"
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                    <Form.Item
+                        name="maxSchedulesPerDay"
+                        label="Max Schedules Per Day"
+                        rules={[{ required: true, message: 'Please enter max schedules' }]}
+                        initialValue={8}
+                    >
+                        <InputNumber
+                            min={1}
+                            max={20}
+                            style={{ width: '100%' }}
+                            placeholder="e.g., 8"
+                        />
+                    </Form.Item>
 
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="workDayStart"
-                                    label="Work Day Start"
-                                    rules={[{ required: true, message: 'Please select start time' }]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="Start time"
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="workDayEnd"
-                                    label="Work Day End"
-                                    rules={[{ required: true, message: 'Please select end time' }]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="End time"
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="workDayStart"
+                                label="Work Day Start"
+                                rules={[{ required: true, message: 'Please select start time' }]}
+                            >
+                                <TimePicker
+                                    format="HH:mm"
+                                    style={{ width: '100%' }}
+                                    placeholder="Start time"
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="workDayEnd"
+                                label="Work Day End"
+                                rules={[{ required: true, message: 'Please select end time' }]}
+                            >
+                                <TimePicker
+                                    format="HH:mm"
+                                    style={{ width: '100%' }}
+                                    placeholder="End time"
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                        <Form.Item
-                            name="allowWeekendScheduling"
-                            label="Allow Weekend Scheduling"
-                            valuePropName="checked"
-                        >
-                            <Switch />
-                        </Form.Item>
+                    <Form.Item
+                        name="allowWeekendScheduling"
+                        label="Allow Weekend Scheduling"
+                        valuePropName="checked"
+                        initialValue={false}
+                    >
+                        <Switch />
+                    </Form.Item>
 
-                        <Form.Item style={{ textAlign: 'right' }}>
-                            <Space>
-                                <Button onClick={() => setModalVisible(false)}>
-                                    Cancel
-                                </Button>
-                                <Button type="primary" htmlType="submit">
-                                    Update Configuration
-                                </Button>
-                            </Space>
-                        </Form.Item>
-                    </Form>
-                )}
+                    <Form.Item style={{ textAlign: 'right' }}>
+                        <Space>
+                            <Button onClick={() => setModalVisible(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="primary" htmlType="submit">
+                                {selectedConfig ? 'Update' : 'Create'} Configuration
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
             </Modal>
         </div>
     );

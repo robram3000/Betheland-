@@ -8,15 +8,23 @@ import AgentAvailability from './AgentAvailability';
 import ScheduleConfig from './ScheduleConfig';
 import AgentTimeOff from './AgentTimeOff';
 import ScheduleProperties from './ScheduleProperties';
-import apiClient from './Services/ApiClient'
-import SchedulingServices from './SchedulePropertiesService';
 
+// Import the main service
+import SchedulingServices from './Services/index.js';
+
+// Destructure Layout to get Content component
 const { Content } = Layout;
-const { TabPane } = Tabs;
 
+// Mock API client
+const mockApiClient = {
+    get: async (url) => ({ data: [], status: 200 }),
+    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
+    put: async (url, data) => ({ data, status: 200 }),
+    patch: async (url, data) => ({ data, status: 200 }),
+    delete: async (url) => ({ status: 200 })
+};
 
-const apiClient = new ApiClient(process.env.REACT_APP_API_BASE_URL);
-const schedulingService = new SchedulingServices(apiClient);
+const schedulingService = new SchedulingServices(mockApiClient);
 
 const ScheduleLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -38,7 +46,7 @@ const ScheduleLayout = () => {
 
     const loadPendingCount = async () => {
         try {
-            const result = await schedulingService.getAllTimeOffs();
+            const result = await schedulingService.timeOff.getAll();
             if (result.success) {
                 const pendingTimeOffs = result.data.filter(to => to.status === 'Pending');
                 setPendingCount(pendingTimeOffs.length);
@@ -50,7 +58,7 @@ const ScheduleLayout = () => {
 
     const loadAppointmentsCount = async () => {
         try {
-            const result = await schedulingService.getAllSchedules();
+            const result = await schedulingService.schedules.getAll();
             if (result.success) {
                 setAppointmentsCount(result.data.length);
             }
@@ -64,7 +72,44 @@ const ScheduleLayout = () => {
         loadAppointmentsCount();
     }, []);
 
-    // Centralized SEO data management
+    // Handler for when schedules are updated
+    const handleScheduleUpdate = () => {
+        loadPendingCount();
+        loadAppointmentsCount();
+    };
+
+    const tabItems = [
+        {
+            key: 'appointments',
+            label: 'All Appointments',
+            children: <ScheduleAppointments onScheduleUpdate={handleScheduleUpdate} />,
+        },
+        {
+            key: 'availability',
+            label: 'Agent Availability',
+            children: <AgentAvailability onScheduleUpdate={handleScheduleUpdate} />,
+        },
+        {
+            key: 'timeoff',
+            label: (
+                <Badge count={pendingCount} size="small">
+                    Time Off
+                </Badge>
+            ),
+            children: <AgentTimeOff onScheduleUpdate={handleScheduleUpdate} />,
+        },
+        {
+            key: 'config',
+            label: 'Configuration',
+            children: <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />,
+        },
+        {
+            key: 'properties',
+            label: 'Properties',
+            children: <ScheduleProperties onScheduleUpdate={handleScheduleUpdate} />,
+        },
+    ];
+
     const getSeoData = () => {
         const baseTitle = "Betheland Schedule Management";
         const baseDescription = "Comprehensive scheduling management platform for real estate professionals";
@@ -121,44 +166,6 @@ const ScheduleLayout = () => {
         };
     };
 
-    // Handler for when schedules are updated
-    const handleScheduleUpdate = () => {
-        loadPendingCount();
-        loadAppointmentsCount();
-    };
-
-    const tabItems = [
-        {
-            key: 'appointments',
-            label: 'All Appointments',
-            children: <ScheduleAppointments onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'availability',
-            label: 'Agent Availability',
-            children: <AgentAvailability onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'timeoff',
-            label: (
-                <Badge count={pendingCount} size="small">
-                    Time Off
-                </Badge>
-            ),
-            children: <AgentTimeOff onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'config',
-            label: 'Configuration',
-            children: <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'properties',
-            label: 'Properties',
-            children: <ScheduleProperties onScheduleUpdate={handleScheduleUpdate} />,
-        },
-    ];
-
     const seoData = getSeoData();
 
     return (
@@ -178,65 +185,24 @@ const ScheduleLayout = () => {
                 },
             }}
         >
-            {/* Centralized Helmet Management */}
             <Helmet>
-                {/* Basic Meta Tags */}
                 <title>{seoData.title}</title>
                 <meta name="description" content={seoData.description} />
                 <meta name="keywords" content={seoData.keywords} />
-
-                {/* Open Graph Meta Tags */}
                 <meta property="og:title" content={seoData.title} />
                 <meta property="og:description" content={seoData.description} />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={seoData.canonical} />
                 <meta property="og:image" content={seoData.ogImage} />
                 <meta property="og:site_name" content="Betheland Schedule Management" />
-
-                {/* Twitter Card Meta Tags */}
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={seoData.title} />
                 <meta name="twitter:description" content={seoData.description} />
                 <meta name="twitter:image" content={seoData.ogImage} />
-
-                {/* Additional Meta Tags */}
                 <meta name="robots" content="index, follow" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
-
-                {/* Structured Data for SEO */}
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "WebApplication",
-                        "name": "Betheland Schedule Management",
-                        "description": seoData.description,
-                        "url": seoData.canonical,
-                        "applicationCategory": "BusinessApplication",
-                        "operatingSystem": "Web Browser",
-                        "author": {
-                            "@type": "Organization",
-                            "name": "Betheland"
-                        },
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        }
-                    })}
-                </script>
-
-                {/* Additional Schema for Real Estate */}
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "RealEstateAgent",
-                        "name": "Betheland",
-                        "description": "Professional real estate scheduling management platform",
-                        "url": baseUrl
-                    })}
-                </script>
             </Helmet>
 
             <Layout style={{ minHeight: '100vh' }}>

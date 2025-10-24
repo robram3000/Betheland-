@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useWishlistData } from './Services/WishlistAdded';
 import { useUser } from '../Authpage/Services/UserContextService';
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
-import { processImageUrl } from './Imagehelper'; // Adjust path as needed
-// React Icons
+
+// Use the same processImageUrl function as BaseSeeProperty
+import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
+
 import {
     FaHeart,
     FaRegHeart,
@@ -59,32 +61,51 @@ const PropertyCard = ({
     // Validate property data
     const isValidProperty = property && property.id && property.title;
 
-    // Get all property images
-    // Get all property images
+    // Get all property images - FIXED VERSION
     const getPropertyImages = () => {
         const images = [];
 
+        console.log('🖼️ DEBUG - Property Card Image Processing:', {
+            propertyId: property?.id,
+            mainImage: property?.mainImage,
+            propertyImages: property?.propertyImages,
+            imageUrls: property?.imageUrls
+        });
+
         // Add main image if available (PROCESSED)
         if (property.mainImage) {
-            images.push(processImageUrl(property.mainImage, 'property'));
+            const processedMain = processImageUrl(property.mainImage);
+            console.log('📸 Main Image:', { original: property.mainImage, processed: processedMain });
+            images.push(processedMain);
         }
 
         // Add property images array if available (PROCESSED)
         if (property.propertyImages && Array.isArray(property.propertyImages)) {
-            property.propertyImages.forEach(img => {
-                if (img.imageUrl) images.push(processImageUrl(img.imageUrl, 'property'));
+            property.propertyImages.forEach((img, index) => {
+                if (img.imageUrl) {
+                    const processedImg = processImageUrl(img.imageUrl);
+                    console.log(`🏠 Property Image ${index}:`, { original: img.imageUrl, processed: processedImg });
+                    images.push(processedImg);
+                }
             });
         }
 
         // Add imageUrls array if available (PROCESSED)
         if (property.imageUrls && Array.isArray(property.imageUrls)) {
-            property.imageUrls.forEach(url => {
-                if (url) images.push(processImageUrl(url, 'property'));
+            property.imageUrls.forEach((url, index) => {
+                if (url) {
+                    const processedUrl = processImageUrl(url);
+                    console.log(`🔗 Image URL ${index}:`, { original: url, processed: processedUrl });
+                    images.push(processedUrl);
+                }
             });
         }
 
         // Remove duplicates and return
         const uniqueImages = [...new Set(images.filter(img => img && img.trim() !== ''))];
+
+        console.log('✅ Final Images Array:', uniqueImages);
+
         return uniqueImages.length > 0 ? uniqueImages : ['/default-property.jpg'];
     };
 
@@ -715,6 +736,9 @@ const PropertyCard = ({
     const brokerageName = getBrokerageName();
     const propertyTypeDisplay = getPropertyTypeDisplay();
 
+    // Process agent avatar image using the same utility
+    const agentAvatarUrl = agent?.profilePictureUrl ? processImageUrl(agent.profilePictureUrl) : null;
+
     return (
         <>
             <Card
@@ -767,10 +791,14 @@ const PropertyCard = ({
                         }}
                         onClick={openGallery}
                         onError={(e) => {
+                            console.error('❌ Image failed to load:', currentImage);
                             if (!imageError) {
                                 setImageError(true);
                                 e.target.src = '/default-property.jpg';
                             }
+                        }}
+                        onLoad={(e) => {
+                            console.log('✅ Image loaded successfully:', currentImage);
                         }}
                         onMouseEnter={(e) => {
                             if (!isDragging) {
@@ -888,16 +916,22 @@ const PropertyCard = ({
                             {loadingAgent ? (
                                 <Skeleton.Avatar active size={36} />
                             ) : (
-                                    <Avatar
-                                        size={36}
-                                        src={agent?.profilePictureUrl ? processImageUrl(agent.profilePictureUrl, 'agent') : null}
-                                        style={{
-                                            backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
-                                            border: '2px solid #1B3C53'
-                                        }}
-                                    >
-                                        {!agent?.profilePictureUrl && agentName?.charAt(0)?.toUpperCase()}
-                                    </Avatar>
+                                <Avatar
+                                    size={36}
+                                    src={agentAvatarUrl}
+                                    style={{
+                                        backgroundColor: agentAvatarUrl ? 'transparent' : '#1B3C53',
+                                        border: '2px solid #1B3C53'
+                                    }}
+                                    onError={() => {
+                                        console.error('❌ Agent avatar failed to load:', agentAvatarUrl);
+                                    }}
+                                    onLoad={() => {
+                                        console.log('✅ Agent avatar loaded successfully:', agentAvatarUrl);
+                                    }}
+                                >
+                                    {!agentAvatarUrl && agentName?.charAt(0)?.toUpperCase()}
+                                </Avatar>
                             )}
                             <div>
                                 {loadingAgent ? (
@@ -1214,7 +1248,7 @@ const PropertyCard = ({
                     justifyContent: 'center'
                 }}>
                     <img
-                        src={processImageUrl(propertyImages[galleryImageIndex], 'property')}
+                        src={processImageUrl(propertyImages[galleryImageIndex])}
                         alt={`Property ${galleryImageIndex + 1}`}
                         style={{
                             maxWidth: '100%',
@@ -1222,7 +1256,11 @@ const PropertyCard = ({
                             objectFit: 'contain'
                         }}
                         onError={(e) => {
+                            console.error('❌ Gallery image failed to load:', propertyImages[galleryImageIndex]);
                             e.target.src = '/default-property.jpg';
+                        }}
+                        onLoad={() => {
+                            console.log('✅ Gallery image loaded successfully:', propertyImages[galleryImageIndex]);
                         }}
                     />
 

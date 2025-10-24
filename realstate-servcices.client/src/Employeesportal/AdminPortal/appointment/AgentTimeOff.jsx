@@ -26,18 +26,27 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import ApiClient from './apiClient';
-import SchedulingServices from './SchedulePropertiesService';
 
+// Import the main service
+import SchedulingServices from './Services';
+
+// Destructure necessary components
 const { Option } = Select;
-const { TextArea } = Input;
 const { RangePicker } = DatePicker;
+const { TextArea } = Input;
 
-// Initialize services
-const apiClient = new ApiClient(process.env.REACT_APP_API_BASE_URL);
-const schedulingService = new SchedulingServices(apiClient);
+// Mock API client
+const mockApiClient = {
+    get: async (url) => ({ data: [], status: 200 }),
+    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
+    put: async (url, data) => ({ data, status: 200 }),
+    patch: async (url, data) => ({ data, status: 200 }),
+    delete: async (url) => ({ status: 200 })
+};
 
-const AgentTimeOff = () => {
+const schedulingService = new SchedulingServices(mockApiClient);
+
+const AgentTimeOff = ({ onScheduleUpdate }) => {
     const [timeOffs, setTimeOffs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -62,7 +71,7 @@ const AgentTimeOff = () => {
     const loadTimeOffs = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.getAllTimeOffs();
+            const result = await schedulingService.timeOff.getAll();
             if (result.success) {
                 setTimeOffs(result.data);
             } else {
@@ -102,10 +111,11 @@ const AgentTimeOff = () => {
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.deleteTimeOff(id);
+            const result = await schedulingService.timeOff.delete(id);
             if (result.success) {
                 message.success('Time off deleted successfully');
                 loadTimeOffs();
+                if (onScheduleUpdate) onScheduleUpdate();
             } else {
                 message.error(result.error?.message || 'Failed to delete time off');
             }
@@ -127,12 +137,12 @@ const AgentTimeOff = () => {
 
             let result;
             if (selectedTimeOff) {
-                result = await schedulingService.updateTimeOff(selectedTimeOff.id, timeOffData);
+                result = await schedulingService.timeOff.update(selectedTimeOff.id, timeOffData);
                 if (result.success) {
                     message.success('Time off updated successfully');
                 }
             } else {
-                result = await schedulingService.requestTimeOff(timeOffData);
+                result = await schedulingService.timeOff.create(timeOffData);
                 if (result.success) {
                     message.success('Time off created successfully');
                 }
@@ -145,6 +155,7 @@ const AgentTimeOff = () => {
 
             setModalVisible(false);
             loadTimeOffs();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             message.error('Failed to save time off');
         }
@@ -154,14 +165,15 @@ const AgentTimeOff = () => {
         try {
             let result;
             if (newStatus === 'Approved') {
-                result = await schedulingService.approveTimeOff(id);
+                result = await schedulingService.timeOff.approve(id);
             } else if (newStatus === 'Rejected') {
-                result = await schedulingService.rejectTimeOff(id);
+                result = await schedulingService.timeOff.reject(id);
             }
 
             if (result && result.success) {
                 message.success(`Time off ${newStatus.toLowerCase()} successfully`);
                 loadTimeOffs();
+                if (onScheduleUpdate) onScheduleUpdate();
             } else {
                 message.error(result?.error?.message || 'Failed to update time off status');
             }

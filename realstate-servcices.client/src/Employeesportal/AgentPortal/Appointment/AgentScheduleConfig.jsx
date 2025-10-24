@@ -1,3 +1,4 @@
+// AgentScheduleConfig.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -26,6 +27,7 @@ import {
     SettingOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
+import ScheduleConfigService from '../../AdminPortal/appointment/Services/ScheduleConfigService';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -36,7 +38,8 @@ const AgentScheduleConfig = () => {
     const [config, setConfig] = useState(null);
     const [form] = Form.useForm();
 
-    // Default configuration structure
+    const configService = new ScheduleConfigService();
+
     const defaultConfig = {
         appointmentDuration: 60,
         bufferTime: 15,
@@ -61,23 +64,27 @@ const AgentScheduleConfig = () => {
     const loadConfig = async () => {
         setLoading(true);
         try {
-            // Mock API call - replace with actual API from AgentScheduleConfigController
-            const mockConfig = {
-                id: 1,
-                agentId: 123,
-                ...defaultConfig,
-                workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
-                workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm'),
-                createdAt: '2024-01-01T00:00:00',
-                updatedAt: '2024-01-01T00:00:00'
-            };
+            const agentId = localStorage.getItem('agentId') || 123;
+            const result = await configService.getByAgent(agentId);
 
-            setConfig(mockConfig);
-            form.setFieldsValue(mockConfig);
+            if (result.success) {
+                const configData = result.data;
+                setConfig(configData);
+                form.setFieldsValue({
+                    ...configData,
+                    workingHoursStart: moment(configData.workingHoursStart, 'HH:mm'),
+                    workingHoursEnd: moment(configData.workingHoursEnd, 'HH:mm')
+                });
+            } else {
+                form.setFieldsValue({
+                    ...defaultConfig,
+                    workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
+                    workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
+                });
+            }
         } catch (error) {
             console.error('Error loading schedule config:', error);
             message.error('Failed to load schedule configuration');
-            // Set default values if load fails
             form.setFieldsValue({
                 ...defaultConfig,
                 workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
@@ -91,29 +98,27 @@ const AgentScheduleConfig = () => {
     const handleSave = async (values) => {
         setSaving(true);
         try {
-            // Prepare data for API - match AgentScheduleConfig entity
+            const agentId = localStorage.getItem('agentId') || 123;
             const configData = {
                 ...values,
                 workingHoursStart: values.workingHoursStart.format('HH:mm'),
                 workingHoursEnd: values.workingHoursEnd.format('HH:mm'),
-                agentId: 123 // This should come from auth context
+                agentId: agentId
             };
 
-            // Mock API call - replace with actual API call to AgentScheduleConfigController
-            console.log('Saving config to API:', configData);
+            let result;
+            if (config) {
+                result = await configService.update(config.id, configData);
+            } else {
+                result = await configService.create(configData);
+            }
 
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Update local state
-            setConfig({
-                ...config,
-                ...configData,
-                workingHoursStart: values.workingHoursStart,
-                workingHoursEnd: values.workingHoursEnd
-            });
-
-            message.success('Schedule configuration saved successfully');
+            if (result.success) {
+                setConfig(result.data);
+                message.success('Schedule configuration saved successfully');
+            } else {
+                message.error(result.error?.message || 'Failed to save schedule configuration');
+            }
         } catch (error) {
             console.error('Error saving schedule config:', error);
             message.error('Failed to save schedule configuration');
@@ -206,7 +211,6 @@ const AgentScheduleConfig = () => {
                         workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
                     }}
                 >
-                    {/* Appointment Settings */}
                     <Divider orientation="left">
                         <Space>
                             <CalendarOutlined />
@@ -281,7 +285,6 @@ const AgentScheduleConfig = () => {
                         </Col>
                     </Row>
 
-                    {/* Working Hours */}
                     <Divider orientation="left">
                         <Space>
                             <ClockCircleOutlined />
@@ -348,7 +351,6 @@ const AgentScheduleConfig = () => {
                         </Col>
                     </Row>
 
-                    {/* Booking Rules */}
                     <Divider orientation="left">Booking Rules</Divider>
 
                     <Row gutter={16}>
@@ -416,7 +418,6 @@ const AgentScheduleConfig = () => {
                         </Col>
                     </Row>
 
-                    {/* Features & Preferences */}
                     <Divider orientation="left">Features & Preferences</Divider>
 
                     <Row gutter={16}>
@@ -472,7 +473,6 @@ const AgentScheduleConfig = () => {
                         </Col>
                     </Row>
 
-                    {/* Additional Settings */}
                     <Divider orientation="left">Additional Settings</Divider>
 
                     <Form.Item
@@ -488,7 +488,6 @@ const AgentScheduleConfig = () => {
                         />
                     </Form.Item>
 
-                    {/* Configuration Summary */}
                     <Divider orientation="left">Configuration Summary</Divider>
 
                     <Card size="small" style={{ background: '#fafafa' }}>

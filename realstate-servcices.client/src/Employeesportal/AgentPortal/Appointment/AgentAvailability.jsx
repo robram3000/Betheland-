@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
+import AgentAvailabilityService from '../../AdminPortal/appointment/Services/AgentAvailabilityService';
 
 const AgentAvailability = () => {
     const [availabilities, setAvailabilities] = useState([]);
@@ -30,6 +31,8 @@ const AgentAvailability = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedAvailability, setSelectedAvailability] = useState(null);
     const [form] = Form.useForm();
+
+    const availabilityService = new AgentAvailabilityService();
 
     const daysOfWeek = [
         'Monday',
@@ -48,59 +51,14 @@ const AgentAvailability = () => {
     const loadAvailabilities = async () => {
         setLoading(true);
         try {
-            // Mock data for current agent
-            const mockData = [
-                {
-                    id: 1,
-                    dayOfWeek: 'Monday',
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    isAvailable: true
-                },
-                {
-                    id: 2,
-                    dayOfWeek: 'Tuesday',
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    isAvailable: true
-                },
-                {
-                    id: 3,
-                    dayOfWeek: 'Wednesday',
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    isAvailable: true
-                },
-                {
-                    id: 4,
-                    dayOfWeek: 'Thursday',
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    isAvailable: true
-                },
-                {
-                    id: 5,
-                    dayOfWeek: 'Friday',
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    isAvailable: true
-                },
-                {
-                    id: 6,
-                    dayOfWeek: 'Saturday',
-                    startTime: '10:00',
-                    endTime: '14:00',
-                    isAvailable: false
-                },
-                {
-                    id: 7,
-                    dayOfWeek: 'Sunday',
-                    startTime: '00:00',
-                    endTime: '00:00',
-                    isAvailable: false
-                },
-            ];
-            setAvailabilities(mockData);
+            const agentId = localStorage.getItem('agentId') || 123;
+            const result = await availabilityService.getByAgent(agentId);
+
+            if (result.success) {
+                setAvailabilities(result.data);
+            } else {
+                message.error(result.error?.message || 'Failed to load availabilities');
+            }
         } catch (error) {
             console.error('Error loading availabilities:', error);
             message.error('Failed to load availabilities');
@@ -121,16 +79,24 @@ const AgentAvailability = () => {
 
     const handleSubmit = async (values) => {
         try {
+            const agentId = localStorage.getItem('agentId') || 123;
             const availabilityData = {
                 ...values,
                 startTime: values.startTime.format('HH:mm'),
                 endTime: values.endTime.format('HH:mm'),
+                agentId: agentId,
                 id: selectedAvailability.id
             };
 
-            message.success('Availability updated successfully');
-            setModalVisible(false);
-            loadAvailabilities();
+            const result = await availabilityService.update(selectedAvailability.id, availabilityData);
+
+            if (result.success) {
+                message.success('Availability updated successfully');
+                setModalVisible(false);
+                loadAvailabilities();
+            } else {
+                message.error(result.error?.message || 'Failed to update availability');
+            }
         } catch (error) {
             message.error('Failed to save availability');
         }
@@ -201,7 +167,6 @@ const AgentAvailability = () => {
                 />
             </Card>
 
-            {/* Edit Modal */}
             <Modal
                 title="Edit Availability"
                 open={modalVisible}

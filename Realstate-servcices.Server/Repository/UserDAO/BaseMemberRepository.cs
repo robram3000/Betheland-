@@ -23,6 +23,50 @@ namespace Realstate_servcices.Server.Repository.UserDAO
             _context = context;
         }
 
+        // ADD THESE MISSING METHODS:
+
+        /// <summary>
+        /// Retrieves a base member by their ID with related entities
+        /// </summary>
+        /// <param name="id">The ID of the base member</param>
+        /// <returns>BaseMember entity if found, null otherwise</returns>
+        public async Task<BaseMember?> GetByIdAsync(int id)
+        {
+            return await _context.BaseMembers
+                .Include(b => b.Agent)
+                .Include(b => b.Client)
+                .FirstOrDefaultAsync(b => b.Id == id);
+        }
+
+        /// <summary>
+        /// Retrieves a base member by their email with related entities
+        /// </summary>
+        /// <param name="email">The email address to search for</param>
+        /// <returns>BaseMember entity if found, null otherwise</returns>
+        public async Task<BaseMember?> GetByEmailAsync(string email)
+        {
+            return await _context.BaseMembers
+                .Include(b => b.Agent)
+                .Include(b => b.Client)
+                .FirstOrDefaultAsync(b => b.Email == email);
+        }
+
+        /// <summary>
+        /// Retrieves multiple base members by their IDs
+        /// </summary>
+        /// <param name="ids">List of base member IDs</param>
+        /// <returns>List of BaseMember entities</returns>
+        public async Task<List<BaseMember>> GetByIdsAsync(List<int> ids)
+        {
+            return await _context.BaseMembers
+                .Include(b => b.Agent)
+                .Include(b => b.Client)
+                .Where(b => ids.Contains(b.Id))
+                .ToListAsync();
+        }
+
+        // YOUR EXISTING METHODS CONTINUE BELOW:
+
         /// <summary>
         /// Creates a new base member with basic information
         /// </summary>

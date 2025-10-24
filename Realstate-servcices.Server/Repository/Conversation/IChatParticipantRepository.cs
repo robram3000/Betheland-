@@ -1,4 +1,5 @@
 ﻿using Realstate_servcices.Server.Entity.Chat;
+
 namespace Realstate_servcices.Server.Repository.Conversation
 {
     public interface IChatParticipantRepository
@@ -8,5 +9,9 @@ namespace Realstate_servcices.Server.Repository.Conversation
         Task<ChatParticipant> AddParticipantAsync(ChatParticipant participant);
         Task<bool> RemoveParticipantAsync(int chatId, int userId);
         Task UpdateLastReadAsync(int chatId, int userId);
+
+        // Add these missing methods
+        Task UpdateParticipantAsync(ChatParticipant participant);
+        Task IncrementUnreadCountForOthersAsync(int chatId, int excludedUserId);
     }
 }

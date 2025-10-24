@@ -1,0 +1,859 @@
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import {
+    Table,
+    Button,
+    Space,
+    Tag,
+    Card,
+    Input,
+    Select,
+    Modal,
+    message,
+    Tooltip,
+    Avatar,
+    Image,
+    Badge,
+    Dropdown,
+    Menu,
+    Row,
+    Col,
+    Divider
+} from 'antd';
+import {
+    SearchOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    EyeOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    MoreOutlined,
+    UserOutlined,
+    MailOutlined,
+    PhoneOutlined,
+    PictureOutlined,
+    PlayCircleOutlined
+} from '@ant-design/icons';
+import {
+    FaBed,
+    FaBath,
+    FaUtensils,
+    FaCar
+} from 'react-icons/fa';
+import BaseTable from './BaseTable';
+import InsertProperty from './InsertProperty';
+import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
+
+const { Search } = Input;
+const { Option } = Select;
+
+const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, userRole, currentUser }) => {
+    const [properties, setProperties] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [selectedProperty, setSelectedProperty] = useState(null);
+    const [viewModalVisible, setViewModalVisible] = useState(false);
+    const [mediaModalVisible, setMediaModalVisible] = useState(false);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
+    // Notify parent component when filters change
+    useEffect(() => {
+        if (onFilterUpdate) {
+            onFilterUpdate(searchText, statusFilter, typeFilter);
+        }
+    }, [searchText, statusFilter, typeFilter, onFilterUpdate]);
+
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        if (url.startsWith('/uploads/')) {
+            return `https://localhost:7075${url}`;
+        }
+        if (url.includes('.') && !url.startsWith('/')) {
+            return `https://localhost:7075/uploads/properties/${url}`;
+        }
+        if (url.startsWith('uploads/')) {
+            return `https://localhost:7075/${url}`;
+        }
+        return '/default-property.jpg';
+    };
+
+    // Get all media for a property
+    const getAllMedia = (property) => {
+        const media = [];
+
+        // Add main image
+        if (property.mainImage) {
+            media.push({
+                type: 'image',
+                url: processImageUrl(property.mainImage),
+                title: 'Main Image'
+            });
+        }
+
+        // Add property images
+        if (property.propertyImages && property.propertyImages.length > 0) {
+            property.propertyImages.forEach((img, index) => {
+                if (img.imageUrl) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(img.imageUrl),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add image URLs
+        if (property.imageUrls && property.imageUrls.length > 0) {
+            property.imageUrls.forEach((url, index) => {
+                if (url) {
+                    media.push({
+                        type: 'image',
+                        url: processImageUrl(url),
+                        title: `Image ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add videos
+        if (property.videoUrls && property.videoUrls.length > 0) {
+            property.videoUrls.forEach((url, index) => {
+                if (url) {
+                    media.push({
+                        type: 'video',
+                        url: processImageUrl(url),
+                        title: `Video ${index + 1}`
+                    });
+                }
+            });
+        }
+
+        // Add property video
+        if (property.propertyVideo) {
+            media.push({
+                type: 'video',
+                url: processImageUrl(property.propertyVideo),
+                title: 'Property Video'
+            });
+        }
+
+        return media;
+    };
+
+    // Open media gallery
+    const handleOpenMedia = (property, index = 0) => {
+        setSelectedProperty(property);
+        setCurrentMediaIndex(index);
+        setMediaModalVisible(true);
+    };
+
+    // Enhanced property loader - only load properties for current agent
+    const loadProperties = useCallback(async () => {
+        setLoading(true);
+        try {
+            console.log('Loading properties for agent:', currentUser?.userId);
+            const data = await propertyService.getAllProperties();
+
+            // Filter properties to only show those assigned to current agent
+            const agentProperties = data.filter(property =>
+                property.agentId === currentUser?.userId
+            );
+
+            console.log('Filtered properties for agent:', agentProperties);
+            setProperties(agentProperties);
+        } catch (error) {
+            console.error('Error loading properties:', error);
+            message.error('Failed to load properties: ' + (error.message || 'Unknown error'));
+            setProperties([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (currentUser) {
+            loadProperties();
+        }
+    }, [currentUser, loadProperties]);
+
+    const handleSearch = (value) => {
+        setSearchText(value);
+    };
+
+    const handleStatusFilter = (value) => {
+        setStatusFilter(value);
+    };
+
+    const handleTypeFilter = (value) => {
+        setTypeFilter(value);
+    };
+
+    const filteredProperties = properties.filter(property => {
+        const matchesSearch = property.title?.toLowerCase().includes(searchText.toLowerCase()) ||
+            property.address?.toLowerCase().includes(searchText.toLowerCase()) ||
+            property.city?.toLowerCase().includes(searchText.toLowerCase());
+
+        const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
+        const matchesType = typeFilter === 'all' || property.type === typeFilter;
+
+        return matchesSearch && matchesStatus && matchesType;
+    });
+
+    const handleEdit = (property) => {
+        setSelectedProperty(property);
+        setIsModalVisible(true);
+    };
+
+    const handleView = (property) => {
+        setSelectedProperty(property);
+        setViewModalVisible(true);
+    };
+
+    const handleDelete = async (propertyId) => {
+        Modal.confirm({
+            title: 'Confirm Delete',
+            content: 'Are you sure you want to delete this property? This action cannot be undone.',
+            okText: 'Yes, Delete',
+            okType: 'danger',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                try {
+                    await propertyService.deleteProperty(propertyId);
+                    message.success('Property deleted successfully');
+
+                    // Remove from state immediately
+                    setProperties(prev => prev.filter(prop => prop.id !== propertyId));
+
+                    // Notify parent of update
+                    if (onPropertiesUpdate) {
+                        onPropertiesUpdate();
+                    }
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    message.error(error.message || 'Failed to delete property');
+                }
+            },
+        });
+    };
+
+    const handleModalClose = () => {
+        setIsModalVisible(false);
+        setSelectedProperty(null);
+    };
+
+    const handleSuccess = () => {
+        loadProperties();
+        handleModalClose();
+        if (onPropertiesUpdate) {
+            onPropertiesUpdate();
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'approved': return 'green';
+            case 'pending': return 'orange';
+            case 'rejected': return 'red';
+            case 'sold': return 'purple';
+            case 'rented': return 'blue';
+            case 'available': return 'green';
+            case 'draft': return 'gray';
+            default: return 'default';
+        }
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'approved': return 'APPROVED';
+            case 'pending': return 'PENDING APPROVAL';
+            case 'rejected': return 'REJECTED';
+            case 'sold': return 'SOLD';
+            case 'rented': return 'RENTED';
+            case 'available': return 'AVAILABLE';
+            case 'draft': return 'DRAFT';
+            default: return status?.toUpperCase() || 'UNKNOWN';
+        }
+    };
+
+    // Render amenities with dropdown for more than 3 items
+    const renderAmenities = (amenities) => {
+        let amenitiesArray = [];
+
+        try {
+            if (typeof amenities === 'string') {
+                amenitiesArray = JSON.parse(amenities);
+            } else if (Array.isArray(amenities)) {
+                amenitiesArray = amenities;
+            }
+        } catch (error) {
+            console.error('Error parsing amenities:', error);
+            amenitiesArray = [];
+        }
+
+        if (!Array.isArray(amenitiesArray)) {
+            amenitiesArray = [];
+        }
+
+        if (amenitiesArray.length === 0) {
+            return <span style={{ color: '#999' }}>No amenities</span>;
+        }
+
+        const displayAmenities = amenitiesArray.slice(0, 3);
+        const remainingAmenities = amenitiesArray.slice(3);
+
+        const content = (
+            <Space size={[4, 4]} wrap>
+                {displayAmenities.map((amenity, index) => (
+                    <Tag key={index} size="small" color="#1e3a8a" style={{ color: 'white', border: 'none' }}>
+                        {amenity}
+                    </Tag>
+                ))}
+                {remainingAmenities.length > 0 && (
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                {remainingAmenities.map((amenity, index) => (
+                                    <Menu.Item key={index}>
+                                        {amenity}
+                                    </Menu.Item>
+                                ))}
+                            </Menu>
+                        }
+                        trigger={['click']}
+                    >
+                        <Tag size="small" color="#1e3a8a" style={{ cursor: 'pointer', color: 'white', border: 'none' }}>
+                            +{remainingAmenities.length} more
+                        </Tag>
+                    </Dropdown>
+                )}
+            </Space>
+        );
+
+        return content;
+    };
+
+    // Render media preview
+    const renderMediaPreview = (property) => {
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const imageCount = allMedia.filter(m => m.type === 'image').length;
+        const videoCount = allMedia.filter(m => m.type === 'video').length;
+
+        return (
+            <Space direction="vertical" size={8} align="center">
+                <Button
+                    type="primary"
+                    icon={<PictureOutlined />}
+                    size="small"
+                    onClick={() => handleOpenMedia(property)}
+                    style={{
+                        backgroundColor: '#1e3a8a',
+                        borderColor: '#1e3a8a',
+                        fontWeight: 500
+                    }}
+                >
+                    View Media
+                </Button>
+                {hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>
+                        <div>
+                            <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                            {imageCount} image{imageCount !== 1 ? 's' : ''}
+                        </div>
+                        {videoCount > 0 && (
+                            <div>
+                                <PlayCircleOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                                {videoCount} video{videoCount !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {!hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#999', textAlign: 'center' }}>
+                        No media
+                    </div>
+                )}
+            </Space>
+        );
+    };
+
+    const actionMenu = (record) => (
+        <Menu>
+            <Menu.Item key="view" icon={<EyeOutlined />} onClick={() => handleView(record)}>
+                View Details
+            </Menu.Item>
+            <Menu.Item key="edit" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+                Edit Property
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item key="delete" icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)}>
+                Delete Property
+            </Menu.Item>
+        </Menu>
+    );
+
+    const columns = [
+        {
+            title: 'Property',
+            dataIndex: 'title',
+            key: 'property',
+            render: (text, record) => {
+                const mainImage = record.mainImage ||
+                    (record.propertyImages && record.propertyImages[0]?.imageUrl) ||
+                    (record.imageUrls && record.imageUrls[0]) ||
+                    '/default-property.jpg';
+
+                const processedImage = processImageUrl(mainImage);
+
+                return (
+                    <Space direction="vertical" size={4}>
+                        <Space>
+                            <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
+                                <Avatar
+                                    src={processedImage}
+                                    shape="square"
+                                    style={{
+                                        backgroundColor: '#1a365d',
+                                        width: 50,
+                                        height: 50,
+                                        objectFit: 'cover'
+                                    }}
+                                    onError={(e) => {
+                                        e.target.src = '/default-property.jpg';
+                                    }}
+                                >
+                                    {text?.[0]?.toUpperCase()}
+                                </Avatar>
+                            </Badge>
+                            <div>
+                                <div style={{ fontWeight: 500 }}>{text || 'Untitled Property'}</div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>
+                                    {record.address ? `${record.address}, ${record.city}, ${record.zipCode}` : 'No address'}
+                                </div>
+                                <Divider style={{ margin: '8px 0' }} />
+                                <div style={{ fontSize: '11px', color: '#888' }}>
+                                    <Tag color="#1e3a8a" style={{ color: 'white', border: 'none' }} size="small">
+                                        {record.type || 'N/A'}
+                                    </Tag>
+                                </div>
+                            </div>
+                        </Space>
+                        {/* Amenities row */}
+                        <div style={{ marginLeft: 40 }}>
+                            {renderAmenities(record.amenities)}
+                        </div>
+                    </Space>
+                );
+            },
+        },
+        {
+            title: 'Details',
+            key: 'details',
+            render: (_, record) => (
+                <Space direction="vertical" size={8}>
+                    <div style={{
+                        fontWeight: 500,
+                        color: 'black',
+                        backgroundColor: 'primary',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #e6f7ff'
+                    }}>
+                        {record.price ? `₱${record.price.toLocaleString()}` : 'Not set'}
+                    </div>
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Space size={12}>
+                        <Tooltip title="Bedrooms">
+                            <Space size={4}>
+                                <FaBed style={{ color: '#666' }} />
+                                <span>{record.bedrooms || 0}</span>
+                            </Space>
+                        </Tooltip>
+                        <Tooltip title="Bathrooms">
+                            <Space size={4}>
+                                <FaBath style={{ color: '#666' }} />
+                                <span>{record.bathrooms || 0}</span>
+                            </Space>
+                        </Tooltip>
+                        <Tooltip title="Kitchens">
+                            <Space size={4}>
+                                <FaUtensils style={{ color: '#666' }} />
+                                <span>{record.kitchens || 0}</span>
+                            </Space>
+                        </Tooltip>
+                        <Tooltip title="Garages">
+                            <Space size={4}>
+                                <FaCar style={{ color: '#666' }} />
+                                <span>{record.garages || 0}</span>
+                            </Space>
+                        </Tooltip>
+                    </Space>
+                </Space>
+            ),
+        },
+        {
+            title: 'Media',
+            key: 'media',
+            render: (_, record) => renderMediaPreview(record),
+        },
+        {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status) => (
+                <Tag color={getStatusColor(status)}>
+                    {getStatusText(status)}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Listed Date',
+            dataIndex: 'listedDate',
+            key: 'listedDate',
+            render: (date) => date ? new Date(date).toLocaleDateString() : 'Not set',
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            render: (_, record) => (
+                <Space size="small">
+                    <Tooltip title="View Details">
+                        <Button
+                            icon={<EyeOutlined />}
+                            size="small"
+                            onClick={() => handleView(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
+                    <Dropdown overlay={actionMenu(record)} trigger={['click']}>
+                        <Button
+                            icon={<MoreOutlined />}
+                            size="small"
+                        />
+                    </Dropdown>
+                </Space>
+            ),
+        },
+    ];
+
+    return (
+        <div>
+            <Card>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                    <Space wrap>
+                        <Search
+                            placeholder="Search properties, addresses..."
+                            allowClear
+                            onSearch={handleSearch}
+                            style={{ width: 300 }}
+                        />
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 180 }}
+                            onChange={handleStatusFilter}
+                        >
+                            <Option value="all">All Status</Option>
+                            <Option value="pending">Pending Approval</Option>
+                            <Option value="approved">Approved</Option>
+                            <Option value="rejected">Rejected</Option>
+                            <Option value="available">Available</Option>
+                            <Option value="sold">Sold</Option>
+                            <Option value="rented">Rented</Option>
+                            <Option value="draft">Draft</Option>
+                        </Select>
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 150 }}
+                            onChange={handleTypeFilter}
+                        >
+                            <Option value="all">All Types</Option>
+                            <Option value="House">House</Option>
+                            <Option value="Apartment">Apartment</Option>
+                            <Option value="Condo">Condo</Option>
+                            <Option value="Townhouse">Townhouse</Option>
+                            <Option value="Land">Land</Option>
+                            <Option value="Commercial">Commercial</Option>
+                        </Select>
+                    </Space>
+                    <Space wrap>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={loadProperties}
+                            loading={loading}
+                        >
+                            Refresh
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => setIsModalVisible(true)}
+                        >
+                            Add Property
+                        </Button>
+                    </Space>
+                </div>
+
+                <BaseTable
+                    data={filteredProperties}
+                    columns={columns}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                        showTotal: (total, range) =>
+                            `${range[0]}-${range[1]} of ${total} properties`,
+                    }}
+                />
+            </Card>
+
+            {/* Edit/Create Property Modal */}
+            <Modal
+                title={selectedProperty ? 'Edit Property' : 'Add New Property'}
+                open={isModalVisible}
+                onCancel={handleModalClose}
+                footer={null}
+                width={1000}
+                destroyOnClose
+            >
+                <InsertProperty
+                    property={selectedProperty}
+                    onSuccess={handleSuccess}
+                    onCancel={handleModalClose}
+                    userRole={userRole}
+                    currentUser={currentUser}
+                />
+            </Modal>
+
+            {/* View Property Modal */}
+            <Modal
+                title="Property Details"
+                open={viewModalVisible}
+                onCancel={() => setViewModalVisible(false)}
+                footer={[
+                    <Button key="close" onClick={() => setViewModalVisible(false)}>
+                        Close
+                    </Button>
+                ]}
+                width={800}
+            >
+                {selectedProperty && (
+                    <div>
+                        <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                            {selectedProperty.mainImage && (
+                                <Image
+                                    width={200}
+                                    src={processImageUrl(selectedProperty.mainImage)}
+                                    alt={selectedProperty.title}
+                                    fallback="/fallback-image.png"
+                                    onError={(e) => {
+                                        e.target.src = '/fallback-image.png';
+                                    }}
+                                />
+                            )}
+                        </div>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Title:</strong> {selectedProperty.title || 'No title'}
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Description:</strong> {selectedProperty.description || 'No description'}
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Address:</strong> {selectedProperty.address ? `${selectedProperty.address}, ${selectedProperty.city}, ${selectedProperty.state} ${selectedProperty.zipCode}` : 'No address'}
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Price:</strong> {selectedProperty.price ? `₱${selectedProperty.price.toLocaleString()}` : 'Not set'}
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Type:</strong>
+                                    <Tag color="#1e3a8a" style={{ color: 'white', border: 'none', marginLeft: 8 }}>
+                                        {selectedProperty.type || 'N/A'}
+                                    </Tag>
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Details:</strong>
+                                    <Space size={16} style={{ marginTop: 8 }}>
+                                        <Tooltip title="Bedrooms">
+                                            <Space size={4}>
+                                                <FaBed style={{ color: '#666' }} />
+                                                <span>{selectedProperty.bedrooms || 0}</span>
+                                            </Space>
+                                        </Tooltip>
+                                        <Tooltip title="Bathrooms">
+                                            <Space size={4}>
+                                                <FaBath style={{ color: '#666' }} />
+                                                <span>{selectedProperty.bathrooms || 0}</span>
+                                            </Space>
+                                        </Tooltip>
+                                        <Tooltip title="Kitchens">
+                                            <Space size={4}>
+                                                <FaUtensils style={{ color: '#666' }} />
+                                                <span>{selectedProperty.kitchens || 0}</span>
+                                            </Space>
+                                        </Tooltip>
+                                        <Tooltip title="Garages">
+                                            <Space size={4}>
+                                                <FaCar style={{ color: '#666' }} />
+                                                <span>{selectedProperty.garages || 0}</span>
+                                            </Space>
+                                        </Tooltip>
+                                    </Space>
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Area:</strong> {selectedProperty.areaSqm ? `${selectedProperty.areaSqm.toLocaleString()} sqm` : 'Not set'}
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Status:</strong> <Tag color={getStatusColor(selectedProperty.status)}>
+                                        {getStatusText(selectedProperty.status)}
+                                    </Tag>
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <strong>Amenities:</strong>
+                                    <div style={{ marginTop: 8 }}>
+                                        {renderAmenities(selectedProperty.amenities)}
+                                    </div>
+                                </div>
+                            </Col>
+                        </Row>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Media Gallery Modal */}
+            <Modal
+                title="Property Media Gallery"
+                open={mediaModalVisible}
+                onCancel={() => setMediaModalVisible(false)}
+                footer={null}
+                width={800}
+                style={{ top: 20 }}
+            >
+                {selectedProperty && (() => {
+                    const allMedia = getAllMedia(selectedProperty);
+                    const currentMedia = allMedia[currentMediaIndex];
+
+                    if (allMedia.length === 0) {
+                        return (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                <div style={{ color: '#999' }}>No media available for this property</div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                {currentMedia.type === 'image' ? (
+                                    <Image
+                                        width="100%"
+                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        src={currentMedia.url}
+                                        alt={currentMedia.title}
+                                        fallback="/fallback-image.png"
+                                        onError={(e) => {
+                                            e.target.src = '/fallback-image.png';
+                                        }}
+                                    />
+                                ) : (
+                                    <video
+                                        controls
+                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        src={currentMedia.url}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                )}
+                            </div>
+
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
+                            </div>
+
+                            {allMedia.length > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
+                                        disabled={allMedia.length <= 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
+                                        disabled={allMedia.length <= 1}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Media Thumbnails */}
+                            {allMedia.length > 1 && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Divider>All Media ({allMedia.length})</Divider>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                        {allMedia.map((media, index) => (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    width: 60,
+                                                    height: 60,
+                                                    border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                                    borderRadius: 4,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => setCurrentMediaIndex(index)}
+                                            >
+                                                {media.type === 'image' ? (
+                                                    <img
+                                                        src={media.url}
+                                                        alt={media.title}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            e.target.src = '/fallback-image.png';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        backgroundColor: '#f0f0f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+            </Modal>
+        </div>
+    );
+};
+
+export default PropertyPage;

@@ -24,7 +24,6 @@ Content-Type: {{ContentType}}
   "licenseNumber": "LIC-123458"
 }
 
-### 2. Register a new agent (Full details - Roberto Dela Cruz)
 POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
@@ -52,7 +51,7 @@ Content-Type: {{ContentType}}
   "brokerageName": "Metro Properties Inc."
 }
 
-### 3. Test with invalid data - Register agent with existing username
+
 POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 

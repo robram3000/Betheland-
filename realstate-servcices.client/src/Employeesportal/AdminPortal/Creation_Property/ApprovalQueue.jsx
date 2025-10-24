@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import propertyService from './services/propertyService';
+import { processImageUrl, getPropertyImage } from './processImageUrl';
 
 const { TextArea } = Input;
 
@@ -81,32 +82,6 @@ const ApprovalQueue = ({ onUpdate }) => {
     const handleView = (property) => {
         setSelectedProperty(property);
         setViewModalVisible(true);
-    };
-
-    const processImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        return '/default-property.jpg';
-    };
-
-    const getPropertyImage = (property) => {
-        return processImageUrl(
-            property.mainImage ||
-            (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
-            (property.imageUrls && property.imageUrls[0]) ||
-            '/default-property.jpg'
-        );
     };
 
     const columns = [
@@ -237,8 +212,6 @@ const ApprovalQueue = ({ onUpdate }) => {
 
     return (
         <div>
-            {/* NO HELMET SECTION - Now managed by PropertyLayout */}
-
             {/* Stats Cards */}
             <div style={{ marginBottom: 24 }}>
                 <Row gutter={16}>

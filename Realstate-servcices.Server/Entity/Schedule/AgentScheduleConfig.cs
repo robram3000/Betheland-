@@ -17,19 +17,19 @@ namespace Realstate_servcices.Server.Entity.Schedule
         public int SlotDurationMinutes { get; set; } = 60;
 
         [Required]
-        public int MaxAppointmentsPerDay { get; set; } = 8;
+        public int MaxSchedulesPerDay { get; set; } = 8;
 
         [Required]
         public int BufferTimeMinutes { get; set; } = 15;
 
         [Required]
-        public bool AllowWeekendAppointments { get; set; } = false;
+        public bool AllowWeekendScheduling { get; set; } = false; 
 
         [Required]
-        public TimeSpan DayStartTime { get; set; } = new TimeSpan(9, 0, 0);
+        public TimeSpan WorkDayStart { get; set; } = new TimeSpan(9, 0, 0); 
 
         [Required]
-        public TimeSpan DayEndTime { get; set; } = new TimeSpan(17, 0, 0);
+        public TimeSpan WorkDayEnd { get; set; } = new TimeSpan(17, 0, 0); 
 
         [Required]
         public int AdvanceBookingDays { get; set; } = 30;

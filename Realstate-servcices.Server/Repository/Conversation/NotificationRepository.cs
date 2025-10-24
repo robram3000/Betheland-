@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Chat;
+
 namespace Realstate_servcices.Server.Repository.Conversation
 {
     public class NotificationRepository : INotificationRepository
@@ -10,6 +11,22 @@ namespace Realstate_servcices.Server.Repository.Conversation
         public NotificationRepository(ApplicationDbContext context)
         {
             _context = context;
+        }
+
+        public async Task<Notification?> GetByIdAsync(int id)
+        {
+            return await _context.Notifications
+                .Include(n => n.Chat)
+                .Include(n => n.Message)
+                .FirstOrDefaultAsync(n => n.Id == id);
+        }
+
+        public async Task<Notification> UpdateAsync(Notification notification)
+        {
+            notification.ReadAt = DateTime.UtcNow;
+            _context.Notifications.Update(notification);
+            await _context.SaveChangesAsync();
+            return notification;
         }
 
         public async Task<List<Notification>> GetUserNotificationsAsync(int userId, bool unreadOnly = false)

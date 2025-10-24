@@ -7,6 +7,7 @@ import {
     FaHeart,
     FaUtensils
 } from 'react-icons/fa';
+import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 import './PropertyImageInfo.scss';
 
 const PropertyImageInfo = ({ property, agent }) => {
@@ -64,30 +65,6 @@ const PropertyImageInfo = ({ property, agent }) => {
     const availableImages = getAvailableImages();
     const images = availableImages.length > 0 ? availableImages : ['/default-property.jpg'];
 
-    // Process image URL - SIMPLIFIED
-    const processImageUrl = (url) => {
-        if (!url) return url;
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        return url;
-    };
-
     // Touch handlers for swipe
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
@@ -140,8 +117,6 @@ const PropertyImageInfo = ({ property, agent }) => {
         <div className="property-image-info-container">
             {/* Information Section */}
             <div className="property-image-info-info-section">
-               
-
                 {/* Property Title */}
                 <div className="property-image-info-title">
                     {property.title || 'Untitled Property'}

@@ -37,7 +37,17 @@ namespace Realstate_servcices.Server.Repository.Conversation
                 .OrderByDescending(c => c.UpdatedAt)
                 .ToListAsync();
         }
-
+        public async Task UpdateLastMessageAsync(int chatId, string lastMessage, DateTime lastMessageAt)
+        {
+            var chat = await _context.Chats.FindAsync(chatId);
+            if (chat != null)
+            {
+                chat.LastMessage = lastMessage;
+                chat.LastMessageAt = lastMessageAt;
+                chat.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
         public async Task<Chat> CreateAsync(Chat chat)
         {
             _context.Chats.Add(chat);

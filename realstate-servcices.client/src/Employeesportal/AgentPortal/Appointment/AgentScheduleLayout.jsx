@@ -1,3 +1,4 @@
+// AgentScheduleLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Layout, theme, ConfigProvider, Tabs, Badge, Card, Row, Col, Statistic } from 'antd';
@@ -12,6 +13,7 @@ import AgentScheduleAppointments from './AgentScheduleAppointments';
 import AgentAvailability from './AgentAvailability';
 import AgentTimeOff from './AgentTimeOff';
 import AgentScheduleConfig from './AgentScheduleConfig';
+import SchedulePropertiesService from '../../AdminPortal/appointment/Services/SchedulePropertiesService';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
@@ -27,6 +29,8 @@ const AgentScheduleLayout = () => {
         upcoming: 0
     });
 
+    const scheduleService = new SchedulePropertiesService();
+
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
@@ -37,14 +41,27 @@ const AgentScheduleLayout = () => {
 
     const loadAgentStats = async () => {
         try {
-            // Mock agent stats - replace with actual API call
-            const mockStats = {
-                total: 15,
-                scheduled: 8,
-                completed: 5,
-                upcoming: 3
-            };
-            setAgentStats(mockStats);
+            const agentId = localStorage.getItem('agentId') || 123;
+            const result = await scheduleService.getByAgent(agentId);
+
+            if (result.success) {
+                const appointments = result.data;
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                const stats = {
+                    total: appointments.length,
+                    scheduled: appointments.filter(a => a.status === 'Scheduled').length,
+                    completed: appointments.filter(a => a.status === 'Completed').length,
+                    upcoming: appointments.filter(a => {
+                        const appointmentDate = new Date(a.scheduleTime);
+                        return a.status === 'Scheduled' &&
+                            appointmentDate.toDateString() === today.toDateString();
+                    }).length
+                };
+
+                setAgentStats(stats);
+            }
         } catch (error) {
             console.error('Error loading agent stats:', error);
         }
@@ -77,7 +94,7 @@ const AgentScheduleLayout = () => {
             key: 'availability',
             label: (
                 <span>
-                   
+                  
                     My Availability
                 </span>
             ),
@@ -87,7 +104,7 @@ const AgentScheduleLayout = () => {
             key: 'timeoff',
             label: (
                 <span>
-                   
+                  
                     Time Off
                 </span>
             ),
@@ -97,7 +114,7 @@ const AgentScheduleLayout = () => {
             key: 'config',
             label: (
                 <span>
-                    
+               
                     Schedule Settings
                 </span>
             ),

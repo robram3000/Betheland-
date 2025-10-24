@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
+import SchedulePropertiesService from '../../AdminPortal/appointment/Services/SchedulePropertiesService';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -50,6 +51,8 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
+    const scheduleService = new SchedulePropertiesService();
+
     useEffect(() => {
         loadAppointments();
     }, []);
@@ -57,41 +60,15 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     const loadAppointments = async () => {
         setLoading(true);
         try {
-            // Mock data for current agent
-            const mockAppointments = [
-                {
-                    id: 1,
-                    scheduleNo: 'SCH-001',
-                    clientName: 'Alice Johnson',
-                    propertyTitle: 'Luxury Villa in Beverly Hills',
-                    propertyAddress: '123 Beverly Hills, CA',
-                    scheduleTime: '2024-01-15T10:00:00',
-                    duration: 60,
-                    purpose: 'Property Viewing',
-                    status: 'Scheduled',
-                    notes: 'First time viewing',
-                    clientPhone: '+1234567890',
-                    clientEmail: 'alice@email.com',
-                    unreadMessages: 3
-                },
-                {
-                    id: 2,
-                    scheduleNo: 'SCH-002',
-                    clientName: 'Bob Brown',
-                    propertyTitle: 'Modern Apartment Downtown',
-                    propertyAddress: '456 Downtown St, CA',
-                    scheduleTime: '2024-01-16T14:00:00',
-                    duration: 45,
-                    purpose: 'Consultation',
-                    status: 'Completed',
-                    notes: 'Follow-up meeting',
-                    clientPhone: '+1234567891',
-                    clientEmail: 'bob@email.com',
-                    unreadMessages: 0
-                },
-            ];
-            setAppointments(mockAppointments);
-            onScheduleUpdate?.();
+            const agentId = localStorage.getItem('agentId') || 123;
+            const result = await scheduleService.getByAgent(agentId);
+
+            if (result.success) {
+                setAppointments(result.data);
+                onScheduleUpdate?.();
+            } else {
+                message.error(result.error?.message || 'Failed to load appointments');
+            }
         } catch (error) {
             console.error('Error loading appointments:', error);
             message.error('Failed to load appointments');
@@ -113,7 +90,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const loadChatMessages = async (appointmentId) => {
         try {
-            // Mock chat messages - replace with actual API call
             const mockMessages = [
                 {
                     id: 1,
@@ -171,7 +147,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
             setChatMessages([...chatMessages, newMessageObj]);
             setNewMessage('');
 
-            // API call to send message would go here
             message.success('Message sent successfully');
         } catch (error) {
             message.error('Failed to send message');
@@ -180,9 +155,19 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const handleStatusChange = async (id, newStatus) => {
         try {
-            // API call to update status
-            message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
-            loadAppointments();
+            let result;
+            if (newStatus === 'Completed') {
+                result = await scheduleService.complete(id);
+            } else if (newStatus === 'Cancelled') {
+                result = await scheduleService.cancel(id);
+            }
+
+            if (result?.success) {
+                message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
+                loadAppointments();
+            } else {
+                message.error(result?.error?.message || 'Failed to update appointment status');
+            }
         } catch (error) {
             message.error('Failed to update appointment status');
         }
@@ -372,7 +357,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 />
             </Card>
 
-            {/* View Details Modal */}
             <Modal
                 title="Appointment Details"
                 open={viewModalVisible}
@@ -446,7 +430,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 )}
             </Modal>
 
-            {/* Chat Modal - Bottom Right Position */}
             <Modal
                 title={
                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
@@ -492,7 +475,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                         flexDirection: 'column',
                         background: 'white'
                     }}>
-                        {/* Appointment Info Header */}
                         <div style={{
                             padding: '12px 16px',
                             borderBottom: '1px solid #f0f0f0',
@@ -506,7 +488,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             </div>
                         </div>
 
-                        {/* Chat Messages */}
                         <div style={{
                             flex: 1,
                             overflowY: 'auto',
@@ -546,7 +527,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             ))}
                         </div>
 
-                        {/* Message Input */}
                         <div style={{
                             padding: '16px',
                             borderTop: '1px solid #f0f0f0',

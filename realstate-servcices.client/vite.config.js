@@ -50,16 +50,16 @@ const developmentConfig = () => {
                     changeOrigin: true
                 },
             },
-            port: 64324, // Preferred port
+            port: 64324, 
             https: {
                 key: fs.readFileSync(keyFilePath),
                 cert: fs.readFileSync(certFilePath),
             },
-            strictPort: false, // Allow fallback to next available port
+            strictPort: false,
             hmr: {
                 protocol: 'wss',
                 host: 'localhost',
-                // Port will automatically match the server port
+               
             }
         }
     };

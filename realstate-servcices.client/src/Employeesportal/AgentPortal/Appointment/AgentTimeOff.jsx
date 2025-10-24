@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
+import AgentTimeOffService from '../../AdminPortal/appointment/Services/AgentTimeOffService';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -35,6 +36,8 @@ const AgentTimeOff = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedTimeOff, setSelectedTimeOff] = useState(null);
     const [form] = Form.useForm();
+
+    const timeOffService = new AgentTimeOffService();
 
     const timeOffTypes = [
         'Vacation',
@@ -52,28 +55,14 @@ const AgentTimeOff = () => {
     const loadTimeOffs = async () => {
         setLoading(true);
         try {
-            // Mock data for current agent
-            const mockData = [
-                {
-                    id: 1,
-                    type: 'Vacation',
-                    startDate: '2024-01-20',
-                    endDate: '2024-01-25',
-                    reason: 'Family vacation',
-                    status: 'Approved',
-                    createdAt: '2024-01-10T09:00:00'
-                },
-                {
-                    id: 2,
-                    type: 'Sick Leave',
-                    startDate: '2024-02-01',
-                    endDate: '2024-02-01',
-                    reason: 'Doctor appointment',
-                    status: 'Pending',
-                    createdAt: '2024-01-15T14:00:00'
-                },
-            ];
-            setTimeOffs(mockData);
+            const agentId = localStorage.getItem('agentId') || 123;
+            const result = await timeOffService.getByAgent(agentId);
+
+            if (result.success) {
+                setTimeOffs(result.data);
+            } else {
+                message.error(result.error?.message || 'Failed to load time off requests');
+            }
         } catch (error) {
             console.error('Error loading time offs:', error);
             message.error('Failed to load time off requests');
@@ -99,9 +88,14 @@ const AgentTimeOff = () => {
 
     const handleDelete = async (id) => {
         try {
-            // API call to delete time off
-            message.success('Time off request deleted successfully');
-            loadTimeOffs();
+            const result = await timeOffService.delete(id);
+
+            if (result.success) {
+                message.success('Time off request deleted successfully');
+                loadTimeOffs();
+            } else {
+                message.error(result.error?.message || 'Failed to delete time off request');
+            }
         } catch (error) {
             message.error('Failed to delete time off request');
         }
@@ -109,24 +103,34 @@ const AgentTimeOff = () => {
 
     const handleSubmit = async (values) => {
         try {
+            const agentId = localStorage.getItem('agentId') || 123;
             const timeOffData = {
                 ...values,
                 startDate: values.dateRange[0].format('YYYY-MM-DD'),
                 endDate: values.dateRange[1].format('YYYY-MM-DD'),
-                id: selectedTimeOff?.id,
-                status: selectedTimeOff ? selectedTimeOff.status : 'Pending'
+                agentId: agentId,
+                status: 'Pending'
             };
 
             delete timeOffData.dateRange;
 
+            let result;
             if (selectedTimeOff) {
-                message.success('Time off request updated successfully');
+                result = await timeOffService.update(selectedTimeOff.id, timeOffData);
             } else {
-                message.success('Time off request submitted successfully');
+                result = await timeOffService.create(timeOffData);
             }
 
-            setModalVisible(false);
-            loadTimeOffs();
+            if (result.success) {
+                message.success(selectedTimeOff ?
+                    'Time off request updated successfully' :
+                    'Time off request submitted successfully'
+                );
+                setModalVisible(false);
+                loadTimeOffs();
+            } else {
+                message.error(result.error?.message || 'Failed to save time off request');
+            }
         } catch (error) {
             message.error('Failed to save time off request');
         }
@@ -262,7 +266,6 @@ const AgentTimeOff = () => {
                 />
             </Card>
 
-            {/* Create/Edit Modal */}
             <Modal
                 title={selectedTimeOff ? 'Edit Time Off Request' : 'Request Time Off'}
                 open={modalVisible}

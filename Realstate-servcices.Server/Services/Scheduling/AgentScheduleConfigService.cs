@@ -80,16 +80,16 @@ namespace Realstate_servcices.Server.Services.Scheduling
             if (config != null)
                 return config;
 
-            // Create default configuration
+            // Create default configuration with updated property names
             var defaultConfig = new AgentScheduleConfig
             {
                 AgentId = agentId,
                 SlotDurationMinutes = 60,
-                MaxAppointmentsPerDay = 8,
+                MaxSchedulesPerDay = 8, // ✅ Fixed: Updated property name
                 BufferTimeMinutes = 15,
-                AllowWeekendAppointments = false,
-                DayStartTime = new TimeSpan(9, 0, 0),
-                DayEndTime = new TimeSpan(17, 0, 0),
+                AllowWeekendScheduling = false, // ✅ Fixed: Updated property name
+                WorkDayStart = new TimeSpan(9, 0, 0), // ✅ Fixed: Updated property name
+                WorkDayEnd = new TimeSpan(17, 0, 0), // ✅ Fixed: Updated property name
                 AdvanceBookingDays = 30,
                 CreatedAt = DateTime.UtcNow
             };
@@ -106,12 +106,12 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 return false;
 
             // Check if weekend appointments are allowed
-            if (!config.AllowWeekendAppointments && (scheduleTime.DayOfWeek == DayOfWeek.Saturday || scheduleTime.DayOfWeek == DayOfWeek.Sunday))
+            if (!config.AllowWeekendScheduling && (scheduleTime.DayOfWeek == DayOfWeek.Saturday || scheduleTime.DayOfWeek == DayOfWeek.Sunday)) // ✅ Fixed: Updated property name
                 return false;
 
             // Check if within working hours
             var scheduleTimeOfDay = scheduleTime.TimeOfDay;
-            if (scheduleTimeOfDay < config.DayStartTime || scheduleTimeOfDay > config.DayEndTime)
+            if (scheduleTimeOfDay < config.WorkDayStart || scheduleTimeOfDay > config.WorkDayEnd) // ✅ Fixed: Updated property names
                 return false;
 
             // Check agent availability for the specific day and time
@@ -126,9 +126,9 @@ namespace Realstate_servcices.Server.Services.Scheduling
             var agentSchedules = scheduledAppointments.Where(s => s.AgentId == agentId && s.Status != "Cancelled");
 
             var availableSlots = new List<TimeSpan>();
-            var currentTime = config.DayStartTime;
+            var currentTime = config.WorkDayStart; // ✅ Fixed: Updated property name
 
-            while (currentTime + TimeSpan.FromMinutes(config.SlotDurationMinutes) <= config.DayEndTime)
+            while (currentTime + TimeSpan.FromMinutes(config.SlotDurationMinutes) <= config.WorkDayEnd) // ✅ Fixed: Updated property name
             {
                 var slotEnd = currentTime + TimeSpan.FromMinutes(config.SlotDurationMinutes);
 
@@ -143,7 +143,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
                     s.ScheduleTime.TimeOfDay >= currentTime &&
                     s.ScheduleTime.TimeOfDay < slotEnd);
 
-                if (isAvailable && !isBooked && agentSchedules.Count() < config.MaxAppointmentsPerDay)
+                if (isAvailable && !isBooked && agentSchedules.Count() < config.MaxSchedulesPerDay) // ✅ Fixed: Updated property name
                 {
                     availableSlots.Add(currentTime);
                 }

@@ -31,7 +31,7 @@ const BaseChat = () => {
                 <Content style={{
                     padding: 0,
                     margin: 0,
-                    height: 'calc(100vh - 64px)', 
+                    height: 'calc(100vh - 64px)',
                     overflow: 'hidden',
                     background: 'transparent'
                 }}>

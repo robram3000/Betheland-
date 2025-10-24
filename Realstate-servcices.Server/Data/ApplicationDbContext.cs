@@ -462,8 +462,10 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.AgentId).IsRequired();
                 entity.Property(e => e.StartDate).IsRequired();
                 entity.Property(e => e.EndDate).IsRequired();
+                entity.Property(e => e.Type).IsRequired().HasMaxLength(20).HasDefaultValue("Vacation");
                 entity.Property(e => e.Reason).HasMaxLength(500);
                 entity.Property(e => e.IsApproved).HasDefaultValue(false);
+                entity.Property(e => e.IsAllDay).HasDefaultValue(true); // ✅ Fixed: Added missing field
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);
 
@@ -478,28 +480,25 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.IsApproved);
             });
 
+    
             modelBuilder.Entity<AgentScheduleConfig>(entity =>
             {
                 entity.HasKey(e => e.Id);
-
                 entity.Property(e => e.AgentId).IsRequired();
-                entity.Property(e => e.DayStartTime).IsRequired(); // Changed from WorkingHoursStart
-                entity.Property(e => e.DayEndTime).IsRequired();   // Changed from WorkingHoursEnd
-                entity.Property(e => e.SlotDurationMinutes).IsRequired().HasDefaultValue(60); // Changed from AppointmentDuration
-                entity.Property(e => e.BufferTimeMinutes).IsRequired().HasDefaultValue(15);   // Changed from BufferTime
-                entity.Property(e => e.MaxAppointmentsPerDay).IsRequired().HasDefaultValue(8);
-                entity.Property(e => e.AllowWeekendAppointments).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.WorkDayStart).IsRequired().HasDefaultValue(new TimeSpan(9, 0, 0));
+                entity.Property(e => e.WorkDayEnd).IsRequired().HasDefaultValue(new TimeSpan(17, 0, 0));
+                entity.Property(e => e.SlotDurationMinutes).IsRequired().HasDefaultValue(60);
+                entity.Property(e => e.BufferTimeMinutes).IsRequired().HasDefaultValue(15);
+                entity.Property(e => e.MaxSchedulesPerDay).IsRequired().HasDefaultValue(8); 
+                entity.Property(e => e.AllowWeekendScheduling).IsRequired().HasDefaultValue(false); 
                 entity.Property(e => e.AdvanceBookingDays).IsRequired().HasDefaultValue(30);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);
-
-                // Relationship with Agent (one-to-one)
                 entity.HasOne(asc => asc.Agent)
                       .WithOne(a => a.AgentScheduleConfig)
                       .HasForeignKey<AgentScheduleConfig>(asc => asc.AgentId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Index for better performance
                 entity.HasIndex(e => e.AgentId).IsUnique();
             });
         }

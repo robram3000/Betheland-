@@ -1,5 +1,4 @@
-﻿// Updated PropertyLocation.jsx with disabled form for non-logged-in users
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -34,6 +33,7 @@ import {
     FaCalendarCheck,
     FaSpinner
 } from 'react-icons/fa';
+import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 import './PropertyLocation.scss';
 
 // Import services
@@ -82,8 +82,8 @@ const PropertyLocation = ({ property, agent }) => {
         if (authenticated) {
             const user = authService.getCurrentUser();
             setCurrentUser(user);
-            console.log('Current user object:', user); // Debug log
-            console.log('User ID:', user?.userId); // Debug log
+            console.log('Current user object:', user);
+            console.log('User ID:', user?.userId);
         }
     };
 
@@ -91,7 +91,6 @@ const PropertyLocation = ({ property, agent }) => {
     const hasValidCoordinates = property?.latitude && property?.longitude &&
         !isNaN(parseFloat(property.latitude)) &&
         !isNaN(parseFloat(property.longitude));
-
 
     const defaultPosition = [-33.9249, 18.4241];
 
@@ -102,6 +101,7 @@ const PropertyLocation = ({ property, agent }) => {
     const shortDescription = description.length > 200 ? description.substring(0, 200) + '...' : description;
     const amenities = property?.amenities || [];
     const displayedAmenities = showAllAmenities ? amenities : amenities.slice(0, 6);
+
     const handleFavoriteClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -111,6 +111,7 @@ const PropertyLocation = ({ property, agent }) => {
         setIsFavorited(!isFavorited);
         console.log('Favorite clicked:', !isFavorited);
     };
+
     const handleChatClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -122,7 +123,7 @@ const PropertyLocation = ({ property, agent }) => {
                 id: property?.id,
                 title: property?.title || 'Untitled Property',
                 price: property?.price || 0,
-                mainImage: property?.mainImage || '/default-property.jpg',
+                mainImage: processImageUrl(property?.mainImage) || '/default-property.jpg',
                 address: property?.address || 'Address not specified',
                 bedrooms: property?.bedrooms || 0,
                 bathrooms: property?.bathrooms || 0,
@@ -134,7 +135,7 @@ const PropertyLocation = ({ property, agent }) => {
             agent: {
                 id: agent?.id || 'agent-1',
                 name: agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent',
-                profilePicture: agent?.profilePictureUrl,
+                profilePicture: processImageUrl(agent?.profilePictureUrl, 'profile'),
                 title: agent?.title || 'Real Estate Agent',
                 phone: agent?.cellPhoneNo,
                 email: agent?.email
@@ -157,6 +158,7 @@ const PropertyLocation = ({ property, agent }) => {
         setScheduleError('');
     };
 
+    // Enhanced schedule submission with full mapper integration
     const handleScheduleSubmit = async (e) => {
         e.preventDefault();
         setScheduleError('');
@@ -183,7 +185,7 @@ const PropertyLocation = ({ property, agent }) => {
         setIsScheduling(true);
 
         try {
-            // ✅ FIXED: Use userId instead of id
+            // Use userId instead of id
             const clientId = currentUser?.userId;
 
             if (!clientId) {
@@ -196,14 +198,18 @@ const PropertyLocation = ({ property, agent }) => {
                 return;
             }
 
-            // Prepare schedule data
+            // Prepare schedule data according to Mapper.js structure
             const scheduleData = {
-                propertyId: property.id,
-                agentId: agent.id,
-                clientId: clientId,
+                propertyId: parseInt(property.id),
+                agentId: parseInt(agent.id),
+                clientId: parseInt(clientId),
                 scheduleTime: selectedDateTime.toISOString(),
                 notes: scheduleNotes,
-                status: "Scheduled"
+                status: "Scheduled",
+                // Enhanced scheduling fields from mapper
+                meetingType: "InPerson",
+                meetingLocation: property?.address || '',
+                durationMinutes: 60 // Default 1 hour viewing
             };
 
             // Validate the data using service
@@ -214,25 +220,33 @@ const PropertyLocation = ({ property, agent }) => {
             }
 
             // Check time slot availability
-            const isAvailable = await scheduleServices.checkTimeSlotAvailability(agent.id, selectedDateTime);
+            const isAvailable = await scheduleServices.checkTimeSlotAvailability(
+                parseInt(agent.id),
+                selectedDateTime
+            );
             if (!isAvailable) {
                 setScheduleError('This time slot is not available. Please choose a different time.');
                 return;
             }
 
-            // Create the schedule
-            await scheduleServices.createSchedule(scheduleData);
+            // Create the schedule using the service with mapper integration
+            const result = await scheduleServices.createSchedule(scheduleData);
 
-            // Success handling
-            setScheduleDate('');
-            setScheduleTime('');
-            setScheduleNotes('');
-            setScheduleSubmitted(true);
-            setScheduleError('');
+            if (result.success) {
+                // Success handling
+                setScheduleDate('');
+                setScheduleTime('');
+                setScheduleNotes('');
+                setScheduleSubmitted(true);
+                setScheduleError('');
 
-            setTimeout(() => {
-                setScheduleSubmitted(false);
-            }, 5000);
+                setTimeout(() => {
+                    setScheduleSubmitted(false);
+                }, 5000);
+            } else {
+                // Handle service error
+                setScheduleError(result.error?.message || 'Failed to schedule viewing. Please try again.');
+            }
 
         } catch (error) {
             console.error('Error scheduling viewing:', error);
@@ -303,7 +317,7 @@ const PropertyLocation = ({ property, agent }) => {
         ));
     };
 
-    // Render schedule form for logged-in users
+    // Enhanced schedule form with proper mapper integration
     const renderScheduleForm = () => (
         <form onSubmit={handleScheduleSubmit}>
             {scheduleError && (
@@ -337,6 +351,8 @@ const PropertyLocation = ({ property, agent }) => {
                         value={scheduleTime}
                         onChange={(e) => setScheduleTime(e.target.value)}
                         className="property-location-schedule-overlay-input"
+                        min="09:00"
+                        max="17:00"
                         required
                         disabled={!isLoggedIn || isScheduling}
                     />
@@ -400,32 +416,64 @@ const PropertyLocation = ({ property, agent }) => {
                             Join Now
                         </button>
                     </div>
+
+                    <div className="property-location-schedule-overlay-signin-benefits">
+                        <div className="property-location-schedule-overlay-benefit-item">
+                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
+                            Schedule property viewings instantly
+                        </div>
+                        <div className="property-location-schedule-overlay-benefit-item">
+                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
+                            Chat directly with agents
+                        </div>
+                        <div className="property-location-schedule-overlay-benefit-item">
+                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
+                            Save favorite properties
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 
-    // Render success message
-    const renderSuccessMessage = () => (
-        <div className="property-location-schedule-success">
-            <div className="property-location-schedule-success-content">
-                <FaCalendarCheck className="property-location-schedule-success-icon" />
-                <h4>Viewing Scheduled Successfully!</h4>
-                <p>Your viewing request has been sent to {agent?.firstName || 'the agent'}. They will contact you shortly to confirm the appointment.</p>
-                <div className="property-location-schedule-success-details">
-                    <div><strong>Date:</strong> {new Date(scheduleDate).toLocaleDateString()}</div>
-                    <div><strong>Time:</strong> {scheduleTime}</div>
-                    {scheduleNotes && <div><strong>Your message:</strong> {scheduleNotes}</div>}
+    // Enhanced success message with schedule details
+    const renderSuccessMessage = () => {
+        const formattedDate = new Date(scheduleDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        const formattedTime = new Date(`2000-01-01T${scheduleTime}`).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        return (
+            <div className="property-location-schedule-success">
+                <div className="property-location-schedule-success-content">
+                    <FaCalendarCheck className="property-location-schedule-success-icon" />
+                    <h4>Viewing Scheduled Successfully!</h4>
+                    <p>Your viewing request has been sent to {agent?.firstName || 'the agent'}. They will contact you shortly to confirm the appointment.</p>
+                    <div className="property-location-schedule-success-details">
+                        <div><strong>Property:</strong> {property?.title || 'Property'}</div>
+                        <div><strong>Date:</strong> {formattedDate}</div>
+                        <div><strong>Time:</strong> {formattedTime}</div>
+                        <div><strong>Agent:</strong> {agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent'}</div>
+                        {scheduleNotes && <div><strong>Your message:</strong> {scheduleNotes}</div>}
+                    </div>
+                    <button
+                        className="property-location-schedule-success-close"
+                        onClick={() => setScheduleSubmitted(false)}
+                    >
+                        Close
+                    </button>
                 </div>
-                <button
-                    className="property-location-schedule-success-close"
-                    onClick={() => setScheduleSubmitted(false)}
-                >
-                    Close
-                </button>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="property-location-container">
@@ -620,7 +668,7 @@ const PropertyLocation = ({ property, agent }) => {
                                             onLoadStart={handleVideoLoadStart}
                                             onLoadedData={handleVideoLoaded}
                                             muted={isVideoMuted}
-                                            poster={property?.videoThumbnail}
+                                            poster={processImageUrl(property?.videoThumbnail)}
                                         >
                                             <source src={property.videoUrl} type="video/mp4" />
                                             <source src={property.videoUrl} type="video/webm" />
@@ -695,11 +743,11 @@ const PropertyLocation = ({ property, agent }) => {
                                 <div className="property-location-schedule-agent-info">
                                     {agent?.profilePictureUrl && (
                                         <img
-                                            src={agent.profilePictureUrl}
+                                            src={processImageUrl(agent.profilePictureUrl, 'profile')}
                                             alt={`${agent.firstName} ${agent.lastName}`}
                                             className="property-location-schedule-agent-image"
                                             onError={(e) => {
-                                                e.target.style.display = 'none';
+                                                e.target.src = '/default-profile.jpg';
                                             }}
                                         />
                                     )}
@@ -756,11 +804,11 @@ const PropertyLocation = ({ property, agent }) => {
                             <div className="property-location-agent-header-content">
                                 {agent?.profilePictureUrl && (
                                     <img
-                                        src={agent.profilePictureUrl}
+                                        src={processImageUrl(agent.profilePictureUrl, 'profile')}
                                         alt={`${agent.firstName} ${agent.lastName}`}
                                         className="property-location-agent-image"
                                         onError={(e) => {
-                                            e.target.style.display = 'none';
+                                            e.target.src = '/default-profile.jpg';
                                         }}
                                     />
                                 )}

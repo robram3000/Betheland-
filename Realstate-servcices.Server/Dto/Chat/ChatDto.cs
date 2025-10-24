@@ -11,9 +11,7 @@
         public DateTime? LastMessageAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
-        public List<ChatParticipantDto> Participants { get; set; } = new();
-        public List<MessageDto> Messages { get; set; } = new();
-
-
+        public List<ChatParticipantDto> Participants { get; set; } = new List<ChatParticipantDto>();
+        public List<MessageDto> Messages { get; set; } = new List<MessageDto>();
     }
 }

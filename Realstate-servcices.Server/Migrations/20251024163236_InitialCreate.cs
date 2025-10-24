@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Realstate_servcices.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class initialcreated : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -234,6 +234,86 @@ namespace Realstate_servcices.Server.Migrations
                         name: "FK_Messages_Chats_ChatId",
                         column: x => x.ChatId,
                         principalTable: "Chats",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AgentAvailabilities",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AgentId = table.Column<int>(type: "int", nullable: false),
+                    DayOfWeek = table.Column<int>(type: "int", nullable: false),
+                    StartTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    EndTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    IsAvailable = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AgentAvailabilities", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AgentAvailabilities_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AgentScheduleConfigs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AgentId = table.Column<int>(type: "int", nullable: false),
+                    SlotDurationMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 60),
+                    MaxSchedulesPerDay = table.Column<int>(type: "int", nullable: false, defaultValue: 8),
+                    BufferTimeMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 15),
+                    AllowWeekendScheduling = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    WorkDayStart = table.Column<TimeSpan>(type: "time", nullable: false, defaultValue: new TimeSpan(0, 9, 0, 0, 0)),
+                    WorkDayEnd = table.Column<TimeSpan>(type: "time", nullable: false, defaultValue: new TimeSpan(0, 17, 0, 0, 0)),
+                    AdvanceBookingDays = table.Column<int>(type: "int", nullable: false, defaultValue: 30),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AgentScheduleConfigs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AgentScheduleConfigs_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AgentTimeOffs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AgentId = table.Column<int>(type: "int", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Vacation"),
+                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsApproved = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    IsAllDay = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AgentTimeOffs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AgentTimeOffs_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -506,8 +586,16 @@ namespace Realstate_servcices.Server.Migrations
                     AgentId = table.Column<int>(type: "int", nullable: false),
                     ClientId = table.Column<int>(type: "int", nullable: false),
                     ScheduleTime = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ScheduleEndTime = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Scheduled"),
                     Notes = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    MeetingType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    MeetingLocation = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    VirtualMeetingLink = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CancellationReason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReminderSentAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -564,6 +652,16 @@ namespace Realstate_servcices.Server.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AgentAvailabilities_AgentId_DayOfWeek",
+                table: "AgentAvailabilities",
+                columns: new[] { "AgentId", "DayOfWeek" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentAvailabilities_IsAvailable",
+                table: "AgentAvailabilities",
+                column: "IsAvailable");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Agents_AgentNo",
                 table: "Agents",
                 column: "AgentNo",
@@ -590,6 +688,22 @@ namespace Realstate_servcices.Server.Migrations
                 table: "Agents",
                 column: "LicenseNumber",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentScheduleConfigs_AgentId",
+                table: "AgentScheduleConfigs",
+                column: "AgentId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentTimeOffs_AgentId_StartDate_EndDate",
+                table: "AgentTimeOffs",
+                columns: new[] { "AgentId", "StartDate", "EndDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentTimeOffs_IsApproved",
+                table: "AgentTimeOffs",
+                column: "IsApproved");
 
             migrationBuilder.CreateIndex(
                 name: "IX_BaseMembers_Email",
@@ -749,6 +863,22 @@ namespace Realstate_servcices.Server.Migrations
                 column: "PropertyId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ScheduleProperties_ScheduleNo",
+                table: "ScheduleProperties",
+                column: "ScheduleNo",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ScheduleProperties_ScheduleTime",
+                table: "ScheduleProperties",
+                column: "ScheduleTime");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ScheduleProperties_Status",
+                table: "ScheduleProperties",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Wishlists_ClientId_PropertyId",
                 table: "Wishlists",
                 columns: new[] { "ClientId", "PropertyId" },
@@ -763,6 +893,15 @@ namespace Realstate_servcices.Server.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AgentAvailabilities");
+
+            migrationBuilder.DropTable(
+                name: "AgentScheduleConfigs");
+
+            migrationBuilder.DropTable(
+                name: "AgentTimeOffs");
+
             migrationBuilder.DropTable(
                 name: "ChatParticipants");
 

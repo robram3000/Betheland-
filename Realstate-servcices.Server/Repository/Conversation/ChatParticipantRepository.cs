@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Chat;
+
 namespace Realstate_servcices.Server.Repository.Conversation
 {
     public class ChatParticipantRepository : IChatParticipantRepository
@@ -52,6 +53,28 @@ namespace Realstate_servcices.Server.Repository.Conversation
                 participant.UnreadCount = 0;
                 await _context.SaveChangesAsync();
             }
+        }
+
+        // Add these missing method implementations
+        public async Task UpdateParticipantAsync(ChatParticipant participant)
+        {
+            participant.LastReadAt = DateTime.UtcNow;
+            _context.ChatParticipants.Update(participant);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task IncrementUnreadCountForOthersAsync(int chatId, int excludedUserId)
+        {
+            var participants = await _context.ChatParticipants
+                .Where(p => p.ChatId == chatId && p.BaseMemberId != excludedUserId && p.IsActive)
+                .ToListAsync();
+
+            foreach (var participant in participants)
+            {
+                participant.UnreadCount++;
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }

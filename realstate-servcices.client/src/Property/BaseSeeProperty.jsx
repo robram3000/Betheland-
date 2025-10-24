@@ -6,6 +6,7 @@ import propertyService from '../Employeesportal/AdminPortal/Creation_Property/se
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
 import PropertyImageInfo from './PropertyImageInfo';
 import PropertyLocation from './PropertyLocation';
+import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl'; 
 
 const { Content } = Layout;
 
@@ -24,30 +25,10 @@ const BaseSeePropertySimple = () => {
     const [agent, setAgent] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Process agent image URL
+    // Process agent image URL using the centralized utility
     const processAgentImageUrl = (url) => {
-        if (!url) return '/default-property.jpg';
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `http://betheland.runasp.net/${url}`;
-        }
-        return '/default-property.jpg';
+        return processImageUrl(url);
     };
-   
 
     const processPropertyData = (property) => {
         if (!property) return null;
@@ -68,7 +49,7 @@ const BaseSeePropertySimple = () => {
                 }
             }
 
-            // Process images
+            // Process images using centralized utility
             let propertyImages = [];
             let mainImage = '';
 
@@ -138,25 +119,6 @@ const BaseSeePropertySimple = () => {
             console.error('Error processing property data:', error, property);
             return null;
         }
-    };
-
-    const processImageUrl = (url) => {
-        if (!url || typeof url !== 'string' || url.trim() === '') {
-            return '/default-property.jpg';
-        }
-        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-            return url;
-        }
-        if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
-        }
-        if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
-        }
-        if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
-        }
-        return '/default-property.jpg';
     };
 
     // Enhanced agent fetching function

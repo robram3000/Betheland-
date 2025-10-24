@@ -780,10 +780,6 @@ namespace Realstate_servcices.Server.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<string>("Location")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("time");
 
@@ -815,7 +811,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<int>("AgentId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("AllowWeekendAppointments")
+                    b.Property<bool>("AllowWeekendScheduling")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -828,13 +824,7 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<TimeSpan>("DayEndTime")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("DayStartTime")
-                        .HasColumnType("time");
-
-                    b.Property<int>("MaxAppointmentsPerDay")
+                    b.Property<int>("MaxSchedulesPerDay")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(8);
@@ -846,6 +836,16 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("WorkDayEnd")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time")
+                        .HasDefaultValue(new TimeSpan(0, 17, 0, 0, 0));
+
+                    b.Property<TimeSpan>("WorkDayStart")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time")
+                        .HasDefaultValue(new TimeSpan(0, 9, 0, 0, 0));
 
                     b.HasKey("Id");
 
@@ -872,6 +872,11 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsAllDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsApproved")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -886,8 +891,10 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Property<string>("Type")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Vacation");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

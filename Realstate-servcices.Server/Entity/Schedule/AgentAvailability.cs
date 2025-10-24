@@ -25,9 +25,6 @@ namespace Realstate_servcices.Server.Entity.Schedule
         [Required]
         public bool IsAvailable { get; set; } = true;
 
-        [MaxLength(100)]
-        public string? Location { get; set; }
-
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }

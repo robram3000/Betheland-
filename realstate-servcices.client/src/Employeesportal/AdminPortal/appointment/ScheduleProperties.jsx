@@ -15,7 +15,8 @@ import {
     Tooltip,
     Row,
     Col,
-    Popconfirm
+    Popconfirm,
+    InputNumber
 } from 'antd';
 import {
     PlusOutlined,
@@ -27,48 +28,16 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 
+// Destructure necessary components
 const { Option } = Select;
 const { TextArea } = Input;
 
-const ScheduleProperties = () => {
+const ScheduleProperties = ({ onScheduleUpdate }) => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [form] = Form.useForm();
-
-    useEffect(() => {
-        loadProperties();
-    }, []);
-
-    const loadProperties = async () => {
-        setLoading(true);
-        try {
-            // Mock data
-            const mockData = [
-                {
-                    id: 1,
-                    title: 'Luxury Villa in Beverly Hills',
-                    address: '123 Beverly Hills, CA',
-                    type: 'Residential',
-                    status: 'Available',
-                    isSchedulable: true,
-                    maxVisitors: 5,
-                    visitDurationMinutes: 60,
-                    specialInstructions: 'Please bring shoe covers',
-                    contactPerson: 'John Doe',
-                    contactPhone: '+1234567890'
-                },
-                // Add more mock data
-            ];
-            setProperties(mockData);
-        } catch (error) {
-            console.error('Error loading properties:', error);
-            message.error('Failed to load properties');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const propertyTypes = [
         'Residential',
@@ -86,6 +55,64 @@ const ScheduleProperties = () => {
         'Maintenance'
     ];
 
+    useEffect(() => {
+        loadProperties();
+    }, []);
+
+    const loadProperties = async () => {
+        setLoading(true);
+        try {
+            // Mock data - replace with actual service call when available
+            const mockData = [
+                {
+                    id: 1,
+                    title: 'Luxury Villa in Beverly Hills',
+                    address: '123 Beverly Hills, CA',
+                    type: 'Residential',
+                    status: 'Available',
+                    isSchedulable: true,
+                    maxVisitors: 5,
+                    visitDurationMinutes: 60,
+                    specialInstructions: 'Please bring shoe covers',
+                    contactPerson: 'John Doe',
+                    contactPhone: '+1234567890'
+                },
+                {
+                    id: 2,
+                    title: 'Modern Apartment Downtown',
+                    address: '456 Downtown Ave, NY',
+                    type: 'Commercial',
+                    status: 'Under Contract',
+                    isSchedulable: false,
+                    maxVisitors: 3,
+                    visitDurationMinutes: 45,
+                    specialInstructions: 'Security clearance required',
+                    contactPerson: 'Jane Smith',
+                    contactPhone: '+1234567891'
+                },
+                {
+                    id: 3,
+                    title: 'Family Home in Suburbs',
+                    address: '789 Suburb Lane, TX',
+                    type: 'Residential',
+                    status: 'Available',
+                    isSchedulable: true,
+                    maxVisitors: 6,
+                    visitDurationMinutes: 90,
+                    specialInstructions: 'Parking available in driveway',
+                    contactPerson: 'Mike Johnson',
+                    contactPhone: '+1234567892'
+                }
+            ];
+            setProperties(mockData);
+        } catch (error) {
+            console.error('Error loading properties:', error);
+            message.error('Failed to load properties');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleCreate = () => {
         setSelectedProperty(null);
         form.resetFields();
@@ -100,9 +127,10 @@ const ScheduleProperties = () => {
 
     const handleDelete = async (id) => {
         try {
-            // API call to delete property
+            // API call to delete property - implement when service is available
             message.success('Property deleted successfully');
             loadProperties();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             message.error('Failed to delete property');
         }
@@ -116,15 +144,16 @@ const ScheduleProperties = () => {
             };
 
             if (selectedProperty) {
-                // Update existing
+                // Update existing - implement when service is available
                 message.success('Property updated successfully');
             } else {
-                // Create new
+                // Create new - implement when service is available
                 message.success('Property created successfully');
             }
 
             setModalVisible(false);
             loadProperties();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             message.error('Failed to save property');
         }

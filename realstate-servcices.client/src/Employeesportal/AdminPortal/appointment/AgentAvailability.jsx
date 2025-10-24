@@ -27,16 +27,34 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import ApiClient from './Services/apiClient';
-import SchedulingServices from './Services/SchedulePropertiesService';
 
-const { Option } = Select;
+// Import the main service
+import SchedulingServices from './Services';
 
+// Mock API client for demonstration
+const mockApiClient = {
+    get: async (url) => {
+        // Mock implementation
+        return { data: [], status: 200 };
+    },
+    post: async (url, data) => {
+        // Mock implementation
+        return { data: { ...data, id: Date.now() }, status: 201 };
+    },
+    put: async (url, data) => {
+        // Mock implementation
+        return { data, status: 200 };
+    },
+    delete: async (url) => {
+        // Mock implementation
+        return { status: 200 };
+    }
+};
 
-const apiClient = new ApiClient(process.env.REACT_APP_API_BASE_URL);
-const schedulingService = new SchedulingServices(apiClient);
+// Initialize services with mock API client
+const schedulingService = new SchedulingServices(mockApiClient);
 
-const AgentAvailability = () => {
+const AgentAvailability = ({ onScheduleUpdate }) => {
     const [availabilities, setAvailabilities] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -62,7 +80,7 @@ const AgentAvailability = () => {
     const loadAvailabilities = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.getAllAvailabilities();
+            const result = await schedulingService.availability.getAll();
             if (result.success) {
                 setAvailabilities(result.data);
             } else {
@@ -77,7 +95,7 @@ const AgentAvailability = () => {
     };
 
     const loadAgents = async () => {
-        
+        // Mock agents data - replace with actual API call
         setAgents([
             { id: 1, name: 'John Smith' },
             { id: 2, name: 'Sarah Johnson' },
@@ -95,18 +113,19 @@ const AgentAvailability = () => {
         setSelectedAvailability(availability);
         form.setFieldsValue({
             ...availability,
-            startTime: moment(availability.startTime, 'HH:mm:ss'),
-            endTime: moment(availability.endTime, 'HH:mm:ss')
+            startTime: availability.startTime ? moment(availability.startTime, 'HH:mm:ss') : null,
+            endTime: availability.endTime ? moment(availability.endTime, 'HH:mm:ss') : null
         });
         setModalVisible(true);
     };
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.deleteAvailability(id);
+            const result = await schedulingService.availability.delete(id);
             if (result.success) {
                 message.success('Availability deleted successfully');
                 loadAvailabilities();
+                if (onScheduleUpdate) onScheduleUpdate();
             } else {
                 message.error(result.error?.message || 'Failed to delete availability');
             }
@@ -119,19 +138,19 @@ const AgentAvailability = () => {
         try {
             const availabilityData = {
                 ...values,
-                startTime: values.startTime.format('HH:mm:ss'),
-                endTime: values.endTime.format('HH:mm:ss'),
+                startTime: values.startTime ? values.startTime.format('HH:mm:ss') : '09:00:00',
+                endTime: values.endTime ? values.endTime.format('HH:mm:ss') : '17:00:00',
                 id: selectedAvailability?.id
             };
 
             let result;
             if (selectedAvailability) {
-                result = await schedulingService.updateAvailability(selectedAvailability.id, availabilityData);
+                result = await schedulingService.availability.update(selectedAvailability.id, availabilityData);
                 if (result.success) {
                     message.success('Availability updated successfully');
                 }
             } else {
-                result = await schedulingService.createAvailability(availabilityData);
+                result = await schedulingService.availability.create(availabilityData);
                 if (result.success) {
                     message.success('Availability created successfully');
                 }
@@ -144,11 +163,13 @@ const AgentAvailability = () => {
 
             setModalVisible(false);
             loadAvailabilities();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             message.error('Failed to save availability');
         }
     };
 
+    // ... rest of the component remains the same
     const columns = [
         {
             title: 'Agent',
