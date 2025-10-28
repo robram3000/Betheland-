@@ -1,22 +1,35 @@
 // AgentLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
+import {
+    PlusCircleOutlined,
+    CheckCircleOutlined,
+    DashboardOutlined,
+    ArrowLeftOutlined,
+    TeamOutlined,
+    EyeOutlined
+} from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import AgentPage from './AgentPage';
 import CreateAgent from './CreateAgent';
+import EditAgent from './EditAgent';
+import ViewAgent from './ViewAgent';
 import PropAgentTable from './PropAgentTable';
 import agentService from './services/agentService';
 
-const { Content } = Layout;
-const { TabPane } = Tabs;
+const { Content, Sider } = Layout;
+const { Title } = Typography;
 
 const AgentLayoutadmn = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('agents');
     const [pendingCount, setPendingCount] = useState(0);
     const [agentsCount, setAgentsCount] = useState(0);
+    const [selectedAgent, setSelectedAgent] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isViewing, setIsViewing] = useState(false);
 
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -28,6 +41,43 @@ const AgentLayoutadmn = () => {
 
     const handleTabChange = (key) => {
         setActiveTab(key);
+        setIsEditing(false);
+        setIsViewing(false);
+        setSelectedAgent(null);
+    };
+
+    const handleEditAgent = (agent) => {
+        setSelectedAgent(agent);
+        setIsEditing(true);
+        setIsViewing(false);
+        // Stay on the same tab but render EditAgent component
+    };
+
+    const handleViewAgent = (agent) => {
+        setSelectedAgent(agent);
+        setIsViewing(true);
+        setIsEditing(false);
+        // Stay on the same tab but render ViewAgent component
+    };
+
+    const handleCreateAgent = () => {
+        setSelectedAgent(null);
+        setIsEditing(false);
+        setIsViewing(false);
+        setActiveTab('create');
+    };
+
+    const handleBackToAgents = () => {
+        setActiveTab('agents');
+        setIsEditing(false);
+        setIsViewing(false);
+        setSelectedAgent(null);
+    };
+
+    const handleBackFromEdit = () => {
+        setIsEditing(false);
+        setSelectedAgent(null);
+        // Stay on current tab but go back to agent list
     };
 
     const loadPendingCount = async () => {
@@ -53,7 +103,6 @@ const AgentLayoutadmn = () => {
         loadAgentsCount();
     }, []);
 
-    // Centralized SEO data management
     const getSeoData = () => {
         const baseTitle = "Betheland Agent Management";
         const baseDescription = "Comprehensive agent management platform for real estate professionals";
@@ -61,9 +110,21 @@ const AgentLayoutadmn = () => {
 
         const tabConfig = {
             agents: {
-                title: `All Agents (${agentsCount}) | ${baseTitle}`,
-                description: `Browse and manage ${agentsCount} agent profiles in Betheland real estate platform. Comprehensive agent management dashboard.`,
-                keywords: "agent management, real estate agents, agent profiles, Betheland, agent dashboard, real estate management",
+                title: isViewing
+                    ? `Agent Profile - ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'Agent'} | ${baseTitle}`
+                    : isEditing
+                        ? `Edit Agent - ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'Agent'} | ${baseTitle}`
+                        : `All Agents (${agentsCount}) | ${baseTitle}`,
+                description: isViewing
+                    ? `View complete profile and professional details for ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'agent'} in Betheland real estate platform.`
+                    : isEditing
+                        ? `Edit agent profile for ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'agent'} in Betheland real estate management system. Update agent details, contact information, and assignments.`
+                        : `Browse and manage ${agentsCount} agent profiles in Betheland real estate platform. Comprehensive agent management dashboard.`,
+                keywords: isViewing
+                    ? "agent profile, real estate agent, agent details, Betheland, agent information"
+                    : isEditing
+                        ? "edit agent, update profile, modify agent, Betheland, agent editing"
+                        : "agent management, real estate agents, agent profiles, Betheland, agent dashboard, real estate management",
                 canonical: `${baseUrl}/agents`,
                 ogImage: `${baseUrl}/images/agents-og.jpg`
             },
@@ -103,43 +164,85 @@ const AgentLayoutadmn = () => {
         };
     };
 
-    // Handler for when agents are updated
     const handleAgentsUpdate = () => {
         loadPendingCount();
         loadAgentsCount();
+        if (activeTab === 'create' || isViewing || isEditing) {
+            handleBackToAgents();
+        }
     };
+
+    const seoData = getSeoData();
 
     const tabItems = [
         {
             key: 'agents',
-            label: 'All Agents',
-            children: <AgentPage onAgentsUpdate={handleAgentsUpdate} />,
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TeamOutlined />
+                    All Agents
+                </span>
+            ),
         },
         {
             key: 'approval',
             label: (
-                <Badge count={pendingCount} size="small">
-                    Approval Queue
+                <Badge count={pendingCount} size="small" offset={[10, -5]}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircleOutlined />
+                        Approval Queue
+                    </span>
                 </Badge>
             ),
-            children: <div>Approval Queue Component</div>,
         },
         {
             key: 'create',
-            label: 'Create Agent',
-            children: <CreateAgent onSuccess={() => {
-                setActiveTab('agents');
-                handleAgentsUpdate();
-            }} />,
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PlusCircleOutlined />
+                    Create Agent
+                </span>
+            ),
         },
         {
             key: 'management',
-            label: 'Agent Management',
-            children: <PropAgentTable onUpdate={handleAgentsUpdate} />,
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <DashboardOutlined />
+                    Agent Management
+                </span>
+            ),
         },
     ];
 
-    const seoData = getSeoData();
+    const getHeaderTitle = () => {
+        if (isViewing) return `Agent Profile - ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'Agent'}`;
+        if (isEditing) return `Edit Agent - ${selectedAgent?.firstName || ''} ${selectedAgent?.lastName || 'Agent'}`;
+
+        switch (activeTab) {
+            case 'agents': return 'All Agents';
+            case 'approval': return 'Approval Queue';
+            case 'create': return 'Create New Agent';
+            case 'management': return 'Agent Management Dashboard';
+            default: return 'Agent Management';
+        }
+    };
+
+    const getHeaderDescription = () => {
+        if (isViewing) return 'View complete agent profile and professional information';
+        if (isEditing) return 'Update agent information, contact details, and assignments';
+
+        switch (activeTab) {
+            case 'agents': return `Browse and manage ${agentsCount} agent profiles`;
+            case 'approval': return pendingCount > 0 ? `${pendingCount} agents pending approval` : 'All agents are approved';
+            case 'create': return 'Add new agent profiles with detailed information';
+            case 'management': return 'Advanced agent management and analytics';
+            default: return 'Manage real estate agents and their assignments';
+        }
+    };
+
+    const showAddButton = activeTab === 'agents' && !isEditing && !isViewing;
+    const showBackButton = isEditing || isViewing;
 
     return (
         <ConfigProvider
@@ -154,39 +257,33 @@ const AgentLayoutadmn = () => {
                     Tabs: {
                         itemSelectedColor: '#1a365d',
                         itemActiveColor: '#1a365d',
-                        cardHeight: 30,
+                        horizontalItemPadding: '12px 16px',
                     },
+                    Layout: {
+                        siderBg: '#f8f9fa',
+                    }
                 },
             }}
         >
-            {/* Centralized Helmet Management */}
             <Helmet>
-                {/* Basic Meta Tags */}
                 <title>{seoData.title}</title>
                 <meta name="description" content={seoData.description} />
                 <meta name="keywords" content={seoData.keywords} />
-
-                {/* Open Graph Meta Tags */}
                 <meta property="og:title" content={seoData.title} />
                 <meta property="og:description" content={seoData.description} />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={seoData.canonical} />
                 <meta property="og:image" content={seoData.ogImage} />
                 <meta property="og:site_name" content="Betheland Agent Management" />
-
-                {/* Twitter Card Meta Tags */}
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={seoData.title} />
                 <meta name="twitter:description" content={seoData.description} />
                 <meta name="twitter:image" content={seoData.ogImage} />
-
-                {/* Additional Meta Tags */}
                 <meta name="robots" content="index, follow" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
 
-                {/* Structured Data for SEO */}
                 <script type="application/ld+json">
                     {JSON.stringify({
                         "@context": "https://schema.org",
@@ -209,7 +306,6 @@ const AgentLayoutadmn = () => {
                     })}
                 </script>
 
-                {/* Additional Schema for Real Estate */}
                 <script type="application/ld+json">
                     {JSON.stringify({
                         "@context": "https://schema.org",
@@ -235,54 +331,170 @@ const AgentLayoutadmn = () => {
                     <GlobalAdminNavigation collapsed={collapsed} />
                     <Layout
                         style={{
-                            marginLeft: collapsed ? 80 : 280,
+                            marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
                         }}
                     >
-                        <Content
-                            style={{
-                                background: colorBgContainer,
-                                margin: '16px 0',
-                                minHeight: 280,
-                                borderRadius: borderRadiusLG,
-                                maxWidth: '100%',
-                                overflow: 'hidden',
-                                padding: '20px'
-                            }}
-                        >
-                            <div style={{ marginBottom: 20 }}>
-                                <h1 style={{
-                                    margin: 0,
-                                    color: '#1a365d',
-                                    fontSize: '24px',
-                                    fontWeight: 600
-                                }}>
-                                    Agent Management
-                                </h1>
-                                <p style={{
-                                    margin: '6px 0 0 0',
-                                    color: '#666',
-                                    fontSize: '13px'
-                                }}>
-                                    Manage real estate agents, their profiles and properties
-                                </p>
-                            </div>
-
-                            <Tabs
-                                activeKey={activeTab}
-                                onChange={handleTabChange}
-                                type="card"
-                                size="middle"
-                                items={tabItems}
+                        <Layout>
+                            {/* Vertical Tabs Sidebar */}
+                            <Sider
+                                width={220}
                                 style={{
-                                    '& .ant-tabs-tab': {
-                                        padding: '8px 16px',
-                                        margin: '0 4px',
-                                    }
+                                    background: colorBgContainer,
+                                    borderRadius: borderRadiusLG,
+                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+                                    borderRight: '1px solid #f0f0f0'
                                 }}
-                            />
-                        </Content>
+                            >
+                                <div style={{ padding: '20px 0' }}>
+                                    {/* Agent Control Header */}
+                                    <div style={{
+                                        padding: '0 16px 16px 16px',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <Title
+                                            level={4}
+                                            style={{
+                                                margin: 0,
+                                                color: '#1a365d',
+                                                fontSize: '16px',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Agent Control
+                                        </Title>
+                                        <p style={{
+                                            margin: '4px 0 0 0',
+                                            color: '#666',
+                                            fontSize: '12px',
+                                            lineHeight: 1.4
+                                        }}>
+                                            Manage agents, approvals, and profiles
+                                        </p>
+                                    </div>
+
+                                    <Tabs
+                                        activeKey={activeTab}
+                                        onChange={handleTabChange}
+                                        tabPosition="left"
+                                        type="line"
+                                        size="middle"
+                                        style={{ width: '100%' }}
+                                        tabBarStyle={{ border: 'none', width: '100%' }}
+                                        items={tabItems}
+                                    />
+                                </div>
+                            </Sider>
+
+                            {/* Main Content Area */}
+                            <Content
+                                style={{
+                                    background: colorBgContainer,
+                                    margin: '16px 16px 16px 0',
+                                    minHeight: 280,
+                                    borderRadius: borderRadiusLG,
+                                    overflow: 'hidden',
+                                    padding: '24px'
+                                }}
+                            >
+                                {/* Header Section */}
+                                <div style={{ marginBottom: 24 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            {showBackButton && (
+                                                <Button
+                                                    icon={<ArrowLeftOutlined />}
+                                                    onClick={isEditing ? handleBackFromEdit : handleBackToAgents}
+                                                    style={{ border: 'none', boxShadow: 'none' }}
+                                                >
+                                                    Back to Agents
+                                                </Button>
+                                            )}
+                                            <div>
+                                                <h1 style={{
+                                                    margin: 0,
+                                                    color: '#1a365d',
+                                                    fontSize: '24px',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {getHeaderTitle()}
+                                                </h1>
+                                                <p style={{
+                                                    margin: '6px 0 0 0',
+                                                    color: '#666',
+                                                    fontSize: '14px'
+                                                }}>
+                                                    {getHeaderDescription()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {showAddButton && (
+                                            <Button
+                                                type="primary"
+                                                icon={<PlusCircleOutlined />}
+                                                onClick={handleCreateAgent}
+                                            >
+                                                Add Agent
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Conditional Content Rendering */}
+                                {isViewing ? (
+                                    // View Agent Full Page
+                                    <ViewAgent
+                                        agent={selectedAgent}
+                                        onEdit={handleEditAgent}
+                                        onBack={handleBackToAgents}
+                                    />
+                                ) : isEditing ? (
+                                    // Edit Agent Full Page
+                                    <EditAgent
+                                        agent={selectedAgent}
+                                        onSuccess={handleAgentsUpdate}
+                                        onCancel={handleBackFromEdit}
+                                    />
+                                ) : (
+                                    // Regular Tab Content
+                                    <>
+                                        {activeTab === 'agents' && (
+                                            <AgentPage
+                                                onAgentsUpdate={handleAgentsUpdate}
+                                                onEditAgent={handleEditAgent}
+                                                onCreateAgent={handleCreateAgent}
+                                                onViewAgent={handleViewAgent}
+                                            />
+                                        )}
+                                        {activeTab === 'approval' && (
+                                            <div style={{
+                                                textAlign: 'center',
+                                                padding: '40px',
+                                                color: '#666'
+                                            }}>
+                                                <CheckCircleOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                                                <Title level={4} type="secondary">
+                                                    Approval Queue
+                                                </Title>
+                                                <p>Agent approval functionality will be implemented soon</p>
+                                            </div>
+                                        )}
+                                        {activeTab === 'create' && (
+                                            <CreateAgent
+                                                agent={selectedAgent}
+                                                onSuccess={handleAgentsUpdate}
+                                                onBack={handleBackToAgents}
+                                            />
+                                        )}
+                                        {activeTab === 'management' && (
+                                            <PropAgentTable onUpdate={handleAgentsUpdate} />
+                                        )}
+                                    </>
+                                )}
+                            </Content>
+                        </Layout>
                     </Layout>
                 </Layout>
             </Layout>

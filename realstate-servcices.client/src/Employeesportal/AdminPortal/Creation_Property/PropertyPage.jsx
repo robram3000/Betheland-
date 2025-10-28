@@ -24,8 +24,6 @@ import {
     EditOutlined,
     DeleteOutlined,
     EyeOutlined,
-    PlusOutlined,
-    ReloadOutlined,
     CheckOutlined,
     CloseOutlined,
     UserSwitchOutlined,
@@ -34,7 +32,11 @@ import {
     MailOutlined,
     PhoneOutlined,
     PictureOutlined,
-    PlayCircleOutlined
+    PlayCircleOutlined,
+    DownloadOutlined,
+    PrinterOutlined,
+    FilePdfOutlined,
+    FileExcelOutlined
 } from '@ant-design/icons';
 import {
     FaBed,
@@ -43,7 +45,6 @@ import {
     FaCar
 } from 'react-icons/fa';
 import BaseTable from './BaseTable';
-import InsertProperty from './InsertProperty';
 import ChangeHandlerModal from './ChangeHandlerModal';
 import propertyService from './services/propertyService';
 import agentService from '../Creation_Agent/Services/AgentService';
@@ -52,13 +53,16 @@ import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '
 const { Search } = Input;
 const { Option } = Select;
 
-const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
+const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
-    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [priceRangeFilter, setPriceRangeFilter] = useState('all');
+    const [bedroomsFilter, setBedroomsFilter] = useState('all');
+    const [bathroomsFilter, setBathroomsFilter] = useState('all');
+    const [cityFilter, setCityFilter] = useState('all');
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [viewModalVisible, setViewModalVisible] = useState(false);
     const [changeHandlerModalVisible, setChangeHandlerModalVisible] = useState(false);
@@ -199,52 +203,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
         }
     }, [loadAgentData]);
 
-    // Refresh agent data for a specific property
-    const refreshAgentData = useCallback(async (propertyId) => {
-        const property = properties.find(p => p.id === propertyId);
-        if (property && property.agentId) {
-            try {
-                console.log(`Refreshing agent data for property ${propertyId}, agentId: ${property.agentId}`);
-                const updatedAgent = await loadAgentData(property.agentId);
-
-                setProperties(prev => prev.map(p =>
-                    p.id === propertyId ? { ...p, agent: updatedAgent } : p
-                ));
-
-                message.success('Agent data refreshed successfully');
-            } catch (error) {
-                console.error(`Error refreshing agent data for property ${propertyId}:`, error);
-                message.error('Failed to refresh agent data');
-            }
-        }
-    }, [properties, loadAgentData]);
-
-    // Refresh all agent data
-    const refreshAllAgentData = useCallback(async () => {
-        try {
-            const propertiesWithAgentIds = properties.filter(p => p.agentId);
-            if (propertiesWithAgentIds.length === 0) return;
-
-            message.info('Refreshing all agent data...');
-
-            const updatedProperties = await Promise.all(
-                properties.map(async (property) => {
-                    if (property.agentId) {
-                        const updatedAgent = await loadAgentData(property.agentId);
-                        return { ...property, agent: updatedAgent };
-                    }
-                    return property;
-                })
-            );
-
-            setProperties(updatedProperties);
-            message.success('All agent data refreshed successfully');
-        } catch (error) {
-            console.error('Error refreshing all agent data:', error);
-            message.error('Failed to refresh agent data');
-        }
-    }, [properties, loadAgentData]);
-
     useEffect(() => {
         loadProperties();
     }, []);
@@ -261,6 +219,30 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
         setTypeFilter(value);
     };
 
+    const handlePriceRangeFilter = (value) => {
+        setPriceRangeFilter(value);
+    };
+
+    const handleBedroomsFilter = (value) => {
+        setBedroomsFilter(value);
+    };
+
+    const handleBathroomsFilter = (value) => {
+        setBathroomsFilter(value);
+    };
+
+    const handleCityFilter = (value) => {
+        setCityFilter(value);
+    };
+
+    // Get unique cities for filter
+    const getUniqueCities = () => {
+        const cities = properties
+            .map(property => property.city)
+            .filter(city => city && city.trim() !== '');
+        return [...new Set(cities)].sort();
+    };
+
     const filteredProperties = properties.filter(property => {
         const matchesSearch = property.title?.toLowerCase().includes(searchText.toLowerCase()) ||
             property.address?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -270,13 +252,149 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
 
         const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
         const matchesType = typeFilter === 'all' || property.type === typeFilter;
+        const matchesCity = cityFilter === 'all' || property.city === cityFilter;
 
-        return matchesSearch && matchesStatus && matchesType;
+        // Price range filter
+        let matchesPrice = true;
+        if (priceRangeFilter !== 'all' && property.price) {
+            switch (priceRangeFilter) {
+                case '0-500k':
+                    matchesPrice = property.price <= 500000;
+                    break;
+                case '500k-1M':
+                    matchesPrice = property.price > 500000 && property.price <= 1000000;
+                    break;
+                case '1M-5M':
+                    matchesPrice = property.price > 1000000 && property.price <= 5000000;
+                    break;
+                case '5M+':
+                    matchesPrice = property.price > 5000000;
+                    break;
+                default:
+                    matchesPrice = true;
+            }
+        }
+
+        // Bedrooms filter
+        let matchesBedrooms = true;
+        if (bedroomsFilter !== 'all' && property.bedrooms !== undefined) {
+            switch (bedroomsFilter) {
+                case '1':
+                    matchesBedrooms = property.bedrooms === 1;
+                    break;
+                case '2':
+                    matchesBedrooms = property.bedrooms === 2;
+                    break;
+                case '3':
+                    matchesBedrooms = property.bedrooms === 3;
+                    break;
+                case '4+':
+                    matchesBedrooms = property.bedrooms >= 4;
+                    break;
+                default:
+                    matchesBedrooms = true;
+            }
+        }
+
+        // Bathrooms filter
+        let matchesBathrooms = true;
+        if (bathroomsFilter !== 'all' && property.bathrooms !== undefined) {
+            switch (bathroomsFilter) {
+                case '1':
+                    matchesBathrooms = property.bathrooms === 1;
+                    break;
+                case '2':
+                    matchesBathrooms = property.bathrooms === 2;
+                    break;
+                case '3+':
+                    matchesBathrooms = property.bathrooms >= 3;
+                    break;
+                default:
+                    matchesBathrooms = true;
+            }
+        }
+
+        return matchesSearch && matchesStatus && matchesType && matchesPrice && matchesBedrooms && matchesBathrooms && matchesCity;
     });
 
+    // Export functions
+    const handlePrint = () => {
+        const printContent = document.querySelector('.ant-card');
+        const originalContents = document.body.innerHTML;
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Properties Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f5f5f5; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Properties Report</h1>
+                        <p>Generated on: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    ${printContent.innerHTML}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    };
+
+    const handleExportPDF = () => {
+        message.info('PDF export functionality would be implemented here');
+        // In a real implementation, you would use a library like jsPDF or html2pdf
+        // This is a placeholder for the PDF export functionality
+    };
+
+    const handleExportExcel = () => {
+        try {
+            // Create CSV content
+            const headers = ['Title', 'Type', 'Price', 'Bedrooms', 'Bathrooms', 'City', 'Status', 'Agent', 'Address'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredProperties.map(property => [
+                    `"${property.title || ''}"`,
+                    `"${property.type || ''}"`,
+                    property.price || 0,
+                    property.bedrooms || 0,
+                    property.bathrooms || 0,
+                    `"${property.city || ''}"`,
+                    `"${property.status || ''}"`,
+                    `"${getAgentDisplayName(property.agent)}"`,
+                    `"${property.address || ''}"`
+                ].join(','))
+            ].join('\n');
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `properties_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            message.success('Excel/CSV file exported successfully');
+        } catch (error) {
+            console.error('Export error:', error);
+            message.error('Failed to export Excel file');
+        }
+    };
+
     const handleEdit = (property) => {
-        setSelectedProperty(property);
-        setIsModalVisible(true);
+        if (onEditProperty) {
+            onEditProperty(property);
+        }
     };
 
     const handleView = (property) => {
@@ -373,14 +491,8 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
         }
     };
 
-    const handleModalClose = () => {
-        setIsModalVisible(false);
-        setSelectedProperty(null);
-    };
-
     const handleSuccess = () => {
         loadProperties();
-        handleModalClose();
         if (onPropertiesUpdate) {
             onPropertiesUpdate();
         }
@@ -587,16 +699,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
             <Menu.Item key="changeHandler" icon={<UserSwitchOutlined />} onClick={() => handleChangeHandler(record)}>
                 Change Handler
             </Menu.Item>
-            {record.agentId && (
-                <Menu.Item
-                    key="refreshAgent"
-                    icon={<ReloadOutlined />}
-                    onClick={() => refreshAgentData(record.id)}
-                    disabled={isAgentLoading(record.agentId)}
-                >
-                    {isAgentLoading(record.agentId) ? 'Refreshing...' : 'Refresh Agent Data'}
-                </Menu.Item>
-            )}
             <Menu.SubMenu key="status" title="Change Status" icon={<CheckOutlined />}>
                 <Menu.Item key="available" onClick={() => handleStatusChange(record.id, 'available')}>
                     Mark as Available
@@ -733,16 +835,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
             key: 'media',
             render: (_, record) => renderMediaPreview(record),
         },
-        {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status) => (
-                <Tag color={getStatusColor(status)}>
-                    {getStatusText(status)}
-                </Tag>
-            ),
-        },
+
         {
             title: 'Agent',
             dataIndex: 'agent',
@@ -794,13 +887,17 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                     </Space>
                 );
             },
+        }, {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status) => (
+                <Tag color={getStatusColor(status)}>
+                    {getStatusText(status)}
+                </Tag>
+            ),
         },
-        {
-            title: 'Listed Date',
-            dataIndex: 'listedDate',
-            key: 'listedDate',
-            render: (date) => date ? new Date(date).toLocaleDateString() : 'Not set',
-        },
+
         {
             title: 'Actions',
             key: 'actions',
@@ -827,16 +924,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                             onClick={() => handleChangeHandler(record)}
                         />
                     </Tooltip>
-                    {record.agentId && (
-                        <Tooltip title="Refresh Agent Data">
-                            <Button
-                                icon={<ReloadOutlined />}
-                                size="small"
-                                loading={isAgentLoading(record.agentId)}
-                                onClick={() => refreshAgentData(record.id)}
-                            />
-                        </Tooltip>
-                    )}
                     {record.status === 'pending' && (
                         <>
                             <Tooltip title="Approve">
@@ -911,29 +998,66 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                             <Option value="Land">Land</Option>
                             <Option value="Commercial">Commercial</Option>
                         </Select>
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 150 }}
+                            onChange={handlePriceRangeFilter}
+                        >
+                            <Option value="all">All Prices</Option>
+                            <Option value="0-500k">₱0 - ₱500K</Option>
+                            <Option value="500k-1M">₱500K - ₱1M</Option>
+                            <Option value="1M-5M">₱1M - ₱5M</Option>
+                            <Option value="5M+">₱5M+</Option>
+                        </Select>
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 130 }}
+                            onChange={handleBedroomsFilter}
+                        >
+                            <Option value="all">All Bedrooms</Option>
+                            <Option value="1">1 Bedroom</Option>
+                            <Option value="2">2 Bedrooms</Option>
+                            <Option value="3">3 Bedrooms</Option>
+                            <Option value="4+">4+ Bedrooms</Option>
+                        </Select>
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 130 }}
+                            onChange={handleBathroomsFilter}
+                        >
+                            <Option value="all">All Bathrooms</Option>
+                            <Option value="1">1 Bathroom</Option>
+                            <Option value="2">2 Bathrooms</Option>
+                            <Option value="3+">3+ Bathrooms</Option>
+                        </Select>
+                        <Select
+                            defaultValue="all"
+                            style={{ width: 150 }}
+                            onChange={handleCityFilter}
+                        >
+                            <Option value="all">All Cities</Option>
+                            {getUniqueCities().map(city => (
+                                <Option key={city} value={city}>{city}</Option>
+                            ))}
+                        </Select>
                     </Space>
-                    <Space wrap>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadProperties}
-                            loading={loading}
-                        >
-                            Refresh All
-                        </Button>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={refreshAllAgentData}
-                            disabled={loading}
-                        >
-                            Refresh Agents
-                        </Button>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={() => setIsModalVisible(true)}
-                        >
-                            Add Property
-                        </Button>
+
+                    <Space>
+                        <Tooltip title="Print">
+                            <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                                Print
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Export PDF">
+                            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+                                PDF
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Export Excel">
+                            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+                                Excel
+                            </Button>
+                        </Tooltip>
                     </Space>
                 </div>
 
@@ -948,25 +1072,11 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                             `${range[0]}-${range[1]} of ${total} properties`,
+                        position: ['bottomRight'] // Ensure pagination is always at bottom
                     }}
+                    style={{ marginBottom: 0 }}
                 />
             </Card>
-
-            {/* Edit/Create Property Modal */}
-            <Modal
-                title={selectedProperty ? 'Edit Property' : 'Add New Property'}
-                open={isModalVisible}
-                onCancel={handleModalClose}
-                footer={null}
-                width={1000}
-                destroyOnClose
-            >
-                <InsertProperty
-                    property={selectedProperty}
-                    onSuccess={handleSuccess}
-                    onCancel={handleModalClose}
-                />
-            </Modal>
 
             {/* View Property Modal */}
             <Modal
@@ -976,255 +1086,64 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                 footer={[
                     <Button key="close" onClick={() => setViewModalVisible(false)}>
                         Close
-                    </Button>
+                    </Button>,
                 ]}
                 width={800}
             >
                 {selectedProperty && (
                     <div>
-                        <div style={{ marginBottom: 16, textAlign: 'center' }}>
-                            {selectedProperty.mainImage && (
-                                <Image
-                                    width={200}
-                                    src={getPropertyImage(selectedProperty)}
-                                    alt={selectedProperty.title}
-                                    fallback={processImageUrl('/fallback-image.png')}
-                                    onError={(e) => {
-                                        e.target.src = processImageUrl('/fallback-image.png');
-                                    }}
-                                />
-                            )}
-                        </div>
                         <Row gutter={16}>
                             <Col span={12}>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Title:</strong> {selectedProperty.title || 'No title'}
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Description:</strong> {selectedProperty.description || 'No description'}
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Address:</strong> {selectedProperty.address ? `${selectedProperty.address}, ${selectedProperty.city}, ${selectedProperty.state} ${selectedProperty.zipCode}` : 'No address'}
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Price:</strong> {selectedProperty.price ? `₱${selectedProperty.price.toLocaleString()}` : 'Not set'}
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Type:</strong>
-                                    <Tag color="#1e3a8a" style={{ color: 'white', border: 'none', marginLeft: 8 }}>
-                                        {selectedProperty.type || 'N/A'}
-                                    </Tag>
-                                </div>
+                                <h3>Basic Information</h3>
+                                <p><strong>Title:</strong> {selectedProperty.title}</p>
+                                <p><strong>Type:</strong> {selectedProperty.type}</p>
+                                <p><strong>Price:</strong> ₱{selectedProperty.price?.toLocaleString()}</p>
+                                <p><strong>Status:</strong> <Tag color={getStatusColor(selectedProperty.status)}>{getStatusText(selectedProperty.status)}</Tag></p>
                             </Col>
                             <Col span={12}>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Details:</strong>
-                                    <Space size={16} style={{ marginTop: 8 }}>
-                                        <Tooltip title="Bedrooms">
-                                            <Space size={4}>
-                                                <FaBed style={{ color: '#666' }} />
-                                                <span>{selectedProperty.bedrooms || 0}</span>
-                                            </Space>
-                                        </Tooltip>
-                                        <Tooltip title="Bathrooms">
-                                            <Space size={4}>
-                                                <FaBath style={{ color: '#666' }} />
-                                                <span>{selectedProperty.bathrooms || 0}</span>
-                                            </Space>
-                                        </Tooltip>
-                                        <Tooltip title="Kitchens">
-                                            <Space size={4}>
-                                                <FaUtensils style={{ color: '#666' }} />
-                                                <span>{selectedProperty.kitchens || 0}</span>
-                                            </Space>
-                                        </Tooltip>
-                                        <Tooltip title="Garages">
-                                            <Space size={4}>
-                                                <FaCar style={{ color: '#666' }} />
-                                                <span>{selectedProperty.garages || 0}</span>
-                                            </Space>
-                                        </Tooltip>
-                                    </Space>
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Area:</strong> {selectedProperty.areaSqm ? `${selectedProperty.areaSqm.toLocaleString()} sqm` : 'Not set'}
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Status:</strong> <Tag color={getStatusColor(selectedProperty.status)}>
-                                        {getStatusText(selectedProperty.status)}
-                                    </Tag>
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Amenities:</strong>
-                                    <div style={{ marginTop: 8 }}>
-                                        {renderAmenities(selectedProperty.amenities)}
-                                    </div>
-                                </div>
-                                <div style={{ marginBottom: 16 }}>
-                                    <strong>Agent:</strong>
-                                    <Space style={{ marginLeft: 8 }} direction="vertical">
-                                        <Space>
-                                            {getAgentAvatar(selectedProperty.agent)}
-                                            <span>{getAgentDisplayName(selectedProperty.agent)}</span>
-                                        </Space>
-                                        {getAgentContactInfo(selectedProperty.agent) && (
-                                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                                <Space direction="vertical" size={2}>
-                                                    {selectedProperty.agent.email && (
-                                                        <Space size={4}>
-                                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
-                                                            <span>{selectedProperty.agent.email}</span>
-                                                        </Space>
-                                                    )}
-                                                    {selectedProperty.agent.cellPhoneNo && (
-                                                        <Space size={4}>
-                                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
-                                                            <span>{selectedProperty.agent.cellPhoneNo}</span>
-                                                        </Space>
-                                                    )}
-                                                </Space>
-                                            </div>
-                                        )}
-                                        {selectedProperty.agentId && !selectedProperty.agent && (
-                                            <Tag color="orange" size="small">ID: {selectedProperty.agentId}</Tag>
-                                        )}
-                                    </Space>
-                                </div>
+                                <h3>Location</h3>
+                                <p><strong>Address:</strong> {selectedProperty.address}</p>
+                                <p><strong>City:</strong> {selectedProperty.city}</p>
+                                <p><strong>Zip Code:</strong> {selectedProperty.zipCode}</p>
                             </Col>
                         </Row>
+                        <Row gutter={16} style={{ marginTop: 16 }}>
+                            <Col span={12}>
+                                <h3>Specifications</h3>
+                                <p><strong>Bedrooms:</strong> {selectedProperty.bedrooms}</p>
+                                <p><strong>Bathrooms:</strong> {selectedProperty.bathrooms}</p>
+                                <p><strong>Kitchens:</strong> {selectedProperty.kitchens}</p>
+                                <p><strong>Garages:</strong> {selectedProperty.garages}</p>
+                            </Col>
+                            <Col span={12}>
+                                <h3>Agent Information</h3>
+                                <p><strong>Agent:</strong> {getAgentDisplayName(selectedProperty.agent)}</p>
+                                <p><strong>Email:</strong> {selectedProperty.agent?.email || 'N/A'}</p>
+                                <p><strong>Phone:</strong> {selectedProperty.agent?.cellPhoneNo || 'N/A'}</p>
+                            </Col>
+                        </Row>
+                        {selectedProperty.description && (
+                            <div style={{ marginTop: 16 }}>
+                                <h3>Description</h3>
+                                <p>{selectedProperty.description}</p>
+                            </div>
+                        )}
                     </div>
                 )}
-            </Modal>
-
-            {/* Media Gallery Modal */}
-            <Modal
-                title="Property Media Gallery"
-                open={mediaModalVisible}
-                onCancel={() => setMediaModalVisible(false)}
-                footer={null}
-                width={800}
-                style={{ top: 20 }}
-            >
-                {selectedProperty && (() => {
-                    const allMedia = getAllMedia(selectedProperty);
-                    const currentMedia = allMedia[currentMediaIndex];
-
-                    if (allMedia.length === 0) {
-                        return (
-                            <div style={{ textAlign: 'center', padding: '40px' }}>
-                                <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
-                                <div style={{ color: '#999' }}>No media available for this property</div>
-                            </div>
-                        );
-                    }
-
-                    return (
-                        <div>
-                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                {currentMedia.type === 'image' ? (
-                                    <Image
-                                        width="100%"
-                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                        src={currentMedia.url}
-                                        alt={currentMedia.title}
-                                        fallback={processImageUrl('/fallback-image.png')}
-                                        onError={(e) => {
-                                            e.target.src = processImageUrl('/fallback-image.png');
-                                        }}
-                                    />
-                                ) : (
-                                    <video
-                                        controls
-                                        style={{ width: '100%', maxHeight: '400px' }}
-                                        src={currentMedia.url}
-                                    >
-                                        Your browser does not support the video tag.
-                                    </video>
-                                )}
-                            </div>
-
-                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
-                            </div>
-
-                            {allMedia.length > 1 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-                                    <Button
-                                        onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
-                                        disabled={allMedia.length <= 1}
-                                    >
-                                        Previous
-                                    </Button>
-                                    <Button
-                                        onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
-                                        disabled={allMedia.length <= 1}
-                                    >
-                                        Next
-                                    </Button>
-                                </div>
-                            )}
-
-                            {/* Media Thumbnails */}
-                            {allMedia.length > 1 && (
-                                <div style={{ marginTop: 16 }}>
-                                    <Divider>All Media ({allMedia.length})</Divider>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                                        {allMedia.map((media, index) => (
-                                            <div
-                                                key={index}
-                                                style={{
-                                                    width: 60,
-                                                    height: 60,
-                                                    border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                                                    borderRadius: 4,
-                                                    overflow: 'hidden',
-                                                    cursor: 'pointer'
-                                                }}
-                                                onClick={() => setCurrentMediaIndex(index)}
-                                            >
-                                                {media.type === 'image' ? (
-                                                    <img
-                                                        src={media.url}
-                                                        alt={media.title}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                        onError={(e) => {
-                                                            e.target.src = processImageUrl('/fallback-image.png');
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        backgroundColor: '#f0f0f0',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}>
-                                                        <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
             </Modal>
 
             {/* Change Handler Modal */}
             <ChangeHandlerModal
                 visible={changeHandlerModalVisible}
-                property={selectedProperty}
-                onSuccess={handleHandlerChangeSuccess}
                 onCancel={() => {
                     setChangeHandlerModalVisible(false);
                     setSelectedProperty(null);
                 }}
+                property={selectedProperty}
+                onSuccess={handleHandlerChangeSuccess}
             />
 
-            {/* Reject Property Modal */}
+            {/* Reject Modal */}
             <Modal
                 title="Reject Property"
                 open={rejectModalVisible}
@@ -1233,16 +1152,15 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate }) => {
                     setRejectReason('');
                 }}
                 onOk={() => handleReject(selectedProperty?.id, rejectReason)}
-                okText="Reject Property"
+                okText="Reject"
                 okType="danger"
-                confirmLoading={loading}
             >
-                <p>Are you sure you want to reject this property?</p>
+                <p>Please provide a reason for rejecting this property:</p>
                 <Input.TextArea
-                    placeholder="Please provide a reason for rejection..."
+                    rows={4}
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    rows={4}
+                    placeholder="Enter rejection reason..."
                 />
             </Modal>
         </div>

@@ -34,7 +34,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
         {
             key: 'statistics',
             icon: <BarChartOutlined />,
-            label: 'Statistics & Performance',
+            label: 'Dashboard',
             path: '/admin/statistics'
         },
         {
@@ -46,7 +46,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
         {
             key: 'properties-management',
             icon: <HomeOutlined />,
-            label: 'Properties Management',
+            label: 'Properties',
             path: '/portal/admin/properties'
         },
         {
@@ -58,14 +58,15 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
         {
             key: 'schedule-management',
             icon: <CalendarOutlined />,
-            label: 'Schedule Management',
+            label: 'Schedule',
             path: '/portal/admin/schedules'
         }
     ];
 
     const handleMenuClick = ({ key }) => {
         setSelectedKey(key);
-        if (onMenuClick) {
+        // Only call onMenuClick for mobile drawer (to close drawer on mobile)
+        if (isMobileDrawer && onMenuClick) {
             onMenuClick(key);
         }
     };
@@ -127,7 +128,9 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             <div style={{
                 height: '100vh',
                 background: colorBgContainer,
-                overflow: 'auto'
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 {/* Header Section for Mobile */}
                 <div style={{
@@ -147,7 +150,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
                 </div>
 
                 {/* Main Navigation */}
-                <div style={{ padding: '16px 0' }}>
+                <div style={{ padding: '16px 0', flex: 1 }}>
                     <Text strong style={{
                         padding: '0 16px 12px',
                         fontSize: '13px',
@@ -169,7 +172,16 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
                     />
                 </div>
 
-                <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
+                {/* Version Text at Bottom for Mobile */}
+                <div style={{
+                    padding: '16px',
+                    textAlign: 'center',
+                    marginTop: 'auto'
+                }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                        Version 1.0.1
+                    </Text>
+                </div>
             </div>
         );
     }
@@ -179,7 +191,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             trigger={null}
             collapsible
             collapsed={collapsed}
-            width={280}
+            width={200}
             collapsedWidth={80}
             style={{
                 background: colorBgContainer,
@@ -191,6 +203,8 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
                 bottom: 0,
                 zIndex: 999,
                 boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
+                display: 'flex',
+                flexDirection: 'column'
             }}
             breakpoint="lg"
             onBreakpoint={(broken) => {
@@ -200,42 +214,9 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
                 }
             }}
         >
-            {/* Header Section */}
-            <div style={{
-                padding: collapsed ? '20px 8px' : '20px 16px',
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-                textAlign: collapsed ? 'center' : 'left',
-                background: 'rgba(0,0,0,0.02)',
-            }}>
-                {!collapsed ? (
-                    <div>
-                        <Title level={4} style={{ margin: 0, color: colorPrimary, fontSize: '16px', fontWeight: 600 }}>
-                            Control Center
-                        </Title>
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Manage your platform
-                        </Text>
-                    </div>
-                ) : (
-                    <Link to="/admin" style={{ textDecoration: 'none' }}>
-                        <div style={{
-                            width: 32,
-                            height: 32,
-                            background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
-                            borderRadius: '8px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto',
-                        }}>
-                            <AppstoreOutlined style={{ color: 'white', fontSize: '16px' }} />
-                        </div>
-                    </Link>
-                )}
-            </div>
 
             {/* Main Navigation */}
-            <div style={{ padding: '16px 0' }}>
+            <div style={{ padding: '16px 0', flex: 1 }}>
                 <Text strong style={{
                     padding: '0 16px 12px',
                     fontSize: '12px',
@@ -257,7 +238,16 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
                 />
             </div>
 
-            <Divider style={{ margin: '8px 16px', background: 'rgba(0,0,0,0.06)' }} />
+            {/* Version Text at Bottom for Desktop */}
+            <div style={{
+                padding: '16px',
+                textAlign: 'center'
+            }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                    Version 1.0.1
+                </Text>
+            </div>
+
         </Sider>
     );
 };

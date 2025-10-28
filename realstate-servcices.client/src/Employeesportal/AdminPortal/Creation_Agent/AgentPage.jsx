@@ -11,7 +11,6 @@ import {
     message,
     Tooltip,
     Avatar,
-    Descriptions,
     Row,
     Col,
     DatePicker,
@@ -29,7 +28,8 @@ import {
     CheckOutlined,
     FilterOutlined,
     MoreOutlined,
-    DownloadOutlined,
+    FileExcelOutlined,
+    FilePdfOutlined,
     MailOutlined,
     PhoneOutlined,
     StarOutlined,
@@ -37,8 +37,6 @@ import {
     CalendarOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
-import InsertAgent from './InsertAgent';
-import EditAgent from './EditAgent';
 import agentService from '../Creation_Agent/Services/agentService';
 import TagsWithMore from './TagsWithMore';
 import moment from 'moment';
@@ -47,7 +45,7 @@ const { Search } = Input;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-const AgentPage = () => {
+const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) => {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -57,9 +55,6 @@ const AgentPage = () => {
     const [languageFilter, setLanguageFilter] = useState('all');
     const [brokerageFilter, setBrokerageFilter] = useState('all');
     const [dateRangeFilter, setDateRangeFilter] = useState([]);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [selectedAgent, setSelectedAgent] = useState(null);
-    const [viewModalVisible, setViewModalVisible] = useState(false);
     const [actionLoading, setActionLoading] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [stats, setStats] = useState({
@@ -174,7 +169,6 @@ const AgentPage = () => {
     };
 
     const filteredAgents = agents.filter(agent => {
-        // Search filter
         const matchesSearch = searchText === '' ||
             agent.firstName?.toLowerCase().includes(searchText.toLowerCase()) ||
             agent.lastName?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -182,31 +176,25 @@ const AgentPage = () => {
             agent.licenseNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
             agent.brokerageName?.toLowerCase().includes(searchText.toLowerCase());
 
-        // Status filter
         const matchesStatus = statusFilter === 'all' ||
             (statusFilter === 'verified' && agent.isVerified) ||
             (statusFilter === 'unverified' && !agent.isVerified);
 
-        // Experience filter
         const matchesExperience = experienceFilter === 'all' ||
             (experienceFilter === '0-2' && agent.yearsOfExperience >= 0 && agent.yearsOfExperience <= 2) ||
             (experienceFilter === '3-5' && agent.yearsOfExperience >= 3 && agent.yearsOfExperience <= 5) ||
             (experienceFilter === '6-10' && agent.yearsOfExperience >= 6 && agent.yearsOfExperience <= 10) ||
             (experienceFilter === '10+' && agent.yearsOfExperience > 10);
 
-        // Specialization filter
         const matchesSpecialization = specializationFilter === 'all' ||
             (agent.specialization && agent.specialization.includes(specializationFilter));
 
-        // Language filter
         const matchesLanguage = languageFilter === 'all' ||
             (agent.languages && agent.languages.includes(languageFilter));
 
-        // Brokerage filter
         const matchesBrokerage = brokerageFilter === 'all' ||
             agent.brokerageName === brokerageFilter;
 
-        // Date range filter
         const matchesDateRange = dateRangeFilter.length === 0 || (
             agent.dateRegistered &&
             moment(agent.dateRegistered).isBetween(
@@ -223,13 +211,11 @@ const AgentPage = () => {
     });
 
     const handleEdit = (agent) => {
-        setSelectedAgent(agent);
-        setIsModalVisible(true);
+        onEditAgent(agent);
     };
 
     const handleView = (agent) => {
-        setSelectedAgent(agent);
-        setViewModalVisible(true);
+        onViewAgent(agent);
     };
 
     const handleDelete = async (agentId) => {
@@ -245,6 +231,7 @@ const AgentPage = () => {
                     await agentService.deleteAgent(agentId);
                     message.success('Agent deleted successfully');
                     loadAgents();
+                    onAgentsUpdate();
                 } catch (error) {
                     console.error('Error deleting agent:', error);
                     message.error('Failed to delete agent: ' + (error.message || 'Unknown error'));
@@ -261,6 +248,7 @@ const AgentPage = () => {
             await agentService.verifyAgent(agentId);
             message.success('Agent verified successfully');
             loadAgents();
+            onAgentsUpdate();
         } catch (error) {
             console.error('Error verifying agent:', error);
             message.error('Failed to verify agent: ' + (error.message || 'Unknown error'));
@@ -279,21 +267,19 @@ const AgentPage = () => {
         }
     };
 
-    const handleModalClose = () => {
-        setIsModalVisible(false);
-        setSelectedAgent(null);
-    };
-
-    const handleSuccess = () => {
-        loadAgents();
-        handleModalClose();
-    };
-
     const getExperienceLevel = (years) => {
         if (years <= 2) return { level: 'Beginner', color: 'blue' };
         if (years <= 5) return { level: 'Intermediate', color: 'green' };
         if (years <= 10) return { level: 'Experienced', color: 'orange' };
         return { level: 'Expert', color: 'red' };
+    };
+
+    const handleExportExcel = () => {
+        message.info('Excel export functionality will be implemented soon');
+    };
+
+    const handleExportPDF = () => {
+        message.info('PDF export functionality will be implemented soon');
     };
 
     const columns = [
@@ -326,17 +312,6 @@ const AgentPage = () => {
                         </div>
                     </div>
                 </Space>
-            ),
-        },
-        {
-            title: 'License',
-            dataIndex: 'licenseNumber',
-            key: 'licenseNumber',
-            width: 120,
-            render: (license) => (
-                <Tag color="blue" style={{ fontFamily: 'monospace' }}>
-                    {license || 'N/A'}
-                </Tag>
             ),
         },
         {
@@ -711,10 +686,19 @@ const AgentPage = () => {
                         </Button>
 
                         <Button
-                            icon={<DownloadOutlined />}
+                            icon={<FileExcelOutlined />}
+                            onClick={handleExportExcel}
                             size="large"
                         >
-                            Export
+                            Excel
+                        </Button>
+
+                        <Button
+                            icon={<FilePdfOutlined />}
+                            onClick={handleExportPDF}
+                            size="large"
+                        >
+                            PDF
                         </Button>
 
                         <Button
@@ -724,18 +708,6 @@ const AgentPage = () => {
                             size="large"
                         >
                             Refresh
-                        </Button>
-
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={() => {
-                                setSelectedAgent(null);
-                                setIsModalVisible(true);
-                            }}
-                            size="large"
-                        >
-                            Add Agent
                         </Button>
                     </Space>
                 </div>
@@ -749,7 +721,7 @@ const AgentPage = () => {
                     columns={columns}
                     loading={loading}
                     rowKey="id"
-                    scroll={{ x: 1500 }}
+                    scroll={{ x: 1300 }}
                     pagination={{
                         pageSize: 10,
                         showSizeChanger: true,
@@ -760,125 +732,6 @@ const AgentPage = () => {
                     }}
                 />
             </Card>
-
-            {/* Edit/Add Modal */}
-            <Modal
-                title={selectedAgent ? 'Edit Agent' : 'Add New Agent'}
-                open={isModalVisible}
-                onCancel={handleModalClose}
-                footer={null}
-                width={1000}
-                style={{ top: 20 }}
-                destroyOnClose
-            >
-                {selectedAgent ? (
-                    <EditAgent
-                        agent={selectedAgent}
-                        onSuccess={handleSuccess}
-                        onCancel={handleModalClose}
-                    />
-                ) : (
-                    <InsertAgent
-                        onSuccess={handleSuccess}
-                        onCancel={handleModalClose}
-                    />
-                )}
-            </Modal>
-
-            {/* View Details Modal */}
-            <Modal
-                title="Agent Details"
-                open={viewModalVisible}
-                onCancel={() => setViewModalVisible(false)}
-                footer={[
-                    <Button key="close" onClick={() => setViewModalVisible(false)}>
-                        Close
-                    </Button>,
-                    <Button
-                        key="edit"
-                        type="primary"
-                        onClick={() => {
-                            setViewModalVisible(false);
-                            handleEdit(selectedAgent);
-                        }}
-                    >
-                        Edit Agent
-                    </Button>
-                ]}
-                width={700}
-            >
-                {selectedAgent && (
-                    <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600 }}>
-                        <Descriptions.Item label="Profile Picture">
-                            <Avatar
-                                src={selectedAgent.profilePictureUrl}
-                                size={80}
-                                icon={<UserOutlined />}
-                                onError={() => true}
-                            >
-                                {selectedAgent.firstName?.[0]}{selectedAgent.lastName?.[0]}
-                            </Avatar>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Full Name">
-                            {selectedAgent.firstName} {selectedAgent.middleName} {selectedAgent.lastName} {selectedAgent.suffix}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Email">
-                            {selectedAgent.email}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Phone">
-                            {selectedAgent.cellPhoneNo}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="License Number">
-                            {selectedAgent.licenseNumber}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Experience">
-                            {selectedAgent.yearsOfExperience} years
-                            <Tag
-                                color={getExperienceLevel(selectedAgent.yearsOfExperience || 0).color}
-                                style={{ marginLeft: 8 }}
-                            >
-                                {getExperienceLevel(selectedAgent.yearsOfExperience || 0).level}
-                            </Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Specialization">
-                            {selectedAgent.specialization && selectedAgent.specialization.length > 0 ? (
-                                <Space wrap>
-                                    {selectedAgent.specialization.map((spec, index) => (
-                                        <Tag key={index} color="purple">
-                                            {spec}
-                                        </Tag>
-                                    ))}
-                                </Space>
-                            ) : 'None'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Languages">
-                            {selectedAgent.languages && selectedAgent.languages.length > 0 ? (
-                                <Space wrap>
-                                    {selectedAgent.languages.map((lang, index) => (
-                                        <Tag key={index} color="green">
-                                            {lang}
-                                        </Tag>
-                                    ))}
-                                </Space>
-                            ) : 'None'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Brokerage">
-                            {selectedAgent.brokerageName || 'Not specified'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Bio">
-                            {selectedAgent.bio || 'Not provided'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Status">
-                            <Tag color={selectedAgent.isVerified ? 'green' : 'orange'}>
-                                {selectedAgent.isVerified ? 'Verified' : 'Unverified'}
-                            </Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Registration Date">
-                            {selectedAgent.dateRegistered ? new Date(selectedAgent.dateRegistered).toLocaleDateString() : 'Not set'}
-                        </Descriptions.Item>
-                    </Descriptions>
-                )}
-            </Modal>
         </div>
     );
 };

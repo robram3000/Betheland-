@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
     Layout,
@@ -62,7 +61,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         if (mobileView) {
             setNotificationDrawerVisible(true);
         } else {
-           
+
             console.log('Notifications clicked');
         }
     };
@@ -251,21 +250,35 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                     />
 
                     {/* Logo */}
-                    <Text
-                        strong
-                        style={{
-                            fontSize: mobileView ? '18px' : '20px',
-                            color: '#1a365d',
-                            fontWeight: 600,
-                        }}
-                    >
-                        Betheland
-                    </Text>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <Text
+                            strong
+                            style={{
+                                fontSize: mobileView ? '18px' : '20px',
+                                color: '#1a365d',
+                                fontWeight: 800,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            BETHELAND
+                        </Text>
+                        <Text
+                            style={{
+                                fontSize: mobileView ? '10px' : '11px',
+                                color: '#666',
+                                fontWeight: 400,
+                                lineHeight: 1.2,
+                                marginTop: '2px',
+                            }}
+                        >
+                            Real Estate Services 
+                        </Text>
+                    </div>
                 </Space>
 
                 {/* Right Side */}
                 <Space size="middle">
-              
+
 
                     {/* Notifications */}
                     <Badge

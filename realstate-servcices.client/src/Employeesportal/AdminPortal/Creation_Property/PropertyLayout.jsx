@@ -1,7 +1,14 @@
-// Enhanced PropertyLayout.jsx with centralized Helmet management
+// Enhanced PropertyLayout.jsx with vertical tabs and icons
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
+import {
+    HomeOutlined,
+    PlusCircleOutlined,
+    CheckCircleOutlined,
+    DashboardOutlined,
+    ArrowLeftOutlined
+} from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import PropertyPage from './PropertyPage';
@@ -10,8 +17,9 @@ import PropertyManagementTable from './PropertyManagementTable';
 import ApprovalQueue from './ApprovalQueue';
 import propertyService from './services/propertyService';
 
-const { Content } = Layout;
+const { Content, Sider } = Layout;
 const { TabPane } = Tabs;
+const { Title } = Typography;
 
 const PropertyLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -21,6 +29,8 @@ const PropertyLayout = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
     const [propertiesCount, setPropertiesCount] = useState(0);
+    const [selectedProperty, setSelectedProperty] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
 
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -32,6 +42,26 @@ const PropertyLayout = () => {
 
     const handleTabChange = (key) => {
         setActiveTab(key);
+        setIsEditing(false);
+        setSelectedProperty(null);
+    };
+
+    const handleEditProperty = (property) => {
+        setSelectedProperty(property);
+        setIsEditing(true);
+        setActiveTab('create'); // Use create tab for editing
+    };
+
+    const handleCreateProperty = () => {
+        setSelectedProperty(null);
+        setIsEditing(false);
+        setActiveTab('create');
+    };
+
+    const handleBackToProperties = () => {
+        setActiveTab('properties');
+        setIsEditing(false);
+        setSelectedProperty(null);
     };
 
     const loadPendingCount = async () => {
@@ -91,11 +121,15 @@ const PropertyLayout = () => {
                 ogImage: `${baseUrl}/images/approval-og.jpg`
             },
             create: {
-                title: `Create New Property | ${baseTitle}`,
-                description: 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and assign agents.',
-                keywords: "create property, add listing, new property, real estate listing, Betheland, property creation",
-                canonical: `${baseUrl}/properties/create`,
-                ogImage: `${baseUrl}/images/create-property-og.jpg`
+                title: isEditing
+                    ? `Edit Property - ${selectedProperty?.title || 'Property'} | ${baseTitle}`
+                    : `Create New Property | ${baseTitle}`,
+                description: isEditing
+                    ? `Edit property listing for ${selectedProperty?.title || 'property'} in Betheland real estate management system. Update property details, images, videos, and agent assignments.`
+                    : 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and assign agents.',
+                keywords: isEditing ? "edit property, update listing, modify property, Betheland, property editing" : "create property, add listing, new property, real estate listing, Betheland, property creation",
+                canonical: `${baseUrl}/properties/${isEditing ? 'edit' : 'create'}`,
+                ogImage: `${baseUrl}/images/${isEditing ? 'edit-property-og.jpg' : 'create-property-og.jpg'}`
             },
             management: {
                 title: `Property Management Dashboard | ${baseTitle}`,
@@ -128,16 +162,6 @@ const PropertyLayout = () => {
         return statusMap[status] || status;
     };
 
-    const getTabTitle = () => {
-        const tabTitles = {
-            properties: 'All Properties',
-            approval: 'Approval Queue',
-            create: 'Create Property',
-            management: 'Property Management'
-        };
-        return tabTitles[activeTab] || 'Property Management';
-    };
-
     // Handler to update filters from child components
     const updateFilters = (search, status, type) => {
         setSearchText(search || '');
@@ -149,37 +173,10 @@ const PropertyLayout = () => {
     const handlePropertiesUpdate = () => {
         loadPendingCount();
         loadPropertiesCount();
+        if (activeTab === 'create') {
+            handleBackToProperties();
+        }
     };
-
-    const tabItems = [
-        {
-            key: 'properties',
-            label: 'All Properties',
-            children: <PropertyPage onFilterUpdate={updateFilters} onPropertiesUpdate={handlePropertiesUpdate} />,
-        },
-        {
-            key: 'approval',
-            label: (
-                <Badge count={pendingCount} size="small">
-                    Approval Queue
-                </Badge>
-            ),
-            children: <ApprovalQueue onUpdate={handlePropertiesUpdate} />,
-        },
-        {
-            key: 'create',
-            label: 'Create Property',
-            children: <CreateProperty onSuccess={() => {
-                setActiveTab('properties');
-                handlePropertiesUpdate();
-            }} />,
-        },
-        {
-            key: 'management',
-            label: 'Property Management',
-            children: <PropertyManagementTable onUpdate={handlePropertiesUpdate} />,
-        },
-    ];
 
     const seoData = getSeoData();
 
@@ -196,8 +193,11 @@ const PropertyLayout = () => {
                     Tabs: {
                         itemSelectedColor: '#1a365d',
                         itemActiveColor: '#1a365d',
-                        cardHeight: 30,
+                        horizontalItemPadding: '12px 16px',
                     },
+                    Layout: {
+                        siderBg: '#f8f9fa',
+                    }
                 },
             }}
         >
@@ -242,7 +242,6 @@ const PropertyLayout = () => {
                         "author": {
                             "@type": "Organization",
                             "name": "Betheland"
-                        
                         },
                         "offers": {
                             "@type": "Offer",
@@ -259,7 +258,6 @@ const PropertyLayout = () => {
                         "@type": "RealEstateAgent",
                         "name": "Betheland",
                         "description": "Professional real estate property management platform",
-                        
                         "telephone": "+1-555-123-4567",
                         "address": {
                             "@type": "PostalAddress",
@@ -279,56 +277,211 @@ const PropertyLayout = () => {
                     <GlobalAdminNavigation collapsed={collapsed} />
                     <Layout
                         style={{
-                            marginLeft: collapsed ? 80 : 280,
+                            marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
-                            
-                        
                         }}
                     >
-                        <Content
-                            style={{
-                                background: colorBgContainer,
-                                margin: '16px 0',
-                                minHeight: 280,
-                                borderRadius: borderRadiusLG,
-                                maxWidth: '100%',
-                                overflow: 'hidden',
-                                padding: '20px'
-                            }}
-                        >
-                            <div style={{ marginBottom: 20 }}>
-                                <h1 style={{
-                                    margin: 0,
-                                    color: '#1a365d',
-                                    fontSize: '24px',
-                                    fontWeight: 600
-                                }}>
-                                    Property Management
-                                </h1>
-                                <p style={{
-                                    margin: '6px 0 0 0',
-                                    color: '#666',
-                                    fontSize: '13px'
-                                }}>
-                                    Manage real estate properties, approvals, and agent assignments
-                                </p>
-                            </div>
-
-                            <Tabs
-                                activeKey={activeTab}
-                                onChange={handleTabChange}
-                                type="card"
-                                size="middle"
-                                items={tabItems}
+                        <Layout>
+                            {/* Vertical Tabs Sidebar with Shadow */}
+                            <Sider
+                                width={220}
                                 style={{
-                                    '& .ant-tabs-tab': {
-                                        padding: '8px 16px',
-                                        margin: '0 4px',
-                                    }
+                                    background: colorBgContainer,
+                                    borderRadius: borderRadiusLG,
+                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+                                    borderRight: '1px solid #f0f0f0'
                                 }}
-                            />
-                        </Content>
+                            >
+                                <div style={{ padding: '20px 0' }}>
+                                    {/* Property Control Header */}
+                                    <div style={{
+                                        padding: '0 16px 16px 16px',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <Title
+                                            level={4}
+                                            style={{
+                                                margin: 0,
+                                                color: '#1a365d',
+                                                fontSize: '16px',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Property Control
+                                        </Title>
+                                        <p style={{
+                                            margin: '4px 0 0 0',
+                                            color: '#666',
+                                            fontSize: '12px',
+                                            lineHeight: 1.4
+                                        }}>
+                                            Manage properties, approvals, and listings
+                                        </p>
+                                    </div>
+
+                                    <Tabs
+                                        activeKey={activeTab}
+                                        onChange={handleTabChange}
+                                        tabPosition="left"
+                                        type="line"
+                                        size="middle"
+                                        style={{
+                                            width: '100%',
+                                        }}
+                                        tabBarStyle={{
+                                            border: 'none',
+                                            width: '100%',
+                                        }}
+                                    >
+                                        <Tabs.TabPane
+                                            key="properties"
+                                            tab={
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <HomeOutlined />
+                                                    All Properties
+                                                </span>
+                                            }
+                                        />
+                                        <Tabs.TabPane
+                                            key="approval"
+                                            tab={
+                                                <Badge count={pendingCount} size="small" offset={[10, -5]}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <CheckCircleOutlined />
+                                                        Approval Queue
+                                                    </span>
+                                                </Badge>
+                                            }
+                                        />
+                                        <Tabs.TabPane
+                                            key="create"
+                                            tab={
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <PlusCircleOutlined />
+                                                    {isEditing ? 'Edit Property' : 'Create Property'}
+                                                </span>
+                                            }
+                                        />
+                                        <Tabs.TabPane
+                                            key="management"
+                                            tab={
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <DashboardOutlined />
+                                                    Property Management
+                                                </span>
+                                            }
+                                        />
+                                        <Tabs.TabPane
+                                            key="management"
+                                            tab={
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <DashboardOutlined />
+                                                    Archive 
+                                                </span>
+                                            }
+                                        />
+                                    </Tabs>
+                                </div>
+                            </Sider>
+
+                            {/* Main Content Area */}
+                            <Content
+                                style={{
+                                    background: colorBgContainer,
+                                    margin: '16px 16px 16px 0',
+                                    minHeight: 280,
+                                    borderRadius: borderRadiusLG,
+                                    overflow: 'hidden',
+                                    padding: '24px'
+                                }}
+                            >
+                                {/* Header with Back Button for Edit Mode */}
+                                <div style={{ marginBottom: 24 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            {isEditing && (
+                                                <Button
+                                                    icon={<ArrowLeftOutlined />}
+                                                    onClick={handleBackToProperties}
+                                                    style={{ border: 'none' }}
+                                                >
+                                                    Back to Properties
+                                                </Button>
+                                            )}
+                                            <div>
+                                                <h1 style={{
+                                                    margin: 0,
+                                                    color: '#1a365d',
+                                                    fontSize: '24px',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {(() => {
+                                                        if (isEditing) return `Edit Property - ${selectedProperty?.title || 'Property'}`;
+                                                        switch (activeTab) {
+                                                            case 'properties': return 'All Properties';
+                                                            case 'approval': return 'Approval Queue';
+                                                            case 'create': return 'Create New Property';
+                                                            case 'management': return 'Property Management Dashboard';
+                                                            default: return 'Property Management';
+                                                        }
+                                                    })()}
+                                                </h1>
+                                                <p style={{
+                                                    margin: '6px 0 0 0',
+                                                    color: '#666',
+                                                    fontSize: '14px'
+                                                }}>
+                                                    {(() => {
+                                                        if (isEditing) return 'Update property information, media, and agent assignments';
+                                                        switch (activeTab) {
+                                                            case 'properties': return `Browse and manage ${propertiesCount} property listings`;
+                                                            case 'approval': return pendingCount > 0 ? `${pendingCount} properties pending approval` : 'All properties are approved';
+                                                            case 'create': return 'Add new property listings with detailed information';
+                                                            case 'management': return 'Advanced property management and analytics';
+                                                            default: return 'Manage real estate properties and agent assignments';
+                                                        }
+                                                    })()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {activeTab === 'properties' && !isEditing && (
+                                            <Button
+                                                type="primary"
+                                                icon={<PlusCircleOutlined />}
+                                                onClick={handleCreateProperty}
+                                            >
+                                                Add Property
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Render active tab content */}
+                                {activeTab === 'properties' && (
+                                    <PropertyPage
+                                        onFilterUpdate={updateFilters}
+                                        onPropertiesUpdate={handlePropertiesUpdate}
+                                        onEditProperty={handleEditProperty}
+                                        onCreateProperty={handleCreateProperty}
+                                    />
+                                )}
+                                {activeTab === 'approval' && (
+                                    <ApprovalQueue onUpdate={handlePropertiesUpdate} />
+                                )}
+                                {activeTab === 'create' && (
+                                    <CreateProperty
+                                        property={selectedProperty}
+                                        onSuccess={handlePropertiesUpdate}
+                                        onBack={handleBackToProperties}
+                                    />
+                                )}
+                                {activeTab === 'management' && (
+                                    <PropertyManagementTable onUpdate={handlePropertiesUpdate} />
+                                )}
+                            </Content>
+                        </Layout>
                     </Layout>
                 </Layout>
             </Layout>

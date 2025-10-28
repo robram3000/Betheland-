@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
+import {
+    PlusCircleOutlined,
+    CheckCircleOutlined,
+    DashboardOutlined,
+    ArrowLeftOutlined,
+    TeamOutlined,
+    CalendarOutlined,
+    ClockCircleOutlined,
+    HomeOutlined,
+    SettingOutlined
+} from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import ScheduleAppointments from './ScheduleAppointments';
@@ -12,8 +23,8 @@ import ScheduleProperties from './ScheduleProperties';
 // Import the main service
 import SchedulingServices from './Services/index.js';
 
-// Destructure Layout to get Content component
-const { Content } = Layout;
+const { Content, Sider } = Layout;
+const { Title } = Typography;
 
 // Mock API client
 const mockApiClient = {
@@ -78,38 +89,6 @@ const ScheduleLayout = () => {
         loadAppointmentsCount();
     };
 
-    const tabItems = [
-        {
-            key: 'appointments',
-            label: 'All Appointments',
-            children: <ScheduleAppointments onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'availability',
-            label: 'Agent Availability',
-            children: <AgentAvailability onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'timeoff',
-            label: (
-                <Badge count={pendingCount} size="small">
-                    Time Off
-                </Badge>
-            ),
-            children: <AgentTimeOff onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'config',
-            label: 'Configuration',
-            children: <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />,
-        },
-        {
-            key: 'properties',
-            label: 'Properties',
-            children: <ScheduleProperties onScheduleUpdate={handleScheduleUpdate} />,
-        },
-    ];
-
     const getSeoData = () => {
         const baseTitle = "Betheland Schedule Management";
         const baseDescription = "Comprehensive scheduling management platform for real estate professionals";
@@ -166,6 +145,78 @@ const ScheduleLayout = () => {
         };
     };
 
+    const tabItems = [
+        {
+            key: 'appointments',
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CalendarOutlined />
+                    All Appointments
+                </span>
+            ),
+        },
+        {
+            key: 'availability',
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ClockCircleOutlined />
+                    Agent Availability
+                </span>
+            ),
+        },
+        {
+            key: 'timeoff',
+            label: (
+                <Badge count={pendingCount} size="small" offset={[10, -5]}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircleOutlined />
+                        Time Off
+                    </span>
+                </Badge>
+            ),
+        },
+        {
+            key: 'config',
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <SettingOutlined />
+                    Configuration
+                </span>
+            ),
+        },
+        {
+            key: 'properties',
+            label: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <HomeOutlined />
+                    Properties
+                </span>
+            ),
+        },
+    ];
+
+    const getHeaderTitle = () => {
+        switch (activeTab) {
+            case 'appointments': return 'All Appointments';
+            case 'availability': return 'Agent Availability';
+            case 'timeoff': return 'Time Off Management';
+            case 'config': return 'Schedule Configuration';
+            case 'properties': return 'Schedule Properties';
+            default: return 'Schedule Management';
+        }
+    };
+
+    const getHeaderDescription = () => {
+        switch (activeTab) {
+            case 'appointments': return `Browse and manage ${appointmentsCount} appointments`;
+            case 'availability': return 'Manage agent working hours and availability schedules';
+            case 'timeoff': return pendingCount > 0 ? `${pendingCount} time off requests pending approval` : 'Manage agent time off requests and approvals';
+            case 'config': return 'Configure agent scheduling preferences and constraints';
+            case 'properties': return 'Manage properties available for scheduling appointments';
+            default: return 'Manage appointments, agent availability, and scheduling configurations';
+        }
+    };
+
     const seoData = getSeoData();
 
     return (
@@ -181,7 +232,11 @@ const ScheduleLayout = () => {
                     Tabs: {
                         itemSelectedColor: '#1a365d',
                         itemActiveColor: '#1a365d',
+                        horizontalItemPadding: '12px 16px',
                     },
+                    Layout: {
+                        siderBg: '#f8f9fa',
+                    }
                 },
             }}
         >
@@ -203,6 +258,46 @@ const ScheduleLayout = () => {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
+
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "WebApplication",
+                        "name": "Betheland Schedule Management",
+                        "description": seoData.description,
+                        "url": seoData.canonical,
+                        "applicationCategory": "BusinessApplication",
+                        "operatingSystem": "Web Browser",
+                        "permissions": "microphone",
+                        "author": {
+                            "@type": "Organization",
+                            "name": "Betheland"
+                        },
+                        "offers": {
+                            "@type": "Offer",
+                            "price": "0",
+                            "priceCurrency": "USD"
+                        }
+                    })}
+                </script>
+
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "RealEstateAgent",
+                        "name": "Betheland",
+                        "description": "Professional real estate scheduling management platform",
+                        "telephone": "+1-555-123-4567",
+                        "address": {
+                            "@type": "PostalAddress",
+                            "streetAddress": "123 Schedule Lane",
+                            "addressLocality": "Real Estate City",
+                            "addressRegion": "CA",
+                            "postalCode": "12345",
+                            "addressCountry": "US"
+                        }
+                    })}
+                </script>
             </Helmet>
 
             <Layout style={{ minHeight: '100vh' }}>
@@ -211,48 +306,115 @@ const ScheduleLayout = () => {
                     <GlobalAdminNavigation collapsed={collapsed} />
                     <Layout
                         style={{
-                            marginLeft: collapsed ? 80 : 280,
+                            marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
                         }}
                     >
-                        <Content
-                            style={{
-                                background: colorBgContainer,
-                                margin: '16px 0',
-                                minHeight: 280,
-                                borderRadius: borderRadiusLG,
-                                maxWidth: '100%',
-                                overflow: 'hidden',
-                                padding: '20px'
-                            }}
-                        >
-                            <div style={{ marginBottom: 20 }}>
-                                <h1 style={{
-                                    margin: 0,
-                                    color: '#1a365d',
-                                    fontSize: '24px',
-                                    fontWeight: 600
-                                }}>
-                                    Schedule Management
-                                </h1>
-                                <p style={{
-                                    margin: '6px 0 0 0',
-                                    color: '#666',
-                                    fontSize: '13px'
-                                }}>
-                                    Manage appointments, agent availability, and scheduling configurations
-                                </p>
-                            </div>
+                        <Layout>
+                            {/* Vertical Tabs Sidebar */}
+                            <Sider
+                                width={220}
+                                style={{
+                                    background: colorBgContainer,
+                                    borderRadius: borderRadiusLG,
+                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+                                    borderRight: '1px solid #f0f0f0'
+                                }}
+                            >
+                                <div style={{ padding: '20px 0' }}>
+                                    {/* Schedule Control Header */}
+                                    <div style={{
+                                        padding: '0 16px 16px 16px',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <Title
+                                            level={4}
+                                            style={{
+                                                margin: 0,
+                                                color: '#1a365d',
+                                                fontSize: '16px',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Schedule Control
+                                        </Title>
+                                        <p style={{
+                                            margin: '4px 0 0 0',
+                                            color: '#666',
+                                            fontSize: '12px',
+                                            lineHeight: 1.4
+                                        }}>
+                                            Manage appointments, availability, and schedules
+                                        </p>
+                                    </div>
 
-                            <Tabs
-                                activeKey={activeTab}
-                                onChange={handleTabChange}
-                                type="card"
-                                size="middle"
-                                items={tabItems}
-                            />
-                        </Content>
+                                    <Tabs
+                                        activeKey={activeTab}
+                                        onChange={handleTabChange}
+                                        tabPosition="left"
+                                        type="line"
+                                        size="middle"
+                                        style={{ width: '100%' }}
+                                        tabBarStyle={{ border: 'none', width: '100%' }}
+                                        items={tabItems}
+                                    />
+                                </div>
+                            </Sider>
+
+                            {/* Main Content Area */}
+                            <Content
+                                style={{
+                                    background: colorBgContainer,
+                                    margin: '16px 16px 16px 0',
+                                    minHeight: 280,
+                                    borderRadius: borderRadiusLG,
+                                    overflow: 'hidden',
+                                    padding: '24px'
+                                }}
+                            >
+                                {/* Header Section */}
+                                <div style={{ marginBottom: 24 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div>
+                                            <h1 style={{
+                                                margin: 0,
+                                                color: '#1a365d',
+                                                fontSize: '24px',
+                                                fontWeight: 600
+                                            }}>
+                                                {getHeaderTitle()}
+                                            </h1>
+                                            <p style={{
+                                                margin: '6px 0 0 0',
+                                                color: '#666',
+                                                fontSize: '14px'
+                                            }}>
+                                                {getHeaderDescription()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Conditional Content Rendering */}
+                                {activeTab === 'appointments' && (
+                                    <ScheduleAppointments onScheduleUpdate={handleScheduleUpdate} />
+                                )}
+                                {activeTab === 'availability' && (
+                                    <AgentAvailability onScheduleUpdate={handleScheduleUpdate} />
+                                )}
+                                {activeTab === 'timeoff' && (
+                                    <AgentTimeOff onScheduleUpdate={handleScheduleUpdate} />
+                                )}
+                                {activeTab === 'config' && (
+                                    <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />
+                                )}
+                                {activeTab === 'properties' && (
+                                    <ScheduleProperties onScheduleUpdate={handleScheduleUpdate} />
+                                )}
+                            </Content>
+                        </Layout>
                     </Layout>
                 </Layout>
             </Layout>

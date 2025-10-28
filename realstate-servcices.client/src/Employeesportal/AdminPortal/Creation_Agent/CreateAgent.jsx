@@ -4,30 +4,30 @@ import { Card, Button, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import InsertAgent from './InsertAgent';
 
-const CreateAgent = ({ onSuccess, onBack }) => {
+const CreateAgent = ({ agent, onSuccess, onBack }) => {
     const handleSuccess = () => {
         if (onSuccess) onSuccess();
     };
 
     return (
         <Card>
-            <div style={{ marginBottom: 24 }}>
-                {onBack && (
-                    <Button
-                        icon={<ArrowLeftOutlined />}
-                        onClick={onBack}
-                        style={{ marginBottom: 16 }}
-                    >
-                        Back to Agents
-                    </Button>
-                )}
-                <h2 style={{ margin: 0, color: '#1a365d' }}>Create New Agent</h2>
-                <p style={{ margin: '8px 0 0 0', color: '#666' }}>
-                    Add a new real estate agent to the system
-                </p>
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: '12px' }}>
+               
+                <div>
+                    <h2 style={{ margin: 0, color: '#1a365d' }}>
+                        {agent ? 'Edit Agent' : ''}
+                    </h2>
+                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '14px' }}>
+                        {agent ? 'Update agent information, contact details, and assignments' : ''}
+                    </p>
+                </div>
             </div>
 
-            <InsertAgent onSuccess={handleSuccess} />
+            <InsertAgent
+                agent={agent}
+                onSuccess={handleSuccess}
+                onCancel={onBack}
+            />
         </Card>
     );
 };
