@@ -1,37 +1,31 @@
-// PropertyLayout.jsx - Simplified for agents
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Button, Space, Typography, Card } from 'antd';
+import {
+    HomeOutlined,
+    PlusCircleOutlined,
+    ArrowLeftOutlined
+} from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import PropertyPage from './PropertyPage';
 import CreateProperty from './CreateProperty';
 import propertyService from './services/propertyService';
-import authService from '../Services/LoginAuth';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
+const { Title } = Typography;
 
 const PropertyLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('properties');
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [typeFilter, setTypeFilter] = useState('all');
     const [propertiesCount, setPropertiesCount] = useState(0);
-    const [currentUser, setCurrentUser] = useState(null);
-    const [userRole, setUserRole] = useState('');
+    const [selectedProperty, setSelectedProperty] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
-
-    useEffect(() => {
-        const user = authService.getCurrentUser();
-        setCurrentUser(user);
-        setUserRole(user?.userType || '');
-        loadPropertiesCount();
-    }, []);
 
     const handleToggle = () => {
         setCollapsed(!collapsed);
@@ -39,6 +33,26 @@ const PropertyLayout = () => {
 
     const handleTabChange = (key) => {
         setActiveTab(key);
+        setIsEditing(false);
+        setSelectedProperty(null);
+    };
+
+    const handleEditProperty = (property) => {
+        setSelectedProperty(property);
+        setIsEditing(true);
+        setActiveTab('create');
+    };
+
+    const handleCreateProperty = () => {
+        setSelectedProperty(null);
+        setIsEditing(false);
+        setActiveTab('create');
+    };
+
+    const handleBackToProperties = () => {
+        setActiveTab('properties');
+        setIsEditing(false);
+        setSelectedProperty(null);
     };
 
     const loadPropertiesCount = async () => {
@@ -50,34 +64,33 @@ const PropertyLayout = () => {
         }
     };
 
-    // Centralized SEO data management
+    useEffect(() => {
+        loadPropertiesCount();
+    }, []);
+
     const getSeoData = () => {
         const baseTitle = "Betheland Property Management";
-        const baseDescription = "Manage your property listings with Betheland real estate platform";
+        const baseDescription = "Comprehensive property management platform for real estate professionals";
         const baseUrl = window.location.origin;
 
         const tabConfig = {
             properties: {
-                title: searchText
-                    ? `Search: "${searchText}" - My Properties | ${baseTitle}`
-                    : statusFilter !== 'all'
-                        ? `${getStatusDisplayName(statusFilter)} Properties | ${baseTitle}`
-                        : typeFilter !== 'all'
-                            ? `${typeFilter} Properties | ${baseTitle}`
-                            : `My Properties (${propertiesCount}) | ${baseTitle}`,
-                description: searchText
-                    ? `Search results for "${searchText}" in your property listings.`
-                    : `Manage your ${propertiesCount} property listings in Betheland real estate platform.`,
-                keywords: "property management, my listings, real estate, Betheland, property dashboard",
+                title: `All Properties (${propertiesCount}) | ${baseTitle}`,
+                description: `Browse and manage ${propertiesCount} property listings in Betheland real estate platform. Comprehensive property management dashboard.`,
+                keywords: "property management, real estate listings, property search, Betheland, property dashboard, real estate management",
                 canonical: `${baseUrl}/properties`,
                 ogImage: `${baseUrl}/images/properties-og.jpg`
             },
             create: {
-                title: `Create New Property | ${baseTitle}`,
-                description: 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and location information.',
-                keywords: "create property, add listing, new property, real estate listing, Betheland, property creation",
-                canonical: `${baseUrl}/properties/create`,
-                ogImage: `${baseUrl}/images/create-property-og.jpg`
+                title: isEditing
+                    ? `Edit Property - ${selectedProperty?.title || 'Property'} | ${baseTitle}`
+                    : `Create New Property | ${baseTitle}`,
+                description: isEditing
+                    ? `Edit property listing for ${selectedProperty?.title || 'property'} in Betheland real estate management system. Update property details, images, videos, and agent assignments.`
+                    : 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and assign agents.',
+                keywords: isEditing ? "edit property, update listing, modify property, Betheland, property editing" : "create property, add listing, new property, real estate listing, Betheland, property creation",
+                canonical: `${baseUrl}/properties/${isEditing ? 'edit' : 'create'}`,
+                ogImage: `${baseUrl}/images/${isEditing ? 'edit-property-og.jpg' : 'create-property-og.jpg'}`
             }
         };
 
@@ -90,59 +103,12 @@ const PropertyLayout = () => {
         };
     };
 
-    const getStatusDisplayName = (status) => {
-        const statusMap = {
-            'available': 'Available',
-            'pending': 'Pending Approval',
-            'approved': 'Approved',
-            'sold': 'Sold',
-            'rented': 'Rented',
-            'rejected': 'Rejected',
-            'draft': 'Draft'
-        };
-        return statusMap[status] || status;
-    };
-
-    // Handler to update filters from child components
-    const updateFilters = (search, status, type) => {
-        setSearchText(search || '');
-        setStatusFilter(status || 'all');
-        setTypeFilter(type || 'all');
-    };
-
-    // Handler for when properties are updated
     const handlePropertiesUpdate = () => {
         loadPropertiesCount();
+        if (activeTab === 'create') {
+            handleBackToProperties();
+        }
     };
-
-    const tabItems = [
-        {
-            key: 'properties',
-            label: 'My Properties',
-            children: (
-                <PropertyPage
-                    onFilterUpdate={updateFilters}
-                    onPropertiesUpdate={handlePropertiesUpdate}
-                    userRole={userRole}
-                    currentUser={currentUser}
-                />
-            ),
-        },
-        {
-            key: 'create',
-            label: 'Create Property',
-            children: (
-                <CreateProperty
-                    onSuccess={() => {
-                        setActiveTab('properties');
-                        handlePropertiesUpdate();
-                    }}
-                    userRole={userRole}
-                    currentUser={currentUser}
-                />
-            ),
-        },
-    ];
 
     const seoData = getSeoData();
 
@@ -155,58 +121,26 @@ const PropertyLayout = () => {
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        cardHeight: 30,
-                    },
-                },
             }}
         >
-            {/* Centralized Helmet Management */}
             <Helmet>
-                {/* Basic Meta Tags */}
                 <title>{seoData.title}</title>
                 <meta name="description" content={seoData.description} />
                 <meta name="keywords" content={seoData.keywords} />
-
-                {/* Open Graph Meta Tags */}
                 <meta property="og:title" content={seoData.title} />
                 <meta property="og:description" content={seoData.description} />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={seoData.canonical} />
                 <meta property="og:image" content={seoData.ogImage} />
                 <meta property="og:site_name" content="Betheland Property Management" />
-
-                {/* Twitter Card Meta Tags */}
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={seoData.title} />
                 <meta name="twitter:description" content={seoData.description} />
                 <meta name="twitter:image" content={seoData.ogImage} />
-
-                {/* Additional Meta Tags */}
                 <meta name="robots" content="index, follow" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
-
-                {/* Structured Data for SEO */}
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "WebApplication",
-                        "name": "Betheland Property Management",
-                        "description": seoData.description,
-                        "url": seoData.canonical,
-                        "applicationCategory": "BusinessApplication",
-                        "operatingSystem": "Web Browser",
-                        "author": {
-                            "@type": "Organization",
-                            "name": "Betheland"
-                        }
-                    })}
-                </script>
             </Helmet>
 
             <Layout style={{ minHeight: '100vh' }}>
@@ -215,7 +149,7 @@ const PropertyLayout = () => {
                     <GlobalAdminNavigation collapsed={collapsed} />
                     <Layout
                         style={{
-                            marginLeft: collapsed ? 80 : 280,
+                            marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
                         }}
@@ -223,45 +157,135 @@ const PropertyLayout = () => {
                         <Content
                             style={{
                                 background: colorBgContainer,
-                                margin: '16px 0',
+                                margin: '16px',
                                 minHeight: 280,
                                 borderRadius: borderRadiusLG,
-                                maxWidth: '100%',
                                 overflow: 'hidden',
-                                padding: '20px'
+                                padding: '24px'
                             }}
                         >
-                            <div style={{ marginBottom: 20 }}>
-                                <h1 style={{
-                                    margin: 0,
-                                    color: '#1a365d',
-                                    fontSize: '24px',
-                                    fontWeight: 600
-                                }}>
-                                    Property Management
-                                </h1>
-                                <p style={{
-                                    margin: '6px 0 0 0',
-                                    color: '#666',
-                                    fontSize: '13px'
-                                }}>
-                                    Manage your property listings and create new ones
-                                </p>
+                            {/* Header Section */}
+                            <div style={{ marginBottom: 24 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        {isEditing && (
+                                            <Button
+                                                icon={<ArrowLeftOutlined />}
+                                                onClick={handleBackToProperties}
+                                                style={{ border: 'none' }}
+                                            >
+                                                Back to Properties
+                                            </Button>
+                                        )}
+                                        <div>
+                                            <Title level={2} style={{
+                                                margin: 0,
+                                                color: '#1a365d',
+                                                fontSize: '28px',
+                                                fontWeight: 600
+                                            }}>
+                                                {isEditing
+                                                    ? `Edit Property - ${selectedProperty?.title || 'Property'}`
+                                                    : activeTab === 'properties'
+                                                        ? 'All Properties'
+                                                        : 'Create New Property'
+                                                }
+                                            </Title>
+                                            <p style={{
+                                                margin: '8px 0 0 0',
+                                                color: '#666',
+                                                fontSize: '16px'
+                                            }}>
+                                                {isEditing
+                                                    ? 'Update property information, media, and details'
+                                                    : activeTab === 'properties'
+                                                        ? `Manage ${propertiesCount} property listings in your portfolio`
+                                                        : 'Add new property listings with detailed information'
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {activeTab === 'properties' && !isEditing && (
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusCircleOutlined />}
+                                            onClick={handleCreateProperty}
+                                            size="large"
+                                        >
+                                            Add New Property
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
 
-                            <Tabs
-                                activeKey={activeTab}
-                                onChange={handleTabChange}
-                                type="card"
-                                size="middle"
-                                items={tabItems}
+                            {/* Horizontal Tabs for Navigation */}
+                            <Card
+                                bodyStyle={{ padding: '0' }}
                                 style={{
-                                    '& .ant-tabs-tab': {
-                                        padding: '8px 16px',
-                                        margin: '0 4px',
-                                    }
+                                    marginBottom: 24,
+                                    border: 'none',
+                                    boxShadow: 'none'
                                 }}
-                            />
+                            >
+                                <Tabs
+                                    activeKey={activeTab}
+                                    onChange={handleTabChange}
+                                    type="line"
+                                    size="large"
+                                    style={{
+                                        borderBottom: '1px solid #f0f0f0'
+                                    }}
+                                    items={[
+                                        {
+                                            key: 'properties',
+                                            label: (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 500 }}>
+                                                    <HomeOutlined />
+                                                    All Properties
+                                                    {propertiesCount > 0 && (
+                                                        <span style={{
+                                                            backgroundColor: '#f0f0f0',
+                                                            color: '#666',
+                                                            borderRadius: '12px',
+                                                            padding: '2px 8px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'normal'
+                                                        }}>
+                                                            {propertiesCount}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            )
+                                        },
+                                        {
+                                            key: 'create',
+                                            label: (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 500 }}>
+                                                    <PlusCircleOutlined />
+                                                    {isEditing ? 'Edit Property' : 'Create Property'}
+                                                </span>
+                                            )
+                                        }
+                                    ]}
+                                />
+                            </Card>
+
+                            {/* Main Content Area - Full Width */}
+                            <div style={{ width: '100%' }}>
+                                {activeTab === 'properties' && (
+                                    <PropertyPage
+                                        onPropertiesUpdate={handlePropertiesUpdate}
+                                        onEditProperty={handleEditProperty}
+                                    />
+                                )}
+                                {activeTab === 'create' && (
+                                    <CreateProperty
+                                        property={selectedProperty}
+                                        onSuccess={handlePropertiesUpdate}
+                                        onBack={handleBackToProperties}
+                                    />
+                                )}
+                            </div>
                         </Content>
                     </Layout>
                 </Layout>

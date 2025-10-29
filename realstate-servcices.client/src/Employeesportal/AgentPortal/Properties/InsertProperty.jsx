@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿// InsertProperty.jsx
+import React, { useState, useEffect } from 'react';
 import {
     Form,
     Input,
@@ -19,7 +20,9 @@ import {
     Descriptions,
     Collapse,
     Image,
-    Modal
+    Modal,
+    Progress,
+    notification
 } from 'antd';
 import {
     SaveOutlined,
@@ -28,7 +31,8 @@ import {
     EnvironmentOutlined,
     EyeOutlined,
     DeleteOutlined,
-    PlayCircleOutlined
+    PlayCircleOutlined,
+    CheckCircleOutlined
 } from '@ant-design/icons';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -39,7 +43,6 @@ import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService
 import amenities from '../../AdminPortal/Creation_Property/services/amenities';
 import statusOptions from '../../AdminPortal/Creation_Property/services/Status';
 import propertyTypeOptions from '../../AdminPortal/Creation_Property/services/propertyTypeOption';
-import authService from '../../../Authpage/Services/LoginAuth';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -178,7 +181,6 @@ function MapClickHandler({ onMapClick }) {
 const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const [agents, setAgents] = useState([]);
     const [imageList, setImageList] = useState([]);
     const [videoList, setVideoList] = useState([]);
     const [mapCenter, setMapCenter] = useState(DEFAULT_PH_COORDINATES);
@@ -196,7 +198,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [previewTitle, setPreviewTitle] = useState('');
     const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
     const [previewVideo, setPreviewVideo] = useState('');
-    const [currentUser, setCurrentUser] = useState(null); // Add current user state
+    
+    // New states for progress and success
+    const [progressVisible, setProgressVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [currentAction, setCurrentAction] = useState('');
 
     // Safe options with fallbacks
     const [propertyTypes, setPropertyTypes] = useState([]);
@@ -207,11 +213,59 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         ? Object.values(amenities).flat()
         : [];
 
+    // Show success notification
+    const showSuccessMessage = (action, propertyTitle) => {
+        const messages = {
+            create: 'Property created successfully!',
+            update: 'Property updated successfully!'
+        };
+
+        notification.success({
+            message: (
+                <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    <span>{messages[action]}</span>
+                </Space>
+            ),
+            description: `"${propertyTitle}" has been ${action === 'create' ? 'created' : 'updated'} successfully.`,
+            placement: 'topRight',
+            duration: 4,
+        });
+    };
+
+    // Show progress bar
+    const startProgress = (actionName) => {
+        setCurrentAction(actionName);
+        setProgressVisible(true);
+        setProgress(0);
+        
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 100);
+
+        return interval;
+    };
+
+    // Complete progress
+    const completeProgress = (interval) => {
+        setProgress(100);
+        setTimeout(() => {
+            if (interval) clearInterval(interval);
+            setProgressVisible(false);
+            setProgress(0);
+            setCurrentAction('');
+        }, 500);
+    };
+
     useEffect(() => {
         initializeOptions();
         loadAgents();
-        getCurrentUser(); // Get current user on component mount
-
         if (property) {
             initializeFormWithPropertyData();
         } else {
@@ -222,22 +276,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             });
         }
     }, [property, form]);
-
-    // Get current logged-in user
-    const getCurrentUser = () => {
-        const user = authService.getCurrentUser();
-        if (user) {
-            setCurrentUser(user);
-            console.log('Current user:', user);
-
-            // Auto-set agentId to current user's ID if no property is being edited
-            if (!property) {
-                form.setFieldsValue({
-                    agentId: user.userId
-                });
-            }
-        }
-    };
 
     const initializeOptions = () => {
         if (propertyTypeOptions && typeof propertyTypeOptions === 'object') {
@@ -390,7 +428,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
+            reader.onError = error => reject(error);
         });
     };
 
@@ -702,6 +740,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     };
 
     const onFinish = async (values) => {
+        const progressInterval = startProgress(property ? 'Updating property...' : 'Creating property...');
         setLoading(true);
         clearError();
 
@@ -737,20 +776,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
 
-            // ✅ FIX: Convert amenities array to comma-separated string for backend
+            // Convert amenities array to comma-separated string for backend
             let amenitiesValue = allValues.amenities;
             if (Array.isArray(amenitiesValue)) {
-                // Convert array to comma-separated string
                 amenitiesValue = amenitiesValue.join(', ');
             } else if (!amenitiesValue) {
                 amenitiesValue = '';
-            }
-
-            // ✅ AUTO-SET agentId to current user's ID if not provided
-            let agentIdValue = allValues.agentId;
-            if (!agentIdValue && currentUser) {
-                agentIdValue = currentUser.userId;
-                console.log('Auto-setting agentId to current user ID:', agentIdValue);
             }
 
             // Format the property data for API
@@ -775,16 +806,13 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 areaSqm: parseInt(allValues.areaSqm) || 0,
                 propertyAge: parseInt(allValues.propertyAge) || 0,
                 propertyFloor: parseInt(allValues.propertyFloor) || 1,
-                amenities: amenitiesValue, // ✅ Now this is a string (comma-separated)
+                amenities: amenitiesValue,
                 ownerId: allValues.ownerId ? parseInt(allValues.ownerId) : null,
-                agentId: agentIdValue ? parseInt(agentIdValue) : null, // ✅ Use auto-set or provided agentId
+                agentId: allValues.agentId ? parseInt(allValues.agentId) : null,
             };
 
             console.log('Submitting property data:', propertyData);
-            console.log('Current user:', currentUser);
-            console.log('Agent ID being used:', propertyData.agentId);
             console.log('Amenities value:', amenitiesValue);
-            console.log('Amenities type:', typeof amenitiesValue);
             console.log('Image files to upload:', imageFiles.length);
             console.log('Video files to upload:', videoFiles.length);
 
@@ -798,7 +826,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     console.log('Updating property without media...');
                     result = await propertyService.updateProperty(property.id, propertyData);
                 }
-                message.success('Property updated successfully');
             } else {
                 // Create new property
                 if (imageFiles.length > 0 || videoFiles.length > 0) {
@@ -808,10 +835,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     console.log('Creating property without media...');
                     result = await propertyService.createProperty(propertyData);
                 }
-                message.success('Property created successfully');
             }
 
             console.log('API Response:', result);
+
+            completeProgress(progressInterval);
+            showSuccessMessage(property ? 'update' : 'create', propertyData.title);
 
             // Handle successful response
             if (result && (result.property || result.id)) {
@@ -823,8 +852,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     price: propertyData.price,
                     address: `${propertyData.address}, ${propertyData.city}, ${propertyData.state}, ${propertyData.zipCode}, ${propertyData.country}`,
                     status: propertyData.status,
-                    referenceId: propertyResult.id || `PROP-${Date.now()}`,
-                    agentId: propertyData.agentId
+                    referenceId: propertyResult.id || `PROP-${Date.now()}`
                 });
 
                 setShowSuccessInfo(true);
@@ -838,9 +866,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
 
         } catch (error) {
             console.error('Error saving property:', error);
+            completeProgress(progressInterval);
             const errorMessage = error.message || `Failed to ${property ? 'update' : 'create'} property`;
 
-            // More detailed error message
             let displayMessage = errorMessage;
             if (error.details && Array.isArray(error.details) && error.details.length > 0) {
                 displayMessage += `: ${error.details.join(', ')}`;
@@ -915,8 +943,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             form.setFieldsValue({
                 country: 'Philippines',
                 state: 'Laguna',
-                city: 'Magdalena',
-                agentId: currentUser ? currentUser.userId : null // Auto-set agentId again
+                city: 'Magdalena'
             });
         }, 100);
     };
@@ -1093,7 +1120,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 name="zipCode"
                                 rules={[{ required: true, message: 'Please enter zip/postal code' }]}
                             >
-                                <Input placeholder="Enter zip/postal code" />
+                                <Input placeholder="Enter zip or postal code" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -1104,63 +1131,82 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 name="country"
                                 rules={[{ required: true, message: 'Please select country' }]}
                             >
-                                <Select showSearch placeholder="Select country">
+                                <Select placeholder="Select country">
                                     {countryOptions.map(country => (
                                         <Option key={country} value={country}>{country}</Option>
                                     ))}
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item label="Coordinates">
-                                <Row gutter={[8, 0]}>
-                                    <Col span={11}>
-                                        <Form.Item name="latitude" noStyle>
-                                            <Input placeholder="Latitude" />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={11}>
-                                        <Form.Item name="longitude" noStyle>
-                                            <Input placeholder="Longitude" />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={2}>
-                                        <Button
-                                            type="link"
-                                            icon={<EnvironmentOutlined />}
-                                            onClick={handleGeocodeFromCoordinates}
-                                            loading={geocoding}
-                                            title="Get address from coordinates"
-                                        />
-                                    </Col>
-                                </Row>
+                    </Row>
+
+                    {/* Map Section */}
+                    <Card
+                        title={<Space><EnvironmentOutlined />Location Map - Magdalena, Laguna, Philippines</Space>}
+                        size="small"
+                        style={{ marginTop: 16 }}
+                    >
+                        <div style={{ height: '300px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+                            <MapContainer
+                                center={mapCenter}
+                                zoom={mapZoom}
+                                style={{ height: '100%', width: '100%' }}
+                                key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
+                            >
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                <MapClickHandler onMapClick={handleMapClick} />
+                                {markerPosition && (
+                                    <Marker position={markerPosition} />
+                                )}
+                            </MapContainer>
+                        </div>
+                        <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
+                            Click on the map to set the property location and automatically fill address details
+                        </p>
+                    </Card>
+
+                    {/* Coordinates Section with Geocode Button */}
+                    <Row gutter={[16, 0]} style={{ marginTop: 16 }}>
+                        <Col span={10}>
+                            <Form.Item label="Latitude" name="latitude">
+                                <InputNumber
+                                    style={{ width: '100%' }}
+                                    placeholder="Enter latitude"
+                                    step={0.000001}
+                                    min={-90}
+                                    max={90}
+                                    onChange={handleAddressChange}
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={10}>
+                            <Form.Item label="Longitude" name="longitude">
+                                <InputNumber
+                                    style={{ width: '100%' }}
+                                    placeholder="Enter longitude"
+                                    step={0.000001}
+                                    min={-180}
+                                    max={180}
+                                    onChange={handleAddressChange}
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={4}>
+                            <Form.Item label=" ">
+                                <Button
+                                    onClick={handleGeocodeFromCoordinates}
+                                    loading={geocoding}
+                                    style={{ marginTop: '29px', width: '100%' }}
+                                    icon={<EnvironmentOutlined />}
+                                >
+                                    Get Address
+                                </Button>
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Divider>Interactive Map</Divider>
-                    <Alert
-                        message="Click on the map to set property location"
-                        type="info"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                    />
-                    <div style={{ height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
-                        <MapContainer
-                            center={mapCenter}
-                            zoom={mapZoom}
-                            style={{ height: '100%', width: '100%' }}
-                            scrollWheelZoom={true}
-                        >
-                            <TileLayer
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            />
-                            {markerPosition && (
-                                <Marker position={markerPosition} />
-                            )}
-                            <MapClickHandler onMapClick={handleMapClick} />
-                        </MapContainer>
-                    </div>
                 </Card>
             )
         },
@@ -1171,108 +1217,102 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     <Row gutter={[16, 0]}>
                         <Col span={6}>
                             <Form.Item label="Bedrooms" name="bedrooms">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Bedrooms" />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
                             <Form.Item label="Bathrooms" name="bathrooms">
-                                <InputNumber min={0} step={0.5} style={{ width: '100%' }} placeholder="0" />
+                                <InputNumber min={0} step={0.5} style={{ width: '100%' }} placeholder="Bathrooms" />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
                             <Form.Item label="Kitchen" name="kitchen">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Kitchen" />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
                             <Form.Item label="Garage" name="garage">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Garage" />
                             </Form.Item>
                         </Col>
                     </Row>
                     <Row gutter={[16, 0]}>
-                        <Col span={8}>
+                        <Col span={6}>
                             <Form.Item label="Area (sqm)" name="areaSqm">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Area in sqm" />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
-                            <Form.Item label="Property Age (years)" name="propertyAge">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                        <Col span={6}>
+                            <Form.Item label="Property Age" name="propertyAge">
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Age in years" />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
-                            <Form.Item label="Property Floor" name="propertyFloor">
-                                <InputNumber min={1} style={{ width: '100%' }} placeholder="1" />
+                        <Col span={6}>
+                            <Form.Item label="Floor" name="propertyFloor">
+                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Floor number" />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Form.Item label="Amenities" name="amenities">
-                        {renderCategorizedAmenities()}
+
+                    <Form.Item label="Selected Amenities" name="amenities">
+                        <Select mode="multiple" placeholder="Selected amenities will appear here" style={{ width: '100%' }}>
+                            {allAmenities.map(amenity => (
+                                <Option key={amenity} value={amenity}>{amenity}</Option>
+                            ))}
+                        </Select>
                     </Form.Item>
-                    <Row gutter={[16, 16]}>
-                        <Col span={12}>
-                            <Card title="Property Images" size="small">
-                                <Upload {...imageUploadProps}>
-                                    {imageList.length >= 8 ? null : uploadButton}
-                                </Upload>
-                                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                                    Maximum 8 images • Supported formats: JPG, PNG, WebP
-                                </Text>
-                            </Card>
-                        </Col>
-                        <Col span={12}>
-                            <Card title="Property Videos" size="small">
-                                <Upload {...videoUploadProps}>
-                                    {videoList.length >= 3 ? null : videoUploadButton}
-                                </Upload>
-                                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                                    Maximum 3 videos • Supported formats: MP4, AVI, MOV
-                                </Text>
-                            </Card>
-                        </Col>
-                    </Row>
+
+                    <Card title="Select Amenities" size="small" style={{ marginTop: 16 }}>
+                        {renderCategorizedAmenities()}
+                    </Card>
+
+                    <Card title="Media" size="small" style={{ marginTop: 16 }}>
+                        <Row gutter={[16, 16]}>
+                            <Col span={24}>
+                                <Form.Item label="Property Images">
+                                    <div>
+                                        <Upload {...imageUploadProps}>
+                                            {imageList.length >= 8 ? null : uploadButton}
+                                        </Upload>
+                                        <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                                            Upload up to 8 images. Click on images to preview.
+                                        </div>
+                                    </div>
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]}>
+                            <Col span={24}>
+                                <Form.Item label="Property Videos">
+                                    <div>
+                                        <Upload {...videoUploadProps}>
+                                            {videoList.length >= 5 ? null : videoUploadButton}
+                                        </Upload>
+                                        <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                                            Upload up to 5 videos. Click on videos to preview.
+                                        </div>
+                                    </div>
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                    </Card>
                 </Card>
             )
         },
         {
             title: 'Assignment',
             content: (
-                <Card title="Assignment Information" size="small">
+                <Card title="Assignment" size="small">
                     <Row gutter={[16, 0]}>
                         <Col span={12}>
-                            <Form.Item label="Agent" name="agentId">
-                                <Select
-                                    placeholder="Select agent"
-                                    showSearch
-                                    optionFilterProp="children"
-                                    filterOption={(input, option) =>
-                                        option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                                    }
-                                >
+                            <Form.Item label="Assigned Agent" name="agentId">
+                                <Select placeholder="Select agent" allowClear>
                                     {agents.map(agent => (
                                         <Option key={agent.id} value={agent.id}>
-                                            {agent.firstName} {agent.lastName} ({agent.email})
+                                            {agent.firstName} {agent.lastName}
                                         </Option>
                                     ))}
                                 </Select>
-                            </Form.Item>
-                            {currentUser && (
-                                <Alert
-                                    message={`Current User: ${currentUser.firstName} ${currentUser.lastName} (ID: ${currentUser.userId})`}
-                                    type="info"
-                                    showIcon
-                                    style={{ marginBottom: 16 }}
-                                />
-                            )}
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="Owner ID" name="ownerId">
-                                <InputNumber
-                                    min={1}
-                                    style={{ width: '100%' }}
-                                    placeholder="Enter owner ID"
-                                />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -1281,165 +1321,178 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
     ];
 
-    const renderSuccessInfo = () => {
-        if (!submittedData) return null;
-
-        return (
-            <Card
-                title={
-                    <Space>
-                        <span style={{ color: '#52c41a' }}>✓</span>
-                        <span>Property {property ? 'Updated' : 'Created'} Successfully</span>
-                    </Space>
-                }
-                style={{ border: '1px solid #b7eb8f', backgroundColor: '#f6ffed' }}
-            >
-                <Descriptions column={1} bordered size="small">
-                    <Descriptions.Item label="Reference ID">
-                        <Text strong>{submittedData.referenceId}</Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Title">{submittedData.title}</Descriptions.Item>
-                    <Descriptions.Item label="Type">{submittedData.type}</Descriptions.Item>
-                    <Descriptions.Item label="Price">
-                        ₱ {submittedData.price.toLocaleString()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Address">{submittedData.address}</Descriptions.Item>
-                    <Descriptions.Item label="Status">
-                        <Text type={submittedData.status === 'available' ? 'success' : 'warning'}>
-                            {getStatusDisplayName(submittedData.status)}
-                        </Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Agent ID">
-                        {submittedData.agentId || 'Not assigned'}
-                    </Descriptions.Item>
-                </Descriptions>
-
-                <Divider />
-
-                <Space style={{ width: '100%', justifyContent: 'center' }}>
-                    <Button
-                        type="primary"
-                        onClick={handleCreateAnother}
-                        icon={<SaveOutlined />}
-                    >
-                        Create Another Property
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            setShowSuccessInfo(false);
-                            if (onCancel) onCancel();
-                        }}
-                        icon={<CloseOutlined />}
-                    >
-                        Close
-                    </Button>
-                </Space>
-            </Card>
-        );
-    };
-
-    if (showSuccessInfo) {
-        return renderSuccessInfo();
-    }
-
     return (
-        <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
-            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                <Card
-                    title={
-                        <Space>
-                            <SaveOutlined />
-                            {property ? 'Edit Property' : 'Create New Property'}
-                        </Space>
-                    }
-                    extra={
-                        <Button
-                            icon={<CloseOutlined />}
-                            onClick={onCancel}
-                        >
-                            Cancel
-                        </Button>
-                    }
+        <>
+            {!showSuccessInfo ? (
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={onFinish}
+                    initialValues={{
+                        status: 'available',
+                        bedrooms: 0,
+                        bathrooms: 1,
+                        kitchen: 0,
+                        garage: 0,
+                        areaSqm: 0,
+                        propertyAge: 0,
+                        propertyFloor: 1,
+                        country: 'Philippines',
+                        state: 'Laguna',
+                        city: 'Magdalena',
+                        type: 'House',
+                        amenities: []
+                    }}
                 >
-                    {getErrorAlert()}
-                    {getMissingFieldsAlert()}
-
-                    <Steps current={currentStep} style={{ marginBottom: 24 }}>
-                        {steps.map((item, index) => (
-                            <Step key={item.title} title={item.title} />
-                        ))}
-                    </Steps>
-
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={onFinish}
-                        scrollToFirstError
-                    >
-                        <div style={{ minHeight: '400px' }}>
-                            {steps[currentStep].content}
-                        </div>
-
-                        <Divider />
-
-                        <div style={{ textAlign: 'right' }}>
-                            <Space>
-                                {currentStep > 0 && (
-                                    <Button onClick={prev}>
-                                        Previous
-                                    </Button>
-                                )}
-                                {currentStep < steps.length - 1 && (
-                                    <Button type="primary" onClick={next}>
-                                        Next
-                                    </Button>
-                                )}
-                                {currentStep === steps.length - 1 && (
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        loading={loading}
-                                        icon={<SaveOutlined />}
-                                    >
-                                        {property ? 'Update Property' : 'Create Property'}
-                                    </Button>
-                                )}
+                    {/* Progress Bar */}
+                    {progressVisible && (
+                        <div style={{ marginBottom: 16 }}>
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    marginBottom: 8 
+                                }}>
+                                    <span style={{ fontWeight: 500, color: '#1890ff' }}>
+                                        {currentAction}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: '#666' }}>
+                                        {progress}%
+                                    </span>
+                                </div>
+                                <Progress 
+                                    percent={progress} 
+                                    status="active"
+                                    strokeColor={{
+                                        '0%': '#108ee9',
+                                        '100%': '#87d068',
+                                    }}
+                                    showInfo={false}
+                                />
                             </Space>
                         </div>
-                    </Form>
-                </Card>
-            </div>
+                    )}
 
-            {/* Image Preview Modal */}
-            <Modal
-                visible={previewVisible}
-                title={previewTitle}
-                footer={null}
-                onCancel={handleCancel}
-                width="auto"
-                style={{ maxWidth: '90vw' }}
-            >
-                <img alt="Preview" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }} src={previewImage} />
-            </Modal>
+                    <div style={{ marginBottom: 16 }}>
+                        {getErrorAlert()}
+                        {getMissingFieldsAlert()}
+                    </div>
 
-            {/* Video Preview Modal */}
-            <Modal
-                visible={videoPreviewVisible}
-                title="Video Preview"
-                footer={null}
-                onCancel={handleVideoCancel}
-                width="auto"
-                style={{ maxWidth: '90vw' }}
-            >
-                <video
-                    controls
-                    style={{ width: '100%', maxHeight: '70vh' }}
-                    src={previewVideo}
-                >
-                    Your browser does not support the video tag.
-                </video>
-            </Modal>
-        </div>
+                    <div style={{ marginBottom: 16 }}>
+                        <Steps current={currentStep} size="small">
+                            {steps.map((step, index) => (
+                                <Step key={index} title={step.title} />
+                            ))}
+                        </Steps>
+                    </div>
+
+                    {steps[currentStep].content}
+
+                    {/* Image Preview Modal */}
+                    <Modal
+                        open={previewVisible}
+                        title={previewTitle}
+                        footer={null}
+                        onCancel={handleCancel}
+                        width="80vw"
+                        style={{ top: 20 }}
+                    >
+                        <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+                    </Modal>
+
+                    {/* Video Preview Modal */}
+                    <Modal
+                        open={videoPreviewVisible}
+                        title="Video Preview"
+                        footer={null}
+                        onCancel={handleVideoCancel}
+                        width="80vw"
+                        style={{ top: 20 }}
+                    >
+                        <video
+                            controls
+                            style={{ width: '100%', maxHeight: '70vh' }}
+                            src={previewVideo}
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    </Modal>
+
+                    <Divider style={{ margin: '12px 0' }} />
+
+                    <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                        <Space>
+                            {currentStep > 0 && (
+                                <Button onClick={prev}>Previous</Button>
+                            )}
+                            {currentStep < steps.length - 1 && (
+                                <Button type="primary" onClick={next}>Next</Button>
+                            )}
+                            {currentStep === steps.length - 1 && (
+                                <>
+                                    <Button onClick={onCancel} disabled={loading}>
+                                        <CloseOutlined /> Cancel
+                                    </Button>
+                                    <Button type="primary" htmlType="submit" loading={loading}>
+                                        <SaveOutlined /> {property ? 'Update Property' : 'Create Property'}
+                                    </Button>
+                                </>
+                            )}
+                        </Space>
+                    </Form.Item>
+                </Form>
+            ) : (
+                <div>
+                    <Card bodyStyle={{ padding: '16px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                            <Title level={4} style={{ color: '#52c41a', marginBottom: 4 }}>
+                                ✅ {property ? 'Property Updated Successfully!' : 'Property Created Successfully!'}
+                            </Title>
+                            <Text type="secondary">
+                                {property ? 'The property information has been updated.' : 'The new property has been created successfully.'}
+                            </Text>
+                        </div>
+
+                        <Card title="Property Information" type="inner" style={{ marginBottom: 12 }}>
+                            <Descriptions bordered column={1} size="small">
+                                <Descriptions.Item label="Property Title">
+                                    <Text strong>{submittedData?.title}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Property Type">
+                                    <Text strong>{submittedData?.type}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Price">
+                                    <Text strong>₱{submittedData?.price?.toLocaleString()}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Address">
+                                    <Text>{submittedData?.address}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Status">
+                                    <Text type="success" strong>
+                                        {getStatusDisplayName(submittedData?.status)}
+                                    </Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Reference ID">
+                                    <Text type="secondary">{submittedData?.referenceId}</Text>
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </Card>
+
+                        <div style={{ textAlign: 'center', marginTop: 12 }}>
+                            <Space>
+                                {!property && (
+                                    <Button type="primary" onClick={handleCreateAnother}>
+                                        Create Another Property
+                                    </Button>
+                                )}
+                                <Button onClick={onCancel}>Close</Button>
+                            </Space>
+                        </div>
+                    </Card>
+                </div>
+            )}
+        </>
     );
 };
 

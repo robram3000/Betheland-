@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿// InsertProperty.jsx
+import React, { useState, useEffect } from 'react';
 import {
     Form,
     Input,
@@ -19,7 +20,9 @@ import {
     Descriptions,
     Collapse,
     Image,
-    Modal
+    Modal,
+    Progress,
+    notification
 } from 'antd';
 import {
     SaveOutlined,
@@ -28,13 +31,14 @@ import {
     EnvironmentOutlined,
     EyeOutlined,
     DeleteOutlined,
-    PlayCircleOutlined
+    PlayCircleOutlined,
+    CheckCircleOutlined
 } from '@ant-design/icons';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import moment from 'moment';
-import propertyService from './Services/propertyService';
+import propertyService from './services/propertyService';
 import agentService from '../Creation_Agent/Services/agentService';
 import amenities from './services/amenities';
 import statusOptions from './services/Status';
@@ -177,7 +181,6 @@ function MapClickHandler({ onMapClick }) {
 const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const [agents, setAgents] = useState([]);
     const [imageList, setImageList] = useState([]);
     const [videoList, setVideoList] = useState([]);
     const [mapCenter, setMapCenter] = useState(DEFAULT_PH_COORDINATES);
@@ -195,6 +198,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [previewTitle, setPreviewTitle] = useState('');
     const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
     const [previewVideo, setPreviewVideo] = useState('');
+    
+    // New states for progress and success
+    const [progressVisible, setProgressVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [currentAction, setCurrentAction] = useState('');
 
     // Safe options with fallbacks
     const [propertyTypes, setPropertyTypes] = useState([]);
@@ -204,6 +212,56 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const allAmenities = amenities && typeof amenities === 'object'
         ? Object.values(amenities).flat()
         : [];
+
+    // Show success notification
+    const showSuccessMessage = (action, propertyTitle) => {
+        const messages = {
+            create: 'Property created successfully!',
+            update: 'Property updated successfully!'
+        };
+
+        notification.success({
+            message: (
+                <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    <span>{messages[action]}</span>
+                </Space>
+            ),
+            description: `"${propertyTitle}" has been ${action === 'create' ? 'created' : 'updated'} successfully.`,
+            placement: 'topRight',
+            duration: 4,
+        });
+    };
+
+    // Show progress bar
+    const startProgress = (actionName) => {
+        setCurrentAction(actionName);
+        setProgressVisible(true);
+        setProgress(0);
+        
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 100);
+
+        return interval;
+    };
+
+    // Complete progress
+    const completeProgress = (interval) => {
+        setProgress(100);
+        setTimeout(() => {
+            if (interval) clearInterval(interval);
+            setProgressVisible(false);
+            setProgress(0);
+            setCurrentAction('');
+        }, 500);
+    };
 
     useEffect(() => {
         initializeOptions();
@@ -370,7 +428,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
+            reader.onError = error => reject(error);
         });
     };
 
@@ -682,6 +740,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     };
 
     const onFinish = async (values) => {
+        const progressInterval = startProgress(property ? 'Updating property...' : 'Creating property...');
         setLoading(true);
         clearError();
 
@@ -717,10 +776,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
 
-            // ✅ FIX: Convert amenities array to comma-separated string for backend
+            // Convert amenities array to comma-separated string for backend
             let amenitiesValue = allValues.amenities;
             if (Array.isArray(amenitiesValue)) {
-                // Convert array to comma-separated string
                 amenitiesValue = amenitiesValue.join(', ');
             } else if (!amenitiesValue) {
                 amenitiesValue = '';
@@ -748,14 +806,13 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 areaSqm: parseInt(allValues.areaSqm) || 0,
                 propertyAge: parseInt(allValues.propertyAge) || 0,
                 propertyFloor: parseInt(allValues.propertyFloor) || 1,
-                amenities: amenitiesValue, // ✅ Now this is a string (comma-separated)
+                amenities: amenitiesValue,
                 ownerId: allValues.ownerId ? parseInt(allValues.ownerId) : null,
                 agentId: allValues.agentId ? parseInt(allValues.agentId) : null,
             };
 
             console.log('Submitting property data:', propertyData);
             console.log('Amenities value:', amenitiesValue);
-            console.log('Amenities type:', typeof amenitiesValue);
             console.log('Image files to upload:', imageFiles.length);
             console.log('Video files to upload:', videoFiles.length);
 
@@ -769,7 +826,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     console.log('Updating property without media...');
                     result = await propertyService.updateProperty(property.id, propertyData);
                 }
-                message.success('Property updated successfully');
             } else {
                 // Create new property
                 if (imageFiles.length > 0 || videoFiles.length > 0) {
@@ -779,10 +835,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     console.log('Creating property without media...');
                     result = await propertyService.createProperty(propertyData);
                 }
-                message.success('Property created successfully');
             }
 
             console.log('API Response:', result);
+
+            completeProgress(progressInterval);
+            showSuccessMessage(property ? 'update' : 'create', propertyData.title);
 
             // Handle successful response
             if (result && (result.property || result.id)) {
@@ -808,9 +866,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
 
         } catch (error) {
             console.error('Error saving property:', error);
+            completeProgress(progressInterval);
             const errorMessage = error.message || `Failed to ${property ? 'update' : 'create'} property`;
 
-            // More detailed error message
             let displayMessage = errorMessage;
             if (error.details && Array.isArray(error.details) && error.details.length > 0) {
                 displayMessage += `: ${error.details.join(', ')}`;
@@ -1257,11 +1315,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item label="Owner ID" name="ownerId">
-                                <InputNumber style={{ width: '100%' }} placeholder="Enter owner ID" min={1} />
-                            </Form.Item>
-                        </Col>
                     </Row>
                 </Card>
             )
@@ -1288,9 +1341,39 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         state: 'Laguna',
                         city: 'Magdalena',
                         type: 'House',
-                        amenities: [] // ✅ Ensure amenities starts as empty array
+                        amenities: []
                     }}
                 >
+                    {/* Progress Bar */}
+                    {progressVisible && (
+                        <div style={{ marginBottom: 16 }}>
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    marginBottom: 8 
+                                }}>
+                                    <span style={{ fontWeight: 500, color: '#1890ff' }}>
+                                        {currentAction}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: '#666' }}>
+                                        {progress}%
+                                    </span>
+                                </div>
+                                <Progress 
+                                    percent={progress} 
+                                    status="active"
+                                    strokeColor={{
+                                        '0%': '#108ee9',
+                                        '100%': '#87d068',
+                                    }}
+                                    showInfo={false}
+                                />
+                            </Space>
+                        </div>
+                    )}
+
                     <div style={{ marginBottom: 16 }}>
                         {getErrorAlert()}
                         {getMissingFieldsAlert()}

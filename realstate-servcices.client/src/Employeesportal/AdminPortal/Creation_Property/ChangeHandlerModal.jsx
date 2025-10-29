@@ -1,157 +1,170 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Modal, Select, Form, Button, message, Spin } from 'antd';
+﻿// ChangeHandlerModal.jsx (Updated with progress bar and success notification)
+import React, { useState, useEffect } from 'react';
+import { Modal, Select, Button, Space, message, notification, Progress } from 'antd';
+import { UserSwitchOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import agentService from '../Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
 
-const ChangeHandlerModal = ({ visible, property, onSuccess, onCancel }) => {
-    const [form] = Form.useForm();
+const ChangeHandlerModal = ({ visible, onCancel, property, onSuccess }) => {
     const [agents, setAgents] = useState([]);
+    const [selectedAgent, setSelectedAgent] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [agentsLoading, setAgentsLoading] = useState(false);
+    const [progressVisible, setProgressVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
+
+    const startProgress = () => {
+        setProgressVisible(true);
+        setProgress(0);
+
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 100);
+
+        return interval;
+    };
+
+    const completeProgress = (interval) => {
+        setProgress(100);
+        setTimeout(() => {
+            if (interval) clearInterval(interval);
+            setProgressVisible(false);
+            setProgress(0);
+        }, 500);
+    };
 
     useEffect(() => {
         if (visible) {
             loadAgents();
-            if (property) {
-                form.setFieldsValue({
-                    agentId: property.agentId || null
-                });
-            } else {
-                form.resetFields();
-            }
+            setSelectedAgent(property?.agentId || null);
+        } else {
+            setSelectedAgent(null);
         }
-    }, [visible, property, form]);
+    }, [visible, property]);
 
     const loadAgents = async () => {
-        setAgentsLoading(true);
         try {
             const agentsData = await agentService.getAgents();
-            console.log('Loaded agents:', agentsData);
             setAgents(agentsData || []);
         } catch (error) {
             console.error('Error loading agents:', error);
             message.error('Failed to load agents');
-            setAgents([]);
-        } finally {
-            setAgentsLoading(false);
         }
     };
 
-    const handleSubmit = async (values) => {
-        setLoading(true);
+    const handleSubmit = async () => {
+        if (!selectedAgent) {
+            message.error('Please select an agent');
+            return;
+        }
+
+        const progressInterval = startProgress();
+
         try {
-            await onSuccess(property, values.agentId);
-            message.success('Agent changed successfully');
+            await onSuccess(property, selectedAgent);
+
+            completeProgress(progressInterval);
+
+            notification.success({
+                message: (
+                    <Space>
+                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                        <span>Handler Changed Successfully!</span>
+                    </Space>
+                ),
+                description: `Property "${property.title}" has been assigned to the new agent.`,
+                placement: 'topRight',
+                duration: 4,
+            });
         } catch (error) {
             console.error('Error changing handler:', error);
-            message.error('Failed to change agent');
-        } finally {
-            setLoading(false);
+            completeProgress(progressInterval);
+            message.error(error.message || 'Failed to change property handler');
         }
-    };
-
-    const handleCancel = () => {
-        form.resetFields();
-        onCancel();
     };
 
     return (
         <Modal
-            title={`Change Property Handler - ${property?.title || 'Property'}`}
+            title={
+                <Space>
+                    <UserSwitchOutlined />
+                    <span>Change Property Handler</span>
+                </Space>
+            }
             open={visible}
-            onCancel={handleCancel}
-            footer={null}
-            destroyOnClose
-        >
-            <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleSubmit}
-            >
-                <Form.Item
-                    name="agentId"
-                    label="Select Agent"
-                    rules={[{ required: false, message: 'Please select an agent' }]}
+            onCancel={onCancel}
+            footer={[
+                <Button key="cancel" onClick={onCancel}>
+                    Cancel
+                </Button>,
+                <Button
+                    key="submit"
+                    type="primary"
+                    onClick={handleSubmit}
+                    loading={loading}
+                    disabled={!selectedAgent}
                 >
-                    <Select
-                        placeholder="Select an agent (optional)"
-                        loading={agentsLoading}
-                        showSearch
-                        allowClear
-                        optionFilterProp="children"
-                        filterOption={(input, option) =>
-                            option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                        }
-                        notFoundContent={agentsLoading ? <Spin size="small" /> : 'No agents found'}
-                    >
-                        <Option value={null}>
-                            <span style={{ color: '#999' }}>No Agent</span>
-                        </Option>
-                        {agents.map(agent => (
-                            <Option key={agent.id} value={agent.id}>
-                                <div>
-                                    <strong>{agent.firstName} {agent.lastName}</strong>
-                                    <div style={{ fontSize: '12px', color: '#666' }}>
-                                        {agent.email} • {agent.cellPhoneNo}
-                                    </div>
-                                    {agent.licenseNumber && (
-                                        <div style={{ fontSize: '12px', color: '#888' }}>
-                                            License: {agent.licenseNumber}
-                                        </div>
-                                    )}
-                                </div>
-                            </Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-
-                <Form.Item>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button type="primary" htmlType="submit" loading={loading}>
-                            Change Handler
-                        </Button>
-                    </div>
-                </Form.Item>
-            </Form>
-
-            {/* Current Agent Info */}
-            {property?.agent && (
-                <div style={{
-                    marginTop: 16,
-                    padding: 12,
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: 6,
-                    border: '1px solid #d9d9d9'
-                }}>
-                    <div style={{ fontWeight: 500, marginBottom: 8 }}>Current Agent:</div>
-                    <div>
-                        <strong>{property.agent.firstName} {property.agent.lastName}</strong>
-                        {property.agent.email && <div>Email: {property.agent.email}</div>}
-                        {property.agent.cellPhoneNo && <div>Phone: {property.agent.cellPhoneNo}</div>}
-                        {property.agent.licenseNumber && <div>License: {property.agent.licenseNumber}</div>}
-                    </div>
+                    Change Handler
+                </Button>,
+            ]}
+        >
+            {/* Progress Bar */}
+            {progressVisible && (
+                <div style={{ marginBottom: 16 }}>
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: 8
+                        }}>
+                            <span style={{ fontWeight: 500, color: '#1890ff' }}>
+                                Changing property handler...
+                            </span>
+                            <span style={{ fontSize: '12px', color: '#666' }}>
+                                {progress}%
+                            </span>
+                        </div>
+                        <Progress
+                            percent={progress}
+                            status="active"
+                            strokeColor={{
+                                '0%': '#108ee9',
+                                '100%': '#87d068',
+                            }}
+                            showInfo={false}
+                        />
+                    </Space>
                 </div>
             )}
 
-            {property?.agentId && !property?.agent && (
-                <div style={{
-                    marginTop: 16,
-                    padding: 12,
-                    backgroundColor: '#fff3cd',
-                    borderRadius: 6,
-                    border: '1px solid #ffeaa7'
-                }}>
-                    <div style={{ fontWeight: 500, marginBottom: 8 }}>Current Agent (ID Only):</div>
-                    <div>Agent ID: {property.agentId}</div>
-                    <div style={{ fontSize: '12px', color: '#856404' }}>
-                        Agent details not available. You can assign a new agent below.
-                    </div>
-                </div>
-            )}
+            <div style={{ marginBottom: 16 }}>
+                <p><strong>Property:</strong> {property?.title}</p>
+                <p><strong>Current Handler:</strong> {property?.agent ? `${property.agent.firstName} ${property.agent.lastName}` : 'No agent assigned'}</p>
+            </div>
+
+            <Select
+                style={{ width: '100%' }}
+                placeholder="Select new agent"
+                value={selectedAgent}
+                onChange={setSelectedAgent}
+                showSearch
+                filterOption={(input, option) =>
+                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                }
+            >
+                {agents.map(agent => (
+                    <Option key={agent.id} value={agent.id}>
+                        {agent.firstName} {agent.lastName} ({agent.email})
+                    </Option>
+                ))}
+            </Select>
         </Modal>
     );
 };
