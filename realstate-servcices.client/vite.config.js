@@ -35,11 +35,12 @@ const developmentConfig = () => {
         }
     }
 
+    // CHANGE: Use HTTP instead of HTTPS for backend target
     const target = env.ASPNETCORE_HTTPS_PORT
-        ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}`
+        ? `http://localhost:${env.ASPNETCORE_HTTPS_PORT}`  // Changed to http
         : env.ASPNETCORE_URLS
-            ? env.ASPNETCORE_URLS.split(';')[0]
-            : 'https://localhost:7075';
+            ? env.ASPNETCORE_URLS.split(';')[0].replace('https://', 'http://') // Changed to http
+            : 'http://localhost:5016'; // Changed to HTTP port
 
     return {
         server: {
@@ -50,16 +51,12 @@ const developmentConfig = () => {
                     changeOrigin: true
                 },
             },
-            port: 64324, 
-            https: {
-                key: fs.readFileSync(keyFilePath),
-                cert: fs.readFileSync(certFilePath),
-            },
+            port: 64324,
+            // REMOVE HTTPS configuration for dev server
             strictPort: false,
             hmr: {
-                protocol: 'wss',
+                protocol: 'ws', // Changed from 'wss' to 'ws' for HTTP
                 host: 'localhost',
-               
             }
         }
     };
@@ -67,7 +64,6 @@ const developmentConfig = () => {
 
 export default defineConfig(({ mode }) => {
     const isProduction = mode === 'production';
-
 
     return {
         plugins: [react()],
@@ -98,7 +94,7 @@ export default defineConfig(({ mode }) => {
         define: {
             'process.env.VITE_APP_NAME': JSON.stringify('Betheland Real Estate'),
             'process.env.VITE_API_BASE_URL': JSON.stringify(
-                isProduction ? 'https://betheland.com' : 'https://localhost:7075'
+                isProduction ? 'https://betheland.com' : 'http://localhost:5016' // Changed to HTTP
             )
         },
 
