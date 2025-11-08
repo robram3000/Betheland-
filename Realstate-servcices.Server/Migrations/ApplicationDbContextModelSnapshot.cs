@@ -988,11 +988,208 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasIndex("ScheduleNo")
                         .IsUnique();
 
-                    b.HasIndex("ScheduleTime");
-
                     b.HasIndex("Status");
 
                     b.ToTable("ScheduleProperties");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.PartConfig.Partner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("display_order");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("LogoUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("logo_url");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("partners");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.FeatureItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ThirdSectionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ThirdSectionId");
+
+                    b.ToTable("FeatureItems");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.ProcessStep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ThirdSectionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StepNumber");
+
+                    b.HasIndex("ThirdSectionId", "StepNumber");
+
+                    b.ToTable("ProcessSteps");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.ThirdSection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Subtitle")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("ThirdSections");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.announcementconfig.AnnouncementConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Announcements");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Agent", b =>
@@ -1105,9 +1302,6 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasIndex("AgentNo")
                         .IsUnique();
 
-                    b.HasIndex("BaseMemberId")
-                        .IsUnique();
-
                     b.HasIndex("DateRegistered");
 
                     b.HasIndex("IsVerified");
@@ -1184,9 +1378,6 @@ namespace Realstate_servcices.Server.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("BaseMemberId")
-                        .IsUnique();
 
                     b.ToTable("Clients");
                 });
@@ -1435,12 +1626,14 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
                         .WithMany("ScheduleProperties")
                         .HasForeignKey("AgentId")
+                        .HasPrincipalKey("BaseMemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
                         .WithMany("ScheduleProperties")
                         .HasForeignKey("ClientId")
+                        .HasPrincipalKey("BaseMemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1455,6 +1648,28 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Client");
 
                     b.Navigation("Property");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.FeatureItem", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.landingpage.Third_Section.ThirdSection", "ThirdSection")
+                        .WithMany("FeatureItems")
+                        .HasForeignKey("ThirdSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ThirdSection");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.ProcessStep", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.landingpage.Third_Section.ThirdSection", "ThirdSection")
+                        .WithMany("ProcessSteps")
+                        .HasForeignKey("ThirdSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ThirdSection");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Agent", b =>
@@ -1517,6 +1732,13 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("ScheduleProperties");
 
                     b.Navigation("Wishlists");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.landingpage.Third_Section.ThirdSection", b =>
+                {
+                    b.Navigation("FeatureItems");
+
+                    b.Navigation("ProcessSteps");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Agent", b =>

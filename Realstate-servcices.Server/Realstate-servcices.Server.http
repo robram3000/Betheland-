@@ -1,4 +1,4 @@
-@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7075
+@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7080
 @Realstate_servcices.Server_HostAddress_HTTP = http://localhost:1452
 @ContentType = application/json
 
@@ -23,7 +23,7 @@ Content-Type: {{ContentType}}
   "cellPhoneNo": "09666627948",
   "licenseNumber": "LIC-123458"
 }
-
+###
 POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 

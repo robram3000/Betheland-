@@ -31,16 +31,19 @@ export class ApiMapper {
     }
 
     static mapBaseMember(memberData) {
+        if (!memberData) return null;
+
         return {
             id: memberData.id,
-            firstName: memberData.firstName,
-            lastName: memberData.lastName,
-            fullName: memberData.fullName,
-            profileImage: memberData.profileImage,
-            memberType: memberData.memberType
+            firstName: memberData.firstName || memberData.username,
+            lastName: memberData.lastName || '',
+            fullName: memberData.fullName || memberData.username,
+            profileImage: memberData.profileImage || memberData.profilePictureUrl,
+            memberType: memberData.memberType || memberData.role,
+            email: memberData.email,
+            username: memberData.username
         };
     }
-
     static mapMessage(messageData) {
         return {
             id: messageData.id,
@@ -54,12 +57,11 @@ export class ApiMapper {
             sentAt: new Date(messageData.sentAt),
             readAt: messageData.readAt ? new Date(messageData.readAt) : null,
             editedAt: messageData.editedAt ? new Date(messageData.editedAt) : null,
-            sender: messageData.sender ? this.mapBaseMember(messageData.sender) : null,
+            sender: this.mapBaseMember(messageData.sender),
             files: messageData.files?.map(f => this.mapMessageFile(f)) || [],
             reactions: messageData.reactions?.map(r => this.mapMessageReaction(r)) || []
         };
     }
-
     static mapMessageFile(fileData) {
         return {
             id: fileData.id,

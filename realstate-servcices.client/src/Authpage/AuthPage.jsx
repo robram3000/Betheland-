@@ -64,7 +64,7 @@ const AuthPage = () => {
             case 'superadmin':
             case 'super_admin':
             case 'super administrator':
-                return '/portal/super-admin';
+                return '/portal/super-admin/dashboard';
 
             case 'client':
             case 'customer':

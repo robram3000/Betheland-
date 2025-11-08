@@ -546,26 +546,78 @@ const PropertyCard = ({
         }
     };
 
-    const handleViewDetails = (e) => {
+    // UPDATED: Fetch complete agent data with baseMemberId before navigation
+    const handleViewDetails = async (e) => {
         e.stopPropagation();
-        if (isValidProperty) {
-            console.log('DEBUG - View details clicked, navigating with property ID:', property.id);
+        if (!isValidProperty) return;
+
+        try {
+            console.log('🔄 Fetching complete agent data for navigation...');
+
+            let completeAgentData = agent;
+
+            // If we don't have agent data or baseMemberId, fetch it
+            if (!agent?.baseMemberId && property?.agentId) {
+                const fullAgent = await agentService.getAgentWithFallback(property.agentId);
+                completeAgentData = fullAgent;
+                console.log('✅ Fetched complete agent data:', fullAgent);
+            }
+
+            const navigationData = {
+                propertyId: property.id,
+                agentData: completeAgentData // This now includes baseMemberId
+            };
+
+            console.log('🚀 Navigating with data:', navigationData);
 
             navigate('/properties/view', {
+                state: navigationData
+            });
+        } catch (error) {
+            console.error('❌ Error fetching agent data for navigation:', error);
+            // Fallback navigation with available data
+            navigate('/properties/view', {
                 state: {
-                    propertyId: property.id
+                    propertyId: property.id,
+                    agentData: agent
                 }
             });
         }
     };
 
-    const handleCardClick = () => {
-        if (isValidProperty) {
-            console.log('DEBUG - Card clicked, navigating with property ID:', property.id);
+    // UPDATED: Same logic for card click
+    const handleCardClick = async () => {
+        if (!isValidProperty) return;
+
+        try {
+            console.log('🔄 Fetching complete agent data for card navigation...');
+
+            let completeAgentData = agent;
+
+            // If we don't have agent data or baseMemberId, fetch it
+            if (!agent?.baseMemberId && property?.agentId) {
+                const fullAgent = await agentService.getAgentWithFallback(property.agentId);
+                completeAgentData = fullAgent;
+                console.log('✅ Fetched complete agent data for card:', fullAgent);
+            }
+
+            const navigationData = {
+                propertyId: property.id,
+                agentData: completeAgentData // This now includes baseMemberId
+            };
+
+            console.log('🚀 Card navigation with data:', navigationData);
 
             navigate('/properties/view', {
+                state: navigationData
+            });
+        } catch (error) {
+            console.error('❌ Error fetching agent data for card navigation:', error);
+            // Fallback navigation with available data
+            navigate('/properties/view', {
                 state: {
-                    propertyId: property.id
+                    propertyId: property.id,
+                    agentData: agent
                 }
             });
         }
@@ -590,11 +642,12 @@ const PropertyCard = ({
                 return;
             }
 
-            // Try to fetch agent data
+            // Try to fetch complete agent data with baseMemberId
             const agentData = await agentService.getAgentWithFallback(property.agentId);
 
             if (agentData && agentData.id) {
                 console.log('Agent data fetched successfully:', agentData);
+                console.log('Agent baseMemberId:', agentData.baseMemberId);
                 setAgent(agentData);
             } else {
                 console.warn('No agent data found, setting to fallback');
@@ -648,14 +701,15 @@ const PropertyCard = ({
             propertyId: property.id,
             agentId: property.agentId,
             hasAgentData: !!property.agent,
-            currentAgent: agent
+            currentAgent: agent,
+            hasBaseMemberId: agent?.baseMemberId
         });
 
-        if (property.agent && property.agent.id === property.agentId) {
-            console.log('Using agent data from property');
+        if (property.agent && property.agent.id === property.agentId && property.agent.baseMemberId) {
+            console.log('Using agent data from property with baseMemberId');
             setAgent(property.agent);
-        } else if (property.agentId && !agent) {
-            console.log('Fetching agent data');
+        } else if (property.agentId && !agent?.baseMemberId) {
+            console.log('Fetching agent data to get baseMemberId');
             fetchAgent();
         } else if (!property.agentId) {
             console.log('No agent ID, setting agent to null');

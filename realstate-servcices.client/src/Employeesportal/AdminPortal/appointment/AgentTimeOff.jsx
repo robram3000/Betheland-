@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
     Card,
@@ -22,29 +22,24 @@ import {
     EditOutlined,
     DeleteOutlined,
     UserOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    MailOutlined,
+    PhoneOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
 
-// Import the main service
-import SchedulingServices from './Services';
+// Import the service
+import { AgentTimeOffService } from '../appointment/Services/index.js';
+import agentService from '../Creation_Agent/Services/AgentService'; // Import agent service
 
 // Destructure necessary components
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { TextArea } = Input;
 
-// Mock API client
-const mockApiClient = {
-    get: async (url) => ({ data: [], status: 200 }),
-    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
-    put: async (url, data) => ({ data, status: 200 }),
-    patch: async (url, data) => ({ data, status: 200 }),
-    delete: async (url) => ({ status: 200 })
-};
-
-const schedulingService = new SchedulingServices(mockApiClient);
+// Initialize service
+const agentTimeOffService = new AgentTimeOffService();
 
 const AgentTimeOff = ({ onScheduleUpdate }) => {
     const [timeOffs, setTimeOffs] = useState([]);
@@ -53,6 +48,8 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
     const [selectedTimeOff, setSelectedTimeOff] = useState(null);
     const [form] = Form.useForm();
     const [agents, setAgents] = useState([]);
+    const [agentsCache, setAgentsCache] = useState({});
+    const [agentLoading, setAgentLoading] = useState({});
 
     const timeOffTypes = [
         'Vacation',
@@ -68,30 +65,176 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
         loadAgents();
     }, []);
 
+    // Copy the agent data loader algorithm from PropertyPage
+    const loadAgentData = useCallback(async (agentId) => {
+        if (!agentId) {
+            return null;
+        }
+
+        // Check cache first
+        if (agentsCache[agentId]) {
+            console.log(`Using cached agent data for ID: ${agentId}`, agentsCache[agentId]);
+            return agentsCache[agentId];
+        }
+
+        // Set loading state for this agent
+        setAgentLoading(prev => ({ ...prev, [agentId]: true }));
+
+        try {
+            console.log(`Fetching agent data for ID: ${agentId}`);
+            const agentData = await agentService.getAgent(agentId);
+            console.log(`Raw agent data received:`, agentData);
+
+            const processedAgent = {
+                id: agentData.id,
+                firstName: agentData.firstName || 'Unknown',
+                lastName: agentData.lastName || 'Agent',
+                email: agentData.email || '',
+                cellPhoneNo: agentData.cellPhoneNo || '',
+                profilePictureUrl: agentData.profilePictureUrl || '',
+                licenseNumber: agentData.licenseNumber || ''
+            };
+
+            console.log(`Processed agent data:`, processedAgent);
+
+            // Update cache
+            setAgentsCache(prev => ({
+                ...prev,
+                [agentId]: processedAgent
+            }));
+
+            return processedAgent;
+        } catch (error) {
+            console.error(`Error loading agent ${agentId}:`, error);
+
+            // Create fallback agent data
+            const fallbackAgent = {
+                id: agentId,
+                firstName: 'Unknown',
+                lastName: 'Agent',
+                email: '',
+                cellPhoneNo: '',
+                profilePictureUrl: '',
+                licenseNumber: ''
+            };
+
+            // Cache the fallback to prevent repeated failed requests
+            setAgentsCache(prev => ({
+                ...prev,
+                [agentId]: fallbackAgent
+            }));
+
+            return fallbackAgent;
+        } finally {
+            // Clear loading state
+            setAgentLoading(prev => ({ ...prev, [agentId]: false }));
+        }
+    }, [agentsCache]);
+
     const loadTimeOffs = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.timeOff.getAll();
-            if (result.success) {
-                setTimeOffs(result.data);
+            const result = await agentTimeOffService.getAllTimeOffs();
+
+            // Enhanced time offs loader with agent data (similar to PropertyPage)
+            if (result && result.length > 0) {
+                // First, set time offs with basic data
+                const initialTimeOffs = result.map(timeOff => ({
+                    ...timeOff,
+                    agent: timeOff.agent || null // Keep existing agent data if any
+                }));
+
+                setTimeOffs(initialTimeOffs);
+
+                // Then load agent data for time offs that need it
+                const timeOffsWithAgents = await Promise.all(
+                    initialTimeOffs.map(async (timeOff) => {
+                        let agentData = timeOff.agent;
+
+                        // If no agent data but we have agentId, load it
+                        if (!agentData && timeOff.agentId) {
+                            console.log(`Loading agent for time off ${timeOff.id}, agentId: ${timeOff.agentId}`);
+                            agentData = await loadAgentData(timeOff.agentId);
+                        }
+
+                        // If we have embedded agent data but it's incomplete, enhance it
+                        if (agentData && agentData.id && (!agentData.firstName || agentData.firstName === 'Unknown')) {
+                            console.log(`Enhancing incomplete agent data for time off ${timeOff.id}`);
+                            const enhancedAgent = await loadAgentData(agentData.id);
+                            agentData = enhancedAgent || agentData;
+                        }
+
+                        return {
+                            ...timeOff,
+                            agent: agentData
+                        };
+                    })
+                );
+
+                console.log('Final processed time offs with agent data:', timeOffsWithAgents);
+                setTimeOffs(timeOffsWithAgents);
             } else {
-                message.error(result.error?.message || 'Failed to load time off requests');
+                console.log('No time offs found');
+                setTimeOffs([]);
             }
         } catch (error) {
             console.error('Error loading time offs:', error);
-            message.error('Failed to load time off requests');
+            message.error(error.message || 'Failed to load time off requests');
         } finally {
             setLoading(false);
         }
     };
 
     const loadAgents = async () => {
-        // Mock agents data - replace with actual API call
-        setAgents([
-            { id: 1, name: 'John Smith' },
-            { id: 2, name: 'Sarah Johnson' },
-            { id: 3, name: 'Mike Wilson' }
-        ]);
+        try {
+            // Load all agents for the dropdown
+            const allAgents = await agentService.getAllAgents();
+            const processedAgents = allAgents.map(agent => ({
+                id: agent.id,
+                firstName: agent.firstName || 'Unknown',
+                lastName: agent.lastName || 'Agent',
+                email: agent.email || '',
+                cellPhoneNo: agent.cellPhoneNo || '',
+                profilePictureUrl: agent.profilePictureUrl || '',
+                licenseNumber: agent.licenseNumber || ''
+            }));
+            setAgents(processedAgents);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+            message.error('Failed to load agents');
+            // Fallback to empty array
+            setAgents([]);
+        }
+    };
+
+    // Helper functions copied from PropertyPage
+    const getAgentDisplayName = (agent) => {
+        if (!agent) return 'No Agent Assigned';
+        if (agent.firstName && agent.lastName && agent.firstName !== 'Unknown' && agent.lastName !== 'Agent') {
+            return `${agent.firstName} ${agent.lastName}`;
+        }
+        if (agent.firstName && agent.firstName !== 'Unknown') return agent.firstName;
+        if (agent.lastName && agent.lastName !== 'Agent') return agent.lastName;
+        return 'Unknown Agent';
+    };
+
+    const getAgentContactInfo = (agent) => {
+        if (!agent) return '';
+        const contactInfo = [];
+        if (agent.email) contactInfo.push(agent.email);
+        if (agent.cellPhoneNo) contactInfo.push(agent.cellPhoneNo);
+        return contactInfo.join(' • ');
+    };
+
+    const getAgentAvatar = (agent) => {
+        if (agent?.profilePictureUrl) {
+            return <Avatar size="small" src={agent.profilePictureUrl} />;
+        }
+        return <Avatar size="small" icon={<UserOutlined />} />;
+    };
+
+    const isAgentLoading = (agentId) => {
+        return agentLoading[agentId] || false;
     };
 
     const handleCreate = () => {
@@ -111,16 +254,13 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.timeOff.delete(id);
-            if (result.success) {
-                message.success('Time off deleted successfully');
-                loadTimeOffs();
-                if (onScheduleUpdate) onScheduleUpdate();
-            } else {
-                message.error(result.error?.message || 'Failed to delete time off');
-            }
+            await agentTimeOffService.deleteTimeOff(id);
+            message.success('Time off deleted successfully');
+            loadTimeOffs();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to delete time off');
+            console.error('Error deleting time off:', error);
+            message.error(error.message || 'Failed to delete time off');
         }
     };
 
@@ -135,50 +275,37 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
 
             delete timeOffData.dateRange;
 
-            let result;
             if (selectedTimeOff) {
-                result = await schedulingService.timeOff.update(selectedTimeOff.id, timeOffData);
-                if (result.success) {
-                    message.success('Time off updated successfully');
-                }
+                await agentTimeOffService.updateTimeOff(selectedTimeOff.id, timeOffData);
+                message.success('Time off updated successfully');
             } else {
-                result = await schedulingService.timeOff.create(timeOffData);
-                if (result.success) {
-                    message.success('Time off created successfully');
-                }
-            }
-
-            if (!result.success) {
-                message.error(result.error?.message || 'Failed to save time off');
-                return;
+                await agentTimeOffService.requestTimeOff(timeOffData);
+                message.success('Time off created successfully');
             }
 
             setModalVisible(false);
             loadTimeOffs();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to save time off');
+            console.error('Error saving time off:', error);
+            message.error(error.message || 'Failed to save time off');
         }
     };
 
     const handleStatusChange = async (id, newStatus) => {
         try {
-            let result;
             if (newStatus === 'Approved') {
-                result = await schedulingService.timeOff.approve(id);
+                await agentTimeOffService.approveTimeOff(id);
             } else if (newStatus === 'Rejected') {
-                result = await schedulingService.timeOff.reject(id);
+                await agentTimeOffService.rejectTimeOff(id);
             }
 
-            if (result && result.success) {
-                message.success(`Time off ${newStatus.toLowerCase()} successfully`);
-                loadTimeOffs();
-                if (onScheduleUpdate) onScheduleUpdate();
-            } else {
-                message.error(result?.error?.message || 'Failed to update time off status');
-            }
+            message.success(`Time off ${newStatus.toLowerCase()} successfully`);
+            loadTimeOffs();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to update time off status');
+            console.error('Error updating time off status:', error);
+            message.error(error.message || 'Failed to update time off status');
         }
     };
 
@@ -194,15 +321,57 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
     const columns = [
         {
             title: 'Agent',
-            dataIndex: 'agentName',
+            dataIndex: 'agentId',
             key: 'agent',
-            width: 150,
-            render: (text) => (
-                <Space>
-                    <Avatar size="small" icon={<UserOutlined />} />
-                    {text}
-                </Space>
-            )
+            width: 200,
+            render: (agentId, record) => {
+                const agent = record.agent;
+                const isLoading = record.agentId && isAgentLoading(record.agentId);
+
+                return (
+                    <Space direction="vertical" size={2}>
+                        <Space>
+                            {getAgentAvatar(agent)}
+                            <div>
+                                <div style={{ fontWeight: 500 }}>
+                                    {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
+                                </div>
+                                {agent?.licenseNumber && agent.licenseNumber !== '' && (
+                                    <div style={{ fontSize: '10px', color: '#666' }}>
+                                        License: {agent.licenseNumber}
+                                    </div>
+                                )}
+                            </div>
+                        </Space>
+                        {getAgentContactInfo(agent) && (
+                            <div style={{ fontSize: '11px', color: '#888' }}>
+                                <Space direction="vertical" size={2}>
+                                    {agent?.email && (
+                                        <Space size={4}>
+                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.email}</span>
+                                        </Space>
+                                    )}
+                                    {agent?.cellPhoneNo && (
+                                        <Space size={4}>
+                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.cellPhoneNo}</span>
+                                        </Space>
+                                    )}
+                                </Space>
+                            </div>
+                        )}
+                        {agentId && !agent && (
+                            <Tooltip title={`Agent ID: ${agentId}`}>
+                                <Tag color="orange" size="small">ID: {agentId}</Tag>
+                            </Tooltip>
+                        )}
+                        {isLoading && (
+                            <Tag color="blue" size="small">Loading...</Tag>
+                        )}
+                    </Space>
+                );
+            }
         },
         {
             title: 'Type',
@@ -360,10 +529,17 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
                         label="Agent"
                         rules={[{ required: true, message: 'Please select an agent' }]}
                     >
-                        <Select placeholder="Select agent">
+                        <Select
+                            placeholder="Select agent"
+                            showSearch
+                            optionFilterProp="children"
+                            filterOption={(input, option) =>
+                                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                            }
+                        >
                             {agents.map(agent => (
                                 <Option key={agent.id} value={agent.id}>
-                                    {agent.name}
+                                    {getAgentDisplayName(agent)}
                                 </Option>
                             ))}
                         </Select>

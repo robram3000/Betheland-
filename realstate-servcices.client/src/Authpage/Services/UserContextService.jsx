@@ -27,10 +27,11 @@ export const UserProvider = ({ children }) => {
             const userRole = user?.role || user?.userType;
             const permissions = rolePermissions[userRole] || [];
             setUserPermissions(permissions);
+            console.log('User permissions updated:', { userRole, permissions });
         } else {
             setUserPermissions([]);
         }
-    }, [user]); 
+    }, [user]);
 
     // Track user activity
     useEffect(() => {
@@ -67,7 +68,10 @@ export const UserProvider = ({ children }) => {
 
                 // Set initial permissions
                 const userRole = currentUser?.role || currentUser?.userType;
-                setUserPermissions(rolePermissions[userRole] || []);
+                const permissions = rolePermissions[userRole] || [];
+                setUserPermissions(permissions);
+
+                console.log('User initialized:', { currentUser, permissions });
 
                 // Use stored profile data
                 const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
@@ -147,7 +151,6 @@ export const UserProvider = ({ children }) => {
     };
 
     // Login function for context
-    // In login function - UPDATE THE MAPPING
     const login = async (usernameOrEmail, password, rememberMe = false) => {
         setLoading(true);
         try {
@@ -157,10 +160,6 @@ export const UserProvider = ({ children }) => {
                 const currentUser = authService.getCurrentUser();
                 console.log("UserContext - Current User:", currentUser);
 
-                // ✅ Enhanced debugging
-                console.log("Login result data:", result.data);
-                console.log("ImageProfile from backend:", result.data.ImageProfile);
-
                 const normalizedUser = {
                     ...currentUser,
                     role: currentUser?.role || currentUser?.userType
@@ -169,9 +168,12 @@ export const UserProvider = ({ children }) => {
                 setUser(normalizedUser);
 
                 const userRole = normalizedUser?.role;
-                setUserPermissions(rolePermissions[userRole] || []);
+                const permissions = rolePermissions[userRole] || [];
+                setUserPermissions(permissions);
 
-                // ✅ Ensure profile picture is properly mapped
+                console.log("Login successful - permissions:", permissions);
+
+                // Ensure profile picture is properly mapped
                 const userData = {
                     userId: result.data.userId,
                     email: result.data.email,
@@ -216,7 +218,8 @@ export const UserProvider = ({ children }) => {
 
             // Update permissions
             const userRole = currentUser?.role || currentUser?.userType;
-            setUserPermissions(rolePermissions[userRole] || []);
+            const permissions = rolePermissions[userRole] || [];
+            setUserPermissions(permissions);
 
             // Refresh profile from storage
             const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
@@ -272,7 +275,7 @@ export const UserProvider = ({ children }) => {
         const allowedRoles = routePermissions[routePath] || [];
         const userRole = user?.role || user?.userType;
 
-      
+        console.log('Route access check:', { routePath, userRole, allowedRoles, hasAccess: allowedRoles.includes(userRole) });
 
         return allowedRoles.includes(userRole);
     };
@@ -309,7 +312,9 @@ export const UserProvider = ({ children }) => {
         canManageUsers: () => hasAnyPermission(['manage_users', 'all']),
         canManageProperties: () => hasAnyPermission(['manage_properties', 'all']),
         canViewAnalytics: () => hasAnyPermission(['view_analytics', 'all']),
-        canManageSystem: () => hasAnyPermission(['manage_system', 'all'])
+        canManageSystem: () => hasAnyPermission(['manage_system', 'all']),
+        canViewDashboard: () => hasAnyPermission(['dashboard', 'all']),
+        canUpdateProfile: () => hasAnyPermission(['update_profile', 'manage_own_profile', 'all'])
     };
 
     return (

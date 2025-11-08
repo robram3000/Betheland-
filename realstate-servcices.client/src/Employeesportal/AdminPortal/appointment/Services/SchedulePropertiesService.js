@@ -1,185 +1,271 @@
-import SchedulingMapper from './Mapper.js';
-import { ErrorHandler, ErrorFactory } from './ErrorHandler.js';
+import axios from 'axios';
+import { schedulePropertiesMapper } from '../mappers';
+
+const API_BASE_URL = '/api';
 
 class SchedulePropertiesService {
-    constructor(apiClient) {
-        this.apiClient = apiClient;
-        this.baseUrl = '/api/ScheduleProperties';
-    }
-
-    async getAll() {
-        const result = await this.makeRequest('get', this.baseUrl, null, {
-            operation: 'get_all_schedules'
+    constructor() {
+        this.client = axios.create({
+            baseURL: API_BASE_URL,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            timeout: 30000,
         });
 
-        if (result.success) {
-            result.data = SchedulingMapper.mapArray(result.data, SchedulingMapper.toScheduleResponseDto);
-        }
-        return result;
-    }
-
-    async getById(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        const result = await this.makeRequest('get', `${this.baseUrl}/${id}`, null, {
-            operation: 'get_schedule_by_id',
-            context: { scheduleId: id }
-        });
-
-        if (result.success) {
-            result.data = SchedulingMapper.toScheduleResponseDto(result.data);
-        }
-        return result;
-    }
-
-    async getByAgent(agentId) {
-        ErrorHandler.validateRequiredFields({ agentId }, ['agentId']);
-
-        const result = await this.makeRequest('get', `${this.baseUrl}/agent/${agentId}`, null, {
-            operation: 'get_schedules_by_agent',
-            context: { agentId }
-        });
-
-        if (result.success) {
-            result.data = SchedulingMapper.mapArray(result.data, SchedulingMapper.toScheduleResponseDto);
-        }
-        return result;
-    }
-
-    async create(scheduleData) {
-        try {
-            ErrorHandler.validateRequiredFields(scheduleData, [
-                'propertyId', 'agentId', 'clientId', 'scheduleTime'
-            ]);
-
-            const entity = SchedulingMapper.toCreateScheduleEntity(scheduleData);
-            const result = await this.makeRequest('post', this.baseUrl, entity, {
-                operation: 'create_schedule',
-                context: {
-                    agentId: scheduleData.agentId,
-                    propertyId: scheduleData.propertyId,
-                    clientId: scheduleData.clientId
-                }
-            });
-
-            if (result.success) {
-                result.data = SchedulingMapper.toScheduleResponseDto(result.data);
+        this.client.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                return Promise.reject(this.handleError(error));
             }
-            return result;
+        );
+    }
+
+    async getAllSchedules() {
+        try {
+            const response = await this.client.get('/ScheduleProperties');
+            return schedulePropertiesMapper.toFrontendList(response.data);
         } catch (error) {
-            return ErrorHandler.handle(error, { operation: 'create_schedule' });
+            console.error('Error fetching all schedules:', error);
+            throw error;
         }
     }
 
-    async update(id, scheduleData) {
+    async getScheduleById(id) {
         try {
-            ErrorHandler.validateRequiredFields({ id }, ['id']);
+            const response = await this.client.get(`/ScheduleProperties/${id}`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error fetching schedule by ID:', error);
+            throw error;
+        }
+    }
 
-            const entity = SchedulingMapper.toUpdateScheduleEntity(scheduleData, { id });
-            const result = await this.makeRequest('put', `${this.baseUrl}/${id}`, entity, {
-                operation: 'update_schedule',
-                context: { scheduleId: id }
+    async getScheduleByNo(scheduleNo) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/schedule-no/${scheduleNo}`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error fetching schedule by number:', error);
+            throw error;
+        }
+    }
+
+    async getSchedulesByAgent(agentId) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/agent/${agentId}`);
+            return schedulePropertiesMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching schedules by agent:', error);
+            throw error;
+        }
+    }
+
+    async getSchedulesByClient(clientId) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/client/${clientId}`);
+            return schedulePropertiesMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching schedules by client:', error);
+            throw error;
+        }
+    }
+
+    async getSchedulesByProperty(propertyId) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/property/${propertyId}`);
+            return schedulePropertiesMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching schedules by property:', error);
+            throw error;
+        }
+    }
+
+    async getSchedulesByStatus(status) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/status/${status}`);
+            return schedulePropertiesMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching schedules by status:', error);
+            throw error;
+        }
+    }
+
+    async getSchedulesByDateRange(startDate, endDate) {
+        try {
+            const response = await this.client.get('/ScheduleProperties/date-range', {
+                params: { startDate, endDate }
             });
-
-            if (result.success) {
-                result.data = SchedulingMapper.toScheduleResponseDto(result.data);
-            }
-            return result;
+            return schedulePropertiesMapper.toFrontendList(response.data);
         } catch (error) {
-            return ErrorHandler.handle(error, { operation: 'update_schedule' });
+            console.error('Error fetching schedules by date range:', error);
+            throw error;
         }
     }
 
-    async cancel(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        return await this.makeRequest('patch', `${this.baseUrl}/${id}/cancel`, null, {
-            operation: 'cancel_schedule',
-            context: { scheduleId: id }
-        });
-    }
-
-    async complete(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        return await this.makeRequest('patch', `${this.baseUrl}/${id}/complete`, null, {
-            operation: 'complete_schedule',
-            context: { scheduleId: id }
-        });
-    }
-
-    async delete(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        return await this.makeRequest('delete', `${this.baseUrl}/${id}`, null, {
-            operation: 'delete_schedule',
-            context: { scheduleId: id }
-        });
-    }
-
-    async makeRequest(method, url, data = null, options = {}) {
-        const context = {
-            method,
-            url,
-            operation: options.operation || `${method} ${url}`,
-            timestamp: new Date().toISOString(),
-            ...options.context
-        };
-
+    async createSchedule(scheduleData) {
         try {
-            const response = await ErrorHandler.withRetry(
-                async () => {
-                    const config = {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...options.headers
-                        },
-                        params: options.params,
-                        ...options.config
-                    };
+            const backendData = schedulePropertiesMapper.toCreateRequest(scheduleData);
 
-                    let response;
-                    switch (method.toLowerCase()) {
-                        case 'get':
-                            response = await this.apiClient.get(url, config);
-                            break;
-                        case 'post':
-                            response = await this.apiClient.post(url, data, config);
-                            break;
-                        case 'put':
-                            response = await this.apiClient.put(url, data, config);
-                            break;
-                        case 'patch':
-                            response = await this.apiClient.patch(url, data, config);
-                            break;
-                        case 'delete':
-                            response = await this.apiClient.delete(url, config);
-                            break;
-                        default:
-                            throw ErrorFactory.internalServerError(`Unsupported method: ${method}`);
-                    }
-
-                    if (response.status >= 400) {
-                        const errorMessage = response.data?.message ||
-                            response.data?.error?.message ||
-                            `HTTP ${response.status} Error`;
-                        throw ErrorFactory.internalServerError(errorMessage);
-                    }
-
-                    return response;
-                },
-                3,
-                1000
-            );
-
-            return {
-                success: true,
-                data: response.data,
-                statusCode: response.status,
-                headers: response.headers
+            // Ensure we're only sending the IDs, not the full objects
+            const requestPayload = {
+                propertyId: backendData.propertyId,
+                agentId: backendData.agentId,
+                clientId: backendData.clientId,
+                scheduleTime: backendData.scheduleTime,
+                scheduleEndTime: backendData.scheduleEndTime,
+                notes: backendData.notes,
+                status: backendData.status,
+                meetingType: backendData.meetingType,
+                meetingLocation: backendData.meetingLocation,
+                virtualMeetingLink: backendData.virtualMeetingLink
             };
+
+            console.log('Final API Payload:', requestPayload);
+
+            const response = await this.client.post('/ScheduleProperties', requestPayload);
+            return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
-            return ErrorHandler.handle(error, context);
+            console.error('Error creating schedule:', error);
+
+            // Enhanced error logging for debugging
+            if (error.response) {
+                console.error('Backend response error:', {
+                    status: error.response.status,
+                    data: error.response.data,
+                    headers: error.response.headers
+                });
+            }
+
+            throw error;
+        }
+    }
+
+    async updateSchedule(id, scheduleData) {
+        try {
+            const backendData = schedulePropertiesMapper.toUpdateRequest({
+                ...scheduleData,
+                id: id
+            });
+            const response = await this.client.put(`/ScheduleProperties/${id}`, backendData);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error updating schedule:', error);
+            throw error;
+        }
+    }
+
+    async cancelSchedule(id) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/cancel`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error cancelling schedule:', error);
+            throw error;
+        }
+    }
+
+    async reschedule(id, newScheduleTime) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/reschedule`, newScheduleTime);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error rescheduling:', error);
+            throw error;
+        }
+    }
+
+    async completeSchedule(id) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/complete`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error completing schedule:', error);
+            throw error;
+        }
+    }
+
+    async deleteSchedule(id) {
+        try {
+            const response = await this.client.delete(`/ScheduleProperties/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+            throw error;
+        }
+    }
+
+    async checkTimeSlotAvailability(agentId, scheduleTime) {
+        try {
+            const response = await this.client.get('/ScheduleProperties/check-availability', {
+                params: { agentId, scheduleTime }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error checking time slot availability:', error);
+            throw error;
+        }
+    }
+
+    // New debug method to test backend validation
+    async debugBackendValidation(testData) {
+        try {
+            const response = await this.client.post('/ScheduleProperties/debug/test-creation', testData);
+            return response.data;
+        } catch (error) {
+            console.error('Error in debug validation:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    handleError(error) {
+        console.error('API Error:', error);
+
+        if (error.response) {
+            const serverError = error.response.data;
+            const errorObj = {
+                message: serverError.message || `Server error: ${error.response.status}`,
+                details: serverError.errors || serverError.details || serverError,
+                code: serverError.code || 'SERVER_ERROR',
+                status: error.response.status,
+                responseData: serverError
+            };
+
+            // Enhanced status code handling
+            if (error.response.status === 400) {
+                errorObj.message = serverError.message || 'Bad request - please check your data';
+                // Include validation errors if available
+                if (serverError.errors) {
+                    errorObj.validationErrors = serverError.errors;
+                }
+            } else if (error.response.status === 401) {
+                errorObj.message = 'Authentication required';
+            } else if (error.response.status === 403) {
+                errorObj.message = 'Access forbidden';
+            } else if (error.response.status === 404) {
+                errorObj.message = 'Resource not found';
+            } else if (error.response.status === 409) {
+                errorObj.message = 'Conflict - resource already exists';
+            } else if (error.response.status === 422) {
+                errorObj.message = 'Validation failed';
+                errorObj.validationErrors = serverError.errors;
+            } else if (error.response.status === 500) {
+                errorObj.message = 'Internal server error';
+            }
+
+            return errorObj;
+        } else if (error.request) {
+            return {
+                message: 'Network error: Unable to connect to server. Please check your internet connection and try again.',
+                code: 'NETWORK_ERROR',
+                details: 'The server may be down or there may be network issues.'
+            };
+        } else {
+            return {
+                message: error.message || 'An unexpected error occurred',
+                code: 'UNKNOWN_ERROR',
+                details: error.stack
+            };
         }
     }
 }

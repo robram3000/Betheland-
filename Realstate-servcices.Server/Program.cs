@@ -11,12 +11,14 @@ using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Entity.Chat;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Repositories;
+using Realstate_servcices.Server.Repository.ContentLandingPage;
 using Realstate_servcices.Server.Repository.Conversation;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Repository.WishRepo;
 using Realstate_servcices.Server.Services.Authentication;
+using Realstate_servcices.Server.Services.ConfigLandingpage;
 using Realstate_servcices.Server.Services.Conversation;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
@@ -27,6 +29,7 @@ using Realstate_servcices.Server.Services.SMTP.rollout;
 using Realstate_servcices.Server.Services.Wishlist;
 using Realstate_servcices.Server.Utilities.Storage;
 using System.Text;
+using static Realstate_servcices.Server.Services.Scheduling.ISchedulePropertiesService;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
 builder.Services.AddCors(options =>
@@ -36,7 +39,7 @@ builder.Services.AddCors(options =>
         var allowedOrigins = builder.Environment.IsDevelopment()
             ? new[]
             {
-                "https://localhost:7075",
+                "https://localhost:7080",
                 "http://localhost:5173",
                 "https://localhost:5173",
                 "http://localhost:5174",
@@ -59,7 +62,8 @@ builder.Services.AddCors(options =>
 });
 if (builder.Environment.IsDevelopment())
 {
-    builder.WebHost.UseUrls("https://localhost:7075", "http://localhost:5016");
+    builder.WebHost.UseUrls("https://localhost:7080", "http://localhost:5016");
+
 }
 else
 {
@@ -108,6 +112,19 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
 builder.Services.AddScoped<IBaseMemberRepository, BaseMemberRepository>();
+
+
+// landing page config services
+
+builder.Services.AddScoped<IThirdSectionRepository, ThirdSectionRepository>();
+builder.Services.AddScoped<IThirdSectionServices, ThirdSectionServices>();
+
+
+builder.Services.AddScoped<IPartnershipContentRepository, PartnershipContentRepository>();
+builder.Services.AddScoped<IPartnershipContentService, PartnershipContentService>();
+
+builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 
 
 builder.Services.AddAuthentication(options =>

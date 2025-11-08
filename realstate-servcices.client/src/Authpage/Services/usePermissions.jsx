@@ -1,4 +1,4 @@
-// Hooks/usePermissions.js
+﻿// Hooks/usePermissions.js
 import { useUser } from './UserContextService';
 import { canAccessFeature } from './PermissionConfig';
 
@@ -42,6 +42,7 @@ export const usePermissions = () => {
         canManageSystem: () => hasAnyPermission(['manage_system', 'all']),
         canManageSchedule: () => hasAnyPermission(['manage_schedule', 'all']),
         canMakeOffers: () => hasAnyPermission(['make_offers', 'all']),
+        canManageProfile: () => hasAnyPermission(['manage_profile', 'all']),  // ✅ Added profile management
 
         // Quick access to feature permissions
         featureAccess: (feature) => canAccessFeature(currentRole, feature)

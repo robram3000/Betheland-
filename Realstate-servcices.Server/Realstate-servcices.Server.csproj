@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Repository\ContentLandingPage\" />
+    <Folder Include="Entity\footer\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

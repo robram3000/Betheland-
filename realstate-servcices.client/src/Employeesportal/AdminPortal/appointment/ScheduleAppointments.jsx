@@ -10,7 +10,6 @@ import {
     Select,
     DatePicker,
     Input,
-    TimePicker,
     message,
     Tooltip,
     Avatar,
@@ -28,7 +27,6 @@ import {
     EyeOutlined,
     CalendarOutlined,
     UserOutlined,
-    HomeOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
     ClockCircleOutlined
@@ -36,23 +34,11 @@ import {
 import BaseTable from './BaseTable';
 import moment from 'moment';
 
-// Destructure Input to get TextArea and Select to get Option
+// Import the service
+import { schedulePropertiesService } from '../appointment/Services/index.js';
+
 const { TextArea } = Input;
 const { Option } = Select;
-
-// Import the main service
-import SchedulingServices from './Services';
-
-// Mock API client
-const mockApiClient = {
-    get: async (url) => ({ data: [], status: 200 }),
-    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
-    put: async (url, data) => ({ data, status: 200 }),
-    patch: async (url, data) => ({ data, status: 200 }),
-    delete: async (url) => ({ status: 200 })
-};
-
-const schedulingService = new SchedulingServices(mockApiClient);
 
 const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [appointments, setAppointments] = useState([]);
@@ -77,15 +63,12 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const loadAppointments = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.schedules.getAll();
-            if (result.success) {
-                setAppointments(result.data);
-            } else {
-                message.error(result.error?.message || 'Failed to load appointments');
-            }
+            const schedules = await schedulePropertiesService.getAllSchedules();
+            setAppointments(schedules || []);
         } catch (error) {
             console.error('Error loading appointments:', error);
-            message.error('Failed to load appointments');
+            message.error(error.message || 'Failed to load appointments');
+            setAppointments([]);
         } finally {
             setLoading(false);
         }
@@ -143,16 +126,13 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.schedules.delete(id);
-            if (result.success) {
-                message.success('Appointment deleted successfully');
-                loadAppointments();
-                if (onScheduleUpdate) onScheduleUpdate();
-            } else {
-                message.error(result.error?.message || 'Failed to delete appointment');
-            }
+            await schedulePropertiesService.deleteSchedule(id);
+            message.success('Appointment deleted successfully');
+            loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to delete appointment');
+            console.error('Error deleting appointment:', error);
+            message.error(error.message || 'Failed to delete appointment');
         }
     };
 
@@ -164,51 +144,49 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                 id: selectedAppointment?.id
             };
 
-            let result;
             if (selectedAppointment) {
-                result = await schedulingService.schedules.update(selectedAppointment.id, appointmentData);
-                if (result.success) {
-                    message.success('Appointment updated successfully');
-                }
+                await schedulePropertiesService.updateSchedule(selectedAppointment.id, appointmentData);
+                message.success('Appointment updated successfully');
             } else {
-                result = await schedulingService.schedules.create(appointmentData);
-                if (result.success) {
-                    message.success('Appointment created successfully');
-                }
-            }
-
-            if (!result.success) {
-                message.error(result.error?.message || 'Failed to save appointment');
-                return;
+                await schedulePropertiesService.createSchedule(appointmentData);
+                message.success('Appointment created successfully');
             }
 
             setModalVisible(false);
             loadAppointments();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to save appointment');
+            console.error('Error saving appointment:', error);
+            message.error(error.message || 'Failed to save appointment');
         }
     };
 
     const handleStatusChange = async (id, newStatus) => {
         try {
-            let result;
             if (newStatus === 'Completed') {
-                result = await schedulingService.schedules.complete(id);
+                await schedulePropertiesService.completeSchedule(id);
             } else if (newStatus === 'Cancelled') {
-                result = await schedulingService.schedules.cancel(id);
+                await schedulePropertiesService.cancelSchedule(id);
             }
 
-            if (result && result.success) {
-                message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
-                loadAppointments();
-                if (onScheduleUpdate) onScheduleUpdate();
-            } else {
-                message.error(result?.error?.message || 'Failed to update appointment status');
-            }
+            message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
+            loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to update appointment status');
+            console.error('Error updating appointment status:', error);
+            message.error(error.message || 'Failed to update appointment status');
         }
+    };
+
+    // Enhanced data mapping for display
+    const mapAppointmentData = (appointment) => {
+        return {
+            ...appointment,
+            agentName: appointment.agent?.name || 'Unknown Agent',
+            clientName: appointment.client?.name || 'Unknown Client',
+            propertyTitle: appointment.property?.title || 'Unknown Property',
+            propertyAddress: appointment.property?.address || 'No address available'
+        };
     };
 
     const getStatusColor = (status) => {
@@ -236,7 +214,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             width: 150,
             render: (text, record) => (
                 <Space>
-                    <Avatar size="small" src={record.agentPhoto} icon={<UserOutlined />} />
+                    <Avatar size="small" src={record.agent?.photo} icon={<UserOutlined />} />
                     {text}
                 </Space>
             )
@@ -280,7 +258,8 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             title: 'Purpose',
             dataIndex: 'purpose',
             key: 'purpose',
-            width: 150
+            width: 150,
+            render: (purpose) => purpose || 'Property Viewing'
         },
         {
             title: 'Status',
@@ -342,7 +321,10 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         }
     ];
 
-    const filteredAppointments = appointments.filter(appointment => {
+    // Map appointment data for display
+    const displayAppointments = appointments.map(mapAppointmentData);
+
+    const filteredAppointments = displayAppointments.filter(appointment => {
         const matchesSearch = searchText === '' ||
             appointment.agentName?.toLowerCase().includes(searchText.toLowerCase()) ||
             appointment.clientName?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -557,7 +539,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                     <Form.Item
                         name="purpose"
                         label="Purpose"
-                        rules={[{ required: true, message: 'Please enter purpose' }]}
+                        initialValue="Property Viewing"
                     >
                         <Input placeholder="e.g., Property Viewing, Consultation" />
                     </Form.Item>
@@ -646,13 +628,13 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             </Col>
                             <Col span={12}>
                                 <strong>Duration:</strong>
-                                <div>{selectedAppointment.duration} minutes</div>
+                                <div>{selectedAppointment.duration || 60} minutes</div>
                             </Col>
                         </Row>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
                             <Col span={24}>
                                 <strong>Purpose:</strong>
-                                <div>{selectedAppointment.purpose}</div>
+                                <div>{selectedAppointment.purpose || 'Property Viewing'}</div>
                             </Col>
                         </Row>
                         {selectedAppointment.notes && (

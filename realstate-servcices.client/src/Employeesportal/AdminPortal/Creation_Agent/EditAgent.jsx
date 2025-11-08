@@ -568,7 +568,6 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                 </Row>
 
                 <Divider />
-
                 <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
                     <Space>
                         <Button onClick={onCancel} disabled={loading}>

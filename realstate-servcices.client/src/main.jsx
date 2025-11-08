@@ -15,21 +15,30 @@ import AuthPage from './Authpage/AuthPage.jsx'
 import BaseWishlist from './Wishlist/BaseWishlist.jsx'
 import BaseChat from './Chat/BaseChat.jsx'
 import { BaseSettings, BaseProfile } from './Accounts/index.jsx'
-import EmployeePortal from './Employeesportal/EmployeePortal.jsx'
-import SuperAdminLayout from './Employeesportal/SuperAdminPortal/Navigation/adminlayout.jsx'
-import AdminLayout from './Employeesportal/AdminPortal/Navigation/adminlayout.jsx'
+
+
 import BaseScheduling from './Scheduling/BaseScheduling.jsx'
-import PropertyManagementPage from './Employeesportal/AgentPortal/Properties/PropertyPage.jsx'
+
 import AgentScheduleLayout from './Employeesportal/AgentPortal/Appointment/AgentScheduleLayout.jsx'
 import AgentLayout from './Employeesportal/AgentPortal/Navigation/adminlayout.jsx'
-import AgentProfile from './Employeesportal/AgentPortal/Profile/AgentProfile.jsx'
-
+import ProfileLayoutAgent from './Employeesportal/AgentPortal/Profile/ProfileLayoutAgent.jsx'
+import ProfileLayoutAdmin from './Employeesportal/AdminPortal/Profile/profilelayoutadmin'
 
 import AgentLayoutadmn from './Employeesportal/AdminPortal/Creation_Agent/agentlayoutadmn.jsx'
 import PropertyLayout from './Employeesportal/AdminPortal/Creation_Property/Propertylayout.jsx'
 import ScheduleLayout from './Employeesportal/AdminPortal/appointment/Schedulelayout.jsx'
-import BaseChatagent from './Employeesportal/AgentPortal/Conversation/BaseChatagent'
+import StatisticPerformanceLayout from './Employeesportal/AdminPortal/StatisticPerformance/StatisticPerformanceLayout'
 
+
+import Propertylaouts from './Employeesportal/AgentPortal/Properties/PropertyLayout'
+
+import StatisticPerformanceLayoutSuper from './Employeesportal/SuperAdminPortal/StatisticPerformance/StatisticPerformanceLayout';
+import ScheduleLayouts from './Employeesportal/SuperAdminPortal/appointment/ScheduleLayout'
+import PropertyLayouts from './Employeesportal/SuperAdminPortal/Creation_Property/PropertyLayout'
+import Agentlayoutadmins from './Employeesportal/SuperAdminPortal/Creation_Agent/agentlayoutadmn'
+import ProfileLayoutAdmins from './Employeesportal/SuperadminPortal/Profile/profilelayoutadmin'
+import ConfigContentLandingpage from './Employeesportal/SuperAdminPortal/Content/ConfigContentLandingpage'
+import ClientPageLayout from './Employeesportal/SuperAdminPortal/Client/ClientPageLayout'
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
@@ -118,23 +127,75 @@ createRoot(document.getElementById('root')).render(
                         </ProtectedRoute>
                     } />
 
-                    {/* Employee Portal */}
-                    <Route path="/employeeportal" element={
-                        <ProtectedRoute requiredAnyPermission={['manage_properties', 'manage_users', 'manage_system']}>
-                            <EmployeePortal />
-                        </ProtectedRoute>
-                    } />
+                
+                    {/* ################ SUPERADMIN ROUTES ################## */}
 
-                    {/* Role-Specific Admin Routes */}
-                    <Route path="/portal/super-admin/*" element={
+
+                    <Route path="/portal/super-admin/dashboard" element={
                         <ProtectedRoute
                             requiredRole="SuperAdmin"
-                            requiredPermission="manage_system"
+                            requiredPermission="all"
                         >
-                            <SuperAdminLayout />
+                            <StatisticPerformanceLayoutSuper />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/super-admin/schedules" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <ScheduleLayouts />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/super-admin/agent" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <Agentlayoutadmins />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/super-admin/property" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <PropertyLayouts />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/super-admin/profile" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <ProfileLayoutAdmins />
                         </ProtectedRoute>
                     } />
 
+                    <Route path="/portal/super-admin/config-landing-page" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <ConfigContentLandingpage />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="/portal/super-admin/client" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <ClientPageLayout />
+                        </ProtectedRoute>
+                    } />
+
+
+
+
+
+
+                    {/* ################ ADMIN ROUTES ################## */}
                     <Route path="/portal/admin/*" element={
                         <ProtectedRoute
                             requiredRole="Admin"
@@ -167,10 +228,25 @@ createRoot(document.getElementById('root')).render(
                             <ScheduleLayout/>
                         </ProtectedRoute>
                     } />
+                    <Route path="/portal/admin/profile" element={
+                        <ProtectedRoute
+                            requiredRole="Admin"
+                            requiredPermission="manage_schedule"
+                        >
+                            <ProfileLayoutAdmin />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/portal/admin/dashboard" element={
+                        <ProtectedRoute
+                            requiredRole="Admin"
+                            requiredPermission="manage_schedule"
+                        >
+                            <StatisticPerformanceLayout />
+                        </ProtectedRoute>
+                    } />
+           
 
-
-               
-                    {/* Agent Portal with Nested Routes */}
+                    {/* ################ AGENT ROUTES ################## */}
                     <Route path="/portal/agent/*" element={
                         <ProtectedRoute
                             requiredRole="Agent"
@@ -178,21 +254,12 @@ createRoot(document.getElementById('root')).render(
                         >
                             <PropertyLayout />
                         </ProtectedRoute>
-                    } />
-                    
-                 
-
-                    {/* #################################################### AGENT ROUTES ################################################################## */}
-
+                    } /> 
                     <Route path="/portal/agent/all-properties" element={
                         <ProtectedRoute requiredRole="Agent">
-                            <AgentLayout>
-                                <PropertyManagementPage />
-                            </AgentLayout>
+                            <Propertylaouts/>
                         </ProtectedRoute>
                     } />
-
-                    {/* ############## AGENT Chats #################### */}
                     <Route path="/portal/agent/all-chats" element={
                         <ProtectedRoute requiredRole="Agent"
                             requiredPermission="manage_profile"
@@ -203,14 +270,13 @@ createRoot(document.getElementById('root')).render(
                          
                         </ProtectedRoute>
                     } />
-
                     <Route path="/portal/agent/profile" element={
                         <ProtectedRoute requiredRole="Agent"
                             requiredPermission= "manage_profile"
                         >
-                            <AgentLayout>
-                                <AgentProfile />
-                            </AgentLayout>
+                           
+                                <ProfileLayoutAgent />
+                         
                         </ProtectedRoute>
                     } />
                     <Route path="/portal/agent/schedule" element={
@@ -220,7 +286,6 @@ createRoot(document.getElementById('root')).render(
                             </AgentLayout>
                         </ProtectedRoute>
                     } />
-
 
                     {/* Fallback route */}
                     <Route path="*" element={<BaseLandingPage />} />

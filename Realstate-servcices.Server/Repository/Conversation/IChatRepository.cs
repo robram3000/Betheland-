@@ -11,5 +11,9 @@ namespace Realstate_servcices.Server.Repository.Conversation
         Task<Chat> UpdateAsync(Chat chat);
         Task<bool> DeleteAsync(int id);
         Task UpdateLastMessageAsync(int chatId, string lastMessage, DateTime lastMessageAt);
+
+        // New methods
+        Task<List<Chat>> GetByClientChatAsync(int clientId);
+        Task<List<Chat>> GetByAgentChatAsync(int agentId);
     }
 }

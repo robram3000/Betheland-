@@ -126,10 +126,10 @@ namespace Realstate_servcices.Server.Repositories
         public async Task<ScheduleProperties> GetByIdAsync(int id)
         {
             return await _context.ScheduleProperties
-                .Include(sp => sp.Property)
-                .Include(sp => sp.Agent)
-                .Include(sp => sp.Client)
-                .FirstOrDefaultAsync(sp => sp.Id == id);
+                .Include(s => s.Property)
+                .Include(s => s.Agent)
+                .Include(s => s.Client)
+                .FirstOrDefaultAsync(s => s.Id == id);
         }
 
         /// <summary>
@@ -153,10 +153,11 @@ namespace Realstate_servcices.Server.Repositories
         public async Task<IEnumerable<ScheduleProperties>> GetAllAsync()
         {
             return await _context.ScheduleProperties
-                .Include(sp => sp.Property)
-                .Include(sp => sp.Agent)
-                .Include(sp => sp.Client)
-                .ToListAsync();
+               .Include(s => s.Property)
+               .Include(s => s.Agent)
+               .Include(s => s.Client)
+               .OrderBy(s => s.ScheduleTime)
+               .ToListAsync();
         }
 
         /// <summary>
@@ -167,11 +168,12 @@ namespace Realstate_servcices.Server.Repositories
         public async Task<IEnumerable<ScheduleProperties>> GetByAgentIdAsync(int agentId)
         {
             return await _context.ScheduleProperties
-                .Include(sp => sp.Property)
-                .Include(sp => sp.Agent)
-                .Include(sp => sp.Client)
-                .Where(sp => sp.AgentId == agentId)
-                .ToListAsync();
+                 .Include(s => s.Property)          // Include Property
+                 .Include(s => s.Agent)             // Include Agent
+                 .Include(s => s.Client)            // Include Client
+                 .Where(s => s.AgentId == agentId)
+                 .OrderBy(s => s.ScheduleTime)
+                 .ToListAsync();
         }
 
         /// <summary>
@@ -228,11 +230,12 @@ namespace Realstate_servcices.Server.Repositories
         public async Task<IEnumerable<ScheduleProperties>> GetSchedulesByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
             return await _context.ScheduleProperties
-                .Include(sp => sp.Property)
-                .Include(sp => sp.Agent)
-                .Include(sp => sp.Client)
-                .Where(sp => sp.ScheduleTime >= startDate && sp.ScheduleTime <= endDate)
-                .ToListAsync();
+                 .Include(s => s.Property)
+                 .Include(s => s.Agent)
+                 .Include(s => s.Client)
+                 .Where(s => s.ScheduleTime >= startDate && s.ScheduleTime <= endDate)
+                 .OrderBy(s => s.ScheduleTime)
+                 .ToListAsync();
         }
 
         /// <summary>

@@ -47,7 +47,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         setDropdownVisible(false);
     };
     const handleProfile = () => {
-        navigate('/profile');
+        navigate('/portal/admin/profile');
         setDropdownVisible(false);
     };
     const handleSettings = () => {

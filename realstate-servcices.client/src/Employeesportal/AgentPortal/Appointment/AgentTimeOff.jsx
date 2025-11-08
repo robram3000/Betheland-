@@ -15,17 +15,23 @@ import {
     Tooltip,
     Row,
     Col,
-    Popconfirm
+    Popconfirm,
+    Alert,
+    Spin,
+    Result,
+    Empty
 } from 'antd';
 import {
     PlusOutlined,
     EditOutlined,
-    DeleteOutlined
+    DeleteOutlined,
+    ReloadOutlined,
+    ExclamationCircleOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import AgentTimeOffService from '../../AdminPortal/appointment/Services/AgentTimeOffService';
-
+import { agentTimeOffService } from '../../AdminPortal/appointment/Services/index.js';
+import authService from '../../../Authpage/Services/LoginAuth';
 const { Option } = Select;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
@@ -36,8 +42,9 @@ const AgentTimeOff = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedTimeOff, setSelectedTimeOff] = useState(null);
     const [form] = Form.useForm();
-
-    const timeOffService = new AgentTimeOffService();
+    const [error, setError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
 
     const timeOffTypes = [
         'Vacation',
@@ -54,18 +61,23 @@ const AgentTimeOff = () => {
 
     const loadTimeOffs = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
-            const result = await timeOffService.getByAgent(agentId);
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
 
-            if (result.success) {
-                setTimeOffs(result.data);
-            } else {
-                message.error(result.error?.message || 'Failed to load time off requests');
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
             }
+
+            const result = await agentTimeOffService.getTimeOffsByAgent(agentId);
+            setTimeOffs(result);
+
         } catch (error) {
             console.error('Error loading time offs:', error);
-            message.error('Failed to load time off requests');
+            const errorMessage = error.message || 'Failed to load time off requests';
+            setError(errorMessage);
+            message.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -87,63 +99,103 @@ const AgentTimeOff = () => {
     };
 
     const handleDelete = async (id) => {
+        setDeletingId(id);
         try {
-            const result = await timeOffService.delete(id);
-
-            if (result.success) {
-                message.success('Time off request deleted successfully');
-                loadTimeOffs();
-            } else {
-                message.error(result.error?.message || 'Failed to delete time off request');
-            }
+            await agentTimeOffService.deleteTimeOff(id);
+            message.success('Time off request deleted successfully');
+            loadTimeOffs();
         } catch (error) {
-            message.error('Failed to delete time off request');
+            const errorMessage = error.message || 'Failed to delete time off request';
+            message.error(errorMessage);
+            setError(errorMessage);
+        } finally {
+            setDeletingId(null);
         }
     };
 
     const handleSubmit = async (values) => {
+        setSubmitting(true);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
+            }
+
             const timeOffData = {
-                ...values,
+                type: values.type,
                 startDate: values.dateRange[0].format('YYYY-MM-DD'),
                 endDate: values.dateRange[1].format('YYYY-MM-DD'),
-                agentId: agentId,
-                status: 'Pending'
+                reason: values.reason,
+                agentId: parseInt(agentId),
+                isApproved: false,
+                isAllDay: true
             };
 
-            delete timeOffData.dateRange;
+            console.log('Submitting time off data:', timeOffData);
 
             let result;
             if (selectedTimeOff) {
-                result = await timeOffService.update(selectedTimeOff.id, timeOffData);
+                result = await agentTimeOffService.updateTimeOff(selectedTimeOff.id, timeOffData);
             } else {
-                result = await timeOffService.create(timeOffData);
+                result = await agentTimeOffService.requestTimeOff(timeOffData);
             }
 
-            if (result.success) {
-                message.success(selectedTimeOff ?
-                    'Time off request updated successfully' :
-                    'Time off request submitted successfully'
-                );
-                setModalVisible(false);
-                loadTimeOffs();
-            } else {
-                message.error(result.error?.message || 'Failed to save time off request');
-            }
+            message.success(selectedTimeOff ?
+                'Time off request updated successfully' :
+                'Time off request submitted successfully'
+            );
+            setModalVisible(false);
+            loadTimeOffs();
+
         } catch (error) {
-            message.error('Failed to save time off request');
+            console.error('Submit error details:', error);
+            const errorMessage = error.message || 'Failed to save time off request';
+            message.error(errorMessage);
+            setError(errorMessage);
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const getStatusColor = (status) => {
-        const colors = {
+        const statusMap = {
             'Pending': 'orange',
             'Approved': 'green',
             'Rejected': 'red'
         };
-        return colors[status] || 'default';
+        return statusMap[status] || 'default';
     };
+
+    const getStatusText = (isApproved) => {
+        return isApproved ? 'Approved' : 'Pending';
+    };
+
+    const ErrorIndicator = ({ message, onRetry }) => (
+        <Result
+            status="error"
+            title="Failed to Load Time Off Requests"
+            subTitle={message}
+            extra={[
+                <Button
+                    type="primary"
+                    key="retry"
+                    icon={<ReloadOutlined />}
+                    onClick={onRetry}
+                >
+                    Try Again
+                </Button>
+            ]}
+        />
+    );
+
+    const LoadingIndicator = () => (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>Loading your time off requests...</div>
+        </div>
+    );
 
     const columns = [
         {
@@ -178,12 +230,12 @@ const AgentTimeOff = () => {
         },
         {
             title: 'Status',
-            dataIndex: 'status',
+            dataIndex: 'isApproved',
             key: 'status',
             width: 100,
-            render: (status) => (
-                <Tag color={getStatusColor(status)}>
-                    {status}
+            render: (isApproved) => (
+                <Tag color={getStatusColor(getStatusText(isApproved))}>
+                    {getStatusText(isApproved)}
                 </Tag>
             )
         },
@@ -199,7 +251,7 @@ const AgentTimeOff = () => {
             width: 120,
             render: (_, record) => (
                 <Space size="small">
-                    {record.status === 'Pending' && (
+                    {!record.isApproved && (
                         <>
                             <Tooltip title="Edit">
                                 <Button
@@ -213,12 +265,14 @@ const AgentTimeOff = () => {
                                 onConfirm={() => handleDelete(record.id)}
                                 okText="Yes"
                                 cancelText="No"
+                                okButtonProps={{ loading: deletingId === record.id }}
                             >
                                 <Tooltip title="Delete">
                                     <Button
                                         icon={<DeleteOutlined />}
                                         size="small"
                                         danger
+                                        loading={deletingId === record.id}
                                     />
                                 </Tooltip>
                             </Popconfirm>
@@ -244,26 +298,71 @@ const AgentTimeOff = () => {
                             Request and manage your time off
                         </p>
                     </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleCreate}
-                    >
-                        Request Time Off
-                    </Button>
+                    <Space>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={loadTimeOffs}
+                            loading={loading}
+                        >
+                            Refresh
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleCreate}
+                        >
+                            Request Time Off
+                        </Button>
+                    </Space>
                 </div>
 
-                <BaseTable
-                    data={timeOffs}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
+                {error && (
+                    <Alert
+                        message="Error Loading Data"
+                        description={error}
+                        type="error"
+                        showIcon
+                        action={
+                            <Button
+                                size="small"
+                                type="primary"
+                                ghost
+                                onClick={loadTimeOffs}
+                                icon={<ReloadOutlined />}
+                                loading={loading}
+                            >
+                                Retry
+                            </Button>
+                        }
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {loading ? (
+                    <LoadingIndicator />
+                ) : error ? (
+                    <ErrorIndicator message={error} onRetry={loadTimeOffs} />
+                ) : (
+                    <BaseTable
+                        data={timeOffs}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                        }}
+                        locale={{
+                            emptyText: (
+                                <Empty
+                                    description="No time off requests found"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                />
+                            )
+                        }}
+                    />
+                )}
             </Card>
 
             <Modal
@@ -272,11 +371,14 @@ const AgentTimeOff = () => {
                 onCancel={() => setModalVisible(false)}
                 footer={null}
                 width={500}
+                confirmLoading={submitting}
+                destroyOnClose
             >
                 <Form
                     form={form}
                     layout="vertical"
                     onFinish={handleSubmit}
+                    disabled={submitting}
                 >
                     <Form.Item
                         name="type"
@@ -300,6 +402,9 @@ const AgentTimeOff = () => {
                         <RangePicker
                             style={{ width: '100%' }}
                             format="YYYY-MM-DD"
+                            disabledDate={(current) => {
+                                return current && current < moment().startOf('day');
+                            }}
                         />
                     </Form.Item>
 
@@ -308,15 +413,28 @@ const AgentTimeOff = () => {
                         label="Reason"
                         rules={[{ required: true, message: 'Please enter reason' }]}
                     >
-                        <TextArea rows={3} placeholder="Enter reason for time off..." />
+                        <TextArea
+                            rows={3}
+                            placeholder="Enter reason for time off..."
+                            maxLength={500}
+                            showCount
+                        />
                     </Form.Item>
 
                     <Form.Item style={{ textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={() => setModalVisible(false)}>
+                            <Button
+                                onClick={() => setModalVisible(false)}
+                                disabled={submitting}
+                            >
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={submitting}
+                                icon={selectedTimeOff ? <EditOutlined /> : <PlusOutlined />}
+                            >
                                 {selectedTimeOff ? 'Update' : 'Submit'} Request
                             </Button>
                         </Space>

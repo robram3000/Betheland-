@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
 
@@ -62,20 +63,49 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
+        // In SchedulePropertiesController.cs - Update the GetSchedulesByAgent method
         [HttpGet("agent/{agentId}")]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByAgent(int agentId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByAgent(int agentId)
         {
             try
             {
                 var schedules = await _scheduleService.GetSchedulesByAgentAsync(agentId);
-                return Ok(schedules);
+                var scheduleDtos = schedules.Select(s => new ScheduleResponseDto
+                {
+                    Id = s.Id,
+                    ScheduleNo = s.ScheduleNo,
+                    PropertyId = s.PropertyId,
+                    AgentId = s.AgentId,
+                    ClientId = s.ClientId,
+                    ScheduleTime = s.ScheduleTime,
+                    ScheduleEndTime = s.ScheduleEndTime,
+                    Status = s.Status,
+                    Notes = s.Notes,
+                    MeetingType = s.MeetingType,
+                    MeetingLocation = s.MeetingLocation,
+                    VirtualMeetingLink = s.VirtualMeetingLink,
+                    CancelledAt = s.CancelledAt,
+                    CompletedAt = s.CompletedAt,
+                    CancellationReason = s.CancellationReason,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt,
+
+                    // Enhanced mapping with null checks
+                    PropertyTitle = s.Property?.Title ?? string.Empty,
+                    PropertyAddress = s.Property?.Address ?? string.Empty,
+                    AgentName = s.Agent != null ? $"{s.Agent.FirstName} {s.Agent.LastName}" : string.Empty,
+                    ClientName = s.Client != null ? $"{s.Client.FirstName} {s.Client.LastName}" : string.Empty,
+                        
+                }).ToList();
+
+                return Ok(scheduleDtos);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
 
         [HttpGet("client/{clientId}")]
         public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByClient(int clientId)
@@ -133,12 +163,27 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
         [HttpPost]
-        public async Task<ActionResult<ScheduleProperties>> CreateSchedule(ScheduleProperties schedule)
+        public async Task<ActionResult<ScheduleProperties>> CreateSchedule(CreateScheduleRequest request)
         {
             try
             {
+                // Map DTO to entity
+                var schedule = new ScheduleProperties
+                {
+                    PropertyId = request.PropertyId,
+                    AgentId = request.AgentId,
+                    ClientId = request.ClientId,
+                    ScheduleTime = request.ScheduleTime,
+                    ScheduleEndTime = request.ScheduleEndTime ?? request.ScheduleTime.AddHours(1),
+                    Notes = request.Notes,
+                    MeetingType = request.MeetingType,
+                    MeetingLocation = request.MeetingLocation,
+                    VirtualMeetingLink = request.VirtualMeetingLink,
+                    Status = "Scheduled",
+                    CreatedAt = DateTime.UtcNow
+                };
+
                 var createdSchedule = await _scheduleService.CreateScheduleAsync(schedule);
                 return CreatedAtAction(nameof(GetScheduleById), new { id = createdSchedule.Id }, createdSchedule);
             }
@@ -257,6 +302,57 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var isAvailable = await _scheduleService.IsTimeSlotAvailableAsync(agentId, scheduleTime);
                 return Ok(new { isAvailable });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // NEW DEBUG ENDPOINTS
+
+        [HttpGet("debug/availability")]
+        public async Task<ActionResult> DebugTimeSlotAvailability(
+            [FromQuery] int agentId, [FromQuery] DateTime scheduleTime)
+        {
+            try
+            {
+                var debugInfo = await _scheduleService.DebugTimeSlotAvailabilityAsync(agentId, scheduleTime);
+                return Ok(debugInfo);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("debug/agent/{agentId}/availability-data")]
+        public async Task<ActionResult> GetAgentAvailabilityData(int agentId)
+        {
+            try
+            {
+                var availabilities = await _scheduleService.GetSchedulesByAgentAsync(agentId);
+
+                // Group by day for better visualization
+                var availabilityByDay = availabilities
+                    .GroupBy(s => s.ScheduleTime.DayOfWeek)
+                    .Select(g => new
+                    {
+                        DayOfWeek = g.Key,
+                        Schedules = g.Select(s => new
+                        {
+                            Time = s.ScheduleTime.ToString("HH:mm"),
+                            Status = s.Status,
+                            PropertyId = s.PropertyId
+                        }).OrderBy(s => s.Time)
+                    });
+
+                return Ok(new
+                {
+                    AgentId = agentId,
+                    TotalSchedules = availabilities.Count(),
+                    AvailabilityByDay = availabilityByDay
+                });
             }
             catch (Exception ex)
             {

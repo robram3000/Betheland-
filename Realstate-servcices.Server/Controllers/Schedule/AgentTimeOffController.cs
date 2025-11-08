@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
+using Realstate_servcices.Server.Dto.Scheduling;
 
 namespace Realstate_servcices.Server.Controllers.Schedule
 {
@@ -25,7 +26,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -36,13 +37,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var timeOff = await _timeOffService.GetTimeOffByIdAsync(id);
                 if (timeOff == null)
-                    return NotFound($"Time off with ID {id} not found.");
+                    return NotFound(new { message = $"Time off with ID {id} not found." });
 
                 return Ok(timeOff);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -56,7 +57,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -70,7 +71,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -85,50 +86,73 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
         [HttpPost]
-        public async Task<ActionResult<AgentTimeOff>> RequestTimeOff(AgentTimeOff timeOff)
+        public async Task<ActionResult<AgentTimeOff>> RequestTimeOff([FromBody] CreateAgentTimeOffDto timeOffDto)
         {
             try
             {
+                // Map DTO to entity
+                var timeOff = new AgentTimeOff
+                {
+                    AgentId = timeOffDto.AgentId,
+                    StartDate = timeOffDto.StartDate,
+                    EndDate = timeOffDto.EndDate,
+                    Type = timeOffDto.Type ?? "Vacation",
+                    Reason = timeOffDto.Reason,
+                    IsAllDay = timeOffDto.IsAllDay,
+                    IsApproved = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
                 var createdTimeOff = await _timeOffService.RequestTimeOffAsync(timeOff);
                 return CreatedAtAction(nameof(GetTimeOffById), new { id = createdTimeOff.Id }, createdTimeOff);
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<AgentTimeOff>> UpdateTimeOff(int id, AgentTimeOff timeOff)
+        public async Task<ActionResult<AgentTimeOff>> UpdateTimeOff(int id, [FromBody] CreateAgentTimeOffDto timeOffDto)
         {
             try
             {
-                if (id != timeOff.Id)
-                    return BadRequest("ID mismatch");
+                // Map DTO to entity
+                var timeOff = new AgentTimeOff
+                {
+                    Id = id,
+                    AgentId = timeOffDto.AgentId,
+                    StartDate = timeOffDto.StartDate,
+                    EndDate = timeOffDto.EndDate,
+                    Type = timeOffDto.Type,
+                    Reason = timeOffDto.Reason,
+                    IsAllDay = timeOffDto.IsAllDay,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
                 var updatedTimeOff = await _timeOffService.UpdateTimeOffAsync(timeOff);
                 return Ok(updatedTimeOff);
             }
             catch (KeyNotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -139,13 +163,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var result = await _timeOffService.ApproveTimeOffAsync(id);
                 if (!result)
-                    return NotFound($"Time off with ID {id} not found.");
+                    return NotFound(new { message = $"Time off with ID {id} not found." });
 
                 return Ok(new { message = "Time off approved successfully." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -156,13 +180,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var result = await _timeOffService.RejectTimeOffAsync(id);
                 if (!result)
-                    return NotFound($"Time off with ID {id} not found.");
+                    return NotFound(new { message = $"Time off with ID {id} not found." });
 
                 return Ok(new { message = "Time off rejected." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -173,13 +197,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var result = await _timeOffService.DeleteTimeOffAsync(id);
                 if (!result)
-                    return NotFound($"Time off with ID {id} not found.");
+                    return NotFound(new { message = $"Time off with ID {id} not found." });
 
                 return Ok(new { message = "Time off deleted successfully." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -194,7 +218,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
 
@@ -209,7 +233,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
     }

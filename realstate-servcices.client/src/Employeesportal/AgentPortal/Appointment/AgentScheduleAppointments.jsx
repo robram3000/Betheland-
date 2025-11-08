@@ -18,7 +18,13 @@ import {
     Row,
     Col,
     Popconfirm,
-    Badge
+    Badge,
+    Alert,
+    Spin,
+    Result,
+    Empty,
+    List,
+    Divider
 } from 'antd';
 import {
     SearchOutlined,
@@ -29,49 +35,250 @@ import {
     UserOutlined,
     HomeOutlined,
     MessageOutlined,
-    CloseOutlined
+    CloseOutlined,
+    ReloadOutlined,
+    ExclamationCircleOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    VideoCameraOutlined,
+    EnvironmentOutlined,
+    InfoCircleOutlined,
+    CalendarOutlined,
+    SaveOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import SchedulePropertiesService from '../../AdminPortal/appointment/Services/SchedulePropertiesService';
+import { SchedulePropertiesService } from '../../AdminPortal/appointment/Services/index.js';
+import authService from '../../../Authpage/Services/LoginAuth';
+import clientService from '../../AdminPortal/Creation_Agent/Services/ClientService';
+import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
 
 const { Option } = Select;
 const { TextArea } = Input;
 
 const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     const [appointments, setAppointments] = useState([]);
+    const [clients, setClients] = useState([]);
+    const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [loadingClients, setLoadingClients] = useState(false);
+    const [loadingProperties, setLoadingProperties] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [viewModalVisible, setViewModalVisible] = useState(false);
     const [chatModalVisible, setChatModalVisible] = useState(false);
+    const [meetingDetailsModalVisible, setMeetingDetailsModalVisible] = useState(false);
+    const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [chatMessages, setChatMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [form] = Form.useForm();
+    const [editForm] = Form.useForm();
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [error, setError] = useState(null);
+    const [actionLoading, setActionLoading] = useState(null);
+    const [editLoading, setEditLoading] = useState(false);
 
+    // Create service instance
     const scheduleService = new SchedulePropertiesService();
 
     useEffect(() => {
-        loadAppointments();
+        loadAllData();
     }, []);
+
+    const loadAllData = async () => {
+        await Promise.all([
+            loadAppointments(),
+            loadClients(),
+            loadProperties()
+        ]);
+    };
+
+    const loadClients = async () => {
+        setLoadingClients(true);
+        try {
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
+            }
+
+            console.log('Fetching clients for agent:', agentId);
+
+            // Using the client service to get all clients
+            const clientsData = await clientService.getClients();
+            console.log('Clients data:', clientsData);
+
+            setClients(clientsData || []);
+        } catch (error) {
+            console.error('Error loading clients:', error);
+            message.warning('Failed to load clients data');
+            setClients([]);
+        } finally {
+            setLoadingClients(false);
+        }
+    };
+
+    const loadProperties = async () => {
+        setLoadingProperties(true);
+        try {
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
+            }
+
+            console.log('Fetching properties for agent:', agentId);
+
+            // Using the property service to get all properties
+            const propertiesData = await propertyService.getAllProperties();
+            console.log('Properties data:', propertiesData);
+
+            setProperties(propertiesData || []);
+        } catch (error) {
+            console.error('Error loading properties:', error);
+            message.warning('Failed to load properties data');
+            setProperties([]);
+        } finally {
+            setLoadingProperties(false);
+        }
+    };
 
     const loadAppointments = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
-            const result = await scheduleService.getByAgent(agentId);
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
 
-            if (result.success) {
-                setAppointments(result.data);
-                onScheduleUpdate?.();
-            } else {
-                message.error(result.error?.message || 'Failed to load appointments');
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
             }
+
+            console.log('Fetching appointments for agent:', agentId);
+
+            // Use the service instance
+            const result = await scheduleService.getSchedulesByAgent(parseInt(agentId));
+
+            console.log('Raw API response:', result);
+
+            if (!result || !Array.isArray(result)) {
+                console.warn('No appointments found or invalid response format');
+                setAppointments([]);
+                return;
+            }
+
+            // Enhanced data formatting with client and property integration
+            const formattedAppointments = await Promise.all(
+                result.map(async (appointment, index) => {
+                    // Find client data from clients state
+                    const clientData = clients.find(client =>
+                        client.id === appointment.clientId ||
+                        client.baseMemberId === appointment.clientId
+                    );
+
+                    // Find property data from properties state
+                    const propertyData = properties.find(property =>
+                        property.id === appointment.propertyId
+                    );
+
+                    // Enhanced client info with multiple fallbacks
+                    const clientName = appointment.clientName ||
+                        (clientData ?
+                            `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() :
+                            (appointment.client ?
+                                `${appointment.client.firstName || ''} ${appointment.client.lastName || ''}`.trim() :
+                                'Unknown Client'));
+
+                    const clientPhone = appointment.clientPhone ||
+                        clientData?.cellPhoneNo ||
+                        appointment.client?.phone ||
+                        'N/A';
+
+                    const clientEmail = clientData?.email ||
+                        appointment.client?.email ||
+                        '';
+
+                    // Enhanced property info with multiple fallbacks
+                    const propertyTitle = appointment.propertyTitle ||
+                        propertyData?.title ||
+                        appointment.property?.title ||
+                        'Unknown Property';
+
+                    const propertyAddress = appointment.propertyAddress ||
+                        propertyData?.address ||
+                        appointment.property?.address ||
+                        'No address';
+
+                    // Format schedule number to be more readable
+                    const scheduleNo = appointment.scheduleNo || `SCH-${appointment.id || index + 1}`;
+                    const formattedScheduleNo = scheduleNo.length > 12
+                        ? `${scheduleNo.substring(0, 10)}...`
+                        : scheduleNo;
+
+                    return {
+                        ...appointment,
+                        key: appointment.id || `appt-${index}`,
+                        id: appointment.id || index + 1,
+                        unreadMessages: appointment.unreadMessages || Math.floor(Math.random() * 3),
+
+                        // Enhanced client object with integrated data
+                        client: {
+                            ...clientData,
+                            ...appointment.client,
+                            name: clientName,
+                            phone: clientPhone,
+                            email: clientEmail
+                        },
+
+                        // Enhanced property object with integrated data
+                        property: {
+                            ...propertyData,
+                            ...appointment.property,
+                            title: propertyTitle,
+                            address: propertyAddress
+                        },
+
+                        // Direct fields for easy table access
+                        clientName: clientName,
+                        clientPhone: clientPhone,
+                        clientEmail: clientEmail,
+                        propertyTitle: propertyTitle,
+                        propertyAddress: propertyAddress,
+
+                        scheduleNo: scheduleNo,
+                        formattedScheduleNo: formattedScheduleNo,
+                        status: appointment.status || 'Scheduled',
+                        scheduleTime: appointment.scheduleTime || new Date().toISOString(),
+                        notes: appointment.notes || '',
+
+                        // Meeting details
+                        meetingType: appointment.meetingType || 'InPerson',
+                        meetingLocation: appointment.meetingLocation || '',
+                        virtualMeetingLink: appointment.virtualMeetingLink || '',
+
+                        // Store IDs for reference
+                        clientId: appointment.clientId || clientData?.id,
+                        propertyId: appointment.propertyId || propertyData?.id
+                    };
+                })
+            );
+
+            console.log('Formatted appointments with integrated data:', formattedAppointments);
+
+            setAppointments(formattedAppointments);
+            onScheduleUpdate?.();
+
         } catch (error) {
             console.error('Error loading appointments:', error);
-            message.error('Failed to load appointments');
+            const errorMessage = error.message || 'Failed to load appointments';
+            setError(errorMessage);
+            message.error(errorMessage);
+
+            // Set empty array on error to prevent table issues
+            setAppointments([]);
         } finally {
             setLoading(false);
         }
@@ -88,15 +295,69 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         setChatModalVisible(true);
     };
 
+    const handleMeetingDetails = (appointment) => {
+        setSelectedAppointment(appointment);
+        setMeetingDetailsModalVisible(true);
+    };
+
+    const handleEdit = (appointment) => {
+        setSelectedAppointment(appointment);
+        // Pre-fill the form with existing data
+        editForm.setFieldsValue({
+            meetingType: appointment.meetingType || 'InPerson',
+            meetingLocation: appointment.meetingLocation || '',
+            virtualMeetingLink: appointment.virtualMeetingLink || '',
+            notes: appointment.notes || ''
+        });
+        setEditModalVisible(true);
+    };
+
+    const handleEditSubmit = async (values) => {
+        setEditLoading(true);
+        try {
+            if (!selectedAppointment) {
+                throw new Error('No appointment selected for editing');
+            }
+
+            console.log('Updating appointment with values:', values);
+
+            // Prepare update data
+            const updateData = {
+                ...selectedAppointment,
+                meetingType: values.meetingType,
+                meetingLocation: values.meetingLocation,
+                virtualMeetingLink: values.virtualMeetingLink,
+                notes: values.notes
+            };
+
+            // Call the update service
+            const result = await scheduleService.updateSchedule(selectedAppointment.id, updateData);
+
+            if (result && result.success) {
+                message.success('Appointment updated successfully');
+                setEditModalVisible(false);
+                loadAppointments(); // Refresh the data
+            } else {
+                throw new Error(result?.message || 'Failed to update appointment');
+            }
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            message.error(error.message || 'Failed to update appointment');
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
     const loadChatMessages = async (appointmentId) => {
         try {
+            // Mock chat messages for demo
             const mockMessages = [
                 {
                     id: 1,
                     appointmentId: appointmentId,
                     sender: 'client',
                     message: 'Hi, I\'m looking forward to the viewing tomorrow!',
-                    timestamp: '2024-01-14T15:30:00',
+                    timestamp: new Date(Date.now() - 3600000).toISOString(),
                     read: true
                 },
                 {
@@ -104,23 +365,15 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                     appointmentId: appointmentId,
                     sender: 'agent',
                     message: 'Great! The property is ready for viewing. Please bring your ID.',
-                    timestamp: '2024-01-14T16:15:00',
+                    timestamp: new Date(Date.now() - 1800000).toISOString(),
                     read: true
                 },
                 {
                     id: 3,
                     appointmentId: appointmentId,
                     sender: 'client',
-                    message: 'Should I bring any documents?',
-                    timestamp: '2024-01-14T17:20:00',
-                    read: false
-                },
-                {
-                    id: 4,
-                    appointmentId: appointmentId,
-                    sender: 'client',
-                    message: 'Also, is parking available?',
-                    timestamp: '2024-01-14T17:21:00',
+                    message: 'Perfect, I\'ll see you then!',
+                    timestamp: new Date().toISOString(),
                     read: false
                 }
             ];
@@ -154,22 +407,28 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
+        setActionLoading(id);
         try {
             let result;
             if (newStatus === 'Completed') {
-                result = await scheduleService.complete(id);
+                result = await scheduleService.completeSchedule(id);
             } else if (newStatus === 'Cancelled') {
-                result = await scheduleService.cancel(id);
+                result = await scheduleService.cancelSchedule(id);
             }
 
-            if (result?.success) {
+            if (result) {
                 message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
                 loadAppointments();
             } else {
-                message.error(result?.error?.message || 'Failed to update appointment status');
+                throw new Error('Failed to update appointment status');
             }
         } catch (error) {
-            message.error('Failed to update appointment status');
+            console.error('Error updating appointment status:', error);
+            const errorMessage = error.message || 'Failed to update appointment status';
+            message.error(errorMessage);
+            setError(errorMessage);
+        } finally {
+            setActionLoading(null);
         }
     };
 
@@ -183,23 +442,99 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         return colors[status] || 'default';
     };
 
+    const getMeetingTypeColor = (meetingType) => {
+        const colors = {
+            'InPerson': 'green',
+            'Virtual': 'blue',
+            'Phone': 'orange',
+            'Hybrid': 'purple'
+        };
+        return colors[meetingType] || 'default';
+    };
+
+    const getMeetingTypeIcon = (meetingType) => {
+        const icons = {
+            'InPerson': <UserOutlined />,
+            'Virtual': <VideoCameraOutlined />,
+            'Phone': <PhoneOutlined />,
+            'Hybrid': <EnvironmentOutlined />
+        };
+        return icons[meetingType] || <InfoCircleOutlined />;
+    };
+
+    // Enhanced search function
+    const filteredAppointments = appointments.filter(appointment => {
+        const clientName = appointment.clientName || appointment.client?.name || '';
+        const propertyTitle = appointment.propertyTitle || appointment.property?.title || '';
+        const scheduleNo = appointment.scheduleNo || '';
+        const status = appointment.status || '';
+
+        const matchesSearch = searchText === '' ||
+            clientName.toLowerCase().includes(searchText.toLowerCase()) ||
+            propertyTitle.toLowerCase().includes(searchText.toLowerCase()) ||
+            scheduleNo.toLowerCase().includes(searchText.toLowerCase()) ||
+            status.toLowerCase().includes(searchText.toLowerCase());
+
+        const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    const ErrorIndicator = ({ message, onRetry }) => (
+        <Result
+            status="error"
+            title="Failed to Load Appointments"
+            subTitle={message}
+            extra={[
+                <Button
+                    type="primary"
+                    key="retry"
+                    icon={<ReloadOutlined />}
+                    onClick={onRetry}
+                >
+                    Try Again
+                </Button>
+            ]}
+        />
+    );
+
+    const LoadingIndicator = () => (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>Loading your appointments...</div>
+        </div>
+    );
+
     const columns = [
         {
             title: 'Schedule No',
-            dataIndex: 'scheduleNo',
+            dataIndex: 'formattedScheduleNo',
             key: 'scheduleNo',
-            width: 120,
-            render: (text) => <Tag color="blue">{text}</Tag>
+            width: 100,
+            render: (formattedText, record) => (
+                <Tooltip title={record.scheduleNo}>
+                    <Tag color="blue" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {formattedText}
+                    </Tag>
+                </Tooltip>
+            )
         },
         {
             title: 'Client',
-            dataIndex: 'clientName',
+            dataIndex: 'client',
             key: 'client',
             width: 150,
-            render: (text, record) => (
+            render: (client, record) => (
                 <Space>
                     <Avatar size="small" icon={<UserOutlined />} />
-                    {text}
+                    <div>
+                        <div style={{ fontWeight: 500 }}>
+                            {record.clientName || client?.name || 'Unknown Client'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                            {record.clientPhone || client?.phone || 'N/A'}
+                        </div>
+                    </div>
                     {record.unreadMessages > 0 && (
                         <Badge count={record.unreadMessages} size="small" />
                     )}
@@ -208,14 +543,16 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         },
         {
             title: 'Property',
-            dataIndex: 'propertyTitle',
+            dataIndex: 'property',
             key: 'property',
-            width: 200,
-            render: (text, record) => (
+            width: 180,
+            render: (property, record) => (
                 <Space direction="vertical" size={0}>
-                    <div style={{ fontWeight: 500 }}>{text}</div>
+                    <div style={{ fontWeight: 500 }}>
+                        {record.propertyTitle || property?.title || 'Unknown Property'}
+                    </div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
-                        {record.propertyAddress}
+                        {record.propertyAddress || property?.address || 'No address'}
                     </div>
                 </Space>
             )
@@ -224,7 +561,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
             title: 'Schedule Time',
             dataIndex: 'scheduleTime',
             key: 'scheduleTime',
-            width: 180,
+            width: 150,
             render: (time) => (
                 <Space direction="vertical" size={0}>
                     <div>{moment(time).format('MMM DD, YYYY')}</div>
@@ -236,16 +573,24 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
             sorter: (a, b) => moment(a.scheduleTime) - moment(b.scheduleTime)
         },
         {
-            title: 'Purpose',
-            dataIndex: 'purpose',
-            key: 'purpose',
-            width: 150
+            title: 'Meeting Type',
+            dataIndex: 'meetingType',
+            key: 'meetingType',
+            width: 120,
+            render: (meetingType) => (
+                <Tag
+                    color={getMeetingTypeColor(meetingType)}
+                    icon={getMeetingTypeIcon(meetingType)}
+                >
+                    {meetingType}
+                </Tag>
+            )
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            width: 120,
+            width: 100,
             render: (status) => (
                 <Tag color={getStatusColor(status)}>
                     {status}
@@ -255,7 +600,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         {
             title: 'Actions',
             key: 'actions',
-            width: 180,
+            width: 240,
             render: (_, record) => (
                 <Space size="small">
                     <Tooltip title="View Details">
@@ -263,6 +608,22 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             icon={<EyeOutlined />}
                             size="small"
                             onClick={() => handleView(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Meeting Details">
+                        <Button
+                            icon={<CalendarOutlined />}
+                            size="small"
+                            type="default"
+                            onClick={() => handleMeetingDetails(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Edit Meeting Details">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            type="dashed"
+                            onClick={() => handleEdit(record)}
                         />
                     </Tooltip>
                     <Tooltip title="Chat with Client">
@@ -282,34 +643,32 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                                     icon={<CheckCircleOutlined />}
                                     size="small"
                                     type="primary"
+                                    loading={actionLoading === record.id}
                                     onClick={() => handleStatusChange(record.id, 'Completed')}
                                 />
                             </Tooltip>
-                            <Tooltip title="Cancel">
-                                <Button
-                                    icon={<CloseCircleOutlined />}
-                                    size="small"
-                                    danger
-                                    onClick={() => handleStatusChange(record.id, 'Cancelled')}
-                                />
-                            </Tooltip>
+                            <Popconfirm
+                                title="Are you sure to cancel this appointment?"
+                                onConfirm={() => handleStatusChange(record.id, 'Cancelled')}
+                                okText="Yes"
+                                cancelText="No"
+                                okButtonProps={{ loading: actionLoading === record.id }}
+                            >
+                                <Tooltip title="Cancel">
+                                    <Button
+                                        icon={<CloseCircleOutlined />}
+                                        size="small"
+                                        danger
+                                        loading={actionLoading === record.id}
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
                         </>
                     )}
                 </Space>
             )
         }
     ];
-
-    const filteredAppointments = appointments.filter(appointment => {
-        const matchesSearch = searchText === '' ||
-            appointment.clientName?.toLowerCase().includes(searchText.toLowerCase()) ||
-            appointment.propertyTitle?.toLowerCase().includes(searchText.toLowerCase()) ||
-            appointment.scheduleNo?.toLowerCase().includes(searchText.toLowerCase());
-
-        const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
-
-        return matchesSearch && matchesStatus;
-    });
 
     return (
         <div>
@@ -324,7 +683,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 }}>
                     <Space>
                         <Input
-                            placeholder="Search my appointments..."
+                            placeholder="Search appointments by client, property, or schedule no..."
                             prefix={<SearchOutlined />}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
@@ -340,23 +699,80 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             <Option value="Scheduled">Scheduled</Option>
                             <Option value="Completed">Completed</Option>
                             <Option value="Cancelled">Cancelled</Option>
+                            <Option value="Rescheduled">Rescheduled</Option>
                         </Select>
                     </Space>
+                 
                 </div>
 
-                <BaseTable
-                    data={filteredAppointments}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
+                {(loadingClients || loadingProperties) && (
+                    <Alert
+                        message="Loading additional data..."
+                        description="Fetching client and property information..."
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {error && (
+                    <Alert
+                        message="Error Loading Data"
+                        description={error}
+                        type="error"
+                        showIcon
+                        action={
+                            <Button
+                                size="small"
+                                type="primary"
+                                ghost
+                                onClick={loadAllData}
+                                icon={<ReloadOutlined />}
+                                loading={loading}
+                            >
+                                Retry
+                            </Button>
+                        }
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {loading ? (
+                    <LoadingIndicator />
+                ) : error ? (
+                    <ErrorIndicator message={error} onRetry={loadAllData} />
+                ) : (
+                    <BaseTable
+                        dataSource={filteredAppointments}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="key"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                        }}
+                        locale={{
+                            emptyText: (
+                                <Empty
+                                    description="No appointments found"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                >
+                                    <Button
+                                        type="primary"
+                                        icon={<ReloadOutlined />}
+                                        onClick={loadAllData}
+                                    >
+                                        Refresh
+                                    </Button>
+                                </Empty>
+                            )
+                        }}
+                    />
+                )}
             </Card>
 
+            {/* View Modal */}
             <Modal
                 title="Appointment Details"
                 open={viewModalVisible}
@@ -384,59 +800,279 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                                 </div>
                             </Col>
                         </Row>
+
+                        <Divider orientation="left">Client Information</Divider>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={24}>
-                                <strong>Client:</strong>
-                                <div>{selectedAppointment.clientName}</div>
-                                <div style={{ color: '#666', fontSize: '12px' }}>
-                                    {selectedAppointment.clientPhone} • {selectedAppointment.clientEmail}
+                            <Col span={12}>
+                                <strong>Client Name:</strong>
+                                <div>{selectedAppointment.clientName || selectedAppointment.client?.name || 'N/A'}</div>
+                            </Col>
+                            <Col span={12}>
+                                <strong>Contact:</strong>
+                                <div>
+                                    <Space direction="vertical" size={0}>
+                                        <div>
+                                            <PhoneOutlined /> {selectedAppointment.clientPhone || selectedAppointment.client?.phone || 'N/A'}
+                                        </div>
+                                        {selectedAppointment.clientEmail && (
+                                            <div>
+                                                <MailOutlined /> {selectedAppointment.clientEmail}
+                                            </div>
+                                        )}
+                                    </Space>
                                 </div>
                             </Col>
                         </Row>
+
+                        <Divider orientation="left">Property Information</Divider>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
                             <Col span={24}>
                                 <strong>Property:</strong>
-                                <div>{selectedAppointment.propertyTitle}</div>
-                                <div style={{ color: '#666', fontSize: '12px' }}>
-                                    {selectedAppointment.propertyAddress}
-                                </div>
+                                <div>{selectedAppointment.propertyTitle || selectedAppointment.property?.title || 'N/A'}</div>
                             </Col>
+                            <Col span={24}>
+                                <strong>Address:</strong>
+                                <div>{selectedAppointment.propertyAddress || selectedAppointment.property?.address || 'N/A'}</div>
+                            </Col>
+                            {selectedAppointment.property?.price && (
+                                <Col span={24}>
+                                    <strong>Price:</strong>
+                                    <div>${selectedAppointment.property.price.toLocaleString()}</div>
+                                </Col>
+                            )}
                         </Row>
+
+                        <Divider orientation="left">Appointment Details</Divider>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
                             <Col span={12}>
-                                <strong>Schedule Time:</strong>
-                                <div>{moment(selectedAppointment.scheduleTime).format('MMM DD, YYYY hh:mm A')}</div>
+                                <strong>Date & Time:</strong>
+                                <div>
+                                    {moment(selectedAppointment.scheduleTime).format('MMMM DD, YYYY hh:mm A')}
+                                </div>
                             </Col>
                             <Col span={12}>
                                 <strong>Duration:</strong>
-                                <div>{selectedAppointment.duration} minutes</div>
+                                <div>60 minutes</div>
                             </Col>
                         </Row>
-                        <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={24}>
-                                <strong>Purpose:</strong>
-                                <div>{selectedAppointment.purpose}</div>
-                            </Col>
-                        </Row>
+
                         {selectedAppointment.notes && (
-                            <Row gutter={16}>
-                                <Col span={24}>
-                                    <strong>Notes:</strong>
-                                    <div>{selectedAppointment.notes}</div>
-                                </Col>
-                            </Row>
+                            <>
+                                <Divider orientation="left">Notes</Divider>
+                                <div style={{
+                                    background: '#f5f5f5',
+                                    padding: '12px',
+                                    borderRadius: '6px',
+                                    marginBottom: '16px'
+                                }}>
+                                    {selectedAppointment.notes}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
             </Modal>
 
+            {/* Meeting Details Modal */}
+            <Modal
+                title={
+                    <Space>
+                        <CalendarOutlined />
+                        Meeting Details - {selectedAppointment?.scheduleNo}
+                    </Space>
+                }
+                open={meetingDetailsModalVisible}
+                onCancel={() => setMeetingDetailsModalVisible(false)}
+                footer={[
+                    <Button
+                        key="edit"
+                        type="primary"
+                        icon={<EditOutlined />}
+                        onClick={() => {
+                            setMeetingDetailsModalVisible(false);
+                            handleEdit(selectedAppointment);
+                        }}
+                    >
+                        Edit Details
+                    </Button>,
+                    <Button key="close" onClick={() => setMeetingDetailsModalVisible(false)}>
+                        Close
+                    </Button>
+                ]}
+                width={500}
+            >
+                {selectedAppointment && (
+                    <div>
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                            <Col span={24}>
+                                <strong>Meeting Type:</strong>
+                                <div style={{ marginTop: 8 }}>
+                                    <Tag
+                                        color={getMeetingTypeColor(selectedAppointment.meetingType)}
+                                        icon={getMeetingTypeIcon(selectedAppointment.meetingType)}
+                                        style={{ fontSize: '14px', padding: '4px 8px' }}
+                                    >
+                                        {selectedAppointment.meetingType || 'Not specified'}
+                                    </Tag>
+                                </div>
+                            </Col>
+                        </Row>
+
+                        {selectedAppointment.meetingLocation && (
+                            <Row gutter={16} style={{ marginBottom: 16 }}>
+                                <Col span={24}>
+                                    <strong>
+                                        <EnvironmentOutlined /> Meeting Location:
+                                    </strong>
+                                    <div style={{
+                                        marginTop: 8,
+                                        padding: '8px 12px',
+                                        background: '#f5f5f5',
+                                        borderRadius: '6px',
+                                        border: '1px solid #d9d9d9'
+                                    }}>
+                                        {selectedAppointment.meetingLocation}
+                                    </div>
+                                </Col>
+                            </Row>
+                        )}
+
+                        {selectedAppointment.virtualMeetingLink && (
+                            <Row gutter={16} style={{ marginBottom: 16 }}>
+                                <Col span={24}>
+                                    <strong>
+                                        <VideoCameraOutlined /> Virtual Meeting Link:
+                                    </strong>
+                                    <div style={{ marginTop: 8 }}>
+                                        <Button
+                                            type="link"
+                                            href={selectedAppointment.virtualMeetingLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            icon={<VideoCameraOutlined />}
+                                            style={{ padding: 0, height: 'auto' }}
+                                        >
+                                            {selectedAppointment.virtualMeetingLink.length > 50
+                                                ? `${selectedAppointment.virtualMeetingLink.substring(0, 50)}...`
+                                                : selectedAppointment.virtualMeetingLink
+                                            }
+                                        </Button>
+                                    </div>
+                                </Col>
+                            </Row>
+                        )}
+
+                        {selectedAppointment.notes && (
+                            <Row gutter={16} style={{ marginBottom: 16 }}>
+                                <Col span={24}>
+                                    <strong>Additional Notes:</strong>
+                                    <div style={{
+                                        marginTop: 8,
+                                        padding: '12px',
+                                        background: '#f9f9f9',
+                                        borderRadius: '6px',
+                                        border: '1px solid #e8e8e8'
+                                    }}>
+                                        {selectedAppointment.notes}
+                                    </div>
+                                </Col>
+                            </Row>
+                        )}
+
+                        {!selectedAppointment.meetingLocation && !selectedAppointment.virtualMeetingLink && !selectedAppointment.notes && (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                <InfoCircleOutlined style={{ fontSize: '24px', marginBottom: 8 }} />
+                                <div>No additional meeting details provided</div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Modal>
+
+            {/* Edit Meeting Details Modal */}
+            <Modal
+                title={
+                    <Space>
+                        <EditOutlined />
+                        Edit Meeting Details - {selectedAppointment?.scheduleNo}
+                    </Space>
+                }
+                open={editModalVisible}
+                onCancel={() => setEditModalVisible(false)}
+                footer={[
+                    <Button key="cancel" onClick={() => setEditModalVisible(false)}>
+                        Cancel
+                    </Button>,
+                    <Button
+                        key="save"
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        loading={editLoading}
+                        onClick={() => editForm.submit()}
+                    >
+                        Save Changes
+                    </Button>
+                ]}
+                width={500}
+            >
+                <Form
+                    form={editForm}
+                    layout="vertical"
+                    onFinish={handleEditSubmit}
+                >
+                    <Form.Item
+                        name="meetingType"
+                        label="Meeting Type"
+                        rules={[{ required: true, message: 'Please select a meeting type' }]}
+                    >
+                        <Select placeholder="Select meeting type">
+                            <Option value="InPerson">In Person</Option>
+                            <Option value="Virtual">Virtual</Option>
+                            <Option value="Phone">Phone</Option>
+                            <Option value="Hybrid">Hybrid</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="meetingLocation"
+                        label="Meeting Location"
+                    >
+                        <Input
+                            placeholder="Enter meeting location or address"
+                            prefix={<EnvironmentOutlined />}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="virtualMeetingLink"
+                        label="Virtual Meeting Link"
+                    >
+                        <Input
+                            placeholder="Enter virtual meeting URL (Zoom, Teams, etc.)"
+                            prefix={<VideoCameraOutlined />}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="notes"
+                        label="Additional Notes"
+                    >
+                        <TextArea
+                            placeholder="Enter any additional notes or instructions"
+                            rows={4}
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Chat Modal */}
             <Modal
                 title={
                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                         <Space>
                             <MessageOutlined />
-                            Chat with {selectedAppointment?.clientName}
-                            <Tag color="blue">{selectedAppointment?.scheduleNo}</Tag>
+                            Chat with {selectedAppointment?.clientName || selectedAppointment?.client?.name}
+                            <Tag color="blue">{selectedAppointment?.formattedScheduleNo}</Tag>
                         </Space>
                         <Button
                             type="text"
@@ -475,76 +1111,75 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                         flexDirection: 'column',
                         background: 'white'
                     }}>
+                        {/* Chat Header */}
                         <div style={{
-                            padding: '12px 16px',
+                            padding: '16px',
                             borderBottom: '1px solid #f0f0f0',
                             background: '#fafafa'
                         }}>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                <strong>Property:</strong> {selectedAppointment.propertyTitle}
+                            <div style={{ fontWeight: 'bold' }}>
+                                {selectedAppointment.clientName || selectedAppointment.client?.name}
                             </div>
                             <div style={{ fontSize: '12px', color: '#666' }}>
-                                <strong>Time:</strong> {moment(selectedAppointment.scheduleTime).format('MMM DD, hh:mm A')}
+                                {selectedAppointment.propertyTitle || selectedAppointment.property?.title}
                             </div>
                         </div>
 
+                        {/* Chat Messages */}
                         <div style={{
                             flex: 1,
-                            overflowY: 'auto',
                             padding: '16px',
-                            background: 'white'
+                            overflowY: 'auto',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
                         }}>
-                            {chatMessages.map((message) => (
+                            {chatMessages.map(message => (
                                 <div
                                     key={message.id}
                                     style={{
-                                        marginBottom: '12px',
                                         display: 'flex',
-                                        flexDirection: message.sender === 'agent' ? 'row-reverse' : 'row'
+                                        justifyContent: message.sender === 'agent' ? 'flex-end' : 'flex-start'
                                     }}
                                 >
                                     <div
                                         style={{
-                                            maxWidth: '85%',
+                                            maxWidth: '80%',
                                             padding: '8px 12px',
                                             borderRadius: '12px',
                                             background: message.sender === 'agent' ? '#1890ff' : '#f0f0f0',
-                                            color: message.sender === 'agent' ? 'white' : 'black',
-                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                            color: message.sender === 'agent' ? 'white' : 'black'
                                         }}
                                     >
-                                        <div style={{ fontSize: '14px' }}>{message.message}</div>
+                                        {message.message}
                                         <div style={{
                                             fontSize: '10px',
-                                            opacity: 0.7,
-                                            textAlign: message.sender === 'agent' ? 'right' : 'left',
-                                            marginTop: '4px'
+                                            marginTop: '4px',
+                                            opacity: 0.7
                                         }}>
-                                            {moment(message.timestamp).format('hh:mm A')}
+                                            {moment(message.timestamp).format('HH:mm')}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
+                        {/* Chat Input */}
                         <div style={{
                             padding: '16px',
-                            borderTop: '1px solid #f0f0f0',
-                            background: '#fafafa'
+                            borderTop: '1px solid #f0f0f0'
                         }}>
                             <Space.Compact style={{ width: '100%' }}>
                                 <Input
-                                    placeholder="Type your message..."
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
+                                    placeholder="Type a message..."
                                     onPressEnter={handleSendMessage}
-                                    size="small"
                                 />
                                 <Button
                                     type="primary"
                                     onClick={handleSendMessage}
                                     disabled={!newMessage.trim()}
-                                    size="small"
                                 >
                                     Send
                                 </Button>

@@ -5,7 +5,7 @@ export const propertyMapper = {
         try {
             console.log('Raw formData for creation:', formData);
 
-            // Ensure amenities is always properly formatted
+            // FIX: Better amenities handling
             let amenitiesValue = [];
             if (Array.isArray(formData.amenities)) {
                 amenitiesValue = formData.amenities;
@@ -13,8 +13,14 @@ export const propertyMapper = {
                 try {
                     amenitiesValue = JSON.parse(formData.amenities);
                 } catch (e) {
+                    // If it's a comma-separated string, split it
                     amenitiesValue = formData.amenities.split(',').map(item => item.trim()).filter(item => item);
                 }
+            }
+
+            // Ensure it's always an array
+            if (!Array.isArray(amenitiesValue)) {
+                amenitiesValue = [];
             }
 
             // Handle listedDate with better fallbacks
@@ -34,7 +40,7 @@ export const propertyMapper = {
             const createRequest = {
                 property: {
                     title: formData.title?.trim() || '',
-                    description: formData.description || '', // REMOVED .trim() to preserve formatting
+                    description: formData.description || '',
                     type: formData.type || 'residential',
                     price: parseFloat(formData.price) || 0,
                     status: formData.status || 'draft',
@@ -52,7 +58,7 @@ export const propertyMapper = {
                     country: formData.country?.trim() || '',
                     latitude: parseFloat(formData.latitude) || 0,
                     longitude: parseFloat(formData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue),
+                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
                     ownerId: formData.ownerId ? parseInt(formData.ownerId) : null,
                     agentId: formData.agentId ? parseInt(formData.agentId) : null,
                     listedDate: listedDateValue,
@@ -73,7 +79,7 @@ export const propertyMapper = {
         try {
             console.log('Raw formData for update:', formData);
 
-            // Ensure amenities is always properly formatted
+            // FIX: Better amenities handling
             let amenitiesValue = [];
             if (Array.isArray(formData.amenities)) {
                 amenitiesValue = formData.amenities;
@@ -83,6 +89,11 @@ export const propertyMapper = {
                 } catch (e) {
                     amenitiesValue = formData.amenities.split(',').map(item => item.trim()).filter(item => item);
                 }
+            }
+
+            // Ensure it's always an array
+            if (!Array.isArray(amenitiesValue)) {
+                amenitiesValue = [];
             }
 
             // Handle listedDate with better fallbacks
@@ -103,7 +114,7 @@ export const propertyMapper = {
                 property: {
                     id: parseInt(formData.id) || 0,
                     title: formData.title?.trim() || '',
-                    description: formData.description || '', // REMOVED .trim() to preserve formatting
+                    description: formData.description || '',
                     type: formData.type || 'residential',
                     price: parseFloat(formData.price) || 0,
                     status: formData.status || 'draft',
@@ -121,9 +132,9 @@ export const propertyMapper = {
                     country: formData.country?.trim() || '',
                     latitude: parseFloat(formData.latitude) || 0,
                     longitude: parseFloat(formData.longitude) || 0,
+                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
                     ownerId: formData.ownerId ? parseInt(formData.ownerId) : null,
                     agentId: formData.agentId ? parseInt(formData.agentId) : null,
-                    amenities: JSON.stringify(amenitiesValue),
                     listedDate: listedDateValue,
                 }
             };
@@ -157,7 +168,7 @@ export const propertyMapper = {
                 id: backendData.id || 0,
                 propertyNo: backendData.propertyNo || '',
                 title: backendData.title || '',
-                description: backendData.description || '', // Preserve exact formatting
+                description: backendData.description || '',
                 type: backendData.type || 'residential',
                 price: parseFloat(backendData.price) || 0,
                 status: backendData.status || 'draft',
@@ -186,7 +197,7 @@ export const propertyMapper = {
                 videoUrls: [],
                 mainImage: '',
                 mainVideo: '',
-                agent: null // Initialize agent as null
+                agent: null
             };
 
             // Map agent data if available
@@ -201,7 +212,6 @@ export const propertyMapper = {
                     licenseNumber: backendData.agent.licenseNumber || ''
                 };
             } else if (backendData.agentId) {
-                // If only agentId is provided, create a basic agent object
                 property.agent = {
                     id: backendData.agentId,
                     firstName: 'Unknown',
@@ -251,13 +261,19 @@ export const propertyMapper = {
             if (typeof property.amenities === 'string') {
                 try {
                     property.amenities = JSON.parse(property.amenities);
+                    // Ensure it's an array after parsing
+                    if (!Array.isArray(property.amenities)) {
+                        property.amenities = [];
+                    }
                 } catch (e) {
                     console.warn('Failed to parse amenities:', property.amenities);
                     property.amenities = [];
                 }
+            } else if (!Array.isArray(property.amenities)) {
+                property.amenities = [];
             }
 
-            console.log('Mapped frontend property with agent:', property);
+            console.log('Mapped frontend property with amenities:', property.amenities);
             return property;
         } catch (error) {
             console.error('Error in toFrontend:', error, backendData);
@@ -292,7 +308,7 @@ export const propertyMapper = {
         try {
             const formData = new FormData();
 
-            // Ensure amenities is properly formatted
+            // FIX: Better amenities handling
             let amenitiesValue = [];
             if (Array.isArray(propertyData.amenities)) {
                 amenitiesValue = propertyData.amenities;
@@ -302,6 +318,11 @@ export const propertyMapper = {
                 } catch (e) {
                     amenitiesValue = propertyData.amenities.split(',').map(item => item.trim()).filter(item => item);
                 }
+            }
+
+            // Ensure it's always an array
+            if (!Array.isArray(amenitiesValue)) {
+                amenitiesValue = [];
             }
 
             let listedDateValue;
@@ -320,7 +341,7 @@ export const propertyMapper = {
             const createRequest = {
                 property: {
                     title: propertyData.title?.trim() || '',
-                    description: propertyData.description || '', // REMOVED .trim() to preserve formatting
+                    description: propertyData.description || '',
                     type: propertyData.type || 'residential',
                     price: parseFloat(propertyData.price) || 0,
                     status: propertyData.status || 'draft',
@@ -338,7 +359,7 @@ export const propertyMapper = {
                     country: propertyData.country?.trim() || '',
                     latitude: parseFloat(propertyData.latitude) || 0,
                     longitude: parseFloat(propertyData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue),
+                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
                     ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
@@ -365,7 +386,7 @@ export const propertyMapper = {
                 });
             }
 
-            console.log('FormData created:', createRequest);
+            console.log('FormData created with amenities:', createRequest.property.amenities);
             return formData;
         } catch (error) {
             console.error('Error in toFormData:', error);
@@ -377,7 +398,7 @@ export const propertyMapper = {
         try {
             const formData = new FormData();
 
-            // Ensure amenities is properly formatted
+            // FIX: Better amenities handling
             let amenitiesValue = [];
             if (Array.isArray(propertyData.amenities)) {
                 amenitiesValue = propertyData.amenities;
@@ -387,6 +408,11 @@ export const propertyMapper = {
                 } catch (e) {
                     amenitiesValue = propertyData.amenities.split(',').map(item => item.trim()).filter(item => item);
                 }
+            }
+
+            // Ensure it's always an array
+            if (!Array.isArray(amenitiesValue)) {
+                amenitiesValue = [];
             }
 
             let listedDateValue;
@@ -406,7 +432,7 @@ export const propertyMapper = {
                 property: {
                     id: parseInt(propertyData.id) || 0,
                     title: propertyData.title?.trim() || '',
-                    description: propertyData.description || '', // REMOVED .trim() to preserve formatting
+                    description: propertyData.description || '',
                     type: propertyData.type || 'residential',
                     price: parseFloat(propertyData.price) || 0,
                     status: propertyData.status || 'draft',
@@ -424,7 +450,7 @@ export const propertyMapper = {
                     country: propertyData.country?.trim() || '',
                     latitude: parseFloat(propertyData.latitude) || 0,
                     longitude: parseFloat(propertyData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue),
+                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
                     ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
@@ -451,7 +477,7 @@ export const propertyMapper = {
                 });
             }
 
-            console.log('Update FormData created:', updateRequest);
+            console.log('Update FormData created with amenities:', updateRequest.property.amenities);
             return formData;
         } catch (error) {
             console.error('Error in toUpdateFormData:', error);

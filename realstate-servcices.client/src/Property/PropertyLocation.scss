@@ -450,6 +450,223 @@
             color: #003366;
         }
     }
+    // Time Slot Availability Section Styles
+    &-availability-section {
+        margin-bottom: 40px;
+    }
+
+    &-availability-container {
+        background-color: white;
+        border-radius: 8px;
+        border: 1px solid #e8e8e8;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+    }
+
+    &-availability-info {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    &-availability-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    &-availability-icon {
+        color: #001529;
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+
+    &-availability-header h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #001529;
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-availability-description {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.5;
+        margin-bottom: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-availability-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    &-availability-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    &-availability-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #001529;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-availability-input {
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        transition: all 0.3s ease;
+        background-color: white;
+        max-width: 300px;
+
+        &:focus {
+            outline: none;
+            border-color: #001529;
+            box-shadow: 0 0 0 3px rgba(0, 21, 41, 0.1);
+        }
+    }
+
+    &-availability-error {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: #fff2f0;
+        border: 1px solid #ffccc7;
+        border-radius: 6px;
+        color: #a8071a;
+        font-size: 14px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-availability-slots {
+        margin-top: 20px;
+    }
+
+    &-availability-slots h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #001529;
+        margin-bottom: 16px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-availability-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 40px 20px;
+        color: #666;
+        font-size: 14px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    &-time-slots-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    &-time-slot {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: white;
+
+        &.available {
+            border-color: #b7eb8f;
+            background-color: #f6ffed;
+
+            &:hover {
+                border-color: #52c41a;
+                background-color: #f6ffed;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(82, 196, 26, 0.2);
+            }
+        }
+
+        &.unavailable {
+            border-color: #ffccc7;
+            background-color: #fff2f0;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    }
+
+    &-slot-icon {
+        font-size: 16px;
+        flex-shrink: 0;
+        color: #001529;
+    }
+
+    &-slot-time {
+        font-size: 16px;
+        font-weight: 600;
+        color: #001529;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        flex: 1;
+    }
+
+    &-slot-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+        .available & {
+            color: #52c41a;
+        }
+
+        .unavailable & {
+            color: #ff4d4f;
+        }
+    }
+
+    &-slot-status-icon {
+        font-size: 12px;
+    }
+
+    &-no-slots {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        text-align: center;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px dashed #e0e0e0;
+    }
+
+    &-no-slots-icon {
+        font-size: 36px;
+        color: #999;
+        margin-bottom: 12px;
+    }
+
+    &-no-slots p {
+        font-size: 14px;
+        color: #666;
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
     // Schedule Section Styles
     &-schedule-section {
         margin-bottom: 40px;
@@ -1216,6 +1433,24 @@
 
         &-map-container {
             height: 300px; // Adjusted for mobile
+        }
+        // Time Slot Availability Mobile Styles
+        &-time-slots-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        &-time-slot {
+            padding: 12px;
+            gap: 8px;
+        }
+
+        &-slot-time {
+            font-size: 14px;
+        }
+
+        &-slot-status {
+            font-size: 11px;
         }
     }
 }

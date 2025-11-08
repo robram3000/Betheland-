@@ -35,7 +35,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             key: 'statistics',
             icon: <BarChartOutlined />,
             label: 'Dashboard',
-            path: '/admin/statistics'
+            path: '/portal/admin/dashboard'
         },
         {
             key: 'chat',

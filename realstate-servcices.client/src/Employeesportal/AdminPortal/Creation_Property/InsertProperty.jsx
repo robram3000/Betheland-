@@ -198,7 +198,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [previewTitle, setPreviewTitle] = useState('');
     const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
     const [previewVideo, setPreviewVideo] = useState('');
-    
+
     // New states for progress and success
     const [progressVisible, setProgressVisible] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -207,6 +207,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     // Safe options with fallbacks
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [statuses, setStatuses] = useState([]);
+    const [agents, setAgents] = useState([]); // ✅ ADDED MISSING AGENTS STATE
 
     // Flatten amenities for the select component
     const allAmenities = amenities && typeof amenities === 'object'
@@ -238,7 +239,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         setCurrentAction(actionName);
         setProgressVisible(true);
         setProgress(0);
-        
+
         const interval = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 90) {
@@ -340,10 +341,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const loadAgents = async () => {
         try {
             const data = await agentService.getAgents();
-            setAgents(data);
+            setAgents(data || []); // ✅ FIXED: Set agents state
         } catch (error) {
             console.error('Error loading agents:', error);
             message.error('Failed to load agents');
+            setAgents([]); // ✅ FIXED: Set empty array on error
         }
     };
 
@@ -1307,7 +1309,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         <Col span={12}>
                             <Form.Item label="Assigned Agent" name="agentId">
                                 <Select placeholder="Select agent" allowClear>
-                                    {agents.map(agent => (
+                                    {agents.map(agent => ( // ✅ FIXED: Now using defined agents state
                                         <Option key={agent.id} value={agent.id}>
                                             {agent.firstName} {agent.lastName}
                                         </Option>
@@ -1348,11 +1350,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     {progressVisible && (
                         <div style={{ marginBottom: 16 }}>
                             <Space direction="vertical" style={{ width: '100%' }}>
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    marginBottom: 8 
+                                    marginBottom: 8
                                 }}>
                                     <span style={{ fontWeight: 500, color: '#1890ff' }}>
                                         {currentAction}
@@ -1361,8 +1363,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         {progress}%
                                     </span>
                                 </div>
-                                <Progress 
-                                    percent={progress} 
+                                <Progress
+                                    percent={progress}
                                     status="active"
                                     strokeColor={{
                                         '0%': '#108ee9',

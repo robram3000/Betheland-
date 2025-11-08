@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
     Card,
@@ -23,36 +23,22 @@ import {
     DeleteOutlined,
     CheckOutlined,
     CloseOutlined,
-    UserOutlined
+    UserOutlined,
+    MailOutlined,
+    PhoneOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
 
-// Import the main service
-import SchedulingServices from './Services';
+// Import the service
+import { AgentAvailabilityService } from '../appointment/Services/index.js';
+import agentService from '../Creation_Agent/Services/AgentService'; // Import agent service
 
-// Mock API client for demonstration
-const mockApiClient = {
-    get: async (url) => {
-        // Mock implementation
-        return { data: [], status: 200 };
-    },
-    post: async (url, data) => {
-        // Mock implementation
-        return { data: { ...data, id: Date.now() }, status: 201 };
-    },
-    put: async (url, data) => {
-        // Mock implementation
-        return { data, status: 200 };
-    },
-    delete: async (url) => {
-        // Mock implementation
-        return { status: 200 };
-    }
-};
+// Destructure necessary components
+const { Option } = Select;
 
-// Initialize services with mock API client
-const schedulingService = new SchedulingServices(mockApiClient);
+// Initialize service
+const agentAvailabilityService = new AgentAvailabilityService();
 
 const AgentAvailability = ({ onScheduleUpdate }) => {
     const [availabilities, setAvailabilities] = useState([]);
@@ -61,6 +47,8 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
     const [selectedAvailability, setSelectedAvailability] = useState(null);
     const [form] = Form.useForm();
     const [agents, setAgents] = useState([]);
+    const [agentsCache, setAgentsCache] = useState({});
+    const [agentLoading, setAgentLoading] = useState({});
 
     const daysOfWeek = [
         'Monday',
@@ -77,30 +65,176 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
         loadAgents();
     }, []);
 
+    // Copy the agent data loader algorithm from PropertyPage
+    const loadAgentData = useCallback(async (agentId) => {
+        if (!agentId) {
+            return null;
+        }
+
+        // Check cache first
+        if (agentsCache[agentId]) {
+            console.log(`Using cached agent data for ID: ${agentId}`, agentsCache[agentId]);
+            return agentsCache[agentId];
+        }
+
+        // Set loading state for this agent
+        setAgentLoading(prev => ({ ...prev, [agentId]: true }));
+
+        try {
+            console.log(`Fetching agent data for ID: ${agentId}`);
+            const agentData = await agentService.getAgent(agentId);
+            console.log(`Raw agent data received:`, agentData);
+
+            const processedAgent = {
+                id: agentData.id,
+                firstName: agentData.firstName || 'Unknown',
+                lastName: agentData.lastName || 'Agent',
+                email: agentData.email || '',
+                cellPhoneNo: agentData.cellPhoneNo || '',
+                profilePictureUrl: agentData.profilePictureUrl || '',
+                licenseNumber: agentData.licenseNumber || ''
+            };
+
+            console.log(`Processed agent data:`, processedAgent);
+
+            // Update cache
+            setAgentsCache(prev => ({
+                ...prev,
+                [agentId]: processedAgent
+            }));
+
+            return processedAgent;
+        } catch (error) {
+            console.error(`Error loading agent ${agentId}:`, error);
+
+            // Create fallback agent data
+            const fallbackAgent = {
+                id: agentId,
+                firstName: 'Unknown',
+                lastName: 'Agent',
+                email: '',
+                cellPhoneNo: '',
+                profilePictureUrl: '',
+                licenseNumber: ''
+            };
+
+            // Cache the fallback to prevent repeated failed requests
+            setAgentsCache(prev => ({
+                ...prev,
+                [agentId]: fallbackAgent
+            }));
+
+            return fallbackAgent;
+        } finally {
+            // Clear loading state
+            setAgentLoading(prev => ({ ...prev, [agentId]: false }));
+        }
+    }, [agentsCache]);
+
     const loadAvailabilities = async () => {
         setLoading(true);
         try {
-            const result = await schedulingService.availability.getAll();
-            if (result.success) {
-                setAvailabilities(result.data);
+            const result = await agentAvailabilityService.getAllAvailabilities();
+
+            // Enhanced availabilities loader with agent data (similar to PropertyPage)
+            if (result && result.length > 0) {
+                // First, set availabilities with basic data
+                const initialAvailabilities = result.map(availability => ({
+                    ...availability,
+                    agent: availability.agent || null // Keep existing agent data if any
+                }));
+
+                setAvailabilities(initialAvailabilities);
+
+                // Then load agent data for availabilities that need it
+                const availabilitiesWithAgents = await Promise.all(
+                    initialAvailabilities.map(async (availability) => {
+                        let agentData = availability.agent;
+
+                        // If no agent data but we have agentId, load it
+                        if (!agentData && availability.agentId) {
+                            console.log(`Loading agent for availability ${availability.id}, agentId: ${availability.agentId}`);
+                            agentData = await loadAgentData(availability.agentId);
+                        }
+
+                        // If we have embedded agent data but it's incomplete, enhance it
+                        if (agentData && agentData.id && (!agentData.firstName || agentData.firstName === 'Unknown')) {
+                            console.log(`Enhancing incomplete agent data for availability ${availability.id}`);
+                            const enhancedAgent = await loadAgentData(agentData.id);
+                            agentData = enhancedAgent || agentData;
+                        }
+
+                        return {
+                            ...availability,
+                            agent: agentData
+                        };
+                    })
+                );
+
+                console.log('Final processed availabilities with agent data:', availabilitiesWithAgents);
+                setAvailabilities(availabilitiesWithAgents);
             } else {
-                message.error(result.error?.message || 'Failed to load availabilities');
+                console.log('No availabilities found');
+                setAvailabilities([]);
             }
         } catch (error) {
             console.error('Error loading availabilities:', error);
-            message.error('Failed to load availabilities');
+            message.error(error.message || 'Failed to load availabilities');
         } finally {
             setLoading(false);
         }
     };
 
     const loadAgents = async () => {
-        // Mock agents data - replace with actual API call
-        setAgents([
-            { id: 1, name: 'John Smith' },
-            { id: 2, name: 'Sarah Johnson' },
-            { id: 3, name: 'Mike Wilson' }
-        ]);
+        try {
+            // Load all agents for the dropdown
+            const allAgents = await agentService.getAllAgents();
+            const processedAgents = allAgents.map(agent => ({
+                id: agent.id,
+                firstName: agent.firstName || 'Unknown',
+                lastName: agent.lastName || 'Agent',
+                email: agent.email || '',
+                cellPhoneNo: agent.cellPhoneNo || '',
+                profilePictureUrl: agent.profilePictureUrl || '',
+                licenseNumber: agent.licenseNumber || ''
+            }));
+            setAgents(processedAgents);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+            message.error('Failed to load agents');
+            // Fallback to empty array
+            setAgents([]);
+        }
+    };
+
+    // Helper functions copied from PropertyPage
+    const getAgentDisplayName = (agent) => {
+        if (!agent) return 'No Agent Assigned';
+        if (agent.firstName && agent.lastName && agent.firstName !== 'Unknown' && agent.lastName !== 'Agent') {
+            return `${agent.firstName} ${agent.lastName}`;
+        }
+        if (agent.firstName && agent.firstName !== 'Unknown') return agent.firstName;
+        if (agent.lastName && agent.lastName !== 'Agent') return agent.lastName;
+        return 'Unknown Agent';
+    };
+
+    const getAgentContactInfo = (agent) => {
+        if (!agent) return '';
+        const contactInfo = [];
+        if (agent.email) contactInfo.push(agent.email);
+        if (agent.cellPhoneNo) contactInfo.push(agent.cellPhoneNo);
+        return contactInfo.join(' • ');
+    };
+
+    const getAgentAvatar = (agent) => {
+        if (agent?.profilePictureUrl) {
+            return <Avatar size="small" src={agent.profilePictureUrl} />;
+        }
+        return <Avatar size="small" icon={<UserOutlined />} />;
+    };
+
+    const isAgentLoading = (agentId) => {
+        return agentLoading[agentId] || false;
     };
 
     const handleCreate = () => {
@@ -121,16 +255,13 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
 
     const handleDelete = async (id) => {
         try {
-            const result = await schedulingService.availability.delete(id);
-            if (result.success) {
-                message.success('Availability deleted successfully');
-                loadAvailabilities();
-                if (onScheduleUpdate) onScheduleUpdate();
-            } else {
-                message.error(result.error?.message || 'Failed to delete availability');
-            }
+            await agentAvailabilityService.deleteAvailability(id);
+            message.success('Availability deleted successfully');
+            loadAvailabilities();
+            if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to delete availability');
+            console.error('Error deleting availability:', error);
+            message.error(error.message || 'Failed to delete availability');
         }
     };
 
@@ -143,45 +274,77 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                 id: selectedAvailability?.id
             };
 
-            let result;
             if (selectedAvailability) {
-                result = await schedulingService.availability.update(selectedAvailability.id, availabilityData);
-                if (result.success) {
-                    message.success('Availability updated successfully');
-                }
+                await agentAvailabilityService.updateAvailability(selectedAvailability.id, availabilityData);
+                message.success('Availability updated successfully');
             } else {
-                result = await schedulingService.availability.create(availabilityData);
-                if (result.success) {
-                    message.success('Availability created successfully');
-                }
-            }
-
-            if (!result.success) {
-                message.error(result.error?.message || 'Failed to save availability');
-                return;
+                await agentAvailabilityService.createAvailability(availabilityData);
+                message.success('Availability created successfully');
             }
 
             setModalVisible(false);
             loadAvailabilities();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to save availability');
+            console.error('Error saving availability:', error);
+            message.error(error.message || 'Failed to save availability');
         }
     };
 
-    // ... rest of the component remains the same
     const columns = [
         {
             title: 'Agent',
-            dataIndex: 'agentName',
+            dataIndex: 'agentId',
             key: 'agent',
-            width: 150,
-            render: (text) => (
-                <Space>
-                    <Avatar size="small" icon={<UserOutlined />} />
-                    {text}
-                </Space>
-            )
+            width: 200,
+            render: (agentId, record) => {
+                const agent = record.agent;
+                const isLoading = record.agentId && isAgentLoading(record.agentId);
+
+                return (
+                    <Space direction="vertical" size={2}>
+                        <Space>
+                            {getAgentAvatar(agent)}
+                            <div>
+                                <div style={{ fontWeight: 500 }}>
+                                    {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
+                                </div>
+                                {agent?.licenseNumber && agent.licenseNumber !== '' && (
+                                    <div style={{ fontSize: '10px', color: '#666' }}>
+                                        License: {agent.licenseNumber}
+                                    </div>
+                                )}
+                            </div>
+                        </Space>
+                        {getAgentContactInfo(agent) && (
+                            <div style={{ fontSize: '11px', color: '#888' }}>
+                                <Space direction="vertical" size={2}>
+                                    {agent?.email && (
+                                        <Space size={4}>
+                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.email}</span>
+                                        </Space>
+                                    )}
+                                    {agent?.cellPhoneNo && (
+                                        <Space size={4}>
+                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
+                                            <span>{agent.cellPhoneNo}</span>
+                                        </Space>
+                                    )}
+                                </Space>
+                            </div>
+                        )}
+                        {agentId && !agent && (
+                            <Tooltip title={`Agent ID: ${agentId}`}>
+                                <Tag color="orange" size="small">ID: {agentId}</Tag>
+                            </Tooltip>
+                        )}
+                        {isLoading && (
+                            <Tag color="blue" size="small">Loading...</Tag>
+                        )}
+                    </Space>
+                );
+            }
         },
         {
             title: 'Day',
@@ -297,10 +460,17 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                         label="Agent"
                         rules={[{ required: true, message: 'Please select an agent' }]}
                     >
-                        <Select placeholder="Select agent">
+                        <Select
+                            placeholder="Select agent"
+                            showSearch
+                            optionFilterProp="children"
+                            filterOption={(input, option) =>
+                                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                            }
+                        >
                             {agents.map(agent => (
                                 <Option key={agent.id} value={agent.id}>
-                                    {agent.name}
+                                    {getAgentDisplayName(agent)}
                                 </Option>
                             ))}
                         </Select>
@@ -374,7 +544,7 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                 </Form>
             </Modal>
         </div>
-    );
+    );  
 };
 
 export default AgentAvailability;

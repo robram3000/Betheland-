@@ -1,5 +1,4 @@
-﻿
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Services.ProfileCreation;
 
@@ -53,6 +52,18 @@ namespace Realstate_servcices.Server.Controllers.Client
         public async Task<ActionResult<List<ClientResponse>>> GetAllClients()
         {
             var clients = await _clientService.GetAllClientsAsync();
+            return Ok(clients);
+        }
+
+        [HttpPost("by-member-ids")]
+        public async Task<ActionResult<List<ClientResponse>>> GetAllClientsByBaseMemberIds([FromBody] List<int> baseMemberIds)
+        {
+            if (baseMemberIds == null || !baseMemberIds.Any())
+            {
+                return BadRequest(new RegisterResponse { Success = false, Message = "Base member IDs are required" });
+            }
+
+            var clients = await _clientService.GetAllClientsByBaseMemberIdsAsync(baseMemberIds);
             return Ok(clients);
         }
 

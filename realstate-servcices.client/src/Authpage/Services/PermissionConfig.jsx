@@ -50,12 +50,14 @@ export const rolePermissions = {
 
 export const routePermissions = {
     // Super Admin Routes
-    '/portal/super-admin': ['SuperAdmin'],
-    '/portal/super-admin/users': ['SuperAdmin'],
-    '/portal/super-admin/system-settings': ['SuperAdmin'],
-    '/portal/super-admin/roles': ['SuperAdmin'],
-    '/portal/super-admin/analytics': ['SuperAdmin', 'Admin'],
+    '/portal/super-admin/dashboard': ['SuperAdmin'],
+    '/portal/super-admin/property': ['SuperAdmin'],
+    '/portal/super-admin/agent': ['SuperAdmin'],
+    '/portal/super-admin/profile': ['SuperAdmin', 'Admin'],
     '/portal/super-admin/audit-logs': ['SuperAdmin'],
+    '/portal/super-admin/schedules': ['SuperAdmin'],
+    '/portal/super-admin/config-landing-page': ['SuperAdmin'],
+    '/portal/super-admin/client':['SuperAdmin'],
 
     // Admin Routes
     '/portal/admin': ['SuperAdmin', 'Admin'],
@@ -63,6 +65,9 @@ export const routePermissions = {
     '/portal/admin/properties': ['SuperAdmin', 'Admin'],
     '/portal/admin/agent': ['SuperAdmin', 'Admin'],
     '/portal/admin/schedules': ['SuperAdmin', 'Admin'],
+    '/portal/admin/profile': ['SuperAdmin', 'Admin'],
+    '/portal/admin/dashboard': ['SuperAdmin', 'Admin']
+    ,
     // Agent Routes
     '/portal/agent': ['SuperAdmin', 'Admin', 'Agent'],
     '/portal/agent/all-properties': ['SuperAdmin', 'Admin', 'Agent'],

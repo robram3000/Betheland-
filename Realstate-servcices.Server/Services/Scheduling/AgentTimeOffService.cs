@@ -93,8 +93,12 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 throw new InvalidOperationException("Time off request conflicts with existing schedules.");
             }
 
+            // Ensure required fields are set
             timeOff.IsApproved = false;
             timeOff.CreatedAt = DateTime.UtcNow;
+            timeOff.Type = timeOff.Type ?? "Vacation";
+            timeOff.IsAllDay = timeOff.IsAllDay || true;
+
             return await _timeOffRepository.AddAsync(timeOff);
         }
 

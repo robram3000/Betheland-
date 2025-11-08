@@ -28,6 +28,8 @@ const ChatPage = ({ propertyChatData }) => {
     const [fileList, setFileList] = useState([]);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewImage, setPreviewImage] = useState('');
+    const [loadingChats, setLoadingChats] = useState(false);
+    const [loadingMessages, setLoadingMessages] = useState(false);
     const textAreaRef = useRef(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -48,6 +50,123 @@ const ChatPage = ({ propertyChatData }) => {
     ];
 
     const [chats, setChats] = useState([]);
+
+    // Format message time for display
+    const formatMessageTime = (date) => {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        return date.toLocaleDateString();
+    };
+
+    // Load existing chats from backend
+    const loadExistingChats = async () => {
+        try {
+            setLoadingChats(true);
+            console.log('Loading existing chats from backend...');
+            const existingChats = await chatService.getUserChats();
+
+            if (existingChats && existingChats.length > 0) {
+                // Transform backend chat data to match frontend format
+                const transformedChats = existingChats.map(chat => {
+                    const currentUserId = chatService.getCurrentUserId();
+                    const otherParticipant = chat.participants?.find(p =>
+                        p.baseMemberId !== currentUserId
+                    );
+
+                    const lastMessage = chat.messages && chat.messages.length > 0
+                        ? chat.messages[chat.messages.length - 1]
+                        : null;
+
+                    return {
+                        id: chat.id.toString(),
+                        backendChatId: chat.id,
+                        name: chat.name || (otherParticipant?.member?.fullName || 'Unknown Chat'),
+                        lastMessage: lastMessage?.content || 'No messages yet',
+                        time: lastMessage ? formatMessageTime(new Date(lastMessage.sentAt)) : 'Just now',
+                        unread: chat.participants?.find(p => p.baseMemberId === currentUserId)?.unreadCount || 0,
+                        type: chat.chatType || 'direct',
+                        avatar: otherParticipant?.member?.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+                        online: true,
+                        isAgentChat: chat.chatType === 'property_chat',
+                        agentData: otherParticipant?.member || null,
+                        propertyData: chat.propertyId ? {
+                            id: chat.propertyId,
+                            title: chat.propertyTitle || 'Property',
+                            address: chat.propertyAddress || 'Address not available'
+                        } : null,
+                        messages: chat.messages?.map(msg => ({
+                            id: msg.id,
+                            text: msg.content,
+                            sender: msg.senderId === currentUserId ? 'me' : 'other',
+                            time: formatMessageTime(new Date(msg.sentAt)),
+                            files: msg.files || []
+                        })) || []
+                    };
+                });
+
+                setChats(transformedChats);
+                console.log('Loaded chats from backend:', transformedChats);
+            }
+        } catch (error) {
+            console.error('Error loading existing chats:', error);
+            message.error('Failed to load chats');
+        } finally {
+            setLoadingChats(false);
+        }
+    };
+
+    // Load messages for a specific chat
+    const loadChatMessages = async (chatId) => {
+        if (!chatId) return;
+
+        try {
+            setLoadingMessages(true);
+            console.log('Loading messages for chat:', chatId);
+
+            const chat = chats.find(c => c.id === chatId);
+            if (!chat?.backendChatId) {
+                console.log('No backend chat ID, using local messages');
+                return;
+            }
+
+            const messages = await chatService.getChatMessages(chat.backendChatId);
+
+            if (messages && messages.length > 0) {
+                const transformedMessages = messages.map(msg => ({
+                    id: msg.id,
+                    text: msg.content,
+                    sender: msg.senderId === chatService.getCurrentUserId() ? 'me' : 'other',
+                    time: formatMessageTime(new Date(msg.sentAt)),
+                    files: msg.files || []
+                }));
+
+                setChats(prev => prev.map(chat =>
+                    chat.id === chatId
+                        ? { ...chat, messages: transformedMessages }
+                        : chat
+                ));
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            // Continue with existing messages if any
+        } finally {
+            setLoadingMessages(false);
+        }
+    };
+
+    useEffect(() => {
+        // Load existing chats when component mounts (for topbar navigation)
+        loadExistingChats();
+    }, []);
 
     useEffect(() => {
         if (propertyChatData) {
@@ -97,6 +216,13 @@ const ChatPage = ({ propertyChatData }) => {
         }
     }, [propertyChatData]);
 
+    // Load messages when active chat changes
+    useEffect(() => {
+        if (activeChat) {
+            loadChatMessages(activeChat);
+        }
+    }, [activeChat]);
+
     const filteredChats = chats.filter(chat => {
         if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
             return false;
@@ -116,7 +242,7 @@ const ChatPage = ({ propertyChatData }) => {
             if (activeChatData?.isAgentChat) {
                 await handleSendToAgent();
             } else {
-                handleSendRegularMessage();
+                await handleSendRegularMessage();
             }
         } catch (error) {
             console.error('Error sending message:', error);
@@ -161,11 +287,10 @@ const ChatPage = ({ propertyChatData }) => {
                     console.log('Creating backend chat with data:', chatData);
                     const createdChat = await chatService.createChat(chatData);
 
-                    // FIX: Check if createdChat is valid
                     if (!createdChat || !createdChat.id) {
                         console.warn('Chat creation returned invalid data:', createdChat);
                         // Fallback: Use local chat only
-                        handleSendRegularMessage();
+                        await handleSendRegularMessage();
                         return;
                     }
 
@@ -179,9 +304,8 @@ const ChatPage = ({ propertyChatData }) => {
 
                 } catch (error) {
                     console.error('Failed to create backend chat:', error);
-                    // FIX: Fallback to regular message instead of showing error
                     console.log('Falling back to local chat mode');
-                    handleSendRegularMessage();
+                    await handleSendRegularMessage();
                     return;
                 }
             }
@@ -196,25 +320,50 @@ const ChatPage = ({ propertyChatData }) => {
                     };
 
                     console.log('Sending message with payload:', messagePayload);
-                    await chatService.sendMessage(messagePayload);
+                    const sentMessage = await chatService.sendMessage(messagePayload);
 
-                    // Also update local state for immediate UI feedback
-                    handleSendRegularMessage();
+                    // Update local state for immediate UI feedback
+                    if (sentMessage) {
+                        const newMessageObj = {
+                            id: sentMessage.id || Date.now(),
+                            text: newMessage,
+                            sender: 'me',
+                            time: 'Just now',
+                            files: uploadedFiles.length > 0 ? uploadedFiles : undefined
+                        };
+
+                        setChats(prev => prev.map(chat =>
+                            chat.id === activeChat
+                                ? {
+                                    ...chat,
+                                    messages: [...chat.messages, newMessageObj],
+                                    lastMessage: newMessage,
+                                    time: 'Now',
+                                    unread: 0
+                                }
+                                : chat
+                        ));
+
+                        message.success('Message sent! 🎉');
+                        setNewMessage('');
+                        setFileList([]);
+                        setEmojiPickerVisible(false);
+                    }
 
                 } catch (error) {
                     console.error('Failed to send message via service:', error);
                     // Fallback to local message
-                    handleSendRegularMessage();
+                    await handleSendRegularMessage();
                 }
             }
         } catch (error) {
             console.error('Error in handleSendToAgent:', error);
-            // Final fallback
-            handleSendRegularMessage();
+            // Final fallback - always ensure message appears locally
+            await handleSendRegularMessage();
         }
     };
 
-    const handleSendRegularMessage = () => {
+    const handleSendRegularMessage = async () => {
         const newMessageObj = {
             id: Date.now(),
             text: newMessage,
@@ -239,6 +388,41 @@ const ChatPage = ({ propertyChatData }) => {
                 }
                 : chat
         ));
+
+        // If this is a backend chat, also send to backend
+        if (activeChatData?.backendChatId) {
+            try {
+                let uploadedFiles = [];
+                if (fileList.length > 0) {
+                    for (const file of fileList) {
+                        try {
+                            const uploadResult = await chatService.uploadFile(file);
+                            if (uploadResult.success) {
+                                uploadedFiles.push({
+                                    name: file.name,
+                                    type: file.type,
+                                    url: uploadResult.fileUrl,
+                                    size: file.size
+                                });
+                            }
+                        } catch (error) {
+                            console.error('File upload failed:', error);
+                        }
+                    }
+                }
+
+                const messagePayload = {
+                    chatId: activeChatData.backendChatId,
+                    content: newMessage,
+                    messageType: uploadedFiles.length > 0 ? 'file' : 'text',
+                    files: uploadedFiles.length > 0 ? uploadedFiles : undefined
+                };
+
+                await chatService.sendMessage(messagePayload);
+            } catch (error) {
+                console.error('Failed to sync message with backend:', error);
+            }
+        }
 
         message.success('Message sent! 🎉');
         setNewMessage('');
@@ -595,100 +779,111 @@ const ChatPage = ({ propertyChatData }) => {
                 overflowY: 'auto',
                 minHeight: 0
             }}>
-                <List
-                    dataSource={filteredChats}
-                    renderItem={(chat) => (
-                        <List.Item
-                            style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                background: activeChat === chat.id ? '#f0f9ff' : 'transparent',
-                                borderBottom: '1px solid #f8fafc',
-                                transition: 'background-color 0.2s',
-                                margin: 0,
-                                borderRadius: 0
-                            }}
-                            onClick={() => {
-                                setActiveChat(chat.id);
-                                setSidebarVisible(false);
-                            }}
-                        >
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                width: '100%'
-                            }}>
-                                <Badge
-                                    dot={chat.online}
-                                    color="#52c41a"
-                                    offset={[-4, 28]}
-                                >
-                                    <Avatar
-                                        src={chat.avatar}
-                                        size="default"
-                                        style={{ flexShrink: 0 }}
-                                    />
-                                </Badge>
+                {loadingChats ? (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '100px'
+                    }}>
+                        <Text type="secondary">Loading chats...</Text>
+                    </div>
+                ) : (
+                    <List
+                        dataSource={filteredChats}
+                        renderItem={(chat) => (
+                            <List.Item
+                                style={{
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    background: activeChat === chat.id ? '#f0f9ff' : 'transparent',
+                                    borderBottom: '1px solid #f8fafc',
+                                    transition: 'background-color 0.2s',
+                                    margin: 0,
+                                    borderRadius: 0
+                                }}
+                                onClick={() => {
+                                    setActiveChat(chat.id);
+                                    setSidebarVisible(false);
+                                }}
+                            >
                                 <div style={{
-                                    flex: 1,
-                                    marginLeft: '10px',
-                                    minWidth: 0,
-                                    overflow: 'hidden'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    width: '100%'
                                 }}>
+                                    <Badge
+                                        dot={chat.online}
+                                        color="#52c41a"
+                                        offset={[-4, 28]}
+                                    >
+                                        <Avatar
+                                            src={chat.avatar}
+                                            size="default"
+                                            style={{ flexShrink: 0 }}
+                                        />
+                                    </Badge>
                                     <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        width: '100%'
+                                        flex: 1,
+                                        marginLeft: '10px',
+                                        minWidth: 0,
+                                        overflow: 'hidden'
                                     }}>
-                                        <Text strong style={{
-                                            color: '#1B3C53',
-                                            fontSize: '13px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            width: '100%'
                                         }}>
-                                            {chat.name}
-                                        </Text>
-                                        <Text type="secondary" style={{
-                                            fontSize: '11px',
-                                            flexShrink: 0,
-                                            marginLeft: '8px'
-                                        }}>
-                                            {chat.time}
-                                        </Text>
-                                    </div>
-                                    <div style={{ marginTop: '2px' }}>
-                                        <Text
-                                            style={{
-                                                color: '#64748b',
-                                                fontSize: '12px',
+                                            <Text strong style={{
+                                                color: '#1B3C53',
+                                                fontSize: '13px',
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                display: 'block',
-                                                width: '100%'
-                                            }}
-                                        >
-                                            {chat.lastMessage}
-                                        </Text>
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {chat.name}
+                                            </Text>
+                                            <Text type="secondary" style={{
+                                                fontSize: '11px',
+                                                flexShrink: 0,
+                                                marginLeft: '8px'
+                                            }}>
+                                                {chat.time}
+                                            </Text>
+                                        </div>
+                                        <div style={{ marginTop: '2px' }}>
+                                            <Text
+                                                style={{
+                                                    color: '#64748b',
+                                                    fontSize: '12px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'block',
+                                                    width: '100%'
+                                                }}
+                                            >
+                                                {chat.lastMessage}
+                                            </Text>
+                                        </div>
                                     </div>
+                                    {chat.unread > 0 && (
+                                        <Badge
+                                            count={chat.unread}
+                                            style={{
+                                                marginLeft: '6px',
+                                                background: '#1B3C53',
+                                                fontSize: '10px',
+                                                flexShrink: 0
+                                            }}
+                                        />
+                                    )}
                                 </div>
-                                {chat.unread > 0 && (
-                                    <Badge
-                                        count={chat.unread}
-                                        style={{
-                                            marginLeft: '6px',
-                                            background: '#1B3C53',
-                                            fontSize: '10px',
-                                            flexShrink: 0
-                                        }}
-                                    />
-                                )}
-                            </div>
-                        </List.Item>
-                    )}
-                />
+                            </List.Item>
+                        )}
+                    />
+                )}
             </div>
         </Card>
     );
@@ -839,7 +1034,16 @@ const ChatPage = ({ propertyChatData }) => {
                                     }} size="small">
                                         {activeChatData.isAgentChat && <PropertyCard />}
 
-                                        {activeChatData.messages && activeChatData.messages.length > 0 ? (
+                                        {loadingMessages ? (
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                height: '100px'
+                                            }}>
+                                                <Text type="secondary">Loading messages...</Text>
+                                            </div>
+                                        ) : activeChatData.messages && activeChatData.messages.length > 0 ? (
                                             activeChatData.messages.map(message => (
                                                 <div
                                                     key={message.id}

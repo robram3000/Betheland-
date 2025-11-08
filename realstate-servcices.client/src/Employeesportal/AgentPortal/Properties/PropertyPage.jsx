@@ -36,7 +36,8 @@ import {
     DownloadOutlined,
     PrinterOutlined,
     FilePdfOutlined,
-    FileExcelOutlined
+    FileExcelOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
 import {
     FaBed,
@@ -44,15 +45,18 @@ import {
     FaUtensils,
     FaCar
 } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import BaseTable from './BaseTable';
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
+import authService from '../../Services/LoginAuth'; // Import auth service
 import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '../../AdminPortal/Creation_Property/processImageUrl';
 
 const { Search } = Input;
 const { Option } = Select;
 
 const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) => {
+    const navigate = useNavigate();
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -70,6 +74,15 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const [agentLoading, setAgentLoading] = useState({});
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [propertiesCount, setPropertiesCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState(null);
+
+    // Get current user on component mount
+    useEffect(() => {
+        const user = authService.getCurrentUser();
+        setCurrentUser(user);
+        console.log('Current user:', user);
+    }, []);
 
     // Notify parent component when filters change
     useEffect(() => {
@@ -144,39 +157,38 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
     }, [agentsCache]);
 
-    // Enhanced property loader with agent data
+    // Enhanced property loader - filter by current user if they're an agent
     const loadProperties = useCallback(async () => {
         setLoading(true);
         try {
             console.log('Loading properties...');
-            const data = await propertyService.getAllProperties();
+            const user = authService.getCurrentUser();
+            setCurrentUser(user);
+
+            let data;
+
+            // If user is an agent, only load their properties
+            if (user && user.userType && user.userType.toLowerCase() === 'agent') {
+                console.log('User is agent, loading only their properties. User ID:', user.userId);
+                data = await propertyService.getPropertiesByAgent(user.userId);
+            } else {
+                // For admin or other users, load all properties
+                console.log('User is not agent, loading all properties');
+                data = await propertyService.getAllProperties();
+            }
+
             console.log('Raw properties data:', data);
 
             if (data && data.length > 0) {
-                // First, set properties with basic data
-                const initialProperties = data.map(property => ({
-                    ...property,
-                    agent: property.agent || null // Keep existing agent data if any
-                }));
-
-                setProperties(initialProperties);
-
-                // Then load agent data for properties that need it
-                const propertiesWithAgents = await Promise.all(
-                    initialProperties.map(async (property) => {
+                // Process properties with agent data
+                const processedProperties = await Promise.all(
+                    data.map(async (property) => {
                         let agentData = property.agent;
 
                         // If no agent data but we have agentId, load it
                         if (!agentData && property.agentId) {
                             console.log(`Loading agent for property ${property.id}, agentId: ${property.agentId}`);
                             agentData = await loadAgentData(property.agentId);
-                        }
-
-                        // If we have embedded agent data but it's incomplete, enhance it
-                        if (agentData && agentData.id && (!agentData.firstName || agentData.firstName === 'Unknown')) {
-                            console.log(`Enhancing incomplete agent data for property ${property.id}`);
-                            const enhancedAgent = await loadAgentData(agentData.id);
-                            agentData = enhancedAgent || agentData;
                         }
 
                         return {
@@ -186,16 +198,19 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                     })
                 );
 
-                console.log('Final processed properties with agent data:', propertiesWithAgents);
-                setProperties(propertiesWithAgents);
+                console.log('Final processed properties:', processedProperties);
+                setProperties(processedProperties);
+                setPropertiesCount(processedProperties.length);
             } else {
                 console.log('No properties found');
                 setProperties([]);
+                setPropertiesCount(0);
             }
         } catch (error) {
             console.error('Error loading properties:', error);
             message.error('Failed to load properties: ' + (error.message || 'Unknown error'));
             setProperties([]);
+            setPropertiesCount(0);
         } finally {
             setLoading(false);
         }
@@ -203,7 +218,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     useEffect(() => {
         loadProperties();
-    }, []);
+    }, [loadProperties]);
 
     const handleSearch = (value) => {
         setSearchText(value);
@@ -231,6 +246,29 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     const handleCityFilter = (value) => {
         setCityFilter(value);
+    };
+
+    // Handle Add New Property navigation
+    const handleAddProperty = () => {
+        const user = currentUser || authService.getCurrentUser();
+
+        if (user && user.userType && user.userType.toLowerCase() === 'agent') {
+            // For agents, navigate to create property with their ID pre-filled
+            navigate('/admin/properties/create', {
+                state: {
+                    autoAssignAgent: true,
+                    agentId: user.userId
+                }
+            });
+        } else {
+            // For admins, normal navigation
+            navigate('/admin/properties/create');
+        }
+
+        // Notify parent of update
+        if (onPropertiesUpdate) {
+            onPropertiesUpdate();
+        }
     };
 
     // Get unique cities for filter
@@ -355,7 +393,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const handleExportExcel = () => {
         try {
             // Create CSV content
-            const headers = ['Title', 'Type', 'Price', 'Bedrooms', 'Bathrooms', 'City', 'Status', 'Agent', 'Address'];
+            const headers = ['Title', 'Type', 'Price', 'Bedrooms', 'Bathrooms', 'City', 'Status', 'Address'];
             const csvContent = [
                 headers.join(','),
                 ...filteredProperties.map(property => [
@@ -366,7 +404,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                     property.bathrooms || 0,
                     `"${property.city || ''}"`,
                     `"${property.status || ''}"`,
-                    `"${getAgentDisplayName(property.agent)}"`,
                     `"${property.address || ''}"`
                 ].join(','))
             ].join('\n');
@@ -414,6 +451,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
                     // Remove from state immediately
                     setProperties(prev => prev.filter(prop => prop.id !== propertyId));
+                    setPropertiesCount(prev => prev - 1); // Decrement count
 
                     // Notify parent of update
                     if (onPropertiesUpdate) {
@@ -515,35 +553,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             case 'draft': return 'DRAFT';
             default: return status?.toUpperCase() || 'UNKNOWN';
         }
-    };
-
-    const getAgentDisplayName = (agent) => {
-        if (!agent) return 'No Agent Assigned';
-        if (agent.firstName && agent.lastName && agent.firstName !== 'Unknown' && agent.lastName !== 'Agent') {
-            return `${agent.firstName} ${agent.lastName}`;
-        }
-        if (agent.firstName && agent.firstName !== 'Unknown') return agent.firstName;
-        if (agent.lastName && agent.lastName !== 'Agent') return agent.lastName;
-        return 'Unknown Agent';
-    };
-
-    const getAgentContactInfo = (agent) => {
-        if (!agent) return '';
-        const contactInfo = [];
-        if (agent.email) contactInfo.push(agent.email);
-        if (agent.cellPhoneNo) contactInfo.push(agent.cellPhoneNo);
-        return contactInfo.join(' • ');
-    };
-
-    const getAgentAvatar = (agent) => {
-        if (agent?.profilePictureUrl) {
-            return <Avatar size="small" src={processImageUrl(agent.profilePictureUrl)} />;
-        }
-        return <Avatar size="small" icon={<UserOutlined />} />;
-    };
-
-    const isAgentLoading = (agentId) => {
-        return agentLoading[agentId] || false;
     };
 
     // Render amenities with dropdown for more than 3 items
@@ -703,11 +712,13 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         </Menu>
     );
 
+    // Updated columns without agent column
     const columns = [
         {
             title: 'Property',
             dataIndex: 'title',
             key: 'property',
+            width: '25%',
             render: (text, record) => {
                 const imageUrl = getPropertyImage(record);
 
@@ -755,12 +766,13 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         {
             title: 'Details',
             key: 'details',
+            width: '20%',
             render: (_, record) => (
                 <Space direction="vertical" size={8}>
                     <div style={{
                         fontWeight: 500,
                         color: 'black',
-                        backgroundColor: 'primary',
+                        backgroundColor: '#f0f8ff',
                         padding: '4px 8px',
                         borderRadius: '4px',
                         border: '1px solid #e6f7ff'
@@ -798,76 +810,26 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             ),
         },
         {
-            title: 'Media',
-            key: 'media',
-            render: (_, record) => renderMediaPreview(record),
-        },
-
-        {
-            title: 'Agent',
-            dataIndex: 'agent',
-            key: 'agent',
-            render: (agent, record) => {
-                const isLoading = record.agentId && isAgentLoading(record.agentId);
-
-                return (
-                    <Space direction="vertical" size={2}>
-                        <Space>
-                            {getAgentAvatar(agent)}
-                            <div>
-                                <div style={{ fontWeight: 500 }}>
-                                    {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
-                                </div>
-                                {agent?.licenseNumber && agent.licenseNumber !== '' && (
-                                    <div style={{ fontSize: '10px', color: '#666' }}>
-                                        License: {agent.licenseNumber}
-                                    </div>
-                                )}
-                            </div>
-                        </Space>
-                        {getAgentContactInfo(agent) && (
-                            <div style={{ fontSize: '11px', color: '#888' }}>
-                                <Space direction="vertical" size={2}>
-                                    {agent.email && (
-                                        <Space size={4}>
-                                            <MailOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
-                                            <span>{agent.email}</span>
-                                        </Space>
-                                    )}
-                                    {agent.cellPhoneNo && (
-                                        <Space size={4}>
-                                            <PhoneOutlined style={{ fontSize: '10px', color: '#1e3a8a' }} />
-                                            <span>{agent.cellPhoneNo}</span>
-                                        </Space>
-                                    )}
-                                </Space>
-                            </div>
-                        )}
-                        {record.agentId && !agent && (
-                            <Tooltip title={`Agent ID: ${record.agentId}`}>
-                                <Tag color="orange" size="small">ID: {record.agentId}</Tag>
-                            </Tooltip>
-                        )}
-                        {isLoading && (
-                            <Tag color="blue" size="small">Loading...</Tag>
-                        )}
-                    </Space>
-                );
-            },
-        }, {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
+            width: '15%',
             render: (status) => (
-                <Tag color={getStatusColor(status)}>
+                <Tag color={getStatusColor(status)} style={{ fontSize: '12px', padding: '4px 8px' }}>
                     {getStatusText(status)}
                 </Tag>
             ),
         },
-
+        {
+            title: 'Media',
+            key: 'media',
+            width: '15%',
+            render: (_, record) => renderMediaPreview(record),
+        },
         {
             title: 'Actions',
             key: 'actions',
+            width: '25%',
             render: (_, record) => (
                 <Space size="small">
                     <Tooltip title="View Details">
@@ -920,13 +882,60 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         },
     ];
 
+    // Update the card title to show user-specific information
+    const getCardTitle = () => {
+        const user = currentUser || authService.getCurrentUser();
+
+        if (user && user.userType && user.userType.toLowerCase() === 'agent') {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                        My Properties
+                        {propertiesCount > 0 && (
+                            <span style={{
+                                marginLeft: '8px',
+                                fontSize: '14px',
+                                color: '#666',
+                                fontWeight: 'normal'
+                            }}>
+                                ({propertiesCount} properties)
+                            </span>
+                        )}
+                    </span>
+                
+                </div>
+            );
+        } else {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                        Properties Management
+                        {propertiesCount > 0 && (
+                            <span style={{
+                                marginLeft: '8px',
+                                fontSize: '14px',
+                                color: '#666',
+                                fontWeight: 'normal'
+                            }}>
+                                ({propertiesCount} properties)
+                            </span>
+                        )}
+                    </span>
+          
+                </div>
+            );
+        }
+    };
+
     return (
         <div>
-            <Card>
+            <Card
+                title={getCardTitle()}
+            >
                 <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <Space wrap>
                         <Search
-                            placeholder="Search properties, agents, addresses..."
+                            placeholder="Search properties, addresses, cities..."
                             allowClear
                             onSearch={handleSearch}
                             style={{ width: 300 }}
@@ -1032,7 +1041,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                             `${range[0]}-${range[1]} of ${total} properties`,
-                        position: ['bottomRight'] // Ensure pagination is always at bottom
+                        position: ['bottomRight']
                     }}
                     style={{ marginBottom: 0 }}
                 />
@@ -1076,31 +1085,14 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <p><strong>Garages:</strong> {selectedProperty.garages}</p>
                             </Col>
                             <Col span={12}>
-                                <h3>Agent Information</h3>
-                                {selectedProperty.agent ? (
-                                    <>
-                                        <p><strong>Name:</strong> {getAgentDisplayName(selectedProperty.agent)}</p>
-                                        <p><strong>Email:</strong> {selectedProperty.agent.email || 'N/A'}</p>
-                                        <p><strong>Phone:</strong> {selectedProperty.agent.cellPhoneNo || 'N/A'}</p>
-                                        {selectedProperty.agent.licenseNumber && (
-                                            <p><strong>License:</strong> {selectedProperty.agent.licenseNumber}</p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <p>No agent assigned</p>
-                                )}
+                                <h3>Amenities</h3>
+                                {renderAmenities(selectedProperty.amenities)}
                             </Col>
                         </Row>
                         {selectedProperty.description && (
                             <div style={{ marginTop: 16 }}>
                                 <h3>Description</h3>
                                 <p>{selectedProperty.description}</p>
-                            </div>
-                        )}
-                        {selectedProperty.amenities && (
-                            <div style={{ marginTop: 16 }}>
-                                <h3>Amenities</h3>
-                                {renderAmenities(selectedProperty.amenities)}
                             </div>
                         )}
                     </div>

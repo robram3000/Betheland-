@@ -10,7 +10,6 @@ import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import PropertyPage from './PropertyPage';
 import CreateProperty from './CreateProperty';
-import propertyService from './services/propertyService';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
@@ -19,9 +18,11 @@ const { Title } = Typography;
 const PropertyLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('properties');
-    const [propertiesCount, setPropertiesCount] = useState(0);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+
+    // NEW: Store the property data separately to preserve it during tab changes
+    const [editingProperty, setEditingProperty] = useState(null);
 
     const {
         token: { colorBgContainer, borderRadiusLG },
@@ -33,18 +34,23 @@ const PropertyLayout = () => {
 
     const handleTabChange = (key) => {
         setActiveTab(key);
-        setIsEditing(false);
-        setSelectedProperty(null);
+        // Don't reset editing state and property data when switching tabs
+        if (key === 'properties') {
+            setIsEditing(false);
+            setSelectedProperty(null);
+        }
     };
 
     const handleEditProperty = (property) => {
         setSelectedProperty(property);
+        setEditingProperty(property); // Store the property data
         setIsEditing(true);
         setActiveTab('create');
     };
 
     const handleCreateProperty = () => {
         setSelectedProperty(null);
+        setEditingProperty(null); // Clear editing property
         setIsEditing(false);
         setActiveTab('create');
     };
@@ -53,20 +59,18 @@ const PropertyLayout = () => {
         setActiveTab('properties');
         setIsEditing(false);
         setSelectedProperty(null);
+        setEditingProperty(null); // Clear editing property
     };
 
-    const loadPropertiesCount = async () => {
-        try {
-            const data = await propertyService.getAllProperties();
-            setPropertiesCount(data.length);
-        } catch (error) {
-            console.error('Error loading properties count:', error);
+    // NEW: Handle success from CreateProperty to clear editing state
+    const handlePropertySuccess = () => {
+        setEditingProperty(null);
+        setSelectedProperty(null);
+        setIsEditing(false);
+        if (onPropertiesUpdate) {
+            onPropertiesUpdate();
         }
     };
-
-    useEffect(() => {
-        loadPropertiesCount();
-    }, []);
 
     const getSeoData = () => {
         const baseTitle = "Betheland Property Management";
@@ -75,18 +79,18 @@ const PropertyLayout = () => {
 
         const tabConfig = {
             properties: {
-                title: `All Properties (${propertiesCount}) | ${baseTitle}`,
-                description: `Browse and manage ${propertiesCount} property listings in Betheland real estate platform. Comprehensive property management dashboard.`,
+                title: `All Properties | ${baseTitle}`,
+                description: `Browse and manage property listings in Betheland real estate platform. Comprehensive property management dashboard.`,
                 keywords: "property management, real estate listings, property search, Betheland, property dashboard, real estate management",
                 canonical: `${baseUrl}/properties`,
                 ogImage: `${baseUrl}/images/properties-og.jpg`
             },
             create: {
                 title: isEditing
-                    ? `Edit Property - ${selectedProperty?.title || 'Property'} | ${baseTitle}`
+                    ? `Edit Property - ${editingProperty?.title || 'Property'} | ${baseTitle}`
                     : `Create New Property | ${baseTitle}`,
                 description: isEditing
-                    ? `Edit property listing for ${selectedProperty?.title || 'property'} in Betheland real estate management system. Update property details, images, videos, and agent assignments.`
+                    ? `Edit property listing for ${editingProperty?.title || 'property'} in Betheland real estate management system. Update property details, images, videos, and agent assignments.`
                     : 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and assign agents.',
                 keywords: isEditing ? "edit property, update listing, modify property, Betheland, property editing" : "create property, add listing, new property, real estate listing, Betheland, property creation",
                 canonical: `${baseUrl}/properties/${isEditing ? 'edit' : 'create'}`,
@@ -104,7 +108,6 @@ const PropertyLayout = () => {
     };
 
     const handlePropertiesUpdate = () => {
-        loadPropertiesCount();
         if (activeTab === 'create') {
             handleBackToProperties();
         }
@@ -185,7 +188,7 @@ const PropertyLayout = () => {
                                                 fontWeight: 600
                                             }}>
                                                 {isEditing
-                                                    ? `Edit Property - ${selectedProperty?.title || 'Property'}`
+                                                    ? `Edit Property - ${editingProperty?.title || 'Property'}`
                                                     : activeTab === 'properties'
                                                         ? 'All Properties'
                                                         : 'Create New Property'
@@ -199,7 +202,7 @@ const PropertyLayout = () => {
                                                 {isEditing
                                                     ? 'Update property information, media, and details'
                                                     : activeTab === 'properties'
-                                                        ? `Manage ${propertiesCount} property listings in your portfolio`
+                                                        ? 'Manage property listings in your portfolio'
                                                         : 'Add new property listings with detailed information'
                                                 }
                                             </p>
@@ -242,18 +245,6 @@ const PropertyLayout = () => {
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 500 }}>
                                                     <HomeOutlined />
                                                     All Properties
-                                                    {propertiesCount > 0 && (
-                                                        <span style={{
-                                                            backgroundColor: '#f0f0f0',
-                                                            color: '#666',
-                                                            borderRadius: '12px',
-                                                            padding: '2px 8px',
-                                                            fontSize: '12px',
-                                                            fontWeight: 'normal'
-                                                        }}>
-                                                            {propertiesCount}
-                                                        </span>
-                                                    )}
                                                 </span>
                                             )
                                         },
@@ -280,8 +271,8 @@ const PropertyLayout = () => {
                                 )}
                                 {activeTab === 'create' && (
                                     <CreateProperty
-                                        property={selectedProperty}
-                                        onSuccess={handlePropertiesUpdate}
+                                        property={editingProperty} // Use the preserved property data
+                                        onSuccess={handlePropertySuccess} // Use the new success handler
                                         onBack={handleBackToProperties}
                                     />
                                 )}

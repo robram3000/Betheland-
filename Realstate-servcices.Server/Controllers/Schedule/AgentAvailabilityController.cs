@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
 
@@ -74,12 +75,22 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
         [HttpPost]
-        public async Task<ActionResult<AgentAvailability>> CreateAvailability(AgentAvailability availability)
+        public async Task<ActionResult<AgentAvailability>> CreateAvailability([FromBody] AgentAvailabilityDto availabilityDto)
         {
             try
             {
+                // Map DTO to entity
+                var availability = new AgentAvailability
+                {
+                    AgentId = availabilityDto.AgentId,
+                    DayOfWeek = availabilityDto.DayOfWeek,
+                    StartTime = availabilityDto.StartTime,
+                    EndTime = availabilityDto.EndTime,
+                    IsAvailable = availabilityDto.IsAvailable,
+                    CreatedAt = DateTime.UtcNow
+                };
+
                 var createdAvailability = await _availabilityService.CreateAvailabilityAsync(availability);
                 return CreatedAtAction(nameof(GetAvailabilityById), new { id = createdAvailability.Id }, createdAvailability);
             }
@@ -93,13 +104,26 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
         }
 
+
         [HttpPut("{id}")]
-        public async Task<ActionResult<AgentAvailability>> UpdateAvailability(int id, AgentAvailability availability)
+        public async Task<ActionResult<AgentAvailability>> UpdateAvailability(int id, [FromBody] AgentAvailabilityDto availabilityDto)
         {
             try
             {
-                if (id != availability.Id)
+                if (id != availabilityDto.Id)
                     return BadRequest("ID mismatch");
+
+                // Map DTO to entity
+                var availability = new AgentAvailability
+                {
+                    Id = id,
+                    AgentId = availabilityDto.AgentId,
+                    DayOfWeek = availabilityDto.DayOfWeek,
+                    StartTime = availabilityDto.StartTime,
+                    EndTime = availabilityDto.EndTime,
+                    IsAvailable = availabilityDto.IsAvailable,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
                 var updatedAvailability = await _availabilityService.UpdateAvailabilityAsync(availability);
                 return Ok(updatedAvailability);
@@ -132,10 +156,21 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpPost("agent/{agentId}/set-availability")]
-        public async Task<ActionResult> SetAgentAvailability(int agentId, [FromBody] List<AgentAvailability> availabilities)
+        public async Task<ActionResult> SetAgentAvailability(int agentId, [FromBody] List<AgentAvailabilityDto> availabilityDtos)
         {
             try
             {
+                // Map DTOs to entities
+                var availabilities = availabilityDtos.Select(dto => new AgentAvailability
+                {
+                    AgentId = agentId,
+                    DayOfWeek = dto.DayOfWeek,
+                    StartTime = dto.StartTime,
+                    EndTime = dto.EndTime,
+                    IsAvailable = dto.IsAvailable,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
                 var result = await _availabilityService.SetAgentAvailabilityAsync(agentId, availabilities);
                 return Ok(new { message = "Agent availability set successfully." });
             }

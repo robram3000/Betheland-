@@ -13,17 +13,17 @@ const processImageUrl = (url) => {
 
     // Server path - prepend base URL
     if (url.startsWith('/uploads/')) {
-        return `https://localhost:7075${url}`;
+        return `https://localhost:7080${url}`;
     }
 
     // Relative path without leading slash
     if (url.includes('.') && !url.startsWith('/')) {
-        return `https://localhost:7075/uploads/agents/${url}`;
+        return `https://localhost:7080/uploads/agents/${url}`;
     }
 
     // uploads/ path
     if (url.startsWith('uploads/')) {
-        return `https://localhost:7075/${url}`;
+        return `https://localhost:7080/${url}`;
     }
 
     return '/default-agent.jpg';
@@ -56,7 +56,7 @@ export const agentMapper = {
             username: formData.username,
             password: formData.password,
             photourl: formData.photourl || formData.profilePictureUrl || '',
-            profilePictureUrl: formData.profilePictureUrl || formData.photourl || '',
+            profilePictureUrl: formData.profilePictureUrl || formData.photourl || ''
         };
 
         console.log('DEBUG - Mapped create request:', requestData);
@@ -162,6 +162,7 @@ export const agentMapper = {
             createdAt: backendData.createdAt,
             dateRegistered: backendData.dateRegistered,
             profilePictureUrl: profilePictureUrl,
+           
         };
     },
 

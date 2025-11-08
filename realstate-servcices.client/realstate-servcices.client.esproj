@@ -9,10 +9,24 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="src\Employeesportal\AdminPortal\StatisticPerformance\Services\" />
-    <Folder Include="src\Employeesportal\AgentPortal\Appointment\Services\" />
-    <Folder Include="src\Employeesportal\AgentPortal\Profile\NewFolder\" />
-    <Folder Include="src\Employeesportal\SuperAdminPortal\Conversation\" />
+    <None Remove="src\Employeesportal\AdminPortal\StatisticPerformance\Services\**" />
+    <None Remove="src\Employeesportal\AgentPortal\Appointment\Services\**" />
+    <None Remove="src\Employeesportal\AgentPortal\Profile\NewFolder\**" />
+    <None Remove="src\Employeesportal\SuperAdminPortal\Conversation\**" />
+    <TypeScriptConfiguration Remove="src\Employeesportal\AdminPortal\StatisticPerformance\Services\**" />
+    <TypeScriptConfiguration Remove="src\Employeesportal\AgentPortal\Appointment\Services\**" />
+    <TypeScriptConfiguration Remove="src\Employeesportal\AgentPortal\Profile\NewFolder\**" />
+    <TypeScriptConfiguration Remove="src\Employeesportal\SuperAdminPortal\Conversation\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="src\Employeesportal\AdminPortal\appointment\mappers\" />
+    <Folder Include="src\Employeesportal\SuperAdminPortal\Content\Services\" />
+    <Folder Include="src\Employeesportal\SuperAdminPortal\Convo\" />
+    <Folder Include="src\Employeesportal\SuperAdminPortal\Client\" />
+    <Folder Include="src\Employeesportal\SuperAdminPortal\authlog\" />
     <Folder Include="src\LandingPage\Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".vscode\launch.json" />
   </ItemGroup>
 </Project>

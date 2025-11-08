@@ -2,7 +2,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     FaBuilding,
     FaRulerCombined,
@@ -31,14 +31,15 @@ import {
     FaUserPlus,
     FaTimes,
     FaCalendarCheck,
-    FaSpinner
+    FaSpinner,
+    FaClock,
+    FaBug
 } from 'react-icons/fa';
 import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 import './PropertyLocation.scss';
-
-// Import services
 import authService from '../Authpage/Services/LoginAuth';
-import scheduleServices from './Services/ScheduleServices';
+import { SchedulePropertiesService } from '../Employeesportal/AdminPortal/appointment/Services/index.js';
+import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -48,8 +49,32 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const PropertyLocation = ({ property, agent }) => {
+// Helper function to create local date without timezone conversion
+const createLocalDate = (dateString, timeString) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const [hours, minutes] = timeString.split(':').map(Number);
+
+    // Create date in local timezone
+    const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return date;
+};
+
+// Helper function to format date for API without timezone shift
+const formatDateForAPI = (date) => {
+    // Get local date components
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
+const PropertyLocation = ({ property }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [showFullDescription, setShowFullDescription] = useState(false);
     const [showAllAmenities, setShowAllAmenities] = useState(false);
     const [isFavorited, setIsFavorited] = useState(false);
@@ -60,6 +85,7 @@ const PropertyLocation = ({ property, agent }) => {
     const [showScheduleOverlay, setShowScheduleOverlay] = useState(false);
     const [isScheduling, setIsScheduling] = useState(false);
     const [scheduleError, setScheduleError] = useState('');
+    const [debugInfo, setDebugInfo] = useState(null);
 
     // Video states
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -71,10 +97,70 @@ const PropertyLocation = ({ property, agent }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
-    // Check authentication status on component mount and when component updates
+    // Agent state - UPDATED: Get agent from location state or fetch it
+    const [agent, setAgent] = useState(null);
+    const [loadingAgent, setLoadingAgent] = useState(false);
+
+    // Schedule service instance
+    const [scheduleService, setScheduleService] = useState(null);
+
+    // Time Slot Availability states
+    const [selectedDate, setSelectedDate] = useState('');
+    const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
+    const [availabilityError, setAvailabilityError] = useState('');
+
+    // Initialize schedule service and check authentication status
     useEffect(() => {
         checkAuthStatus();
-    }, []);
+        initializeScheduleService();
+        handleAgentData();
+    }, [location.state]);
+
+    // UPDATED: Handle agent data from location state or fetch it
+    const handleAgentData = async () => {
+        try {
+            setLoadingAgent(true);
+
+            // Check if agent data was passed from PropertyCard
+            if (location.state?.agentData) {
+                console.log('✅ Using agent data from location state:', location.state.agentData);
+                console.log('🔍 Agent baseMemberId from location:', location.state.agentData.baseMemberId);
+                setAgent(location.state.agentData);
+            }
+            // If no agent data in location but property has agentId, fetch it
+            else if (property?.agentId) {
+                console.log('🔄 Fetching agent data for property agentId:', property.agentId);
+                const fetchedAgent = await agentService.getAgentWithFallback(property.agentId);
+                console.log('✅ Fetched agent data:', fetchedAgent);
+                console.log('🔍 Fetched agent baseMemberId:', fetchedAgent.baseMemberId);
+                setAgent(fetchedAgent);
+            }
+            // If property has agent object directly
+            else if (property?.agent) {
+                console.log('✅ Using agent data from property:', property.agent);
+                console.log('🔍 Agent baseMemberId from property:', property.agent.baseMemberId);
+                setAgent(property.agent);
+            } else {
+                console.log('❌ No agent data available');
+                setAgent(null);
+            }
+        } catch (error) {
+            console.error('Error handling agent data:', error);
+            setAgent(null);
+        } finally {
+            setLoadingAgent(false);
+        }
+    };
+
+    const initializeScheduleService = () => {
+        try {
+            const service = new SchedulePropertiesService();
+            setScheduleService(service);
+        } catch (error) {
+            console.error('Error initializing schedule service:', error);
+        }
+    };
 
     const checkAuthStatus = () => {
         const authenticated = authService.isAuthenticated();
@@ -101,6 +187,127 @@ const PropertyLocation = ({ property, agent }) => {
     const shortDescription = description.length > 200 ? description.substring(0, 200) + '...' : description;
     const amenities = property?.amenities || [];
     const displayedAmenities = showAllAmenities ? amenities : amenities.slice(0, 6);
+
+    // Fixed Time Slot Availability Functions with proper timezone handling
+    const generateTimeSlots = () => {
+        const slots = [];
+        const startHour = 9; // 9 AM
+        const endHour = 17; // 5 PM
+
+        for (let hour = startHour; hour < endHour; hour++) {
+            for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
+                const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+                slots.push({
+                    time: timeString,
+                    displayTime: new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    }),
+                    isAvailable: true // Will be updated by API check
+                });
+            }
+        }
+        return slots;
+    };
+
+    const checkTimeSlotAvailability = async (timeSlots) => {
+        if (!scheduleService || !agent?.baseMemberId) {
+            return timeSlots.map(slot => ({ ...slot, isAvailable: true }));
+        }
+
+        const updatedSlots = [];
+        const agentBaseMemberId = parseInt(agent.baseMemberId);
+
+        for (const slot of timeSlots) {
+            try {
+                // Create local date without timezone conversion
+                const slotDate = createLocalDate(selectedDate, slot.time);
+
+                // Check if the slot is in the past
+                if (slotDate <= new Date()) {
+                    updatedSlots.push({
+                        ...slot,
+                        isAvailable: false
+                    });
+                    continue;
+                }
+
+                // Format date for API without timezone shift
+                const apiDateString = formatDateForAPI(slotDate);
+
+                // Use the correct API endpoint with properly formatted date
+                const isAvailable = await scheduleService.checkTimeSlotAvailability(
+                    agentBaseMemberId,
+                    apiDateString
+                );
+
+                updatedSlots.push({
+                    ...slot,
+                    isAvailable: isAvailable?.isAvailable ?? isAvailable ?? true
+                });
+            } catch (error) {
+                console.error(`Error checking availability for ${slot.time}:`, error);
+                // Fallback: assume available for future slots
+                const slotDate = createLocalDate(selectedDate, slot.time);
+
+                updatedSlots.push({
+                    ...slot,
+                    isAvailable: slotDate > new Date() // Only available if in future
+                });
+            }
+        }
+
+        return updatedSlots;
+    };
+
+    const handleDateSelection = async (date) => {
+        setSelectedDate(date);
+        setLoadingAvailability(true);
+        setAvailabilityError('');
+
+        try {
+            // Generate time slots for the selected date
+            const timeSlots = generateTimeSlots();
+
+            // Check availability for each time slot
+            const slotsWithAvailability = await checkTimeSlotAvailability(timeSlots);
+
+            setAvailableTimeSlots(slotsWithAvailability);
+        } catch (error) {
+            console.error('Error loading availability:', error);
+            setAvailabilityError('Failed to load available time slots. Please try again.');
+        } finally {
+            setLoadingAvailability(false);
+        }
+    };
+
+    const handleTimeSlotSelect = (time) => {
+        if (!isLoggedIn) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
+            return;
+        }
+
+        setScheduleDate(selectedDate);
+        setScheduleTime(time);
+
+        // Scroll to schedule section
+        const scheduleSection = document.querySelector('.property-location-schedule-section');
+        if (scheduleSection) {
+            scheduleSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
+    const formatSelectedDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
 
     const handleFavoriteClick = () => {
         if (!isLoggedIn) {
@@ -139,6 +346,7 @@ const PropertyLocation = ({ property, agent }) => {
                 title: agent?.title || 'Real Estate Agent',
                 phone: agent?.cellPhoneNo,
                 email: agent?.email
+
             }
         };
 
@@ -158,15 +366,79 @@ const PropertyLocation = ({ property, agent }) => {
         setScheduleError('');
     };
 
-    // Enhanced schedule submission with full mapper integration
+    // Enhanced debug function to test backend validation
+    const debugBackendValidation = async (scheduleData) => {
+        try {
+            console.log('🔍 DEBUG: Testing backend validation with data:', scheduleData);
+
+            // Test with minimal required data
+            const testData = {
+                propertyId: scheduleData.propertyId,
+                agentId: scheduleData.agentId,
+                clientId: scheduleData.clientId,
+                scheduleTime: scheduleData.scheduleTime,
+                scheduleEndTime: scheduleData.scheduleEndTime,
+                status: "Scheduled"
+            };
+
+            console.log('🔍 DEBUG: Minimal test data:', testData);
+
+            // Try to create a simple test request
+            const response = await fetch('/api/ScheduleProperties/debug/test-creation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.log('🔍 DEBUG: Backend validation failed:', errorData);
+                return errorData;
+            }
+
+            const result = await response.json();
+            console.log('🔍 DEBUG: Backend validation passed:', result);
+            return result;
+
+        } catch (error) {
+            console.log('🔍 DEBUG: Backend validation test failed:', error);
+            return { error: error.message };
+        }
+    };
+
+    // UPDATED: handleScheduleSubmit with proper baseMemberId handling
     const handleScheduleSubmit = async (e) => {
         e.preventDefault();
         setScheduleError('');
+        setDebugInfo(null);
 
-        // Double-check authentication
+        // Authentication check
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
             navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
+            return;
+        }
+
+        // Wait for agent data to be loaded
+        if (loadingAgent) {
+            setScheduleError('Agent information is still loading. Please wait...');
+            return;
+        }
+
+        // Debug agent object to see available properties
+        console.log('🔍 DEBUG - Current Agent object:', agent);
+        console.log('🔍 DEBUG - Agent baseMemberId:', agent?.baseMemberId);
+        console.log('🔍 DEBUG - All agent properties:', Object.keys(agent || {}));
+
+        // Use baseMemberId specifically
+        const agentBaseMemberId = agent?.baseMemberId;
+
+        if (!agentBaseMemberId) {
+            setScheduleError('Agent information is not available. Please try again later.');
+            console.error('❌ Agent baseMemberId is undefined');
+            console.error('Available agent data:', agent);
             return;
         }
 
@@ -175,17 +447,23 @@ const PropertyLocation = ({ property, agent }) => {
             return;
         }
 
+        // Create local date without timezone conversion
+        const selectedDateTime = createLocalDate(scheduleDate, scheduleTime);
+
         // Validate if the selected time is in the future
-        const selectedDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
         if (selectedDateTime <= new Date()) {
             setScheduleError('Please select a future date and time');
+            return;
+        }
+
+        if (!scheduleService) {
+            setScheduleError('Scheduling service is not available. Please try again.');
             return;
         }
 
         setIsScheduling(true);
 
         try {
-            // Use userId instead of id
             const clientId = currentUser?.userId;
 
             if (!clientId) {
@@ -193,64 +471,92 @@ const PropertyLocation = ({ property, agent }) => {
                 return;
             }
 
-            if (!property?.id || !agent?.id) {
-                setScheduleError('Property or agent information is missing');
-                return;
-            }
+            // FIX: Create date in local time but send as UTC to avoid timezone issues
+            const localDate = new Date(selectedDateTime.getTime() - (selectedDateTime.getTimezoneOffset() * 60000));
+            const apiDateString = localDate.toISOString();
 
-            // Prepare schedule data according to Mapper.js structure
-            const scheduleData = {
-                propertyId: parseInt(property.id),
-                agentId: parseInt(agent.id),
-                clientId: parseInt(clientId),
-                scheduleTime: selectedDateTime.toISOString(),
-                notes: scheduleNotes,
-                status: "Scheduled",
-                // Enhanced scheduling fields from mapper
-                meetingType: "InPerson",
-                meetingLocation: property?.address || '',
-                durationMinutes: 60 // Default 1 hour viewing
-            };
+            console.log('=== SCHEDULE DEBUG INFO ===');
+            console.log('Client ID:', clientId);
+            console.log('Property ID:', property.id);
+            console.log('Agent baseMemberId:', agentBaseMemberId);
+            console.log('Selected DateTime (Local):', selectedDateTime.toString());
+            console.log('Selected DateTime (ISO):', selectedDateTime.toISOString());
+            console.log('API Date String:', apiDateString);
 
-            // Validate the data using service
-            const validationErrors = scheduleServices.validateScheduleData(scheduleData);
-            if (validationErrors.length > 0) {
-                setScheduleError(validationErrors.join(', '));
-                return;
-            }
-
-            // Check time slot availability
-            const isAvailable = await scheduleServices.checkTimeSlotAvailability(
-                parseInt(agent.id),
-                selectedDateTime
+            // Check availability with the properly formatted date
+            const availabilityResponse = await scheduleService.checkTimeSlotAvailability(
+                parseInt(agentBaseMemberId),
+                apiDateString
             );
+
+            console.log('Availability Response:', availabilityResponse);
+
+            const isAvailable = availabilityResponse?.isAvailable ?? availabilityResponse;
+
             if (!isAvailable) {
+                // Get detailed debug info
+                try {
+                    const debugResponse = await fetch(`/api/ScheduleProperties/debug/availability?agentId=${agentBaseMemberId}&scheduleTime=${encodeURIComponent(apiDateString)}`);
+                    const debugData = await debugResponse.json();
+                    console.log('Debug Availability Info:', debugData);
+                    setDebugInfo(debugData);
+                } catch (debugError) {
+                    console.log('Could not get debug info:', debugError);
+                }
+
                 setScheduleError('This time slot is not available. Please choose a different time.');
                 return;
             }
 
-            // Create the schedule using the service with mapper integration
-            const result = await scheduleServices.createSchedule(scheduleData);
+            // Prepare schedule data with baseMemberId
+            const scheduleData = {
+                propertyId: parseInt(property.id),
+                agentId: parseInt(agentBaseMemberId), // Using baseMemberId here
+                clientId: parseInt(clientId),
+                scheduleTime: apiDateString,
+                scheduleEndTime: new Date(localDate.getTime() + 60 * 60 * 1000).toISOString(), // 1 hour later
+                notes: scheduleNotes || '',
+                status: "Scheduled",
+                meetingType: "InPerson",
+                meetingLocation: property?.address || '',
+                virtualMeetingLink: ""
+            };
 
-            if (result.success) {
-                // Success handling
-                setScheduleDate('');
-                setScheduleTime('');
-                setScheduleNotes('');
-                setScheduleSubmitted(true);
-                setScheduleError('');
+            console.log('Final Schedule Data for API:', scheduleData);
 
-                setTimeout(() => {
-                    setScheduleSubmitted(false);
-                }, 5000);
-            } else {
-                // Handle service error
-                setScheduleError(result.error?.message || 'Failed to schedule viewing. Please try again.');
-            }
+            // Create the schedule
+            const createdSchedule = await scheduleService.createSchedule(scheduleData);
+
+            // Success handling
+            setScheduleDate('');
+            setScheduleTime('');
+            setScheduleNotes('');
+            setScheduleSubmitted(true);
+            setScheduleError('');
+            setDebugInfo(null);
+
+            console.log('Schedule created successfully:', createdSchedule);
+
+            // Reset available slots
+            setAvailableTimeSlots([]);
+            setSelectedDate('');
+
+            setTimeout(() => {
+                setScheduleSubmitted(false);
+            }, 5000);
 
         } catch (error) {
-            console.error('Error scheduling viewing:', error);
-            setScheduleError(error.message || 'Failed to schedule viewing. Please try again.');
+            console.error('=== SCHEDULING ERROR DETAILS ===');
+            console.error('Error:', error);
+
+            // Enhanced error handling
+            if (error.message?.includes('time slot is not available')) {
+                setScheduleError('The selected time slot is not available. Please choose a different time.');
+            } else if (error.status === 400) {
+                setScheduleError(error.responseData || 'Invalid data submitted. Please check your information.');
+            } else {
+                setScheduleError(error.message || 'Failed to schedule viewing. Please try again.');
+            }
         } finally {
             setIsScheduling(false);
         }
@@ -317,13 +623,29 @@ const PropertyLocation = ({ property, agent }) => {
         ));
     };
 
-    // Enhanced schedule form with proper mapper integration
+    // Enhanced schedule form with proper service integration
     const renderScheduleForm = () => (
         <form onSubmit={handleScheduleSubmit}>
             {scheduleError && (
                 <div className="property-location-schedule-error">
                     <FaExclamationTriangle style={{ marginRight: '8px' }} />
                     {scheduleError}
+                </div>
+            )}
+
+            {/* Debug Information */}
+            {debugInfo && (
+                <div className="property-location-debug-info">
+                    <FaBug style={{ marginRight: '8px' }} />
+                    <strong>Debug Info:</strong> {JSON.stringify(debugInfo)}
+                </div>
+            )}
+
+            {/* Loading Agent Indicator */}
+            {loadingAgent && (
+                <div className="property-location-agent-loading">
+                    <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
+                    Loading agent information...
                 </div>
             )}
 
@@ -339,7 +661,7 @@ const PropertyLocation = ({ property, agent }) => {
                         className="property-location-schedule-overlay-input"
                         min={new Date().toISOString().split('T')[0]}
                         required
-                        disabled={!isLoggedIn || isScheduling}
+                        disabled={!isLoggedIn || isScheduling || loadingAgent}
                     />
                 </div>
                 <div className="property-location-schedule-overlay-input-group">
@@ -354,7 +676,7 @@ const PropertyLocation = ({ property, agent }) => {
                         min="09:00"
                         max="17:00"
                         required
-                        disabled={!isLoggedIn || isScheduling}
+                        disabled={!isLoggedIn || isScheduling || loadingAgent}
                     />
                 </div>
             </div>
@@ -369,19 +691,24 @@ const PropertyLocation = ({ property, agent }) => {
                     className="property-location-schedule-overlay-textarea"
                     placeholder="What would you like to ask the agent? For example: I'd like to see the backyard and ask about recent renovations..."
                     rows="4"
-                    disabled={!isLoggedIn || isScheduling}
+                    disabled={!isLoggedIn || isScheduling || loadingAgent}
                 />
             </div>
 
             <button
                 type="submit"
                 className="property-location-schedule-overlay-submit-btn"
-                disabled={!isLoggedIn || isScheduling}
+                disabled={!isLoggedIn || isScheduling || !scheduleService || loadingAgent || !agent?.baseMemberId}
             >
                 {isScheduling ? (
                     <>
                         <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
                         Scheduling...
+                    </>
+                ) : loadingAgent ? (
+                    <>
+                        <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
+                        Loading Agent...
                     </>
                 ) : (
                     <>
@@ -389,6 +716,24 @@ const PropertyLocation = ({ property, agent }) => {
                         {isLoggedIn ? `Send Enquiry to ${agent?.firstName || 'Agent'}` : 'Sign In to Schedule'}
                     </>
                 )}
+            </button>
+
+            {/* Debug Button - Optional, can be removed */}
+            <button
+                type="button"
+                className="property-location-debug-btn"
+                onClick={() => setDebugInfo(prev => !prev)}
+                style={{
+                    marginTop: '10px',
+                    padding: '5px 10px',
+                    background: '#f0f0f0',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                }}
+            >
+                <FaBug style={{ marginRight: '5px' }} />
+                Toggle Debug Info
             </button>
         </form>
     );
@@ -474,6 +819,93 @@ const PropertyLocation = ({ property, agent }) => {
             </div>
         );
     };
+
+    // Render Time Slot Availability Section
+    const renderTimeSlotAvailability = () => (
+        <div className="property-location-availability-section">
+            <h2 className="property-location-section-title">Available Time Slots</h2>
+            <div className="property-location-availability-container">
+                <div className="property-location-availability-info">
+                    <div className="property-location-availability-header">
+                        <FaCalendarCheck className="property-location-availability-icon" />
+                        <h3>Check {agent?.firstName || 'Agent'}'s Availability</h3>
+                    </div>
+                    <p className="property-location-availability-description">
+                        View available time slots for property viewings with {agent?.firstName || 'the agent'}.
+                        Select a date to see available times.
+                    </p>
+
+                    <div className="property-location-availability-form">
+                        <div className="property-location-availability-input-group">
+                            <label className="property-location-availability-label">
+                                Select Date to Check Availability
+                            </label>
+                            <input
+                                type="date"
+                                className="property-location-availability-input"
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => handleDateSelection(e.target.value)}
+                                value={selectedDate}
+                                disabled={loadingAgent || !agent?.baseMemberId}
+                            />
+                        </div>
+
+                        {availabilityError && (
+                            <div className="property-location-availability-error">
+                                <FaExclamationTriangle style={{ marginRight: '8px' }} />
+                                {availabilityError}
+                            </div>
+                        )}
+
+                        {selectedDate && (
+                            <div className="property-location-availability-slots">
+                                <h4>Available Time Slots for {formatSelectedDate(selectedDate)}</h4>
+                                {loadingAvailability ? (
+                                    <div className="property-location-availability-loading">
+                                        <FaSpinner className="spinner" />
+                                        Loading available time slots...
+                                    </div>
+                                ) : availableTimeSlots.length > 0 ? (
+                                    <div className="property-location-time-slots-grid">
+                                        {availableTimeSlots.map((slot, index) => (
+                                            <div
+                                                key={index}
+                                                className={`property-location-time-slot ${slot.isAvailable ? 'available' : 'unavailable'}`}
+                                                onClick={() => slot.isAvailable && handleTimeSlotSelect(slot.time)}
+                                            >
+                                                <FaClock className="property-location-slot-icon" />
+                                                <span className="property-location-slot-time">
+                                                    {slot.displayTime}
+                                                </span>
+                                                <span className="property-location-slot-status">
+                                                    {slot.isAvailable ? (
+                                                        <>
+                                                            <FaCheck className="property-location-slot-status-icon" />
+                                                            Available
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FaTimes className="property-location-slot-status-icon" />
+                                                            Unavailable
+                                                        </>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="property-location-no-slots">
+                                        <FaExclamationTriangle className="property-location-no-slots-icon" />
+                                        <p>No time slots available for this date. Please select another date.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="property-location-container">
@@ -731,6 +1163,12 @@ const PropertyLocation = ({ property, agent }) => {
                             )}
                         </div>
                     </div>
+
+                    {/* Divider */}
+                    <div className="property-location-divider"></div>
+
+                    {/* Time Slot Availability Section */}
+                    {renderTimeSlotAvailability()}
 
                     {/* Divider */}
                     <div className="property-location-divider"></div>

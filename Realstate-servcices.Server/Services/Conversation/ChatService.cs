@@ -66,6 +66,18 @@ namespace Realstate_servcices.Server.Services.Conversation
             return chats.Select(MapToChatDto).ToList();
         }
 
+        public async Task<List<ChatDto>> GetByClientChatAsync(int clientId)
+        {
+            var chats = await _chatRepository.GetByClientChatAsync(clientId);
+            return chats.Select(MapToChatDto).ToList();
+        }
+
+        public async Task<List<ChatDto>> GetByAgentChatAsync(int agentId)
+        {
+            var chats = await _chatRepository.GetByAgentChatAsync(agentId);
+            return chats.Select(MapToChatDto).ToList();
+        }
+
         public async Task<ChatDto?> GetChatAsync(int chatId, int userId)
         {
             if (!await _chatRepository.UserHasAccessToChatAsync(userId, chatId))
@@ -173,6 +185,40 @@ namespace Realstate_servcices.Server.Services.Conversation
 
         private ChatParticipantDto MapToChatParticipantDto(ChatParticipant participant)
         {
+            string? firstName = null;
+            string? lastName = null;
+            string? fullName = null;
+            string? profileImage = null;
+            string? memberType = null;
+
+            // Get user details from Client if available
+            if (participant.BaseMember?.Client != null)
+            {
+                firstName = participant.BaseMember.Client.FirstName;
+                lastName = participant.BaseMember.Client.LastName;
+                fullName = $"{participant.BaseMember.Client.FirstName} {participant.BaseMember.Client.LastName}";
+                profileImage = participant.BaseMember.ProfilePictureUrl; // Make sure this property exists
+                memberType = "Client";
+            }
+            // Get user details from Agent if available
+            else if (participant.BaseMember?.Agent != null)
+            {
+                firstName = participant.BaseMember.Agent.FirstName;
+                lastName = participant.BaseMember.Agent.LastName;
+                fullName = $"{participant.BaseMember.Agent.FirstName} {participant.BaseMember.Agent.LastName}";
+                profileImage = participant.BaseMember.ProfilePictureUrl; // Make sure this property exists
+                memberType = "Agent";
+            }
+            // Fallback to BaseMember properties
+            else if (participant.BaseMember != null)
+            {
+                firstName = participant.BaseMember.Username;
+                lastName = string.Empty;
+                fullName = participant.BaseMember.Username;
+                profileImage = participant.BaseMember.ProfilePictureUrl; // Make sure this property exists
+                memberType = participant.BaseMember.Role ?? "User";
+            }
+
             return new ChatParticipantDto
             {
                 Id = participant.Id,
@@ -187,13 +233,53 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Member = participant.BaseMember != null ? new BaseMemberDto
                 {
                     Id = participant.BaseMember.Id,
-              
+                    FirstName = firstName,
+                    LastName = lastName,
+                    FullName = fullName,
+                    ProfileImage = profileImage, // This should match frontend expectation
+                    MemberType = memberType,
+                    Email = participant.BaseMember.Email,
+                    Username = participant.BaseMember.Username
                 } : null
             };
         }
 
         private MessageDto MapToMessageDto(Message message)
         {
+            string? firstName = null;
+            string? lastName = null;
+            string? fullName = null;
+            string? profileImage = null;
+            string? memberType = null;
+
+            // Get sender details from Client if available
+            if (message.Sender?.Client != null)
+            {
+                firstName = message.Sender.Client.FirstName;
+                lastName = message.Sender.Client.LastName;
+                fullName = $"{message.Sender.Client.FirstName} {message.Sender.Client.LastName}";
+                profileImage = message.Sender.ProfilePictureUrl;
+                memberType = "Client";
+            }
+            // Get sender details from Agent if available
+            else if (message.Sender?.Agent != null)
+            {
+                firstName = message.Sender.Agent.FirstName;
+                lastName = message.Sender.Agent.LastName;
+                fullName = $"{message.Sender.Agent.FirstName} {message.Sender.Agent.LastName}";
+                profileImage = message.Sender.ProfilePictureUrl;
+                memberType = "Agent";
+            }
+            // Fallback to BaseMember properties
+            else if (message.Sender != null)
+            {
+                firstName = message.Sender.Username;
+                lastName = string.Empty;
+                fullName = message.Sender.Username;
+                profileImage = message.Sender.ProfilePictureUrl;
+                memberType = message.Sender.Role ?? "User";
+            }
+
             return new MessageDto
             {
                 Id = message.Id,
@@ -210,10 +296,47 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Sender = message.Sender != null ? new BaseMemberDto
                 {
                     Id = message.Sender.Id,
-                  
+                    FirstName = firstName,
+                    LastName = lastName,
+                    FullName = fullName,
+                    ProfileImage = profileImage,
+                    MemberType = memberType,
+                    Email = message.Sender.Email,
+                    Username = message.Sender.Username
                 } : null,
-                Files = message.MessageFiles.Select(MapToMessageFileDto).ToList(),
-                Reactions = message.Reactions.Select(MapToMessageReactionDto).ToList()
+                Files = message.MessageFiles.Select(f => new MessageFileDto
+                {
+                    Id = f.Id,
+                    MessageId = f.MessageId,
+                    FileName = f.FileName,
+                    FileUrl = f.FileUrl,
+                    FileType = f.FileType,
+                    FileSize = f.FileSize,
+                    ThumbnailUrl = f.ThumbnailUrl,
+                    MimeType = f.MimeType,
+                    UploadedAt = f.UploadedAt
+                }).ToList(),
+                Reactions = message.Reactions.Select(r => new MessageReactionDto
+                {
+                    Id = r.Id,
+                    MessageId = r.MessageId,
+                    BaseMemberId = r.BaseMemberId,
+                    Emoji = r.Emoji,
+                    ReactedAt = r.ReactedAt,
+                    Member = r.BaseMember != null ? new BaseMemberDto
+                    {
+                        Id = r.BaseMember.Id,
+                        FirstName = r.BaseMember.Client?.FirstName ?? r.BaseMember.Agent?.FirstName ?? r.BaseMember.Username,
+                        LastName = r.BaseMember.Client?.LastName ?? r.BaseMember.Agent?.LastName ?? string.Empty,
+                        FullName = r.BaseMember.Client != null ?
+                            $"{r.BaseMember.Client.FirstName} {r.BaseMember.Client.LastName}" :
+                            r.BaseMember.Agent != null ?
+                            $"{r.BaseMember.Agent.FirstName} {r.BaseMember.Agent.LastName}" :
+                            r.BaseMember.Username,
+                        ProfileImage = r.BaseMember.ProfilePictureUrl,
+                        MemberType = r.BaseMember.Role ?? "User"
+                    } : null
+                }).ToList()
             };
         }
 
@@ -235,6 +358,40 @@ namespace Realstate_servcices.Server.Services.Conversation
 
         private MessageReactionDto MapToMessageReactionDto(MessageReaction reaction)
         {
+            string? firstName = null;
+            string? lastName = null;
+            string? fullName = null;
+            string? profileImage = null;
+            string? memberType = null;
+
+            // Get member details from Client if available
+            if (reaction.BaseMember?.Client != null)
+            {
+                firstName = reaction.BaseMember.Client.FirstName;
+                lastName = reaction.BaseMember.Client.LastName;
+                fullName = $"{reaction.BaseMember.Client.FirstName} {reaction.BaseMember.Client.LastName}";
+                profileImage = reaction.BaseMember.ProfilePictureUrl;
+                memberType = "Client";
+            }
+            // Get member details from Agent if available
+            else if (reaction.BaseMember?.Agent != null)
+            {
+                firstName = reaction.BaseMember.Agent.FirstName;
+                lastName = reaction.BaseMember.Agent.LastName;
+                fullName = $"{reaction.BaseMember.Agent.FirstName} {reaction.BaseMember.Agent.LastName}";
+                profileImage = reaction.BaseMember.ProfilePictureUrl;
+                memberType = "Agent";
+            }
+            // Fallback to BaseMember properties
+            else if (reaction.BaseMember != null)
+            {
+                firstName = reaction.BaseMember.Username;
+                lastName = string.Empty;
+                fullName = reaction.BaseMember.Username;
+                profileImage = reaction.BaseMember.ProfilePictureUrl;
+                memberType = reaction.BaseMember.Role ?? "User";
+            }
+
             return new MessageReactionDto
             {
                 Id = reaction.Id,
@@ -245,7 +402,13 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Member = reaction.BaseMember != null ? new BaseMemberDto
                 {
                     Id = reaction.BaseMember.Id,
-                  
+                    FirstName = firstName,
+                    LastName = lastName,
+                    FullName = fullName,
+                    ProfileImage = profileImage,
+                    MemberType = memberType,
+                    Email = reaction.BaseMember.Email,
+                    Username = reaction.BaseMember.Username
                 } : null
             };
         }

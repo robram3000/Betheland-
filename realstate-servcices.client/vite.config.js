@@ -6,7 +6,9 @@ import path from 'path';
 import child_process from 'child_process';
 import { env } from 'process';
 
-// Development-specific configuration
+// ========================
+// DEVELOPMENT CONFIGURATION
+// ========================
 const developmentConfig = () => {
     const baseFolder =
         env.APPDATA !== undefined && env.APPDATA !== ''
@@ -17,51 +19,71 @@ const developmentConfig = () => {
     const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
     const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
 
+    // Ensure certificate folder exists
     if (!fs.existsSync(baseFolder)) {
         fs.mkdirSync(baseFolder, { recursive: true });
     }
 
+    // Generate dev certs if missing
     if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
-        if (0 !== child_process.spawnSync('dotnet', [
-            'dev-certs',
-            'https',
-            '--export-path',
-            certFilePath,
-            '--format',
-            'Pem',
-            '--no-password',
-        ], { stdio: 'inherit' }).status) {
-            throw new Error("Could not create certificate.");
+        if (
+            0 !==
+            child_process.spawnSync(
+                'dotnet',
+                [
+                    'dev-certs',
+                    'https',
+                    '--export-path',
+                    certFilePath,
+                    '--format',
+                    'Pem',
+                    '--no-password',
+                ],
+                { stdio: 'inherit' }
+            ).status
+        ) {
+            throw new Error("Could not create or export ASP.NET dev certificate.");
         }
     }
 
-    // CHANGE: Use HTTP instead of HTTPS for backend target
-    const target = env.ASPNETCORE_HTTPS_PORT
-        ? `http://localhost:${env.ASPNETCORE_HTTPS_PORT}`  // Changed to http
-        : env.ASPNETCORE_URLS
-            ? env.ASPNETCORE_URLS.split(';')[0].replace('https://', 'http://') // Changed to http
-            : 'http://localhost:5016'; // Changed to HTTP port
-
+    // ----------------------------
+    // Return HTTPS Vite server config
+    // ----------------------------
     return {
         server: {
+            https: {
+                key: fs.readFileSync(keyFilePath),
+                cert: fs.readFileSync(certFilePath),
+            },
             proxy: {
-                '^/api': {
-                    target,
+                '/api': {
+                    target: 'https://localhost:7080',
                     secure: false,
-                    changeOrigin: true
+                    changeOrigin: true,
+                    // Add these configurations to ensure proper proxying
+                    configure: (proxy, _options) => {
+                        proxy.on('error', (err, _req, _res) => {
+                            console.log('Proxy error:', err);
+                        });
+                        proxy.on('proxyReq', (proxyReq, req, _res) => {
+                            console.log('Proxying request:', req.method, req.url);
+                        });
+                    },
                 },
             },
             port: 64324,
-            // REMOVE HTTPS configuration for dev server
             strictPort: false,
             hmr: {
-                protocol: 'ws', // Changed from 'wss' to 'ws' for HTTP
+                protocol: 'wss',
                 host: 'localhost',
-            }
-        }
+            },
+        },
     };
 };
 
+// ========================
+// MAIN CONFIG EXPORT
+// ========================
 export default defineConfig(({ mode }) => {
     const isProduction = mode === 'production';
 
@@ -69,8 +91,8 @@ export default defineConfig(({ mode }) => {
         plugins: [react()],
         resolve: {
             alias: {
-                '@': fileURLToPath(new URL('./src', import.meta.url))
-            }
+                '@': fileURLToPath(new URL('./src', import.meta.url)),
+            },
         },
         build: {
             outDir: 'dist',
@@ -84,20 +106,20 @@ export default defineConfig(({ mode }) => {
                         'react-vendor': ['react', 'react-dom'],
                         'ui-vendor': ['antd', '@ant-design/icons'],
                         'map-vendor': ['leaflet', 'react-leaflet'],
-                        'utils-vendor': ['axios', 'dayjs', 'moment']
-                    }
-                }
-            }
+                        'utils-vendor': ['axios', 'dayjs', 'moment'],
+                    },
+                },
+            },
         },
         base: isProduction ? '/' : '/',
 
         define: {
             'process.env.VITE_APP_NAME': JSON.stringify('Betheland Real Estate'),
             'process.env.VITE_API_BASE_URL': JSON.stringify(
-                isProduction ? 'https://betheland.com' : 'http://localhost:5016' // Changed to HTTP
-            )
+                isProduction ? 'https://betheland.com' : '/api' 
+            ),
         },
 
-        ...(isProduction ? {} : developmentConfig())
+        ...(isProduction ? {} : developmentConfig()),
     };
 });

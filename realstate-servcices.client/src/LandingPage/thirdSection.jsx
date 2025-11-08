@@ -5,10 +5,18 @@ import { useNavigate } from 'react-router-dom';
 
 const { Title, Paragraph } = Typography;
 
-const ThirdSection = () => {
+const ThirdSection = ({
+    title = "Simple Process, Extraordinary Results",
+    subtitle = "",
+    description = "Our streamlined process ensures you find the perfect property without the hassle. From browsing to moving in, we're with you every step of the way.",
+    processSteps = [],
+    featureItems = [],
+    onGetStarted
+}) => {
     const navigate = useNavigate();
 
-    const steps = [
+    // Default steps if none provided
+    const defaultSteps = [
         {
             step: '01',
             title: 'Browse Properties',
@@ -31,6 +39,34 @@ const ThirdSection = () => {
         }
     ];
 
+    const steps = processSteps.length > 0
+        ? processSteps.map((step, index) => ({
+            step: (index + 1).toString().padStart(2, '0'),
+            title: step.title || `Step ${index + 1}`,
+            description: step.description || 'Step description'
+        }))
+        : defaultSteps;
+
+    // Default features if none provided
+    const defaultFeatures = [
+        'No hidden fees or charges',
+        '24/7 customer support',
+        'Verified property listings',
+        'Flexible viewing schedules'
+    ];
+
+    const features = featureItems.length > 0
+        ? featureItems.map(item => item.title || 'Feature')
+        : defaultFeatures;
+
+    const handleGetStarted = () => {
+        if (onGetStarted) {
+            onGetStarted();
+        } else {
+            navigate('/register');
+        }
+    };
+
     return (
         <section style={{
             padding: '100px 24px',
@@ -41,27 +77,27 @@ const ThirdSection = () => {
                     <Col xs={24} lg={12}>
                         <Space direction="vertical" size="large" style={{ width: '100%' }}>
                             <Title level={2} style={{ color: '#001529', fontSize: '2.5rem' }}>
-                                Simple Process, Extraordinary Results
+                                {title}
                             </Title>
+
+                            {subtitle && (
+                                <Title level={4} style={{ color: '#666', margin: 0 }}>
+                                    {subtitle}
+                                </Title>
+                            )}
 
                             <Paragraph style={{
                                 fontSize: '1.1rem',
                                 color: '#666',
                                 lineHeight: '1.6'
                             }}>
-                                Our streamlined process ensures you find the perfect property without the hassle.
-                                From browsing to moving in, we're with you every step of the way.
+                                {description}
                             </Paragraph>
 
                             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                {[
-                                    'No hidden fees or charges',
-                                    '24/7 customer support',
-                                    'Verified property listings',
-                                    'Flexible viewing schedules'
-                                ].map((item, index) => (
+                                {features.map((item, index) => (
                                     <Space key={index} style={{ fontSize: '16px' }}>
-                                        <CheckCircleOutlined style={{ color: '#001529' }} /> {/* Updated to dark blue */}
+                                        <CheckCircleOutlined style={{ color: '#001529' }} />
                                         <span style={{ color: '#001529' }}>{item}</span>
                                     </Space>
                                 ))}
@@ -70,12 +106,12 @@ const ThirdSection = () => {
                             <Button
                                 type="primary"
                                 size="large"
-                                onClick={() => navigate('/register')}
+                                onClick={handleGetStarted}
                                 style={{
                                     height: '50px',
                                     padding: '0 32px',
                                     fontSize: '16px',
-                                    background: 'linear-gradient(135deg, #001529 0%, #003366 100%)', // Updated to dark blue gradient
+                                    background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
                                     border: 'none',
                                     borderRadius: '8px',
                                     fontWeight: '600',
@@ -98,7 +134,7 @@ const ThirdSection = () => {
                                         border: 'none',
                                         borderRadius: '12px',
                                         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                                        background: index === 0 ? 'linear-gradient(135deg, #001529 0%, #003366 100%)' : 'white' // Updated to dark blue gradient
+                                        background: index === 0 ? 'linear-gradient(135deg, #001529 0%, #003366 100%)' : 'white'
                                     }}
                                     bodyStyle={{ padding: '1.5rem' }}
                                 >
@@ -107,12 +143,12 @@ const ThirdSection = () => {
                                             <div style={{
                                                 width: '60px',
                                                 height: '60px',
-                                                background: index === 0 ? 'white' : '#001529', // Updated to dark blue
+                                                background: index === 0 ? 'white' : '#001529',
                                                 borderRadius: '50%',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                color: index === 0 ? '#001529' : 'white', // Updated to dark blue
+                                                color: index === 0 ? '#001529' : 'white',
                                                 fontSize: '24px',
                                                 fontWeight: 'bold'
                                             }}>

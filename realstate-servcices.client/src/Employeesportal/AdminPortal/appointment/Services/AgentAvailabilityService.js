@@ -1,164 +1,171 @@
-import SchedulingMapper from './Mapper.js';
-import ErrorHandler from './errorhandler.js';
-import { SchedulingError } from './errorhandler.js';
+import axios from 'axios';
+import { agentAvailabilityMapper } from '../mappers';
+
+const API_BASE_URL = '/api';
+
 class AgentAvailabilityService {
-    constructor(apiClient) {
-        this.apiClient = apiClient;
-        this.baseUrl = '/api/AgentAvailability';
-    }
-
-    async getAll() {
-        const result = await this.makeRequest('get', this.baseUrl, null, {
-            operation: 'get_all_availabilities'
+    constructor() {
+        this.client = axios.create({
+            baseURL: API_BASE_URL,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            timeout: 30000,
         });
 
-        if (result.success) {
-            result.data = SchedulingMapper.mapArray(result.data, SchedulingMapper.toAgentAvailabilityDto);
-        }
-        return result;
-    }
-
-    async getById(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        const result = await this.makeRequest('get', `${this.baseUrl}/${id}`, null, {
-            operation: 'get_availability_by_id',
-            context: { availabilityId: id }
-        });
-
-        if (result.success) {
-            result.data = SchedulingMapper.toAgentAvailabilityDto(result.data);
-        }
-        return result;
-    }
-
-    async getByAgent(agentId) {
-        ErrorHandler.validateRequiredFields({ agentId }, ['agentId']);
-
-        const result = await this.makeRequest('get', `${this.baseUrl}/agent/${agentId}`, null, {
-            operation: 'get_availabilities_by_agent',
-            context: { agentId }
-        });
-
-        if (result.success) {
-            result.data = SchedulingMapper.mapArray(result.data, SchedulingMapper.toAgentAvailabilityDto);
-        }
-        return result;
-    }
-
-    async create(availabilityData) {
-        try {
-            ErrorHandler.validateRequiredFields(availabilityData, [
-                'agentId', 'dayOfWeek', 'startTime', 'endTime'
-            ]);
-
-            const entity = SchedulingMapper.toCreateAgentAvailabilityEntity(availabilityData);
-            const result = await this.makeRequest('post', this.baseUrl, entity, {
-                operation: 'create_availability',
-                context: { agentId: availabilityData.agentId }
-            });
-
-            if (result.success) {
-                result.data = SchedulingMapper.toAgentAvailabilityDto(result.data);
+        this.client.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                return Promise.reject(this.handleError(error));
             }
-            return result;
+        );
+    }
+
+    async getAllAvailabilities() {
+        try {
+            const response = await this.client.get('/AgentAvailability');
+            return agentAvailabilityMapper.toFrontendList(response.data);
         } catch (error) {
-            return ErrorHandler.handle(error, { operation: 'create_availability' });
+            console.error('Error fetching all availabilities:', error);
+            throw error;
         }
     }
 
-    async update(id, availabilityData) {
+    async getAvailabilityById(id) {
         try {
-            ErrorHandler.validateRequiredFields({ id }, ['id']);
-            ErrorHandler.validateRequiredFields(availabilityData, [
-                'agentId', 'dayOfWeek', 'startTime', 'endTime'
-            ]);
+            const response = await this.client.get(`/AgentAvailability/${id}`);
+            return agentAvailabilityMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error fetching availability by ID:', error);
+            throw error;
+        }
+    }
 
-            const entity = SchedulingMapper.toAgentAvailabilityEntity({ ...availabilityData, id });
-            const result = await this.makeRequest('put', `${this.baseUrl}/${id}`, entity, {
-                operation: 'update_availability',
-                context: { availabilityId: id, agentId: availabilityData.agentId }
+    async getAvailabilitiesByAgent(agentId) {
+        try {
+            const response = await this.client.get(`/AgentAvailability/agent/${agentId}`);
+            return agentAvailabilityMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching availabilities by agent:', error);
+            throw error;
+        }
+    }
+
+    async getAvailabilitiesByAgentAndDay(agentId, dayOfWeek) {
+        try {
+            const response = await this.client.get(`/AgentAvailability/agent/${agentId}/day/${dayOfWeek}`);
+            return agentAvailabilityMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error fetching availabilities by agent and day:', error);
+            throw error;
+        }
+    }
+
+    async createAvailability(availabilityData) {
+        try {
+            const backendData = agentAvailabilityMapper.toBackend(availabilityData);
+            const response = await this.client.post('/AgentAvailability', backendData);
+            return agentAvailabilityMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error creating availability:', error);
+            throw error;
+        }
+    }
+
+    async updateAvailability(id, availabilityData) {
+        try {
+            const backendData = agentAvailabilityMapper.toBackend({
+                ...availabilityData,
+                id: id
             });
-
-            if (result.success) {
-                result.data = SchedulingMapper.toAgentAvailabilityDto(result.data);
-            }
-            return result;
+            const response = await this.client.put(`/AgentAvailability/${id}`, backendData);
+            return agentAvailabilityMapper.toFrontend(response.data);
         } catch (error) {
-            return ErrorHandler.handle(error, { operation: 'update_availability' });
+            console.error('Error updating availability:', error);
+            throw error;
         }
     }
 
-    async delete(id) {
-        ErrorHandler.validateRequiredFields({ id }, ['id']);
-
-        return await this.makeRequest('delete', `${this.baseUrl}/${id}`, null, {
-            operation: 'delete_availability',
-            context: { availabilityId: id }
-        });
+    async deleteAvailability(id) {
+        try {
+            const response = await this.client.delete(`/AgentAvailability/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting availability:', error);
+            throw error;
+        }
     }
 
-    // Enhanced request method
-    async makeRequest(method, url, data = null, options = {}) {
-        const context = {
-            method,
-            url,
-            operation: options.operation || `${method} ${url}`,
-            timestamp: new Date().toISOString(),
-            ...options.context
-        };
-
+    async setAgentAvailability(agentId, availabilities) {
         try {
-            const response = await ErrorHandler.withRetry(
-                async () => {
-                    const config = {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...options.headers
-                        },
-                        params: options.params,
-                        ...options.config
-                    };
+            const backendData = availabilities.map(avail => agentAvailabilityMapper.toBackend(avail));
+            const response = await this.client.post(`/AgentAvailability/agent/${agentId}/set-availability`, backendData);
+            return response.data;
+        } catch (error) {
+            console.error('Error setting agent availability:', error);
+            throw error;
+        }
+    }
 
-                    let response;
-                    switch (method.toLowerCase()) {
-                        case 'get':
-                            response = await this.apiClient.get(url, config);
-                            break;
-                        case 'post':
-                            response = await this.apiClient.post(url, data, config);
-                            break;
-                        case 'put':
-                            response = await this.apiClient.put(url, data, config);
-                            break;
-                        case 'delete':
-                            response = await this.apiClient.delete(url, config);
-                            break;
-                        default:
-                            throw ErrorFactory.internalServerError(`Unsupported method: ${method}`);
-                    }
+    async checkAgentAvailability(agentId, dateTime) {
+        try {
+            const response = await this.client.get('/AgentAvailability/check-availability', {
+                params: { agentId, dateTime }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error checking agent availability:', error);
+            throw error;
+        }
+    }
 
-                    if (response.status >= 400) {
-                        const errorMessage = response.data?.message ||
-                            response.data?.error?.message ||
-                            `HTTP ${response.status} Error`;
-                        throw ErrorFactory.internalServerError(errorMessage);
-                    }
+    async getAvailableDays(agentId) {
+        try {
+            const response = await this.client.get(`/AgentAvailability/agent/${agentId}/available-days`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching available days:', error);
+            throw error;
+        }
+    }
 
-                    return response;
-                },
-                3, // maxRetries
-                1000 // baseDelay
-            );
+    handleError(error) {
+        console.error('API Error:', error);
 
-            return {
-                success: true,
-                data: response.data,
-                statusCode: response.status,
-                headers: response.headers
+        if (error.response) {
+            const serverError = error.response.data;
+            const errorObj = {
+                message: serverError.message || `Server error: ${error.response.status}`,
+                details: serverError.errors || serverError.details,
+                code: serverError.code || 'SERVER_ERROR',
+                status: error.response.status
             };
-        } catch (error) {
-            return ErrorHandler.handle(error, context);
+
+            if (error.response.status === 400) {
+                errorObj.message = serverError.message || 'Bad request - please check your data';
+            } else if (error.response.status === 401) {
+                errorObj.message = 'Authentication required';
+            } else if (error.response.status === 403) {
+                errorObj.message = 'Access forbidden';
+            } else if (error.response.status === 404) {
+                errorObj.message = 'Resource not found';
+            } else if (error.response.status === 500) {
+                errorObj.message = 'Internal server error';
+            }
+
+            return errorObj;
+        } else if (error.request) {
+            return {
+                message: 'Network error: Unable to connect to server. Please check your internet connection and try again.',
+                code: 'NETWORK_ERROR',
+                details: 'The server may be down or there may be network issues.'
+            };
+        } else {
+            return {
+                message: error.message || 'An unexpected error occurred',
+                code: 'UNKNOWN_ERROR',
+                details: error.stack
+            };
         }
     }
 }

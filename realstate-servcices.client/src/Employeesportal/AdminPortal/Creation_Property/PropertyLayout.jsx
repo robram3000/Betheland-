@@ -7,7 +7,8 @@ import {
     PlusCircleOutlined,
     CheckCircleOutlined,
     DashboardOutlined,
-    ArrowLeftOutlined
+    ArrowLeftOutlined,
+    InboxOutlined
 } from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
@@ -137,6 +138,13 @@ const PropertyLayout = () => {
                 keywords: "property management, dashboard, statistics, media management, property analytics, Betheland, real estate tools",
                 canonical: `${baseUrl}/properties/management`,
                 ogImage: `${baseUrl}/images/management-og.jpg`
+            },
+            archive: {
+                title: `Archived Properties | ${baseTitle}`,
+                description: 'View and manage archived property listings in Betheland real estate management system.',
+                keywords: "archived properties, property archive, historical listings, Betheland",
+                canonical: `${baseUrl}/properties/archive`,
+                ogImage: `${baseUrl}/images/archive-og.jpg`
             }
         };
 
@@ -335,7 +343,7 @@ const PropertyLayout = () => {
                                             width: '100%',
                                         }}
                                     >
-                                        <Tabs.TabPane
+                                        <TabPane
                                             key="properties"
                                             tab={
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -344,7 +352,7 @@ const PropertyLayout = () => {
                                                 </span>
                                             }
                                         />
-                                        <Tabs.TabPane
+                                        <TabPane
                                             key="approval"
                                             tab={
                                                 <Badge count={pendingCount} size="small" offset={[10, -5]}>
@@ -355,7 +363,7 @@ const PropertyLayout = () => {
                                                 </Badge>
                                             }
                                         />
-                                        <Tabs.TabPane
+                                        <TabPane
                                             key="create"
                                             tab={
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -364,7 +372,7 @@ const PropertyLayout = () => {
                                                 </span>
                                             }
                                         />
-                                        <Tabs.TabPane
+                                        <TabPane
                                             key="management"
                                             tab={
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -373,12 +381,12 @@ const PropertyLayout = () => {
                                                 </span>
                                             }
                                         />
-                                        <Tabs.TabPane
-                                            key="management"
+                                        <TabPane
+                                            key="archive"
                                             tab={
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <DashboardOutlined />
-                                                    Archive 
+                                                    <InboxOutlined />
+                                                    Archive
                                                 </span>
                                             }
                                         />
@@ -424,6 +432,7 @@ const PropertyLayout = () => {
                                                             case 'approval': return 'Approval Queue';
                                                             case 'create': return 'Create New Property';
                                                             case 'management': return 'Property Management Dashboard';
+                                                            case 'archive': return 'Archived Properties';
                                                             default: return 'Property Management';
                                                         }
                                                     })()}
@@ -440,6 +449,7 @@ const PropertyLayout = () => {
                                                             case 'approval': return pendingCount > 0 ? `${pendingCount} properties pending approval` : 'All properties are approved';
                                                             case 'create': return 'Add new property listings with detailed information';
                                                             case 'management': return 'Advanced property management and analytics';
+                                                            case 'archive': return 'View and manage archived property listings';
                                                             default: return 'Manage real estate properties and agent assignments';
                                                         }
                                                     })()}
@@ -479,6 +489,13 @@ const PropertyLayout = () => {
                                 )}
                                 {activeTab === 'management' && (
                                     <PropertyManagementTable onUpdate={handlePropertiesUpdate} />
+                                )}
+                                {activeTab === 'archive' && (
+                                    <div style={{ textAlign: 'center', padding: '40px' }}>
+                                        <InboxOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                        <h3 style={{ color: '#666' }}>Archive Feature Coming Soon</h3>
+                                        <p style={{ color: '#999' }}>The archive functionality is currently under development.</p>
+                                    </div>
                                 )}
                             </Content>
                         </Layout>

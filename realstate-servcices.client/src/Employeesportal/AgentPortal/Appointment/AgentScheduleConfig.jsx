@@ -16,7 +16,9 @@ import {
     Tag,
     Tooltip,
     Alert,
-    Input
+    Input,
+    Spin,
+    Result
 } from 'antd';
 import {
     SaveOutlined,
@@ -24,37 +26,31 @@ import {
     InfoCircleOutlined,
     ClockCircleOutlined,
     CalendarOutlined,
-    SettingOutlined
+    SettingOutlined,
+    ExclamationCircleOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
-import ScheduleConfigService from '../../AdminPortal/appointment/Services/ScheduleConfigService';
+import { agentScheduleConfigService } from '../../AdminPortal/appointment/Services/index.js';
+import authService from '../../../Authpage/Services/LoginAuth';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const AgentScheduleConfig = () => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [config, setConfig] = useState(null);
     const [form] = Form.useForm();
+    const [error, setError] = useState(null);
 
-    const configService = new ScheduleConfigService();
-
+    // Default config aligned with backend DTO
     const defaultConfig = {
-        appointmentDuration: 60,
-        bufferTime: 15,
-        maxAppointmentsPerDay: 8,
-        allowSameDayBooking: true,
-        advanceBookingDays: 30,
-        minNoticeHours: 2,
-        workingHoursStart: '09:00',
-        workingHoursEnd: '17:00',
-        enableReminders: true,
-        reminderTime: 60,
-        timeZone: 'America/New_York',
-        autoConfirmAppointments: false,
-        maxReschedules: 2,
-        cancellationPolicy: '24 hours notice required for cancellations'
+        slotDurationMinutes: 60,
+        bufferTimeMinutes: 15,
+        maxSchedulesPerDay: 8,
+        workDayStart: '09:00:00',
+        workDayEnd: '17:00:00',
+        allowWeekendScheduling: false,
+        advanceBookingDays: 30
     };
 
     useEffect(() => {
@@ -63,33 +59,53 @@ const AgentScheduleConfig = () => {
 
     const loadConfig = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
-            const result = await configService.getByAgent(agentId);
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
 
-            if (result.success) {
-                const configData = result.data;
-                setConfig(configData);
-                form.setFieldsValue({
-                    ...configData,
-                    workingHoursStart: moment(configData.workingHoursStart, 'HH:mm'),
-                    workingHoursEnd: moment(configData.workingHoursEnd, 'HH:mm')
-                });
-            } else {
-                form.setFieldsValue({
-                    ...defaultConfig,
-                    workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
-                    workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
-                });
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
             }
+
+            console.log('Loading config for agent ID:', agentId);
+
+            // Using the service instance
+            const configData = await agentScheduleConfigService.getConfigByAgent(agentId);
+
+            console.log('Loaded config data:', configData);
+            setConfig(configData);
+
+            // Convert backend TimeSpan to moment objects for TimePicker
+            form.setFieldsValue({
+                ...configData,
+                workDayStart: moment(configData.workDayStart, 'HH:mm:ss'),
+                workDayEnd: moment(configData.workDayEnd, 'HH:mm:ss')
+            });
+
         } catch (error) {
             console.error('Error loading schedule config:', error);
-            message.error('Failed to load schedule configuration');
-            form.setFieldsValue({
-                ...defaultConfig,
-                workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
-                workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
-            });
+
+            if (error.message && error.message.includes('not found')) {
+                // Config doesn't exist yet, use defaults
+                console.log('No config found, using defaults');
+                form.setFieldsValue({
+                    ...defaultConfig,
+                    workDayStart: moment(defaultConfig.workDayStart, 'HH:mm:ss'),
+                    workDayEnd: moment(defaultConfig.workDayEnd, 'HH:mm:ss')
+                });
+            } else {
+                const errorMessage = error.message || error.details || 'Failed to load schedule configuration';
+                setError(errorMessage);
+                message.error(errorMessage);
+
+                // Set defaults on error
+                form.setFieldsValue({
+                    ...defaultConfig,
+                    workDayStart: moment(defaultConfig.workDayStart, 'HH:mm:ss'),
+                    workDayEnd: moment(defaultConfig.workDayEnd, 'HH:mm:ss')
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -97,65 +113,148 @@ const AgentScheduleConfig = () => {
 
     const handleSave = async (values) => {
         setSaving(true);
+        setError(null);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                message.error('Unable to determine agent ID. Please log in again.');
+                setSaving(false);
+                return;
+            }
+
+            console.log('Saving config for agent ID:', agentId);
+
+            // Prepare data according to backend DTO structure with proper TimeSpan format
             const configData = {
-                ...values,
-                workingHoursStart: values.workingHoursStart.format('HH:mm'),
-                workingHoursEnd: values.workingHoursEnd.format('HH:mm'),
-                agentId: agentId
+                agentId: parseInt(agentId),
+                slotDurationMinutes: values.slotDurationMinutes || defaultConfig.slotDurationMinutes,
+                bufferTimeMinutes: values.bufferTimeMinutes || defaultConfig.bufferTimeMinutes,
+                maxSchedulesPerDay: values.maxSchedulesPerDay || defaultConfig.maxSchedulesPerDay,
+                workDayStart: values.workDayStart ? values.workDayStart.format('HH:mm:ss') : defaultConfig.workDayStart,
+                workDayEnd: values.workDayEnd ? values.workDayEnd.format('HH:mm:ss') : defaultConfig.workDayEnd,
+                allowWeekendScheduling: values.allowWeekendScheduling !== undefined ? values.allowWeekendScheduling : defaultConfig.allowWeekendScheduling,
+                advanceBookingDays: values.advanceBookingDays || defaultConfig.advanceBookingDays
             };
 
+            console.log('Sending config data:', configData);
+
             let result;
-            if (config) {
-                result = await configService.update(config.id, configData);
+            if (config && config.id) {
+                console.log('Updating existing config with ID:', config.id);
+                result = await agentScheduleConfigService.updateConfig(config.id, configData);
             } else {
-                result = await configService.create(configData);
+                console.log('Creating new config');
+                result = await agentScheduleConfigService.createConfig(configData);
             }
 
-            if (result.success) {
-                setConfig(result.data);
-                message.success('Schedule configuration saved successfully');
-            } else {
-                message.error(result.error?.message || 'Failed to save schedule configuration');
-            }
+            setConfig(result);
+            message.success('Schedule configuration saved successfully');
+
+            // Reload the config to get the updated data from server
+            await loadConfig();
+
         } catch (error) {
             console.error('Error saving schedule config:', error);
-            message.error('Failed to save schedule configuration');
+            const errorMessage = error.message || error.details || 'Failed to save schedule configuration';
+            message.error(errorMessage);
+            setError(errorMessage);
         } finally {
             setSaving(false);
         }
     };
 
-    const handleReset = () => {
-        form.setFieldsValue({
-            ...defaultConfig,
-            workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
-            workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
-        });
-        message.info('Configuration reset to defaults');
+    const handleResetToDefaults = async () => {
+        setSaving(true);
+        try {
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                message.error('Unable to determine agent ID. Please log in again.');
+                return;
+            }
+
+            console.log('Setting default working hours for agent:', agentId);
+
+            // Use the service method to set default working hours
+            const result = await agentScheduleConfigService.setDefaultWorkingHours(agentId);
+
+            setConfig(result);
+
+            // Update form with new values
+            form.setFieldsValue({
+                ...result,
+                workDayStart: moment(result.workDayStart, 'HH:mm:ss'),
+                workDayEnd: moment(result.workDayEnd, 'HH:mm:ss')
+            });
+
+            message.success('Default working hours applied successfully');
+
+        } catch (error) {
+            console.error('Error setting default working hours:', error);
+            const errorMessage = error.message || error.details || 'Failed to set default working hours';
+            message.error(errorMessage);
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const timeZones = [
-        'America/New_York',
-        'America/Chicago',
-        'America/Denver',
-        'America/Los_Angeles',
-        'America/Phoenix',
-        'America/Anchorage',
-        'America/Honolulu',
-        'UTC'
-    ];
+    // ... rest of the component methods remain the same
+    const handleFormReset = () => {
+        if (config) {
+            // Reset to current config values
+            form.setFieldsValue({
+                ...config,
+                workDayStart: moment(config.workDayStart, 'HH:mm:ss'),
+                workDayEnd: moment(config.workDayEnd, 'HH:mm:ss')
+            });
+        } else {
+            // Reset to defaults
+            form.setFieldsValue({
+                ...defaultConfig,
+                workDayStart: moment(defaultConfig.workDayStart, 'HH:mm:ss'),
+                workDayEnd: moment(defaultConfig.workDayEnd, 'HH:mm:ss')
+            });
+        }
+        message.info('Form reset to current values');
+    };
 
     const calculateTotalWorkingHours = () => {
-        const start = form.getFieldValue('workingHoursStart');
-        const end = form.getFieldValue('workingHoursEnd');
+        const start = form.getFieldValue('workDayStart');
+        const end = form.getFieldValue('workDayEnd');
         if (start && end) {
             const duration = moment.duration(end.diff(start));
             return duration.asHours();
         }
         return 0;
     };
+
+    const ErrorIndicator = ({ message, onRetry }) => (
+        <Result
+            status="error"
+            title="Failed to Load Schedule Configuration"
+            subTitle={message}
+            extra={[
+                <Button
+                    type="primary"
+                    key="retry"
+                    icon={<ReloadOutlined />}
+                    onClick={onRetry}
+                >
+                    Try Again
+                </Button>
+            ]}
+        />
+    );
+
+    const LoadingIndicator = () => (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>Loading schedule configuration...</div>
+        </div>
+    );
 
     return (
         <div>
@@ -167,377 +266,315 @@ const AgentScheduleConfig = () => {
                 style={{ marginBottom: 16 }}
             />
 
-            <Card
-                loading={loading}
-                title={
-                    <Space>
-                        <SettingOutlined />
-                        Schedule Settings
-                        {config && (
-                            <Tag color="blue" style={{ marginLeft: 8 }}>
-                                Active
-                            </Tag>
-                        )}
-                    </Space>
-                }
-                extra={
-                    <Space>
+            {error && (
+                <Alert
+                    message="Configuration Error"
+                    description={error}
+                    type="error"
+                    showIcon
+                    action={
                         <Button
-                            icon={<ReloadOutlined />}
-                            onClick={handleReset}
-                            disabled={saving || loading}
-                        >
-                            Reset to Defaults
-                        </Button>
-                        <Button
+                            size="small"
                             type="primary"
-                            icon={<SaveOutlined />}
-                            loading={saving}
-                            onClick={() => form.submit()}
-                            disabled={loading}
+                            ghost
+                            onClick={loadConfig}
+                            icon={<ReloadOutlined />}
+                            loading={loading}
                         >
-                            Save Changes
+                            Retry
                         </Button>
-                    </Space>
-                }
-            >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSave}
-                    initialValues={{
-                        ...defaultConfig,
-                        workingHoursStart: moment(defaultConfig.workingHoursStart, 'HH:mm'),
-                        workingHoursEnd: moment(defaultConfig.workingHoursEnd, 'HH:mm')
-                    }}
+                    }
+                    style={{ marginBottom: 16 }}
+                />
+            )}
+
+            {loading ? (
+                <LoadingIndicator />
+            ) : error ? (
+                <ErrorIndicator message={error} onRetry={loadConfig} />
+            ) : (
+                <Card
+                    title={
+                        <Space>
+                            <SettingOutlined />
+                            Schedule Settings
+                            {config && (
+                                <Tag color="blue" style={{ marginLeft: 8 }}>
+                                    {config.id ? 'Active' : 'New'}
+                                </Tag>
+                            )}
+                        </Space>
+                    }
+                    extra={
+                        <Space>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={handleFormReset}
+                                disabled={saving || loading}
+                            >
+                                Reset Form
+                            </Button>
+                            <Button
+                                icon={<ClockCircleOutlined />}
+                                onClick={handleResetToDefaults}
+                                disabled={saving || loading}
+                            >
+                                Set Default Hours
+                            </Button>
+                            <Button
+                                type="primary"
+                                icon={<SaveOutlined />}
+                                loading={saving}
+                                onClick={() => form.submit()}
+                                disabled={loading}
+                            >
+                                Save Changes
+                            </Button>
+                        </Space>
+                    }
                 >
-                    <Divider orientation="left">
-                        <Space>
-                            <CalendarOutlined />
-                            Appointment Settings
-                        </Space>
-                    </Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name="appointmentDuration"
-                                label={
-                                    <Space>
-                                        Appointment Duration
-                                        <Tooltip title="Default duration for each appointment">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter duration' }]}
-                            >
-                                <InputNumber
-                                    min={15}
-                                    max={240}
-                                    step={15}
-                                    addonAfter="minutes"
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="bufferTime"
-                                label={
-                                    <Space>
-                                        Buffer Time
-                                        <Tooltip title="Time between appointments for preparation">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter buffer time' }]}
-                            >
-                                <InputNumber
-                                    min={0}
-                                    max={60}
-                                    step={5}
-                                    addonAfter="minutes"
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="maxAppointmentsPerDay"
-                                label={
-                                    <Space>
-                                        Max Appointments/Day
-                                        <Tooltip title="Maximum number of appointments allowed per day">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter maximum appointments' }]}
-                            >
-                                <InputNumber
-                                    min={1}
-                                    max={20}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">
-                        <Space>
-                            <ClockCircleOutlined />
-                            Working Hours
-                            <Tag color="blue">
-                                {calculateTotalWorkingHours().toFixed(1)} hours/day
-                            </Tag>
-                        </Space>
-                    </Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name="workingHoursStart"
-                                label="Start Time"
-                                rules={[{ required: true, message: 'Please select start time' }]}
-                            >
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: '100%' }}
-                                    placeholder="Start time"
-                                    onChange={() => form.validateFields(['workingHoursEnd'])}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="workingHoursEnd"
-                                label="End Time"
-                                rules={[
-                                    { required: true, message: 'Please select end time' },
-                                    ({ getFieldValue }) => ({
-                                        validator(_, value) {
-                                            const start = getFieldValue('workingHoursStart');
-                                            if (!value || !start || value.isAfter(start)) {
-                                                return Promise.resolve();
-                                            }
-                                            return Promise.reject(new Error('End time must be after start time'));
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: '100%' }}
-                                    placeholder="End time"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="timeZone"
-                                label="Time Zone"
-                                rules={[{ required: true, message: 'Please select time zone' }]}
-                            >
-                                <Select placeholder="Select time zone" showSearch>
-                                    {timeZones.map(zone => (
-                                        <Option key={zone} value={zone}>
-                                            {zone}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Booking Rules</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name="advanceBookingDays"
-                                label={
-                                    <Space>
-                                        Advance Booking
-                                        <Tooltip title="How far in advance clients can book">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter advance booking days' }]}
-                            >
-                                <InputNumber
-                                    min={1}
-                                    max={365}
-                                    addonAfter="days"
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="minNoticeHours"
-                                label={
-                                    <Space>
-                                        Minimum Notice
-                                        <Tooltip title="Minimum hours notice required for bookings">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter minimum notice' }]}
-                            >
-                                <InputNumber
-                                    min={1}
-                                    max={24}
-                                    addonAfter="hours"
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="maxReschedules"
-                                label={
-                                    <Space>
-                                        Max Reschedules
-                                        <Tooltip title="Maximum number of times an appointment can be rescheduled">
-                                            <InfoCircleOutlined />
-                                        </Tooltip>
-                                    </Space>
-                                }
-                                rules={[{ required: true, message: 'Please enter maximum reschedules' }]}
-                            >
-                                <InputNumber
-                                    min={0}
-                                    max={5}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Features & Preferences</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="allowSameDayBooking"
-                                label="Allow Same-Day Booking"
-                                valuePropName="checked"
-                            >
-                                <Switch
-                                    checkedChildren="Enabled"
-                                    unCheckedChildren="Disabled"
-                                />
-                            </Form.Item>
-
-                            <Form.Item
-                                name="autoConfirmAppointments"
-                                label="Auto-Confirm Appointments"
-                                valuePropName="checked"
-                            >
-                                <Switch
-                                    checkedChildren="Enabled"
-                                    unCheckedChildren="Disabled"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="enableReminders"
-                                label="Enable Reminders"
-                                valuePropName="checked"
-                            >
-                                <Switch
-                                    checkedChildren="Enabled"
-                                    unCheckedChildren="Disabled"
-                                />
-                            </Form.Item>
-
-                            <Form.Item
-                                name="reminderTime"
-                                label="Reminder Time"
-                                rules={[{ required: form.getFieldValue('enableReminders'), message: 'Please enter reminder time' }]}
-                            >
-                                <InputNumber
-                                    min={15}
-                                    max={1440}
-                                    step={15}
-                                    addonAfter="minutes before"
-                                    style={{ width: '100%' }}
-                                    disabled={!form.getFieldValue('enableReminders')}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Additional Settings</Divider>
-
-                    <Form.Item
-                        name="cancellationPolicy"
-                        label="Cancellation Policy"
-                        rules={[{ required: true, message: 'Please enter cancellation policy' }]}
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleSave}
+                        initialValues={{
+                            ...defaultConfig,
+                            workDayStart: moment(defaultConfig.workDayStart, 'HH:mm:ss'),
+                            workDayEnd: moment(defaultConfig.workDayEnd, 'HH:mm:ss')
+                        }}
+                        disabled={loading}
                     >
-                        <TextArea
-                            rows={3}
-                            placeholder="Enter your cancellation policy for clients..."
-                            maxLength={500}
-                            showCount
-                        />
-                    </Form.Item>
+                        <Divider orientation="left">
+                            <Space>
+                                <CalendarOutlined />
+                                Appointment Settings
+                            </Space>
+                        </Divider>
 
-                    <Divider orientation="left">Configuration Summary</Divider>
-
-                    <Card size="small" style={{ background: '#fafafa' }}>
-                        <Row gutter={[16, 8]}>
-                            <Col span={6}>
-                                <strong>Appointment Duration:</strong>
-                                <div>{form.getFieldValue('appointmentDuration')} minutes</div>
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="slotDurationMinutes"
+                                    label={
+                                        <Space>
+                                            Appointment Duration
+                                            <Tooltip title="Default duration for each appointment">
+                                                <InfoCircleOutlined />
+                                            </Tooltip>
+                                        </Space>
+                                    }
+                                    rules={[{ required: true, message: 'Please enter duration' }]}
+                                >
+                                    <InputNumber
+                                        min={15}
+                                        max={240}
+                                        step={15}
+                                        addonAfter="minutes"
+                                        style={{ width: '100%' }}
+                                    />
+                                </Form.Item>
                             </Col>
-                            <Col span={6}>
-                                <strong>Buffer Time:</strong>
-                                <div>{form.getFieldValue('bufferTime')} minutes</div>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="bufferTimeMinutes"
+                                    label={
+                                        <Space>
+                                            Buffer Time
+                                            <Tooltip title="Time between appointments for preparation">
+                                                <InfoCircleOutlined />
+                                            </Tooltip>
+                                        </Space>
+                                    }
+                                    rules={[{ required: true, message: 'Please enter buffer time' }]}
+                                >
+                                    <InputNumber
+                                        min={0}
+                                        max={60}
+                                        step={5}
+                                        addonAfter="minutes"
+                                        style={{ width: '100%' }}
+                                    />
+                                </Form.Item>
                             </Col>
-                            <Col span={6}>
-                                <strong>Max Appointments:</strong>
-                                <div>{form.getFieldValue('maxAppointmentsPerDay')}/day</div>
-                            </Col>
-                            <Col span={6}>
-                                <strong>Working Hours:</strong>
-                                <div>
-                                    {form.getFieldValue('workingHoursStart')?.format('HH:mm')} - {form.getFieldValue('workingHoursEnd')?.format('HH:mm')}
-                                </div>
-                            </Col>
-                            <Col span={6}>
-                                <strong>Same-Day Booking:</strong>
-                                <div>
-                                    <Tag color={form.getFieldValue('allowSameDayBooking') ? 'green' : 'red'}>
-                                        {form.getFieldValue('allowSameDayBooking') ? 'Allowed' : 'Not Allowed'}
-                                    </Tag>
-                                </div>
-                            </Col>
-                            <Col span={6}>
-                                <strong>Advance Booking:</strong>
-                                <div>{form.getFieldValue('advanceBookingDays')} days</div>
-                            </Col>
-                            <Col span={6}>
-                                <strong>Min Notice:</strong>
-                                <div>{form.getFieldValue('minNoticeHours')} hours</div>
-                            </Col>
-                            <Col span={6}>
-                                <strong>Auto-Confirm:</strong>
-                                <div>
-                                    <Tag color={form.getFieldValue('autoConfirmAppointments') ? 'green' : 'orange'}>
-                                        {form.getFieldValue('autoConfirmAppointments') ? 'Yes' : 'No'}
-                                    </Tag>
-                                </div>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="maxSchedulesPerDay"
+                                    label={
+                                        <Space>
+                                            Max Appointments/Day
+                                            <Tooltip title="Maximum number of appointments allowed per day">
+                                                <InfoCircleOutlined />
+                                            </Tooltip>
+                                        </Space>
+                                    }
+                                    rules={[{ required: true, message: 'Please enter maximum appointments' }]}
+                                >
+                                    <InputNumber
+                                        min={1}
+                                        max={20}
+                                        style={{ width: '100%' }}
+                                    />
+                                </Form.Item>
                             </Col>
                         </Row>
-                    </Card>
-                </Form>
-            </Card>
+
+                        <Divider orientation="left">
+                            <Space>
+                                <ClockCircleOutlined />
+                                Working Hours
+                                <Tag color="blue">
+                                    {calculateTotalWorkingHours().toFixed(1)} hours/day
+                                </Tag>
+                            </Space>
+                        </Divider>
+
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="workDayStart"
+                                    label="Start Time"
+                                    rules={[{ required: true, message: 'Please select start time' }]}
+                                >
+                                    <TimePicker
+                                        format="HH:mm"
+                                        style={{ width: '100%' }}
+                                        placeholder="Start time"
+                                        onChange={() => form.validateFields(['workDayEnd'])}
+                                    />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="workDayEnd"
+                                    label="End Time"
+                                    rules={[
+                                        { required: true, message: 'Please select end time' },
+                                        ({ getFieldValue }) => ({
+                                            validator(_, value) {
+                                                const start = getFieldValue('workDayStart');
+                                                if (!value || !start || value.isAfter(start)) {
+                                                    return Promise.resolve();
+                                                }
+                                                return Promise.reject(new Error('End time must be after start time'));
+                                            },
+                                        }),
+                                    ]}
+                                >
+                                    <TimePicker
+                                        format="HH:mm"
+                                        style={{ width: '100%' }}
+                                        placeholder="End time"
+                                    />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="advanceBookingDays"
+                                    label={
+                                        <Space>
+                                            Advance Booking
+                                            <Tooltip title="How far in advance clients can book">
+                                                <InfoCircleOutlined />
+                                            </Tooltip>
+                                        </Space>
+                                    }
+                                    rules={[{ required: true, message: 'Please enter advance booking days' }]}
+                                >
+                                    <InputNumber
+                                        min={1}
+                                        max={365}
+                                        addonAfter="days"
+                                        style={{ width: '100%' }}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Divider orientation="left">Features & Preferences</Divider>
+
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item
+                                    name="allowWeekendScheduling"
+                                    label="Allow Weekend Scheduling"
+                                    valuePropName="checked"
+                                >
+                                    <Switch
+                                        checkedChildren="Enabled"
+                                        unCheckedChildren="Disabled"
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Divider orientation="left">Configuration Summary</Divider>
+
+                        <Card size="small" style={{ background: '#fafafa' }}>
+                            <Row gutter={[16, 8]}>
+                                <Col span={6}>
+                                    <strong>Appointment Duration:</strong>
+                                    <div>{form.getFieldValue('slotDurationMinutes')} minutes</div>
+                                </Col>
+                                <Col span={6}>
+                                    <strong>Buffer Time:</strong>
+                                    <div>{form.getFieldValue('bufferTimeMinutes')} minutes</div>
+                                </Col>
+                                <Col span={6}>
+                                    <strong>Max Appointments:</strong>
+                                    <div>{form.getFieldValue('maxSchedulesPerDay')}/day</div>
+                                </Col>
+                                <Col span={6}>
+                                    <strong>Working Hours:</strong>
+                                    <div>
+                                        {form.getFieldValue('workDayStart')?.format('HH:mm')} - {form.getFieldValue('workDayEnd')?.format('HH:mm')}
+                                    </div>
+                                </Col>
+                                <Col span={6}>
+                                    <strong>Weekend Booking:</strong>
+                                    <div>
+                                        <Tag color={form.getFieldValue('allowWeekendScheduling') ? 'green' : 'red'}>
+                                            {form.getFieldValue('allowWeekendScheduling') ? 'Allowed' : 'Not Allowed'}
+                                        </Tag>
+                                    </div>
+                                </Col>
+                                <Col span={6}>
+                                    <strong>Advance Booking:</strong>
+                                    <div>{form.getFieldValue('advanceBookingDays')} days</div>
+                                </Col>
+                            </Row>
+                        </Card>
+
+                        <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
+                            <Space>
+                                <Button
+                                    size="large"
+                                    onClick={handleFormReset}
+                                    disabled={saving}
+                                >
+                                    Reset Form
+                                </Button>
+                                <Button
+                                    size="large"
+                                    onClick={handleResetToDefaults}
+                                    disabled={saving}
+                                    icon={<ClockCircleOutlined />}
+                                >
+                                    Set Default Hours
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    htmlType="submit"
+                                    loading={saving}
+                                    icon={<SaveOutlined />}
+                                >
+                                    Save Configuration
+                                </Button>
+                            </Space>
+                        </Form.Item>
+                    </Form>
+                </Card>
+            )}
         </div>
     );
 };

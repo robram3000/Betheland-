@@ -113,7 +113,7 @@ const AgentLayout = ({ children, pageTitle = "Agent Management", pageDescription
                     <GlobalAdminNavigation collapsed={collapsed} />
                     <Layout
                         style={{
-                            marginLeft: collapsed ? 80 : 280,
+                            marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
                         }}
@@ -121,12 +121,11 @@ const AgentLayout = ({ children, pageTitle = "Agent Management", pageDescription
                         <Content
                             style={{
                                 background: colorBgContainer,
-                                margin: '16px 0',
                                 minHeight: 280,
                                 borderRadius: borderRadiusLG,
                                 maxWidth: '100%',
-                                overflow: 'hidden',
-                                padding: '20px'
+                                overflow: 'hidden'
+                        
                             }}
                         >
                             {children}

@@ -65,7 +65,7 @@ export const PropertyDataProvider = ({ children }) => {
                         try {
                             const processed = processPropertyData(property);
                             console.log(`🏠 Processed property ${property.id}:`, {
-                                id: processed?.id,
+                                id: processed?.id,  
                                 title: processed?.title,
                                 hasImages: processed?.propertyImages?.length > 0
                             });

@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Entity.landingpage.announcementconfig;
+using Realstate_servcices.Server.Entity.landingpage.PartConfig;
+using Realstate_servcices.Server.Entity.landingpage.Third_Section;
 using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.OTP;
@@ -39,6 +42,14 @@ namespace Realstate_servcices.Server.Data
         public DbSet<AgentTimeOff> AgentTimeOffs { get; set; }
         public DbSet<AgentScheduleConfig> AgentScheduleConfigs { get; set; }
 
+
+
+        // Landing Page DbSets 
+        public DbSet<ThirdSection> ThirdSections { get; set; }
+        public DbSet<ProcessStep> ProcessSteps { get; set; }
+        public DbSet<FeatureItem> FeatureItems { get; set; }
+        public DbSet<Partner> Partners { get; set; }
+        public DbSet<AnnouncementConfig> Announcements { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -151,6 +162,120 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.HasIndex(e => new { e.Email, e.IsUsed, e.ExpirationTime });
                 entity.HasIndex(e => e.CreatedAt);
+            });
+            modelBuilder.Entity<Partner>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+            });
+            modelBuilder.Entity<AnnouncementConfig>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+            });
+            modelBuilder.Entity<ThirdSection>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Subtitle)
+                    .HasMaxLength(300);
+
+                entity.Property(e => e.Description)
+                    .HasColumnType("nvarchar(max)");
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.UpdatedAt);
+
+                // One-to-many relationship with ProcessSteps
+                entity.HasMany(ts => ts.ProcessSteps)
+                    .WithOne(ps => ps.ThirdSection)
+                    .HasForeignKey(ps => ps.ThirdSectionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // One-to-many relationship with FeatureItems
+                entity.HasMany(ts => ts.FeatureItems)
+                    .WithOne(fi => fi.ThirdSection)
+                    .HasForeignKey(fi => fi.ThirdSectionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => e.CreatedAt);
+            });
+
+            // ProcessStep configuration
+            modelBuilder.Entity<ProcessStep>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.StepNumber)
+                    .IsRequired();
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Description)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Icon)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.ThirdSectionId)
+                    .IsRequired();
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.UpdatedAt);
+
+                // Many-to-one relationship with ThirdSection
+                entity.HasOne(ps => ps.ThirdSection)
+                    .WithMany(ts => ts.ProcessSteps)
+                    .HasForeignKey(ps => ps.ThirdSectionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => new { e.ThirdSectionId, e.StepNumber });
+                entity.HasIndex(e => e.StepNumber);
+            });
+
+            // FeatureItem configuration
+            modelBuilder.Entity<FeatureItem>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Description)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Icon)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.ThirdSectionId)
+                    .IsRequired();
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.UpdatedAt);
+
+                // Many-to-one relationship with ThirdSection
+                entity.HasOne(fi => fi.ThirdSection)
+                    .WithMany(ts => ts.FeatureItems)
+                    .HasForeignKey(fi => fi.ThirdSectionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Index for better performance
+                entity.HasIndex(e => e.ThirdSectionId);
             });
 
             modelBuilder.Entity<Rating>(entity =>
@@ -387,28 +512,30 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);
 
-                // Relationships
+                // Property relationship
                 entity.HasOne(sp => sp.Property)
                       .WithMany(p => p.ScheduleProperties)
                       .HasForeignKey(sp => sp.PropertyId)
                       .OnDelete(DeleteBehavior.Cascade);
 
+                // FIXED: Agent relationship - using BaseMemberId as principal key
                 entity.HasOne(sp => sp.Agent)
                       .WithMany(a => a.ScheduleProperties)
                       .HasForeignKey(sp => sp.AgentId)
+                      .HasPrincipalKey(a => a.BaseMemberId)
                       .OnDelete(DeleteBehavior.Restrict);
 
+                // FIXED: Client relationship - using BaseMemberId as principal key
                 entity.HasOne(sp => sp.Client)
                       .WithMany(c => c.ScheduleProperties)
                       .HasForeignKey(sp => sp.ClientId)
+                      .HasPrincipalKey(c => c.BaseMemberId)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 // Index for better performance
                 entity.HasIndex(e => e.ScheduleNo).IsUnique();
-                entity.HasIndex(e => e.ScheduleTime);
                 entity.HasIndex(e => e.Status);
             });
-
             modelBuilder.Entity<WishlistProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);

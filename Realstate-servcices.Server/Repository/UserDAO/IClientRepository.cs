@@ -48,5 +48,12 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         /// Checks if a client exists by client ID
         /// </summary>
         Task<bool> ClientExistsByClientIdAsync(int clientId);
+
+        /// <summary>
+        /// Retrieves multiple clients by their base member IDs
+        /// </summary>
+        /// <param name="baseMemberIds">List of base member IDs to search for</param>
+        /// <returns>List of Client entities matching the provided base member IDs</returns>
+        Task<List<Client>> GetAllClientsByBaseMemberIdsAsync(List<int> baseMemberIds);
     }
 }

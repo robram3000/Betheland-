@@ -20,22 +20,14 @@ import ScheduleConfig from './ScheduleConfig';
 import AgentTimeOff from './AgentTimeOff';
 import ScheduleProperties from './ScheduleProperties';
 
-// Import the main service
-import SchedulingServices from './Services/index.js';
+// Import the services
+import {
+    agentTimeOffService,
+    schedulePropertiesService
+} from '../appointment/Services/index.js';
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
-
-// Mock API client
-const mockApiClient = {
-    get: async (url) => ({ data: [], status: 200 }),
-    post: async (url, data) => ({ data: { ...data, id: Date.now() }, status: 201 }),
-    put: async (url, data) => ({ data, status: 200 }),
-    patch: async (url, data) => ({ data, status: 200 }),
-    delete: async (url) => ({ status: 200 })
-};
-
-const schedulingService = new SchedulingServices(mockApiClient);
 
 const ScheduleLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -57,11 +49,9 @@ const ScheduleLayout = () => {
 
     const loadPendingCount = async () => {
         try {
-            const result = await schedulingService.timeOff.getAll();
-            if (result.success) {
-                const pendingTimeOffs = result.data.filter(to => to.status === 'Pending');
-                setPendingCount(pendingTimeOffs.length);
-            }
+            const result = await agentTimeOffService.getAllTimeOffs();
+            const pendingTimeOffs = result.filter(to => to.status === 'Pending');
+            setPendingCount(pendingTimeOffs.length);
         } catch (error) {
             console.error('Error loading pending count:', error);
         }
@@ -69,10 +59,8 @@ const ScheduleLayout = () => {
 
     const loadAppointmentsCount = async () => {
         try {
-            const result = await schedulingService.schedules.getAll();
-            if (result.success) {
-                setAppointmentsCount(result.data.length);
-            }
+            const result = await schedulePropertiesService.getAllSchedules();
+            setAppointmentsCount(result.length);
         } catch (error) {
             console.error('Error loading appointments count:', error);
         }

@@ -4,10 +4,10 @@
     {
         public int? SlotDurationMinutes { get; set; }
         public int? BufferTimeMinutes { get; set; }
-        public int? MaxSchedulesPerDay { get; set; } // ✅ Consistent
-        public TimeSpan? WorkDayStart { get; set; } // ✅ Consistent
-        public TimeSpan? WorkDayEnd { get; set; } // ✅ Consistent
-        public bool? AllowWeekendScheduling { get; set; } // ✅ Consistent
-        public int? AdvanceBookingDays { get; set; } // ✅ Added missing property
+        public int? MaxSchedulesPerDay { get; set; }
+        public string WorkDayStart { get; set; } // ✅ Change to string
+        public string WorkDayEnd { get; set; } // ✅ Change to string
+        public bool? AllowWeekendScheduling { get; set; }
+        public int? AdvanceBookingDays { get; set; }
     }
 }

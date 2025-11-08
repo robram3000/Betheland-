@@ -120,6 +120,39 @@ namespace Realstate_servcices.Server.Repository.UserDAO
         }
 
         /// <summary>
+        /// Retrieves multiple clients by their base member IDs
+        /// </summary>
+        /// <param name="baseMemberIds">List of base member IDs to search for</param>
+        /// <returns>List of Client entities matching the provided base member IDs</returns>
+        public async Task<List<Client>> GetAllClientsByBaseMemberIdsAsync(List<int> baseMemberIds)
+        {
+            return await _context.Clients
+                .Include(c => c.BaseMember)
+                .Where(c => baseMemberIds.Contains(c.BaseMemberId))
+                .Select(c => new Client
+                {
+                    Id = c.Id,
+                    BaseMemberId = c.BaseMemberId,
+                    ClientNo = c.ClientNo,
+                    FirstName = c.FirstName ?? string.Empty,
+                    MiddleName = c.MiddleName ?? string.Empty,
+                    LastName = c.LastName ?? string.Empty,
+                    Suffix = c.Suffix ?? string.Empty,
+                    CellPhoneNo = c.CellPhoneNo ?? string.Empty,
+                    Gender = c.Gender ?? string.Empty,
+                    Country = c.Country ?? string.Empty,
+                    City = c.City ?? string.Empty,
+                    Street = c.Street ?? string.Empty,
+                    ZipCode = c.ZipCode ?? string.Empty,
+                    Address = c.Address ?? string.Empty,
+                    DateRegistered = c.DateRegistered,
+                    BaseMember = c.BaseMember
+                })
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        /// <summary>
         /// Updates an existing client's information
         /// </summary>
         /// <param name="baseMemberId">The base member ID of the client to update</param>

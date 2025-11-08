@@ -1,5 +1,4 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Register;
@@ -20,7 +19,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         private readonly ILogger<ClientService> _logger;
         private readonly ApplicationDbContext _context;
 
-
         /// <summary>
         /// Initializes a new instance of the ClientService class
         /// </summary>
@@ -29,7 +27,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         /// <param name="profilePictureService">Service for profile picture management</param>
         /// <param name="logger">Logger for tracking service operations and errors</param>
         /// <param name="context">Database context for entity framework operations</param>
-
         public ClientService(
             IBaseMemberRepository baseMemberRepository,
             IClientRepository clientRepository,
@@ -43,12 +40,12 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
             _logger = logger;
             _context = context;
         }
+
         /// <summary>
         /// Creates a new client profile with validation for duplicate email and username
         /// </summary>
         /// <param name="request">Client registration data including email, username, password, and personal information</param>
         /// <returns>Registration response indicating success or failure</returns>
-
         public async Task<RegisterResponse> CreateClientAsync(ClientRegisterRequest request)
         {
             try
@@ -93,7 +90,6 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         /// </summary>
         /// <param name="baseMemberId">The unique identifier of the base member</param>
         /// <returns>Client response with complete profile information or null if not found</returns>
-
         public async Task<ClientResponse?> GetClientAsync(int baseMemberId)
         {
             try
@@ -176,6 +172,46 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new List<ClientResponse>();
             }
         }
+
+        /// <summary>
+        /// Retrieves multiple clients by their base member IDs
+        /// </summary>
+        /// <param name="baseMemberIds">List of base member IDs to search for</param>
+        /// <returns>List of client responses matching the provided base member IDs</returns>
+        public async Task<List<ClientResponse>> GetAllClientsByBaseMemberIdsAsync(List<int> baseMemberIds)
+        {
+            try
+            {
+                var clients = await _clientRepository.GetAllClientsByBaseMemberIdsAsync(baseMemberIds);
+                return clients.Select(client => new ClientResponse
+                {
+                    Id = client.Id,
+                    BaseMemberId = client.BaseMemberId,
+                    Email = client.BaseMember?.Email ?? string.Empty,
+                    Username = client.BaseMember?.Username ?? string.Empty,
+                    ProfilePictureUrl = client.BaseMember?.ProfilePictureUrl ?? string.Empty,
+                    FirstName = client.FirstName ?? string.Empty,
+                    LastName = client.LastName ?? string.Empty,
+                    MiddleName = client.MiddleName ?? string.Empty,
+                    Suffix = client.Suffix ?? string.Empty,
+                    CellPhoneNo = client.CellPhoneNo ?? string.Empty,
+                    Country = client.Country ?? string.Empty,
+                    City = client.City ?? string.Empty,
+                    Street = client.Street ?? string.Empty,
+                    ZipCode = client.ZipCode ?? string.Empty,
+                    Gender = client.Gender ?? string.Empty,
+                    Status = client.BaseMember?.status ?? "Unknown",
+                    CreatedAt = client.BaseMember?.CreatedAt ?? DateTime.UtcNow,
+                    DateRegistered = client.DateRegistered
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting clients by base member IDs: {BaseMemberIds}", string.Join(", ", baseMemberIds));
+                return new List<ClientResponse>();
+            }
+        }
+
         /// <summary>
         /// Updates an existing client's profile information
         /// </summary>
@@ -201,6 +237,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating client: {ex.Message}" };
             }
         }
+
         /// <summary>
         /// Updates the status of a client (Active, Inactive, Suspended, etc.)
         /// </summary>
@@ -226,6 +263,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
                 return new RegisterResponse { Success = false, Message = $"Error updating client status: {ex.Message}" };
             }
         }
+
         /// <summary>
         /// Deletes a client profile from the system
         /// </summary>
@@ -260,6 +298,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         {
             return await _profilePictureService.UploadProfilePictureAsync(baseMemberId, file);
         }
+
         /// <summary>
         /// Deletes the profile picture of a client using the profile picture service
         /// </summary>
@@ -269,6 +308,7 @@ namespace Realstate_servcices.Server.Services.ProfileCreation
         {
             return await _profilePictureService.DeleteProfilePictureAsync(baseMemberId);
         }
+
         /// <summary>
         /// Retrieves the profile picture URL of a client using the profile picture service
         /// </summary>

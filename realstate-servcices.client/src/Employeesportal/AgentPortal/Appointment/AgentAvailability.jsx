@@ -14,16 +14,26 @@ import {
     Tooltip,
     Row,
     Col,
-    Input
+    Input,
+    Alert,
+    Select,
+    Spin,
+    Result,
+    Empty
 } from 'antd';
 import {
     EditOutlined,
     CheckOutlined,
-    CloseOutlined
+    CloseOutlined,
+    ReloadOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import AgentAvailabilityService from '../../AdminPortal/appointment/Services/AgentAvailabilityService';
+import { agentAvailabilityService } from '../../AdminPortal/appointment/Services/index.js';
+import authService from '../../../Authpage/Services/LoginAuth';
+
+const { Option } = Select;
 
 const AgentAvailability = () => {
     const [availabilities, setAvailabilities] = useState([]);
@@ -31,18 +41,37 @@ const AgentAvailability = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedAvailability, setSelectedAvailability] = useState(null);
     const [form] = Form.useForm();
+    const [error, setError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
-    const availabilityService = new AgentAvailabilityService();
-
+    // Day of week mapping
     const daysOfWeek = [
+        'Sunday',
         'Monday',
         'Tuesday',
         'Wednesday',
         'Thursday',
         'Friday',
-        'Saturday',
-        'Sunday'
+        'Saturday'
     ];
+
+    // Helper functions for DayOfWeek conversion
+    const dayOfWeekToNumber = (dayName) => {
+        const days = {
+            'Sunday': 0,
+            'Monday': 1,
+            'Tuesday': 2,
+            'Wednesday': 3,
+            'Thursday': 4,
+            'Friday': 5,
+            'Saturday': 6
+        };
+        return days[dayName] || 0;
+    };
+
+    const numberToDayOfWeek = (dayNumber) => {
+        return daysOfWeek[dayNumber] || 'Monday';
+    };
 
     useEffect(() => {
         loadAvailabilities();
@@ -50,64 +79,184 @@ const AgentAvailability = () => {
 
     const loadAvailabilities = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
-            const result = await availabilityService.getByAgent(agentId);
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
 
-            if (result.success) {
-                setAvailabilities(result.data);
-            } else {
-                message.error(result.error?.message || 'Failed to load availabilities');
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
             }
+
+            const result = await agentAvailabilityService.getAvailabilitiesByAgent(agentId);
+            setAvailabilities(result);
+
         } catch (error) {
             console.error('Error loading availabilities:', error);
-            message.error('Failed to load availabilities');
+            const errorMessage = error.message || 'Failed to load availabilities';
+            setError(errorMessage);
+            message.error(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleAddNew = () => {
+        setSelectedAvailability(null);
+        form.setFieldsValue({
+            dayOfWeek: 1, // Default to Monday
+            startTime: moment('09:00:00', 'HH:mm:ss'),
+            endTime: moment('17:00:00', 'HH:mm:ss'),
+            isAvailable: true
+        });
+        setModalVisible(true);
+    };
+
     const handleEdit = (availability) => {
         setSelectedAvailability(availability);
         form.setFieldsValue({
-            ...availability,
-            startTime: moment(availability.startTime, 'HH:mm'),
-            endTime: moment(availability.endTime, 'HH:mm')
+            dayOfWeek: availability.dayOfWeek,
+            startTime: availability.startTime ? moment(availability.startTime, 'HH:mm:ss') : moment('09:00:00', 'HH:mm:ss'),
+            endTime: availability.endTime ? moment(availability.endTime, 'HH:mm:ss') : moment('17:00:00', 'HH:mm:ss'),
+            isAvailable: availability.isAvailable ?? true
         });
         setModalVisible(true);
     };
 
     const handleSubmit = async (values) => {
+        setSubmitting(true);
         try {
-            const agentId = localStorage.getItem('agentId') || 123;
+            const currentUser = authService.getCurrentUser();
+            const agentId = currentUser?.userId;
+
+            if (!agentId) {
+                throw new Error('Unable to determine agent ID. Please log in again.');
+            }
+
+            // Prepare data for submission
             const availabilityData = {
-                ...values,
-                startTime: values.startTime.format('HH:mm'),
-                endTime: values.endTime.format('HH:mm'),
-                agentId: agentId,
-                id: selectedAvailability.id
+                id: selectedAvailability?.id || 0,
+                agentId: parseInt(agentId),
+                dayOfWeek: values.dayOfWeek,
+                startTime: values.startTime ? values.startTime.format('HH:mm:ss') : '00:00:00',
+                endTime: values.endTime ? values.endTime.format('HH:mm:ss') : '00:00:00',
+                isAvailable: values.isAvailable ?? true
             };
 
-            const result = await availabilityService.update(selectedAvailability.id, availabilityData);
+            console.log('Submitting availability data:', availabilityData);
 
-            if (result.success) {
+            let result;
+            if (selectedAvailability && selectedAvailability.id) {
+                // Update existing
+                result = await agentAvailabilityService.updateAvailability(
+                    selectedAvailability.id,
+                    availabilityData
+                );
                 message.success('Availability updated successfully');
-                setModalVisible(false);
-                loadAvailabilities();
             } else {
-                message.error(result.error?.message || 'Failed to update availability');
+                // Create new
+                result = await agentAvailabilityService.createAvailability(availabilityData);
+                message.success('Availability created successfully');
             }
+
+            setModalVisible(false);
+            form.resetFields();
+            loadAvailabilities();
+
         } catch (error) {
-            message.error('Failed to save availability');
+            console.error('Submit error details:', error);
+            const errorMessage = error.message || 'Failed to save availability';
+            message.error(errorMessage);
+            setError(errorMessage);
+        } finally {
+            setSubmitting(false);
         }
     };
+
+    const handleAvailabilityToggle = (checked) => {
+        if (checked) {
+            // Enable time pickers and set default times
+            form.setFieldsValue({
+                startTime: moment('09:00:00', 'HH:mm:ss'),
+                endTime: moment('17:00:00', 'HH:mm:ss')
+            });
+        } else {
+            // Clear time pickers when unavailable
+            form.setFieldsValue({
+                startTime: null,
+                endTime: null
+            });
+        }
+    };
+
+    const validateTimeRange = ({ getFieldValue }) => ({
+        validator(_, value) {
+            if (!form.getFieldValue('isAvailable')) {
+                return Promise.resolve();
+            }
+
+            const startTime = getFieldValue('startTime');
+            const endTime = getFieldValue('endTime');
+
+            if (!startTime || !endTime) {
+                return Promise.resolve();
+            }
+
+            if (endTime.isAfter(startTime)) {
+                return Promise.resolve();
+            }
+
+            return Promise.reject(new Error('End time must be after start time'));
+        },
+    });
+
+    const handleDelete = async (id) => {
+        try {
+            await agentAvailabilityService.deleteAvailability(id);
+            message.success('Availability deleted successfully');
+            loadAvailabilities();
+        } catch (error) {
+            console.error('Error deleting availability:', error);
+            message.error('Failed to delete availability');
+        }
+    };
+
+    const ErrorIndicator = ({ message, onRetry }) => (
+        <Result
+            status="error"
+            title="Failed to Load Availabilities"
+            subTitle={message}
+            extra={[
+                <Button
+                    type="primary"
+                    key="retry"
+                    icon={<ReloadOutlined />}
+                    onClick={onRetry}
+                >
+                    Try Again
+                </Button>
+            ]}
+        />
+    );
+
+    const LoadingIndicator = () => (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>Loading your availability...</div>
+        </div>
+    );
 
     const columns = [
         {
             title: 'Day',
             dataIndex: 'dayOfWeek',
             key: 'dayOfWeek',
-            width: 120
+            width: 120,
+            render: (dayNumber) => (
+                <span style={{ fontWeight: 500 }}>
+                    {numberToDayOfWeek(dayNumber)}
+                </span>
+            )
         },
         {
             title: 'Time Slot',
@@ -115,9 +264,43 @@ const AgentAvailability = () => {
             width: 200,
             render: (_, record) => (
                 <span>
-                    {record.isAvailable ? `${record.startTime} - ${record.endTime}` : 'Not Available'}
+                    {record.isAvailable ? (
+                        <span style={{ color: '#52c41a' }}>
+                            {record.startTime} - {record.endTime}
+                        </span>
+                    ) : (
+                        <span style={{ color: '#ff4d4f', fontStyle: 'italic' }}>
+                            Not Available
+                        </span>
+                    )}
                 </span>
             )
+        },
+        {
+            title: 'Duration',
+            key: 'duration',
+            width: 100,
+            render: (_, record) => {
+                if (!record.isAvailable) return '-';
+
+                try {
+                    const start = moment(record.startTime, 'HH:mm:ss');
+                    const end = moment(record.endTime, 'HH:mm:ss');
+                    const duration = moment.duration(end.diff(start));
+                    const hours = duration.hours();
+                    const minutes = duration.minutes();
+
+                    if (hours === 0) {
+                        return `${minutes} min${minutes > 1 ? 's' : ''}`;
+                    } else if (minutes === 0) {
+                        return `${hours} hour${hours > 1 ? 's' : ''}`;
+                    } else {
+                        return `${hours}h ${minutes}m`;
+                    }
+                } catch (error) {
+                    return 'Invalid';
+                }
+            }
         },
         {
             title: 'Status',
@@ -125,7 +308,10 @@ const AgentAvailability = () => {
             key: 'isAvailable',
             width: 100,
             render: (available) => (
-                <Tag color={available ? 'green' : 'red'} icon={available ? <CheckOutlined /> : <CloseOutlined />}>
+                <Tag
+                    color={available ? 'green' : 'red'}
+                    icon={available ? <CheckOutlined /> : <CloseOutlined />}
+                >
                     {available ? 'Available' : 'Unavailable'}
                 </Tag>
             )
@@ -133,15 +319,26 @@ const AgentAvailability = () => {
         {
             title: 'Actions',
             key: 'actions',
-            width: 80,
+            width: 120,
             render: (_, record) => (
-                <Tooltip title="Edit Availability">
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEdit(record)}
-                    />
-                </Tooltip>
+                <Space>
+                    <Tooltip title="Edit Availability">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Delete Availability">
+                        <Button
+                            danger
+                            size="small"
+                            onClick={() => handleDelete(record.id)}
+                        >
+                            Delete
+                        </Button>
+                    </Tooltip>
+                </Space>
             )
         }
     ];
@@ -151,96 +348,233 @@ const AgentAvailability = () => {
             <Card>
                 <div style={{
                     marginBottom: 16,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start'
                 }}>
-                    <h3 style={{ margin: 0 }}>My Availability</h3>
-                    <p style={{ margin: 0, color: '#666' }}>
-                        Set your working hours and availability for appointments
-                    </p>
+                    <div>
+                        <h3 style={{ margin: 0 }}>My Availability</h3>
+                        <p style={{ margin: 0, color: '#666', maxWidth: '500px' }}>
+                            Manage your working hours and availability for appointments.
+                            Set specific time slots for each day when you're available.
+                        </p>
+                    </div>
+                    <Space>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAddNew}
+                        >
+                            Add Availability
+                        </Button>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={loadAvailabilities}
+                            loading={loading}
+                        >
+                            Refresh
+                        </Button>
+                    </Space>
                 </div>
 
-                <BaseTable
-                    data={availabilities}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={false}
-                />
+                {error && (
+                    <Alert
+                        message="Error Loading Data"
+                        description={error}
+                        type="error"
+                        showIcon
+                        action={
+                            <Button
+                                size="small"
+                                type="primary"
+                                ghost
+                                onClick={loadAvailabilities}
+                                icon={<ReloadOutlined />}
+                                loading={loading}
+                            >
+                                Retry
+                            </Button>
+                        }
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {loading ? (
+                    <LoadingIndicator />
+                ) : error ? (
+                    <ErrorIndicator message={error} onRetry={loadAvailabilities} />
+                ) : (
+                    <BaseTable
+                        data={availabilities}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={false}
+                        locale={{
+                            emptyText: (
+                                <Empty
+                                    description="No availability configured"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                >
+                                    <p style={{ color: '#666' }}>
+                                        Your availability schedule will appear here once configured.
+                                    </p>
+                                    <Button
+                                        type="primary"
+                                        icon={<PlusOutlined />}
+                                        onClick={handleAddNew}
+                                    >
+                                        Add Your First Availability
+                                    </Button>
+                                </Empty>
+                            )
+                        }}
+                    />
+                )}
             </Card>
 
             <Modal
-                title="Edit Availability"
+                title={
+                    <Space>
+                        {selectedAvailability ? <EditOutlined /> : <PlusOutlined />}
+                        {selectedAvailability ? 'Edit Availability' : 'Add New Availability'}
+                        {selectedAvailability && (
+                            <Tag color="blue">
+                                {numberToDayOfWeek(selectedAvailability.dayOfWeek)}
+                            </Tag>
+                        )}
+                    </Space>
+                }
                 open={modalVisible}
-                onCancel={() => setModalVisible(false)}
+                onCancel={() => {
+                    setModalVisible(false);
+                    form.resetFields();
+                    setSelectedAvailability(null);
+                }}
                 footer={null}
                 width={500}
+                confirmLoading={submitting}
+                destroyOnClose
             >
-                {selectedAvailability && (
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={handleSubmit}
-                    >
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                    disabled={submitting}
+                    initialValues={{
+                        isAvailable: true,
+                        dayOfWeek: 1
+                    }}
+                >
+                    {!selectedAvailability && (
+                        <Form.Item
+                            name="dayOfWeek"
+                            label="Day of Week"
+                            rules={[{ required: true, message: 'Please select a day' }]}
+                        >
+                            <Select placeholder="Select day">
+                                {daysOfWeek.map((day, index) => (
+                                    <Option key={index} value={index}>
+                                        {day}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    )}
+
+                    {selectedAvailability && (
                         <Form.Item
                             name="dayOfWeek"
                             label="Day of Week"
                         >
-                            <Input disabled />
-                        </Form.Item>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="startTime"
-                                    label="Start Time"
-                                    rules={[{ required: true, message: 'Please select start time' }]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="Start time"
-                                        disabled={!form.getFieldValue('isAvailable')}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="endTime"
-                                    label="End Time"
-                                    rules={[{ required: true, message: 'Please select end time' }]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="End time"
-                                        disabled={!form.getFieldValue('isAvailable')}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Form.Item
-                            name="isAvailable"
-                            label="Available"
-                            valuePropName="checked"
-                        >
-                            <Switch
-                                checkedChildren="Available"
-                                unCheckedChildren="Unavailable"
+                            <Input
+                                disabled
+                                value={numberToDayOfWeek(selectedAvailability.dayOfWeek)}
                             />
                         </Form.Item>
+                    )}
 
-                        <Form.Item style={{ textAlign: 'right' }}>
-                            <Space>
-                                <Button onClick={() => setModalVisible(false)}>
-                                    Cancel
-                                </Button>
-                                <Button type="primary" htmlType="submit">
-                                    Update Availability
-                                </Button>
-                            </Space>
-                        </Form.Item>
-                    </Form>
-                )}
+                    <Form.Item
+                        name="isAvailable"
+                        label="Availability Status"
+                        valuePropName="checked"
+                    >
+                        <Switch
+                            checkedChildren="Available"
+                            unCheckedChildren="Unavailable"
+                            onChange={handleAvailabilityToggle}
+                        />
+                    </Form.Item>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="startTime"
+                                label="Start Time"
+                                rules={[
+                                    {
+                                        required: form.getFieldValue('isAvailable'),
+                                        message: 'Please select start time'
+                                    }
+                                ]}
+                            >
+                                <TimePicker
+                                    format="HH:mm"
+                                    style={{ width: '100%' }}
+                                    placeholder="Start time"
+                                    disabled={!form.getFieldValue('isAvailable')}
+                                    minuteStep={15}
+                                    showNow={false}
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="endTime"
+                                label="End Time"
+                                rules={[
+                                    {
+                                        required: form.getFieldValue('isAvailable'),
+                                        message: 'Please select end time'
+                                    },
+                                    validateTimeRange
+                                ]}
+                            >
+                                <TimePicker
+                                    format="HH:mm"
+                                    style={{ width: '100%' }}
+                                    placeholder="End time"
+                                    disabled={!form.getFieldValue('isAvailable')}
+                                    minuteStep={15}
+                                    showNow={false}
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+                        <Space>
+                            <Button
+                                onClick={() => {
+                                    setModalVisible(false);
+                                    form.resetFields();
+                                    setSelectedAvailability(null);
+                                }}
+                                disabled={submitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={submitting}
+                                icon={<CheckOutlined />}
+                            >
+                                {selectedAvailability ? 'Update' : 'Create'} Availability
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
             </Modal>
         </div>
     );

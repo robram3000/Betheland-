@@ -22,7 +22,8 @@ import {
     Image,
     Modal,
     Progress,
-    notification
+    notification,
+    Tag
 } from 'antd';
 import {
     SaveOutlined,
@@ -43,6 +44,7 @@ import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService
 import amenities from '../../AdminPortal/Creation_Property/services/amenities';
 import statusOptions from '../../AdminPortal/Creation_Property/services/Status';
 import propertyTypeOptions from '../../AdminPortal/Creation_Property/services/propertyTypeOption';
+import authService from '../../../Authpage/Services/LoginAuth';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -198,7 +200,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     const [previewTitle, setPreviewTitle] = useState('');
     const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
     const [previewVideo, setPreviewVideo] = useState('');
-    
+
     // New states for progress and success
     const [progressVisible, setProgressVisible] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -207,6 +209,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     // Safe options with fallbacks
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [statuses, setStatuses] = useState([]);
+
+    // ADDED: Missing agents state
+    const [agents, setAgents] = useState([]);
 
     // Flatten amenities for the select component
     const allAmenities = amenities && typeof amenities === 'object'
@@ -238,7 +243,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         setCurrentAction(actionName);
         setProgressVisible(true);
         setProgress(0);
-        
+
         const interval = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 90) {
@@ -293,6 +298,18 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
     };
 
+    // ADDED: Load agents function
+    const loadAgents = async () => {
+        try {
+            const data = await agentService.getAgents();
+            setAgents(data || []);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+            message.error('Failed to load agents');
+            setAgents([]);
+        }
+    };
+
     const initializeFormWithPropertyData = () => {
         try {
             const formData = {
@@ -334,16 +351,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         } catch (error) {
             console.error('Error initializing form with property data:', error);
             message.error('Failed to load property data');
-        }
-    };
-
-    const loadAgents = async () => {
-        try {
-            const data = await agentService.getAgents();
-            setAgents(data);
-        } catch (error) {
-            console.error('Error loading agents:', error);
-            message.error('Failed to load agents');
         }
     };
 
@@ -722,7 +729,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             0: ['title', 'type', 'description', 'price', 'status', 'listedDate'],
             1: ['address', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude'],
             2: ['bedrooms', 'bathrooms', 'kitchen', 'garage', 'areaSqm', 'propertyAge', 'propertyFloor', 'amenities'],
-            3: ['agentId', 'ownerId']
+            // REMOVED: Assignment step fields
         };
         return stepFields[step] || [];
     };
@@ -745,7 +752,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         clearError();
 
         try {
-            const allStepFields = [0, 1, 2, 3].flatMap(step => getStepFields(step));
+            const allStepFields = [0, 1, 2].flatMap(step => getStepFields(step));
             const allValues = form.getFieldsValue(allStepFields);
 
             const missingFields = [];
@@ -776,13 +783,31 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
 
-            // Convert amenities array to comma-separated string for backend
+            // FIX: Properly handle amenities array - ensure it's always an array
             let amenitiesValue = allValues.amenities;
-            if (Array.isArray(amenitiesValue)) {
-                amenitiesValue = amenitiesValue.join(', ');
-            } else if (!amenitiesValue) {
-                amenitiesValue = '';
+            console.log('Raw amenities value:', amenitiesValue);
+            console.log('Type of amenities:', typeof amenitiesValue);
+
+            // Ensure amenities is always an array
+            if (!amenitiesValue) {
+                amenitiesValue = [];
+            } else if (typeof amenitiesValue === 'string') {
+                // If it's a string, try to parse it as JSON or split by comma
+                try {
+                    amenitiesValue = JSON.parse(amenitiesValue);
+                } catch (e) {
+                    amenitiesValue = amenitiesValue.split(',').map(item => item.trim()).filter(item => item);
+                }
+            } else if (!Array.isArray(amenitiesValue)) {
+                amenitiesValue = [amenitiesValue];
             }
+
+            // Final cleanup of amenities array
+            amenitiesValue = amenitiesValue
+                .map(amenity => String(amenity).trim())
+                .filter(amenity => amenity !== '');
+
+            console.log('Processed amenities:', amenitiesValue);
 
             // Format the property data for API
             const propertyData = {
@@ -806,13 +831,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 areaSqm: parseInt(allValues.areaSqm) || 0,
                 propertyAge: parseInt(allValues.propertyAge) || 0,
                 propertyFloor: parseInt(allValues.propertyFloor) || 1,
-                amenities: amenitiesValue,
-                ownerId: allValues.ownerId ? parseInt(allValues.ownerId) : null,
-                agentId: allValues.agentId ? parseInt(allValues.agentId) : null,
+                amenities: amenitiesValue, // Now properly formatted as array
+                // REMOVED: ownerId and agentId assignment
             };
 
             console.log('Submitting property data:', propertyData);
-            console.log('Amenities value:', amenitiesValue);
+            console.log('Amenities value (final):', amenitiesValue);
             console.log('Image files to upload:', imageFiles.length);
             console.log('Video files to upload:', videoFiles.length);
 
@@ -852,6 +876,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     price: propertyData.price,
                     address: `${propertyData.address}, ${propertyData.city}, ${propertyData.state}, ${propertyData.zipCode}, ${propertyData.country}`,
                     status: propertyData.status,
+                    amenities: amenitiesValue, // Include amenities in success display
                     referenceId: propertyResult.id || `PROP-${Date.now()}`
                 });
 
@@ -1005,6 +1030,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         );
     };
 
+    // UPDATED: Steps without Assignment step
     const steps = [
         {
             title: 'Basic Info',
@@ -1298,27 +1324,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     </Card>
                 </Card>
             )
-        },
-        {
-            title: 'Assignment',
-            content: (
-                <Card title="Assignment" size="small">
-                    <Row gutter={[16, 0]}>
-                        <Col span={12}>
-                            <Form.Item label="Assigned Agent" name="agentId">
-                                <Select placeholder="Select agent" allowClear>
-                                    {agents.map(agent => (
-                                        <Option key={agent.id} value={agent.id}>
-                                            {agent.firstName} {agent.lastName}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                </Card>
-            )
         }
+        // REMOVED: Assignment step
     ];
 
     return (
@@ -1348,11 +1355,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     {progressVisible && (
                         <div style={{ marginBottom: 16 }}>
                             <Space direction="vertical" style={{ width: '100%' }}>
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    marginBottom: 8 
+                                    marginBottom: 8
                                 }}>
                                     <span style={{ fontWeight: 500, color: '#1890ff' }}>
                                         {currentAction}
@@ -1361,8 +1368,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         {progress}%
                                     </span>
                                 </div>
-                                <Progress 
-                                    percent={progress} 
+                                <Progress
+                                    percent={progress}
                                     status="active"
                                     strokeColor={{
                                         '0%': '#108ee9',
@@ -1472,6 +1479,27 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     <Text type="success" strong>
                                         {getStatusDisplayName(submittedData?.status)}
                                     </Text>
+                                </Descriptions.Item>
+                                {/* Add amenities display */}
+                                <Descriptions.Item label="Amenities">
+                                    <div>
+                                        {submittedData?.amenities && submittedData.amenities.length > 0 ? (
+                                            <Space wrap>
+                                                {submittedData.amenities.slice(0, 3).map((amenity, index) => (
+                                                    <Tag key={index} size="small" color="blue">
+                                                        {amenity}
+                                                    </Tag>
+                                                ))}
+                                                {submittedData.amenities.length > 3 && (
+                                                    <Tag size="small">
+                                                        +{submittedData.amenities.length - 3} more
+                                                    </Tag>
+                                                )}
+                                            </Space>
+                                        ) : (
+                                            <Text type="secondary">No amenities selected</Text>
+                                        )}
+                                    </div>
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Reference ID">
                                     <Text type="secondary">{submittedData?.referenceId}</Text>

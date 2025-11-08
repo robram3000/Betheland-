@@ -23,15 +23,69 @@ const baseChatService = {
         }
     },
 
+    async getClientChats(clientId) {
+        console.log('Fetching client chats:', clientId);
+        try {
+            const response = await api.get(`/chats/client/${clientId}`);
+            console.log('Client chats response:', response);
+
+            if (response.data && response.data.success) {
+                const data = response.data.data || response.data;
+                if (Array.isArray(data)) {
+                    return data.map(chat => ApiMapper.mapChat(chat));
+                }
+            }
+
+            console.error('Unexpected response format:', response);
+            throw new Error('Invalid response format from server');
+        } catch (error) {
+            console.error('Error fetching client chats:', error);
+            throw error;
+        }
+    },
+
+    async getAgentChats(agentId) {
+        console.log('Fetching agent chats:', agentId);
+        try {
+            const response = await api.get(`/chats/agent/${agentId}`);
+            console.log('Agent chats response:', response);
+
+            if (response.data && response.data.success) {
+                const data = response.data.data || response.data;
+                if (Array.isArray(data)) {
+                    return data.map(chat => ApiMapper.mapChat(chat));
+                }
+            }
+
+            console.error('Unexpected response format:', response);
+            throw new Error('Invalid response format from server');
+        } catch (error) {
+            console.error('Error fetching agent chats:', error);
+            throw error;
+        }
+    },
+
     async getChat(id) {
         console.log('Fetching chat:', id);
         try {
             const response = await api.get(`/chats/${id}`);
             console.log('Chat response:', response);
 
-            if (response.data && response.data.success) {
-                const data = response.data.data || response.data;
-                return ApiMapper.mapChat(data);
+            if (response.data) {
+                // Handle both success flag and direct data
+                const data = response.data.success ? response.data.data : response.data;
+                if (data) {
+                    const mappedChat = ApiMapper.mapChat(data);
+
+                    // Ensure participants and messages are properly set
+                    if (!mappedChat.participants) mappedChat.participants = [];
+                    if (!mappedChat.messages) mappedChat.messages = [];
+
+                    console.log('Mapped chat with participants:', mappedChat.participants.length);
+                    console.log('Mapped chat with messages:', mappedChat.messages.length);
+
+                    return mappedChat;
+                }
             }
 
             throw new Error('Chat not found or invalid response format');
@@ -204,12 +258,27 @@ const baseChatService = {
             const response = await api.post('/messages', createRequest);
             console.log('Send message response:', response);
 
-            if (response.data && response.data.success) {
-                const data = response.data.data || response.data;
-                return ApiMapper.mapMessage(data);
+            // FIX: Better response handling for different response structures
+            if (response.data) {
+                // Case 1: Standard success response {success: true, data: {...}}
+                if (response.data.success === true) {
+                    const data = response.data.data || response.data;
+                    return ApiMapper.mapMessage(data);
+                }
+                // Case 2: Direct data response (already the message object)
+                else if (response.data.id || response.data.messageNo) {
+                    return ApiMapper.mapMessage(response.data);
+                }
+                // Case 3: Response with data property but no success flag
+                else if (response.data.data && (response.data.data.id || response.data.data.messageNo)) {
+                    return ApiMapper.mapMessage(response.data.data);
+                }
             }
 
-            throw new Error(response.data?.message || 'Failed to send message');
+            console.warn('Unexpected response format, but proceeding with raw data:', response);
+            // If we get here, try to map whatever data we have
+            return ApiMapper.mapMessage(response.data);
+
         } catch (error) {
             console.error('Error sending message:', error);
             throw error;

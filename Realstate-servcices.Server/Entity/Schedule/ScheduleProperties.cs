@@ -18,27 +18,26 @@ namespace Realstate_servcices.Server.Entity.Schedule
         public int PropertyId { get; set; }
 
         [Required]
-        public int AgentId { get; set; }
+        public int AgentId { get; set; } // This should match Agent.BaseMemberId type
 
         [Required]
-        public int ClientId { get; set; }
+        public int ClientId { get; set; } // This should match Client.BaseMemberId type
 
         [Required]
         public DateTime ScheduleTime { get; set; }
 
         [Required]
-        public DateTime ScheduleEndTime { get; set; } // Calculated end time
+        public DateTime ScheduleEndTime { get; set; }
 
         [Required]
         [MaxLength(20)]
-        public string Status { get; set; } = "Scheduled"; // "Scheduled", "Confirmed", "Completed", "Cancelled", "NoShow"
+        public string Status { get; set; } = "Scheduled";
 
         [MaxLength(500)]
         public string? Notes { get; set; }
 
-        // Meeting details
         [MaxLength(50)]
-        public string MeetingType { get; set; } = "InPerson"; // "InPerson", "Virtual", "Phone"
+        public string MeetingType { get; set; } = "InPerson";
 
         [MaxLength(255)]
         public string? MeetingLocation { get; set; }
@@ -46,7 +45,6 @@ namespace Realstate_servcices.Server.Entity.Schedule
         [MaxLength(500)]
         public string? VirtualMeetingLink { get; set; }
 
-        // Cancellation tracking
         public DateTime? CancelledAt { get; set; }
 
         [MaxLength(100)]
@@ -65,9 +63,11 @@ namespace Realstate_servcices.Server.Entity.Schedule
         public virtual PropertyHouse Property { get; set; } = null!;
 
         [ForeignKey("AgentId")]
+      
         public virtual Agent Agent { get; set; } = null!;
 
         [ForeignKey("ClientId")]
+     
         public virtual Client Client { get; set; } = null!;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
 
@@ -77,13 +78,32 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
         }
 
+        // AgentScheduleConfigController.cs - Update the CreateConfig method
         [HttpPost]
-        public async Task<ActionResult<AgentScheduleConfig>> CreateConfig(AgentScheduleConfig config)
+        public async Task<ActionResult<AgentScheduleConfig>> CreateConfig(AgentScheduleConfigDto configDto)
         {
             try
             {
+                // Map DTO to entity with proper TimeSpan conversion
+                var config = new AgentScheduleConfig
+                {
+                    AgentId = configDto.AgentId,
+                    SlotDurationMinutes = configDto.SlotDurationMinutes,
+                    BufferTimeMinutes = configDto.BufferTimeMinutes,
+                    MaxSchedulesPerDay = configDto.MaxSchedulesPerDay,
+                    WorkDayStart = TimeSpan.Parse(configDto.WorkDayStart), // Convert string to TimeSpan
+                    WorkDayEnd = TimeSpan.Parse(configDto.WorkDayEnd),     // Convert string to TimeSpan
+                    AllowWeekendScheduling = configDto.AllowWeekendScheduling,
+                    AdvanceBookingDays = configDto.AdvanceBookingDays,
+                    CreatedAt = DateTime.UtcNow
+                };
+
                 var createdConfig = await _configService.CreateConfigAsync(config);
                 return CreatedAtAction(nameof(GetConfigById), new { id = createdConfig.Id }, createdConfig);
+            }
+            catch (FormatException ex)
+            {
+                return BadRequest($"Invalid time format: {ex.Message}");
             }
             catch (InvalidOperationException ex)
             {
@@ -94,17 +114,36 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
+        // AgentScheduleConfigController.cs - Update the UpdateConfig method
         [HttpPut("{id}")]
-        public async Task<ActionResult<AgentScheduleConfig>> UpdateConfig(int id, AgentScheduleConfig config)
+        public async Task<ActionResult<AgentScheduleConfig>> UpdateConfig(int id, AgentScheduleConfigDto configDto)
         {
             try
             {
-                if (id != config.Id)
+                if (id != configDto.Id)
                     return BadRequest("ID mismatch");
 
-                var updatedConfig = await _configService.UpdateConfigAsync(config);
+                // Get existing config
+                var existingConfig = await _configService.GetConfigByIdAsync(id);
+                if (existingConfig == null)
+                    return NotFound($"Configuration with ID {id} not found.");
+
+                // Update properties with TimeSpan conversion
+                existingConfig.SlotDurationMinutes = configDto.SlotDurationMinutes;
+                existingConfig.BufferTimeMinutes = configDto.BufferTimeMinutes;
+                existingConfig.MaxSchedulesPerDay = configDto.MaxSchedulesPerDay;
+                existingConfig.WorkDayStart = TimeSpan.Parse(configDto.WorkDayStart); // Convert
+                existingConfig.WorkDayEnd = TimeSpan.Parse(configDto.WorkDayEnd);     // Convert
+                existingConfig.AllowWeekendScheduling = configDto.AllowWeekendScheduling;
+                existingConfig.AdvanceBookingDays = configDto.AdvanceBookingDays;
+                existingConfig.UpdatedAt = DateTime.UtcNow;
+
+                var updatedConfig = await _configService.UpdateConfigAsync(existingConfig);
                 return Ok(updatedConfig);
+            }
+            catch (FormatException ex)
+            {
+                return BadRequest($"Invalid time format: {ex.Message}");
             }
             catch (KeyNotFoundException ex)
             {
@@ -149,13 +188,28 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet("agent/{agentId}/available-slots")]
-        public async Task<ActionResult<IEnumerable<TimeSpan>>> GetAvailableTimeSlots(
+        public async Task<ActionResult<IEnumerable<string>>> GetAvailableTimeSlots(
             int agentId, [FromQuery] DateTime date)
         {
             try
             {
                 var timeSlots = await _configService.GetAvailableTimeSlotsAsync(agentId, date);
-                return Ok(timeSlots);
+                var slotStrings = timeSlots.Select(ts => ts.ToString(@"hh\:mm"));
+                return Ok(slotStrings);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPost("agent/{agentId}/default-hours")]
+        public async Task<ActionResult<AgentScheduleConfig>> SetDefaultWorkingHours(int agentId)
+        {
+            try
+            {
+                var config = await _configService.GetOrCreateDefaultConfigAsync(agentId);
+                return Ok(config);
             }
             catch (Exception ex)
             {
