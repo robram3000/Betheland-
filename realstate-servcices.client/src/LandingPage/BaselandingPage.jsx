@@ -15,16 +15,17 @@ const BaseLandingPage = () => {
     return (
         <Layout style={{ minHeight: '100vh' }}>
             <GlobalNavigation />
-
+            <RunningLetter />
             <Content style={{ background: '#f8f9fa' }}>
                 <FirstSection />
-                <RunningLetter />
-                <FeaturedProperties />
-                <AgentsSection />
-                <SecondSection />
+          
               
+                <AgentsSection />
+                <PartnershipSection /> 
+                <SecondSection />
+  
                 <ThirdSection />
-                <PartnershipSection /> {/* Add this line */}
+     
             </Content>
             <Footer />
         </Layout>

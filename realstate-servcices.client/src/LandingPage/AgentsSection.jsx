@@ -67,7 +67,7 @@ const AgentsSection = () => {
 
     return (
         <section style={{
-            padding: '100px 24px',
+            padding: '40px 24px',
             background: 'linear-gradient(135deg, #f5f7fa 0%, #e6e9f0 100%)' // Lighter gradient to match
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>

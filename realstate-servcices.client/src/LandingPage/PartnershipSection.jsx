@@ -52,8 +52,8 @@ const PartnershipSection = () => {
 
     return (
         <section style={{
-            padding: '80px 24px',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            padding: '20px 10px',
+            backgroundColor: '#ffffff',
             overflow: 'hidden'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -85,7 +85,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(90deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 
@@ -96,7 +96,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(270deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(270deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 
@@ -159,7 +159,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(90deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 
@@ -170,7 +170,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(270deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(270deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 
@@ -232,7 +232,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(90deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 
@@ -243,7 +243,7 @@ const PartnershipSection = () => {
                         top: 0,
                         bottom: 0,
                         width: '100px',
-                        background: 'linear-gradient(270deg, rgba(248,249,250,1) 0%, rgba(248,249,250,0) 100%)',
+                        background: 'linear-gradient(270deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
                         zIndex: 2
                     }} />
 

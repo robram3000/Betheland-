@@ -69,7 +69,7 @@ const ThirdSection = ({
 
     return (
         <section style={{
-            padding: '100px 24px',
+            padding: '40px 24px',
             background: 'white'
         }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>

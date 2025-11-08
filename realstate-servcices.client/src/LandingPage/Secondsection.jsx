@@ -36,7 +36,7 @@ const SecondSection = () => {
     return (
         <section
             style={{
-                padding: '100px 24px',
+                padding: '40px 24px',
                 position: 'relative',
                 overflow: 'hidden'
             }}
