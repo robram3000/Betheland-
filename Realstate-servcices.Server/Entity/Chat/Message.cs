@@ -1,6 +1,7 @@
 ﻿using Realstate_servcices.Server.Entity.Member;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Realstate_servcices.Server.Entity.Chat
 {
     public class Message
@@ -17,6 +18,9 @@ namespace Realstate_servcices.Server.Entity.Chat
 
         [Required]
         public int SenderId { get; set; }
+
+        [Required]
+        public int RecipientId { get; set; }
 
         [MaxLength(2000)]
         public string? Content { get; set; }
@@ -41,6 +45,7 @@ namespace Realstate_servcices.Server.Entity.Chat
 
         [ForeignKey("SenderId")]
         public virtual BaseMember Sender { get; set; } = null!;
+
 
         public virtual ICollection<MessageFile> MessageFiles { get; set; } = new List<MessageFile>();
         public virtual ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();

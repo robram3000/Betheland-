@@ -49,7 +49,7 @@ import { useNavigate } from 'react-router-dom';
 import BaseTable from './BaseTable';
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
-import authService from '../../Services/LoginAuth'; // Import auth service
+import authService from '../../Services/LoginAuth';
 import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '../../AdminPortal/Creation_Property/processImageUrl';
 
 const { Search } = Input;
@@ -75,14 +75,59 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [propertiesCount, setPropertiesCount] = useState(0);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [cardTitle, setCardTitle] = useState(null);
 
-    // Get current user on component mount
-    useEffect(() => {
-        const user = authService.getCurrentUser();
-        setCurrentUser(user);
-        console.log('Current user:', user);
-    }, []);
+    // Get current user and agent data directly when needed
+    const getCurrentUserAndAgent = async () => {
+        try {
+            const user = authService.getCurrentUser();
+            console.log('Current user:', user);
+
+            if (!user || !user.userId) {
+                console.log('No user logged in');
+                return { user: null, agent: null };
+            }
+
+            const agentData = await agentService.getAgentByBaseMemberId(user.userId);
+            return {
+                user: user,
+                agent: agentData
+            };
+        } catch (error) {
+            console.error('Error getting current user and agent:', error);
+            return { user: null, agent: null };
+        }
+    };
+
+    // Define handleSearch function early to avoid reference errors
+    const handleSearch = (value) => {
+        setSearchText(value);
+    };
+
+    // Define all handler functions at the top
+    const handleStatusFilter = (value) => {
+        setStatusFilter(value);
+    };
+
+    const handleTypeFilter = (value) => {
+        setTypeFilter(value);
+    };
+
+    const handlePriceRangeFilter = (value) => {
+        setPriceRangeFilter(value);
+    };
+
+    const handleBedroomsFilter = (value) => {
+        setBedroomsFilter(value);
+    };
+
+    const handleBathroomsFilter = (value) => {
+        setBathroomsFilter(value);
+    };
+
+    const handleCityFilter = (value) => {
+        setCityFilter(value);
+    };
 
     // Notify parent component when filters change
     useEffect(() => {
@@ -157,55 +202,72 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
     }, [agentsCache]);
 
-    // Enhanced property loader - filter by current user if they're an agent
+    // Enhanced property loader - get user/agent data directly when loading properties
     const loadProperties = useCallback(async () => {
         setLoading(true);
         try {
             console.log('Loading properties...');
-            const user = authService.getCurrentUser();
-            setCurrentUser(user);
 
-            let data;
+            // Get current user and agent data directly in the load function
+            const { user, agent } = await getCurrentUserAndAgent();
+            let data = [];
 
             // If user is an agent, only load their properties
             if (user && user.userType && user.userType.toLowerCase() === 'agent') {
-                console.log('User is agent, loading only their properties. User ID:', user.userId);
-                data = await propertyService.getPropertiesByAgent(user.userId);
+                console.log('User is agent, loading only their properties');
+
+                if (agent && agent.id) {
+                    console.log('Getting properties for agent ID:', agent.id);
+                    data = await propertyService.getPropertiesByAgent(agent.id);
+                    console.log('Properties by agent response:', data);
+
+                    if (data && Array.isArray(data)) {
+                        console.log(`✅ Found ${data.length} properties for agent ${agent.id}`);
+
+                        // More flexible filtering - check multiple possible agent ID fields
+                        const agentProperties = data.filter(property => {
+                            const propertyAgentId = property.agentId || property.agent?.id || property.agentId;
+                            const isAgentProperty = propertyAgentId === parseInt(agent.id) ||
+                                propertyAgentId === agent.id;
+
+                            console.log(`Property ${property.id} - agent ID: ${propertyAgentId}, Expected: ${agent.id}, Match: ${isAgentProperty}`);
+                            return isAgentProperty;
+                        });
+
+                        if (agentProperties.length !== data.length) {
+                            console.warn(`⚠️ Filtered out ${data.length - agentProperties.length} properties that don't belong to agent ${agent.id}`);
+                            data = agentProperties;
+                        }
+                    } else {
+                        console.log('❌ No properties found for agent or unexpected response structure');
+                        data = [];
+                    }
+                } else {
+                    console.error('❌ No agent ID found in agent data');
+                    message.warning('Unable to find your agent profile. Please contact administrator.');
+                    data = [];
+                }
             } else {
                 // For admin or other users, load all properties
                 console.log('User is not agent, loading all properties');
                 data = await propertyService.getAllProperties();
             }
 
-            console.log('Raw properties data:', data);
+            console.log('Final properties data:', data);
+            setProperties(data || []);
+            setPropertiesCount(data?.length || 0);
 
-            if (data && data.length > 0) {
-                // Process properties with agent data
-                const processedProperties = await Promise.all(
-                    data.map(async (property) => {
-                        let agentData = property.agent;
-
-                        // If no agent data but we have agentId, load it
-                        if (!agentData && property.agentId) {
-                            console.log(`Loading agent for property ${property.id}, agentId: ${property.agentId}`);
-                            agentData = await loadAgentData(property.agentId);
-                        }
-
-                        return {
-                            ...property,
-                            agent: agentData
-                        };
-                    })
-                );
-
-                console.log('Final processed properties:', processedProperties);
-                setProperties(processedProperties);
-                setPropertiesCount(processedProperties.length);
-            } else {
-                console.log('No properties found');
-                setProperties([]);
-                setPropertiesCount(0);
+            // Load agent data for each property that has an agent
+            if (data && Array.isArray(data)) {
+                const agentPromises = data.map(async (property) => {
+                    const agentId = property.agentId || property.agent?.id;
+                    if (agentId) {
+                        await loadAgentData(agentId);
+                    }
+                });
+                await Promise.all(agentPromises);
             }
+
         } catch (error) {
             console.error('Error loading properties:', error);
             message.error('Failed to load properties: ' + (error.message || 'Unknown error'));
@@ -220,44 +282,16 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         loadProperties();
     }, [loadProperties]);
 
-    const handleSearch = (value) => {
-        setSearchText(value);
-    };
-
-    const handleStatusFilter = (value) => {
-        setStatusFilter(value);
-    };
-
-    const handleTypeFilter = (value) => {
-        setTypeFilter(value);
-    };
-
-    const handlePriceRangeFilter = (value) => {
-        setPriceRangeFilter(value);
-    };
-
-    const handleBedroomsFilter = (value) => {
-        setBedroomsFilter(value);
-    };
-
-    const handleBathroomsFilter = (value) => {
-        setBathroomsFilter(value);
-    };
-
-    const handleCityFilter = (value) => {
-        setCityFilter(value);
-    };
-
-    // Handle Add New Property navigation
-    const handleAddProperty = () => {
-        const user = currentUser || authService.getCurrentUser();
+    // Handle Add New Property navigation - get user data directly when needed
+    const handleAddProperty = async () => {
+        const { user, agent } = await getCurrentUserAndAgent();
 
         if (user && user.userType && user.userType.toLowerCase() === 'agent') {
             // For agents, navigate to create property with their ID pre-filled
             navigate('/admin/properties/create', {
                 state: {
                     autoAssignAgent: true,
-                    agentId: user.userId
+                    agentId: agent?.id || user.userId
                 }
             });
         } else {
@@ -278,6 +312,72 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             .filter(city => city && city.trim() !== '');
         return [...new Set(cities)].sort();
     };
+
+    // Get card title - fetch user data directly when needed
+    const getCardTitleComponent = async () => {
+        const { user } = await getCurrentUserAndAgent();
+
+        if (user && user.userType && user.userType.toLowerCase() === 'agent') {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                        My Properties
+                        {propertiesCount > 0 && (
+                            <span style={{
+                                marginLeft: '8px',
+                                fontSize: '14px',
+                                color: '#666',
+                                fontWeight: 'normal'
+                            }}>
+                                ({propertiesCount} properties)
+                            </span>
+                        )}
+                    </span>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleAddProperty}
+                    >
+                        Add New Property
+                    </Button>
+                </div>
+            );
+        } else {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                        Properties Management
+                        {propertiesCount > 0 && (
+                            <span style={{
+                                marginLeft: '8px',
+                                fontSize: '14px',
+                                color: '#666',
+                                fontWeight: 'normal'
+                            }}>
+                                ({propertiesCount} properties)
+                            </span>
+                        )}
+                    </span>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleAddProperty}
+                    >
+                        Add New Property
+                    </Button>
+                </div>
+            );
+        }
+    };
+
+    // Load card title on component mount and when properties count changes
+    useEffect(() => {
+        const loadCardTitle = async () => {
+            const title = await getCardTitleComponent();
+            setCardTitle(title);
+        };
+        loadCardTitle();
+    }, [propertiesCount]);
 
     const filteredProperties = properties.filter(property => {
         const matchesSearch = property.title?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -386,8 +486,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     const handleExportPDF = () => {
         message.info('PDF export functionality would be implemented here');
-        // In a real implementation, you would use a library like jsPDF or html2pdf
-        // This is a placeholder for the PDF export functionality
     };
 
     const handleExportExcel = () => {
@@ -451,7 +549,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
                     // Remove from state immediately
                     setProperties(prev => prev.filter(prop => prop.id !== propertyId));
-                    setPropertiesCount(prev => prev - 1); // Decrement count
+                    setPropertiesCount(prev => prev - 1);
 
                     // Notify parent of update
                     if (onPropertiesUpdate) {
@@ -555,15 +653,19 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
     };
 
-    // Render amenities with dropdown for more than 3 items
+    // Fixed amenities parsing function
     const renderAmenities = (amenities) => {
-        // Parse amenities if it's a JSON string, otherwise ensure it's an array
         let amenitiesArray = [];
 
         try {
             if (typeof amenities === 'string') {
-                // Try to parse as JSON
-                amenitiesArray = JSON.parse(amenities);
+                // Try to parse as JSON first
+                try {
+                    amenitiesArray = JSON.parse(amenities);
+                } catch (e) {
+                    // If JSON parsing fails, try comma separation
+                    amenitiesArray = amenities.split(',').map(item => item.trim()).filter(item => item);
+                }
             } else if (Array.isArray(amenities)) {
                 // Already an array
                 amenitiesArray = amenities;
@@ -614,6 +716,31 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         );
 
         return content;
+    };
+
+    // Safe image URL processing function
+    const safeProcessImageUrl = (url) => {
+        try {
+            if (!url) {
+                return '/default-property.jpg';
+            }
+
+            // If it's already a processed URL or full URL, return as is
+            if (typeof url === 'string' && (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:'))) {
+                return url;
+            }
+
+            // If it's not a string, return default
+            if (typeof url !== 'string') {
+                return '/default-property.jpg';
+            }
+
+            // Use the existing processImageUrl function for string URLs
+            return processImageUrl(url);
+        } catch (error) {
+            console.error('Error processing image URL:', error);
+            return '/default-property.jpg';
+        }
     };
 
     // Render media preview
@@ -727,7 +854,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         <Space>
                             <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
                                 <Avatar
-                                    src={imageUrl}
+                                    src={safeProcessImageUrl(imageUrl)}
                                     shape="square"
                                     style={{
                                         backgroundColor: '#1a365d',
@@ -736,7 +863,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                         objectFit: 'cover'
                                     }}
                                     onError={(e) => {
-                                        e.target.src = processImageUrl('/default-property.jpg');
+                                        e.target.src = '/default-property.jpg';
                                     }}
                                 >
                                     {text?.[0]?.toUpperCase()}
@@ -882,55 +1009,10 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         },
     ];
 
-    // Update the card title to show user-specific information
-    const getCardTitle = () => {
-        const user = currentUser || authService.getCurrentUser();
-
-        if (user && user.userType && user.userType.toLowerCase() === 'agent') {
-            return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
-                        My Properties
-                        {propertiesCount > 0 && (
-                            <span style={{
-                                marginLeft: '8px',
-                                fontSize: '14px',
-                                color: '#666',
-                                fontWeight: 'normal'
-                            }}>
-                                ({propertiesCount} properties)
-                            </span>
-                        )}
-                    </span>
-                
-                </div>
-            );
-        } else {
-            return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
-                        Properties Management
-                        {propertiesCount > 0 && (
-                            <span style={{
-                                marginLeft: '8px',
-                                fontSize: '14px',
-                                color: '#666',
-                                fontWeight: 'normal'
-                            }}>
-                                ({propertiesCount} properties)
-                            </span>
-                        )}
-                    </span>
-          
-                </div>
-            );
-        }
-    };
-
     return (
         <div>
             <Card
-                title={getCardTitle()}
+                title={cardTitle}
             >
                 <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <Space wrap>
@@ -1142,8 +1224,8 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                     <Image
                                         width="100%"
                                         style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                        src={processImageUrl(getAllMedia(selectedProperty)[currentMediaIndex])}
-                                        fallback={processImageUrl('/default-property.jpg')}
+                                        src={safeProcessImageUrl(getAllMedia(selectedProperty)[currentMediaIndex])}
+                                        fallback={'/default-property.jpg'}
                                         alt={`Media ${currentMediaIndex + 1}`}
                                     />
                                 </div>
@@ -1184,8 +1266,8 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                                         width="100%"
                                                         height={80}
                                                         style={{ objectFit: 'cover' }}
-                                                        src={processImageUrl(media)}
-                                                        fallback={processImageUrl('/default-property.jpg')}
+                                                        src={safeProcessImageUrl(media)}
+                                                        fallback={'/default-property.jpg'}
                                                         preview={false}
                                                         alt={`Thumbnail ${index + 1}`}
                                                     />

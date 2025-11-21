@@ -1,6 +1,6 @@
-// utils/imageUtils.js
+﻿// utils/imageUtils.js
 export const processImageUrl = (url) => {
-    if (!url) return '/default-property.jpg';
+    if (!url || url.trim() === '') return '/default-property.jpg';
 
     // If it's already a full URL, return as is
     if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
@@ -11,21 +11,92 @@ export const processImageUrl = (url) => {
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isDevelopment ? 'https://localhost:7080' : 'http://betheland.runasp.net';
 
-    // Handle relative paths
+    // Handle absolute paths starting with /uploads/
     if (url.startsWith('/uploads/')) {
         return `${baseUrl}${url}`;
     }
 
-    // Handle paths without leading slash
+    // Handle relative paths starting with uploads/
     if (url.startsWith('uploads/')) {
         return `${baseUrl}/${url}`;
     }
 
-    // Handle specific property image paths
-    if (url.includes('.') && !url.startsWith('/')) {
+    // Handle any path that contains a file extension (image file)
+    if (url.includes('.') && (url.includes('/') || url.startsWith('/'))) {
+        // If it already starts with /, use as is, otherwise add /uploads/properties/
+        if (url.startsWith('/')) {
+            return `${baseUrl}${url}`;
+        } else {
+            return `${baseUrl}/uploads/properties/${url}`;
+        }
+    }
+
+    // Final fallback for any unrecognized format that looks like a filename
+    if (url.includes('.')) {
         return `${baseUrl}/uploads/properties/${url}`;
     }
 
+    return '/default-property.jpg';
+};
+
+// Enhanced version with better debugging
+export const processImageUrlWithDebug = (url) => {
+    console.log('🖼️ Processing image URL:', url);
+
+    if (!url || url.trim() === '') {
+        console.log('🖼️ URL is empty, using default');
+        return '/default-property.jpg';
+    }
+
+    // If it's already a full URL, return as is
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        console.log('🖼️ Already full URL:', url);
+        return url;
+    }
+
+    // Determine base URL based on environment
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isDevelopment ? 'https://localhost:7080' : 'http://betheland.runasp.net';
+    console.log('🖼️ Using base URL:', baseUrl);
+
+    // Handle absolute paths starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+        const fullUrl = `${baseUrl}${url}`;
+        console.log('🖼️ Absolute uploads path ->', fullUrl);
+        return fullUrl;
+    }
+
+    // Handle relative paths starting with uploads/
+    if (url.startsWith('uploads/')) {
+        const fullUrl = `${baseUrl}/${url}`;
+        console.log('🖼️ Relative uploads path ->', fullUrl);
+        return fullUrl;
+    }
+
+    // Handle paths that look like they're in the properties directory
+    if (url.includes('/') || url.includes('.')) {
+        // If it starts with /, it's an absolute path
+        if (url.startsWith('/')) {
+            const fullUrl = `${baseUrl}${url}`;
+            console.log('🖼️ Absolute path ->', fullUrl);
+            return fullUrl;
+        }
+        // If it contains properties/ or looks like a property image
+        else if (url.includes('properties/') || url.match(/[a-f0-9-]+\.(png|jpg|jpeg|gif|webp)/i)) {
+            const fullUrl = `${baseUrl}/uploads/properties/${url}`;
+            console.log('🖼️ Property image path ->', fullUrl);
+            return fullUrl;
+        }
+    }
+
+    // Final attempt - assume it's a property image
+    if (url.includes('.')) {
+        const fullUrl = `${baseUrl}/uploads/properties/${url}`;
+        console.log('🖼️ Fallback property path ->', fullUrl);
+        return fullUrl;
+    }
+
+    console.log('🖼️ No match, using default image');
     return '/default-property.jpg';
 };
 

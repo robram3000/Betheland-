@@ -1,5 +1,4 @@
 ﻿using Realstate_servcices.Server.Dto.ConfigLandingpage;
-
 using Realstate_servcices.Server.Entity.landingpage;
 using Realstate_servcices.Server.Entity.landingpage.Third_Section;
 using Realstate_servcices.Server.Repository.ContentLandingPage;
@@ -15,22 +14,49 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
     public class ThirdSectionServices : IThirdSectionServices
     {
         private readonly IThirdSectionRepository _thirdSectionRepository;
+        private readonly ILogger<ThirdSectionServices> _logger;
 
-        public ThirdSectionServices(IThirdSectionRepository thirdSectionRepository)
+        public ThirdSectionServices(IThirdSectionRepository thirdSectionRepository, ILogger<ThirdSectionServices> logger)
         {
             _thirdSectionRepository = thirdSectionRepository;
+            _logger = logger;
         }
 
         public async Task<ThirdSectionDTO> GetThirdSectionAsync()
         {
             try
             {
+                _logger.LogInformation("🔍 ThirdSectionServices: Getting third section data from repository");
+
                 var thirdSection = await _thirdSectionRepository.GetThirdSectionAsync();
+
+                // Return empty DTO instead of null when no data exists
+                if (thirdSection == null)
+                {
+                    _logger.LogInformation("ℹ️ ThirdSectionServices: No existing data found, returning empty DTO");
+                    return new ThirdSectionDTO
+                    {
+                        Id = 0,
+                        Title = string.Empty,
+                        Subtitle = string.Empty,
+                        Description = string.Empty,
+                        ProcessSteps = new List<ProcessStepDTO>(),
+                        FeatureItems = new List<FeatureItemDTO>()
+                    };
+                }
+
+                _logger.LogInformation("✅ ThirdSectionServices: Successfully retrieved data from repository - " +
+                    "ID: {Id}, Title: {Title}, ProcessSteps: {ProcessStepsCount}, FeatureItems: {FeatureItemsCount}",
+                    thirdSection.Id,
+                    thirdSection.Title,
+                    thirdSection.ProcessSteps?.Count ?? 0,
+                    thirdSection.FeatureItems?.Count ?? 0);
+
                 return MapToDTO(thirdSection);
             }
             catch (Exception ex)
             {
-                // Log error here
+                _logger.LogError(ex, "❌ ThirdSectionServices: Error getting third section from repository");
                 throw new Exception($"Error getting third section: {ex.Message}");
             }
         }
@@ -39,10 +65,14 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
         {
             try
             {
+                _logger.LogInformation("🔍 ThirdSectionServices: Starting update process for third section");
+
                 var existingSection = await _thirdSectionRepository.GetThirdSectionAsync();
 
                 if (existingSection == null)
                 {
+                    _logger.LogInformation("🆕 ThirdSectionServices: No existing section found, creating new one");
+
                     // Create new section with proper initialization
                     var newSection = new ThirdSection
                     {
@@ -70,28 +100,53 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
                         }).ToList() ?? new List<FeatureItem>()
                     };
 
+                    _logger.LogInformation("📝 ThirdSectionServices: Creating new section with " +
+                        "{ProcessStepsCount} process steps and {FeatureItemsCount} feature items",
+                        newSection.ProcessSteps.Count,
+                        newSection.FeatureItems.Count);
+
                     var created = await _thirdSectionRepository.UpdateThirdSectionAsync(newSection);
+                    _logger.LogInformation("✅ ThirdSectionServices: Successfully created new third section with ID: {Id}", created.Id);
+
                     return MapToDTO(created);
                 }
                 else
                 {
+                    _logger.LogInformation("📝 ThirdSectionServices: Updating existing section ID: {Id}", existingSection.Id);
+
                     // Update existing section
                     var updatedSection = MapToEntity(thirdSectionDto, existingSection);
                     var result = await _thirdSectionRepository.UpdateThirdSectionAsync(updatedSection);
+
+                    _logger.LogInformation("✅ ThirdSectionServices: Successfully updated third section ID: {Id}", result.Id);
                     return MapToDTO(result);
                 }
             }
             catch (Exception ex)
             {
-                // Log error here
+                _logger.LogError(ex, "❌ ThirdSectionServices: Error updating third section");
                 throw new Exception($"Error updating third section: {ex.Message}");
             }
         }
 
         private ThirdSectionDTO MapToDTO(ThirdSection thirdSection)
         {
+            // Return empty DTO instead of null when no data exists
             if (thirdSection == null)
-                return new ThirdSectionDTO(); // Return empty DTO instead of null
+            {
+                _logger.LogWarning("⚠️ ThirdSectionServices: MapToDTO received null entity, returning empty DTO");
+                return new ThirdSectionDTO
+                {
+                    Id = 0,
+                    Title = string.Empty,
+                    Subtitle = string.Empty,
+                    Description = string.Empty,
+                    ProcessSteps = new List<ProcessStepDTO>(),
+                    FeatureItems = new List<FeatureItemDTO>()
+                };
+            }
+
+            _logger.LogDebug("🔧 ThirdSectionServices: Mapping entity to DTO - ID: {Id}", thirdSection.Id);
 
             return new ThirdSectionDTO
             {
@@ -119,6 +174,8 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
 
         private ThirdSection MapToEntity(ThirdSectionDTO dto, ThirdSection existingEntity = null)
         {
+            _logger.LogDebug("🔧 ThirdSectionServices: Mapping DTO to entity - DTO ID: {Id}", dto?.Id ?? 0);
+
             var entity = existingEntity ?? new ThirdSection();
 
             entity.Title = dto.Title ?? string.Empty;
@@ -126,33 +183,39 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
             entity.Description = dto.Description ?? string.Empty;
             entity.UpdatedAt = DateTime.UtcNow;
 
-            // Update process steps
+            // Update process steps - ensure IDs are preserved for existing items
             if (dto.ProcessSteps != null)
             {
                 entity.ProcessSteps = dto.ProcessSteps.Select(ps => new ProcessStep
                 {
-                    Id = ps.Id,
+                    Id = ps.Id, // Preserve the ID from DTO
                     StepNumber = ps.StepNumber,
                     Title = ps.Title ?? string.Empty,
                     Description = ps.Description ?? string.Empty,
                     Icon = ps.Icon ?? string.Empty,
                     ThirdSectionId = entity.Id,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedAt = ps.Id == 0 ? DateTime.UtcNow : (existingEntity?.ProcessSteps?.FirstOrDefault(p => p.Id == ps.Id)?.CreatedAt ?? DateTime.UtcNow)
                 }).ToList();
+
+                _logger.LogDebug("🔧 ThirdSectionServices: Mapped {ProcessStepsCount} process steps", entity.ProcessSteps.Count);
             }
 
-            // Update feature items
+            // Update feature items - ensure IDs are preserved for existing items
             if (dto.FeatureItems != null)
             {
                 entity.FeatureItems = dto.FeatureItems.Select(fi => new FeatureItem
                 {
-                    Id = fi.Id,
+                    Id = fi.Id, // Preserve the ID from DTO
                     Title = fi.Title ?? string.Empty,
                     Description = fi.Description ?? string.Empty,
                     Icon = fi.Icon ?? string.Empty,
                     ThirdSectionId = entity.Id,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedAt = fi.Id == 0 ? DateTime.UtcNow : (existingEntity?.FeatureItems?.FirstOrDefault(f => f.Id == fi.Id)?.CreatedAt ?? DateTime.UtcNow)
                 }).ToList();
+
+                _logger.LogDebug("🔧 ThirdSectionServices: Mapped {FeatureItemsCount} feature items", entity.FeatureItems.Count);
             }
 
             return entity;

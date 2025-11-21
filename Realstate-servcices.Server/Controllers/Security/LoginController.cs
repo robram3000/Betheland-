@@ -79,19 +79,18 @@ namespace Realstate_servcices.Server.Controllers.Security
 
                 // Generate claims with comprehensive null checks
                 var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
-            new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
-            new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
-            new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
-            new Claim("userId", baseMember.Id.ToString() ?? "")
-        };
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
+                        new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
+                        new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
+                        new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
+                        new Claim("userId", baseMember.Id.ToString() ?? "")
+                    };
 
                 var accessToken = _jwtService.GenerateAccessToken(claims);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
-                // FIXED: Proper logging
-                _logger.LogInformation("_____image url data: {ProfilePictureUrl}", baseMember.ProfilePictureUrl ?? "null");
+     
            
                 var response = new
                 {

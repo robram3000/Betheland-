@@ -58,7 +58,8 @@ export const routePermissions = {
     '/portal/super-admin/schedules': ['SuperAdmin'],
     '/portal/super-admin/config-landing-page': ['SuperAdmin'],
     '/portal/super-admin/client':['SuperAdmin'],
-
+    '/portal/super-admin/authlog': ['SuperAdmin'],
+    '/portal/super-admin/chat-monitor': ['SuperAdmin'],
     // Admin Routes
     '/portal/admin': ['SuperAdmin', 'Admin'],
     '/portal/admin/analytics': ['SuperAdmin', 'Admin'],

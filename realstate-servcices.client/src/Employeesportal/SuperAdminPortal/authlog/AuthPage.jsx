@@ -1,3 +1,4 @@
+// AuthPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
@@ -16,8 +17,7 @@ import {
     Menu,
     Row,
     Col,
-    Divider,
-    Timeline
+    Divider
 } from 'antd';
 import {
     SearchOutlined,
@@ -29,17 +29,54 @@ import {
     LockOutlined,
     UnlockOutlined,
     MoreOutlined,
-    UserOutlined,
-    SecurityScanOutlined,
-    WarningOutlined,
-    InfoCircleOutlined,
-    ClockCircleOutlined
+    SecurityScanOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
-import authService from './services/authService';
 
 const { Search } = Input;
 const { Option } = Select;
+
+const mockAuthService = {
+    getAuthEvents: () => Promise.resolve([
+        {
+            id: 1,
+            username: 'admin',
+            status: 'success',
+            type: 'login',
+            ipAddress: '192.168.1.100',
+            location: 'New York, US',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            timestamp: new Date().toISOString(),
+            additionalInfo: { method: 'password', twoFactor: true }
+        },
+        {
+            id: 2,
+            username: 'john_doe',
+            status: 'failed',
+            type: 'login',
+            ipAddress: '192.168.1.101',
+            location: 'London, UK',
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            timestamp: new Date(Date.now() - 300000).toISOString(),
+            additionalInfo: { reason: 'Invalid password', attempts: 3 }
+        }
+    ]),
+    lockUser: (username) => {
+        console.log(`Locking user: ${username}`);
+        message.success(`User ${username} locked successfully`);
+        return Promise.resolve({ success: true });
+    },
+    unlockUser: (username) => {
+        console.log(`Unlocking user: ${username}`);
+        message.success(`User ${username} unlocked successfully`);
+        return Promise.resolve({ success: true });
+    },
+    deleteAuthEvent: (eventId) => {
+        console.log(`Deleting auth event: ${eventId}`);
+        message.success('Auth event deleted successfully');
+        return Promise.resolve({ success: true });
+    }
+};
 
 const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) => {
     const [authEvents, setAuthEvents] = useState([]);
@@ -49,7 +86,6 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
     const [typeFilter, setTypeFilter] = useState('all');
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [viewModalVisible, setViewModalVisible] = useState(false);
-    const [lockModalVisible, setLockModalVisible] = useState(false);
 
     useEffect(() => {
         if (onFilterUpdate) {
@@ -60,7 +96,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
     const loadAuthEvents = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await authService.getAuthEvents();
+            const data = await mockAuthService.getAuthEvents();
             setAuthEvents(data);
         } catch (error) {
             console.error('Error loading auth events:', error);
@@ -89,8 +125,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
 
     const filteredEvents = authEvents.filter(event => {
         const matchesSearch = event.username?.toLowerCase().includes(searchText.toLowerCase()) ||
-            event.ipAddress?.toLowerCase().includes(searchText.toLowerCase()) ||
-            event.userAgent?.toLowerCase().includes(searchText.toLowerCase());
+            event.ipAddress?.toLowerCase().includes(searchText.toLowerCase());
 
         const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
         const matchesType = typeFilter === 'all' || event.type === typeFilter;
@@ -112,8 +147,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             cancelText: 'Cancel',
             onOk: async () => {
                 try {
-                    await authService.lockUser(username);
-                    message.success(`User ${username} locked successfully`);
+                    await mockAuthService.lockUser(username);
                     loadAuthEvents();
                     if (onAuthUpdate) {
                         onAuthUpdate();
@@ -128,8 +162,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
 
     const handleUnlockUser = async (username) => {
         try {
-            await authService.unlockUser(username);
-            message.success(`User ${username} unlocked successfully`);
+            await mockAuthService.unlockUser(username);
             loadAuthEvents();
             if (onAuthUpdate) {
                 onAuthUpdate();
@@ -149,8 +182,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             cancelText: 'Cancel',
             onOk: async () => {
                 try {
-                    await authService.deleteAuthEvent(eventId);
-                    message.success('Auth event deleted successfully');
+                    await mockAuthService.deleteAuthEvent(eventId);
                     setAuthEvents(prev => prev.filter(event => event.id !== eventId));
                 } catch (error) {
                     console.error('Delete error:', error);
@@ -175,8 +207,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             case 'success': return <CheckOutlined />;
             case 'failed': return <CloseOutlined />;
             case 'locked': return <LockOutlined />;
-            case 'suspicious': return <WarningOutlined />;
-            default: return <InfoCircleOutlined />;
+            default: return null;
         }
     };
 
@@ -185,48 +216,9 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             case 'login': return 'blue';
             case 'logout': return 'purple';
             case 'password_change': return 'cyan';
-            case 'permission_change': return 'gold';
             default: return 'default';
         }
     };
-
-    const renderIpInfo = (ip, location) => (
-        <Space direction="vertical" size={0}>
-            <div style={{ fontFamily: 'monospace', fontSize: '12px' }}>{ip}</div>
-            {location && (
-                <div style={{ fontSize: '11px', color: '#00d4aa' }}>{location}</div>
-            )}
-        </Space>
-    );
-
-    const renderUserAgent = (userAgent) => {
-        const shortAgent = userAgent?.length > 50 ? userAgent.substring(0, 50) + '...' : userAgent;
-        return (
-            <Tooltip title={userAgent}>
-                <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#00d4aa' }}>
-                    {shortAgent}
-                </div>
-            </Tooltip>
-        );
-    };
-
-    const actionMenu = (record) => (
-        <Menu>
-            <Menu.Item key="view" icon={<EyeOutlined />} onClick={() => handleView(record)}>
-                View Details
-            </Menu.Item>
-            <Menu.Item key="lock" icon={<LockOutlined />} onClick={() => handleLockUser(record.username)}>
-                Lock User
-            </Menu.Item>
-            <Menu.Item key="unlock" icon={<UnlockOutlined />} onClick={() => handleUnlockUser(record.username)}>
-                Unlock User
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item key="delete" icon={<DeleteOutlined />} danger onClick={() => handleDeleteEvent(record.id)}>
-                Delete Event
-            </Menu.Item>
-        </Menu>
-    );
 
     const columns = [
         {
@@ -235,18 +227,12 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             key: 'user',
             render: (username, record) => (
                 <Space>
-                    <Avatar
-                        size="small"
-                        style={{
-                            backgroundColor: record.status === 'success' ? '#00d4aa' : '#ff4d4f',
-                            fontFamily: 'monospace'
-                        }}
-                    >
+                    <Avatar size="small">
                         {username?.[0]?.toUpperCase()}
                     </Avatar>
                     <div>
-                        <div style={{ fontWeight: 500, fontFamily: 'monospace' }}>{username}</div>
-                        <div style={{ fontSize: '11px', color: '#00d4aa' }}>
+                        <div style={{ fontWeight: 500 }}>{username}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
                             {new Date(record.timestamp).toLocaleTimeString()}
                         </div>
                     </div>
@@ -271,20 +257,21 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
             title: 'IP Address',
             dataIndex: 'ipAddress',
             key: 'ip',
-            render: (ip, record) => renderIpInfo(ip, record.location),
-        },
-        {
-            title: 'User Agent',
-            dataIndex: 'userAgent',
-            key: 'userAgent',
-            render: renderUserAgent,
+            render: (ip, record) => (
+                <Space direction="vertical" size={0}>
+                    <div>{ip}</div>
+                    {record.location && (
+                        <div style={{ fontSize: '12px', color: '#666' }}>{record.location}</div>
+                    )}
+                </Space>
+            ),
         },
         {
             title: 'Timestamp',
             dataIndex: 'timestamp',
             key: 'timestamp',
             render: (timestamp) => (
-                <div style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                <div>
                     {new Date(timestamp).toLocaleString()}
                 </div>
             ),
@@ -299,7 +286,6 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                             icon={<EyeOutlined />}
                             size="small"
                             onClick={() => handleView(record)}
-                            style={{ borderColor: '#00d4aa', color: '#00d4aa' }}
                         />
                     </Tooltip>
                     {record.status === 'failed' && (
@@ -317,18 +303,10 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                             <Button
                                 icon={<UnlockOutlined />}
                                 size="small"
-                                type="primary"
-                                ghost
                                 onClick={() => handleUnlockUser(record.username)}
                             />
                         </Tooltip>
                     )}
-                    <Dropdown overlay={actionMenu(record)} trigger={['click']}>
-                        <Button
-                            icon={<MoreOutlined />}
-                            size="small"
-                        />
-                    </Dropdown>
                 </Space>
             ),
         },
@@ -336,13 +314,7 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
 
     return (
         <div>
-            <Card
-                style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #00d4aa',
-                    fontFamily: 'monospace'
-                }}
-            >
+            <Card style={{ background: '#ffffff', border: '1px solid #d9d9d9' }}>
                 <div style={{
                     marginBottom: 16,
                     display: 'flex',
@@ -352,35 +324,30 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                 }}>
                     <Space wrap>
                         <Search
-                            placeholder="search users, ip, events..."
+                            placeholder="Search users, IP, events..."
                             allowClear
                             onSearch={handleSearch}
                             style={{ width: 300 }}
-                            className="cli-input"
                         />
                         <Select
                             defaultValue="all"
                             style={{ width: 180 }}
                             onChange={handleStatusFilter}
-                            className="cli-select"
                         >
                             <Option value="all">All Status</Option>
                             <Option value="success">Success</Option>
                             <Option value="failed">Failed</Option>
                             <Option value="locked">Locked</Option>
-                            <Option value="suspicious">Suspicious</Option>
                         </Select>
                         <Select
                             defaultValue="all"
                             style={{ width: 180 }}
                             onChange={handleTypeFilter}
-                            className="cli-select"
                         >
                             <Option value="all">All Types</Option>
                             <Option value="login">Login</Option>
                             <Option value="logout">Logout</Option>
                             <Option value="password_change">Password Change</Option>
-                            <Option value="permission_change">Permission Change</Option>
                         </Select>
                     </Space>
 
@@ -388,13 +355,8 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                         <Button
                             icon={<SecurityScanOutlined />}
                             onClick={loadAuthEvents}
-                            style={{
-                                borderColor: '#00d4aa',
-                                color: '#00d4aa',
-                                fontFamily: 'monospace'
-                            }}
                         >
-                            $ refresh
+                            Refresh
                         </Button>
                     </Space>
                 </div>
@@ -411,14 +373,9 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                         showTotal: (total, range) =>
                             `${range[0]}-${range[1]} of ${total} events`,
                     }}
-                    style={{
-                        background: 'transparent',
-                        fontFamily: 'monospace'
-                    }}
                 />
             </Card>
 
-            {/* View Event Modal */}
             <Modal
                 title="Authentication Event Details"
                 open={viewModalVisible}
@@ -429,52 +386,33 @@ const AuthPage = ({ onFilterUpdate, onAuthUpdate, onEditUser, onCreateUser }) =>
                     </Button>,
                 ]}
                 width={700}
-                style={{ fontFamily: 'monospace' }}
             >
                 {selectedEvent && (
                     <div>
                         <Row gutter={16}>
                             <Col span={12}>
-                                <h3 style={{ color: '#00ff00' }}>User Information</h3>
+                                <h3>User Information</h3>
                                 <p><strong>Username:</strong> {selectedEvent.username}</p>
                                 <p><strong>Status:</strong> <Tag color={getStatusColor(selectedEvent.status)}>{selectedEvent.status.toUpperCase()}</Tag></p>
                                 <p><strong>Event Type:</strong> <Tag color={getTypeColor(selectedEvent.type)}>{selectedEvent.type.replace('_', ' ').toUpperCase()}</Tag></p>
                             </Col>
                             <Col span={12}>
-                                <h3 style={{ color: '#00ff00' }}>Network Information</h3>
+                                <h3>Network Information</h3>
                                 <p><strong>IP Address:</strong> {selectedEvent.ipAddress}</p>
                                 <p><strong>Location:</strong> {selectedEvent.location || 'Unknown'}</p>
                                 <p><strong>Timestamp:</strong> {new Date(selectedEvent.timestamp).toLocaleString()}</p>
                             </Col>
                         </Row>
                         <Divider />
-                        <h3 style={{ color: '#00ff00' }}>User Agent</h3>
+                        <h3>User Agent</h3>
                         <div style={{
-                            background: '#1a1a1a',
+                            background: '#f5f5f5',
                             padding: '12px',
                             borderRadius: '4px',
-                            fontFamily: 'monospace',
-                            fontSize: '12px',
-                            color: '#00d4aa'
+                            fontSize: '12px'
                         }}>
                             {selectedEvent.userAgent}
                         </div>
-                        {selectedEvent.additionalInfo && (
-                            <>
-                                <Divider />
-                                <h3 style={{ color: '#00ff00' }}>Additional Information</h3>
-                                <div style={{
-                                    background: '#1a1a1a',
-                                    padding: '12px',
-                                    borderRadius: '4px',
-                                    fontFamily: 'monospace',
-                                    fontSize: '12px',
-                                    color: '#00d4aa'
-                                }}>
-                                    {JSON.stringify(selectedEvent.additionalInfo, null, 2)}
-                                </div>
-                            </>
-                        )}
                     </div>
                 )}
             </Modal>

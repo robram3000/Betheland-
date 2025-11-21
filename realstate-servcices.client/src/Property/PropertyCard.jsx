@@ -1,12 +1,9 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Typography, Space, Button, message, Avatar, Skeleton, Row, Col, Tooltip, Modal, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useWishlistData } from './Services/WishlistAdded';
 import { useUser } from '../Authpage/Services/UserContextService';
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
-
-// Use the same processImageUrl function as BaseSeeProperty
-import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 
 import {
     FaHeart,
@@ -58,70 +55,191 @@ const PropertyCard = ({
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
 
-    // Validate property data
-    const isValidProperty = property && property.id && property.title;
+    // Simplified Image URL processing function
+    const processImageUrl = (url) => {
+        if (!url) return '/default-property.jpg';
 
-    // Get all property images - FIXED VERSION
+        console.log('🖼️ Processing image URL:', url);
+
+        // If it's already a relative path starting with /uploads
+        if (url.startsWith('/uploads/')) {
+            // In development, use the Vite proxy
+            if (process.env.NODE_ENV === 'development') {
+                return `/api${url}`; // This becomes "/api/uploads/properties/..."
+            } else {
+                // In production, use absolute URL
+                return `https://betheland.com${url}`;
+            }
+        }
+
+        // If it's already an absolute URL, return as is
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+
+        // Return default image for invalid URLs
+        return '/default-property.jpg';
+    };
+
+    // Simplified agent avatar URL processing
+    const processAgentAvatarUrl = (url) => {
+        if (!url) return null;
+
+        // If it's already a relative path starting with /uploads
+        if (url.startsWith('/uploads/')) {
+            if (process.env.NODE_ENV === 'development') {
+                return `/api${url}`;
+            } else {
+                return `https://betheland.com${url}`;
+            }
+        }
+
+        // If it's already an absolute URL, return as is
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+
+        return null;
+    };
+
+    // Enhanced property validation that handles incomplete data
+    const isValidProperty = useMemo(() => {
+        if (!property) {
+            console.log('❌ Invalid property: property is null/undefined');
+            return false;
+        }
+
+        // Check for minimal required properties
+        const hasId = property.id || property.propertyId;
+        const hasTitle = property.title || property.propertyName || property.name;
+
+        if (!hasId) {
+            console.log('❌ Invalid property: Missing ID', property);
+            return false;
+        }
+
+        if (!hasTitle) {
+            console.log('❌ Invalid property: Missing title', property);
+            return false;
+        }
+
+        console.log('✅ Valid property:', {
+            id: property.id || property.propertyId,
+            title: property.title || property.propertyName || property.name
+        });
+        return true;
+    }, [property]);
+
+    // Simplified image processing
     const getPropertyImages = () => {
         const images = [];
 
-        console.log('🖼️ DEBUG - Property Card Image Processing:', {
-            propertyId: property?.id,
-            mainImage: property?.mainImage,
-            propertyImages: property?.propertyImages,
-            imageUrls: property?.imageUrls
+        if (!property) return ['/default-property.jpg'];
+
+        console.log('🖼️ Processing images for property:', property.id);
+
+        // Collect all property images from various sources
+        const imageSources = [];
+
+        // Add main image if available
+        if (property.mainImage) {
+            imageSources.push(property.mainImage);
+        }
+
+        // Add property images array if available
+        if (property.propertyImages && Array.isArray(property.propertyImages)) {
+            property.propertyImages.forEach((img) => {
+                if (img.imageUrl) {
+                    imageSources.push(img.imageUrl);
+                }
+            });
+        }
+
+        // Add imageUrls array if available
+        if (property.imageUrls && Array.isArray(property.imageUrls)) {
+            property.imageUrls.forEach((url) => {
+                if (url) {
+                    imageSources.push(url);
+                }
+            });
+        }
+
+        // Add other possible image fields
+        if (property.image) imageSources.push(property.image);
+        if (property.thumbnail) imageSources.push(property.thumbnail);
+        if (property.coverImage) imageSources.push(property.coverImage);
+
+        // Process all collected image sources
+        imageSources.forEach((imgSource) => {
+            const processedImg = processImageUrl(imgSource);
+            if (processedImg && !images.includes(processedImg)) {
+                images.push(processedImg);
+                console.log('✅ Added property image:', imgSource);
+            }
         });
 
-        // Add main image if available (PROCESSED)
-        if (property.mainImage) {
-            const processedMain = processImageUrl(property.mainImage);
-            console.log('📸 Main Image:', { original: property.mainImage, processed: processedMain });
-            images.push(processedMain);
-        }
-
-        // Add property images array if available (PROCESSED)
-        if (property.propertyImages && Array.isArray(property.propertyImages)) {
-            property.propertyImages.forEach((img, index) => {
-                if (img.imageUrl) {
-                    const processedImg = processImageUrl(img.imageUrl);
-                    console.log(`🏠 Property Image ${index}:`, { original: img.imageUrl, processed: processedImg });
-                    images.push(processedImg);
-                }
-            });
-        }
-
-        // Add imageUrls array if available (PROCESSED)
-        if (property.imageUrls && Array.isArray(property.imageUrls)) {
-            property.imageUrls.forEach((url, index) => {
-                if (url) {
-                    const processedUrl = processImageUrl(url);
-                    console.log(`🔗 Image URL ${index}:`, { original: url, processed: processedUrl });
-                    images.push(processedUrl);
-                }
-            });
-        }
-
-        // Remove duplicates and return
+        // Remove duplicates and ensure we have at least default image
         const uniqueImages = [...new Set(images.filter(img => img && img.trim() !== ''))];
 
-        console.log('✅ Final Images Array:', uniqueImages);
+        if (uniqueImages.length === 0) {
+            console.log('🖼️ No property images found, using default');
+            return ['/default-property.jpg'];
+        }
 
-        return uniqueImages.length > 0 ? uniqueImages : ['/default-property.jpg'];
+        console.log('🖼️ Final property images:', uniqueImages);
+        return uniqueImages;
     };
+
+    // Debug effect to see what data is coming through
+    useEffect(() => {
+        if (property) {
+            console.log('🔍 PropertyCard received property data:', {
+                id: property.id,
+                title: property.title,
+                price: property.price,
+                hasMainImage: !!property.mainImage,
+                hasPropertyImages: Array.isArray(property.propertyImages) && property.propertyImages.length,
+                hasImageUrls: Array.isArray(property.imageUrls) && property.imageUrls.length,
+                hasAgent: !!property.agent,
+                agentId: property.agentId,
+            });
+        }
+    }, [property]);
 
     const propertyImages = getPropertyImages();
     const hasMultipleImages = propertyImages.length > 1;
 
     // Get amenities for display - MAX 3 AMENITIES (Only for grid view)
     const getDisplayAmenities = () => {
-        if (!property.amenities || !Array.isArray(property.amenities)) return [];
+        if (!property.amenities) return [];
 
-        // Return only first 3 amenities for display
-        return property.amenities.slice(0, 3);
+        let amenitiesArray = [];
+
+        try {
+            if (Array.isArray(property.amenities)) {
+                amenitiesArray = property.amenities;
+            } else if (typeof property.amenities === 'string') {
+                try {
+                    const parsed = JSON.parse(property.amenities);
+                    if (Array.isArray(parsed)) {
+                        amenitiesArray = parsed;
+                    } else if (typeof parsed === 'string') {
+                        amenitiesArray = parsed.split(',').map(item => item.trim()).filter(item => item);
+                    }
+                } catch (e) {
+                    amenitiesArray = property.amenities.split(',').map(item => item.trim()).filter(item => item);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing amenities:', error);
+            amenitiesArray = [];
+        }
+
+        return amenitiesArray.slice(0, 3);
     };
 
     const displayAmenities = getDisplayAmenities();
-    const hasMoreAmenities = property.amenities && property.amenities.length > 3;
+    const hasMoreAmenities = property.amenities && getDisplayAmenities().length > 3;
 
     // Touch swipe handlers
     const handleTouchStart = (e) => {
@@ -227,6 +345,7 @@ const PropertyCard = ({
     // Reset image index when property changes
     useEffect(() => {
         setCurrentImageIndex(0);
+        setImageError(false);
     }, [property?.id]);
 
     // Keyboard navigation for gallery
@@ -258,7 +377,7 @@ const PropertyCard = ({
         return nameParts.join(' ').trim() || 'Agent Not Assigned';
     };
 
-    // Get property type color - UPDATED: Added colors for all property types
+    // Get property type color
     const getPropertyTypeColor = (type) => {
         if (!type) return 'gray';
 
@@ -351,15 +470,13 @@ const PropertyCard = ({
         return typeColors.default;
     };
 
-    // Get property type display name - FIXED: Now properly handles all property types including Condo
+    // Get property type display name
     const getPropertyTypeDisplay = () => {
-        // Prefer propertyType over type
         const type = property.propertyType || property.type;
         if (!type) return 'Property';
 
         const lowerType = type.toLowerCase();
 
-        // Comprehensive mapping of all property types
         const typeNames = {
             // Residential types
             'house': 'House',
@@ -483,6 +600,24 @@ const PropertyCard = ({
         return 'Real Estate';
     };
 
+    // Create serializable agent data for navigation
+    const getSerializableAgentData = (agentObj) => {
+        if (!agentObj) return null;
+
+        return {
+            id: agentObj.id,
+            baseMemberId: agentObj.baseMemberId,
+            firstName: agentObj.firstName,
+            middleName: agentObj.middleName,
+            lastName: agentObj.lastName,
+            email: agentObj.email,
+            phoneNumber: agentObj.phoneNumber,
+            profilePictureUrl: agentObj.profilePictureUrl,
+            brokerageName: agentObj.brokerageName,
+            licenseNumber: agentObj.licenseNumber,
+        };
+    };
+
     // Wishlist handler
     const handleToggleFavorite = async (e, propertyId, isCurrentlyFavorite) => {
         e.stopPropagation();
@@ -502,8 +637,6 @@ const PropertyCard = ({
             await refreshWishlist();
             message.success(!isCurrentlyFavorite ? 'Added to wishlist' : 'Removed from wishlist');
         } catch (error) {
-            console.error('Error updating wishlist:', error);
-            message.error('Failed to update wishlist');
             setIsFavorite(isCurrentlyFavorite);
         } finally {
             setIsToggling(false);
@@ -546,116 +679,54 @@ const PropertyCard = ({
         }
     };
 
-    // UPDATED: Fetch complete agent data with baseMemberId before navigation
-    const handleViewDetails = async (e) => {
+    // Fixed navigation handler - only pass serializable data
+    const handleViewDetails = (e) => {
         e.stopPropagation();
         if (!isValidProperty) return;
 
-        try {
-            console.log('🔄 Fetching complete agent data for navigation...');
-
-            let completeAgentData = agent;
-
-            // If we don't have agent data or baseMemberId, fetch it
-            if (!agent?.baseMemberId && property?.agentId) {
-                const fullAgent = await agentService.getAgentWithFallback(property.agentId);
-                completeAgentData = fullAgent;
-                console.log('✅ Fetched complete agent data:', fullAgent);
-            }
-
-            const navigationData = {
+        navigate('/properties/view', {
+            state: {
                 propertyId: property.id,
-                agentData: completeAgentData // This now includes baseMemberId
-            };
-
-            console.log('🚀 Navigating with data:', navigationData);
-
-            navigate('/properties/view', {
-                state: navigationData
-            });
-        } catch (error) {
-            console.error('❌ Error fetching agent data for navigation:', error);
-            // Fallback navigation with available data
-            navigate('/properties/view', {
-                state: {
-                    propertyId: property.id,
-                    agentData: agent
-                }
-            });
-        }
+                agentData: getSerializableAgentData(agent)
+            }
+        });
     };
 
-    // UPDATED: Same logic for card click
-    const handleCardClick = async () => {
+    // Fixed card click handler - only pass serializable data
+    const handleCardClick = () => {
         if (!isValidProperty) return;
 
-        try {
-            console.log('🔄 Fetching complete agent data for card navigation...');
-
-            let completeAgentData = agent;
-
-            // If we don't have agent data or baseMemberId, fetch it
-            if (!agent?.baseMemberId && property?.agentId) {
-                const fullAgent = await agentService.getAgentWithFallback(property.agentId);
-                completeAgentData = fullAgent;
-                console.log('✅ Fetched complete agent data for card:', fullAgent);
-            }
-
-            const navigationData = {
+        navigate('/properties/view', {
+            state: {
                 propertyId: property.id,
-                agentData: completeAgentData // This now includes baseMemberId
-            };
-
-            console.log('🚀 Card navigation with data:', navigationData);
-
-            navigate('/properties/view', {
-                state: navigationData
-            });
-        } catch (error) {
-            console.error('❌ Error fetching agent data for card navigation:', error);
-            // Fallback navigation with available data
-            navigate('/properties/view', {
-                state: {
-                    propertyId: property.id,
-                    agentData: agent
-                }
-            });
-        }
+                agentData: getSerializableAgentData(agent)
+            }
+        });
     };
 
     // Fetch agent data
     const fetchAgent = useCallback(async () => {
         if (!property?.agentId) {
-            console.log('No agentId found for property:', property?.id);
             setAgent(null);
             return;
         }
 
         try {
             setLoadingAgent(true);
-            console.log('Fetching agent for property:', property.id, 'agentId:', property.agentId);
 
-            // First, check if we already have valid agent data in the property
             if (property.agent && property.agent.id && property.agent.firstName) {
-                console.log('Using agent data from property object:', property.agent);
                 setAgent(property.agent);
                 return;
             }
 
-            // Try to fetch complete agent data with baseMemberId
             const agentData = await agentService.getAgentWithFallback(property.agentId);
 
             if (agentData && agentData.id) {
-                console.log('Agent data fetched successfully:', agentData);
-                console.log('Agent baseMemberId:', agentData.baseMemberId);
                 setAgent(agentData);
             } else {
-                console.warn('No agent data found, setting to fallback');
                 setAgent(agentService.getFallbackAgent(property.agentId));
             }
         } catch (error) {
-            console.error('Error fetching agent:', error);
-            // Set fallback agent
             setAgent(agentService.getFallbackAgent(property.agentId));
         } finally {
             setLoadingAgent(false);
@@ -678,11 +749,11 @@ const PropertyCard = ({
                             setIsFavorite(serverCheck);
                         }
                     } catch (serverError) {
-                        console.warn('Server wishlist check failed:', serverError);
+                        const localCheck = wishlistPropertyIds?.includes(property.id);
+                        setIsFavorite(localCheck);
                     }
                 }
             } catch (error) {
-                console.error('Error checking wishlist status:', error);
                 const localCheck = wishlistPropertyIds?.includes(property.id);
                 setIsFavorite(localCheck);
             }
@@ -697,22 +768,11 @@ const PropertyCard = ({
     useEffect(() => {
         if (!isValidProperty) return;
 
-        console.log('PropertyCard - Agent handling effect:', {
-            propertyId: property.id,
-            agentId: property.agentId,
-            hasAgentData: !!property.agent,
-            currentAgent: agent,
-            hasBaseMemberId: agent?.baseMemberId
-        });
-
         if (property.agent && property.agent.id === property.agentId && property.agent.baseMemberId) {
-            console.log('Using agent data from property with baseMemberId');
             setAgent(property.agent);
         } else if (property.agentId && !agent?.baseMemberId) {
-            console.log('Fetching agent data to get baseMemberId');
             fetchAgent();
         } else if (!property.agentId) {
-            console.log('No agent ID, setting agent to null');
             setAgent(null);
         }
     }, [property, agent, fetchAgent, isValidProperty]);
@@ -779,19 +839,21 @@ const PropertyCard = ({
     const layout = getCardLayout();
 
     if (!isValidProperty) {
+        console.log('🚫 Rendering null for invalid property');
         return null;
     }
 
     const currentImage = propertyImages[currentImageIndex];
-    const processedImage = currentImage;
     const agentName = getAgentName(agent);
     const areaSqm = property.areaSqm || 0;
     const completeAddress = formatCompleteAddress();
     const brokerageName = getBrokerageName();
     const propertyTypeDisplay = getPropertyTypeDisplay();
 
-    // Process agent avatar image using the same utility
-    const agentAvatarUrl = agent?.profilePictureUrl ? processImageUrl(agent.profilePictureUrl) : null;
+    // Process agent avatar image using the inline function
+    const agentAvatarUrl = agent?.profilePictureUrl ? processAgentAvatarUrl(agent.profilePictureUrl) : null;
+
+    console.log('🎨 Rendering PropertyCard for:', property.title);
 
     return (
         <>
@@ -804,11 +866,13 @@ const PropertyCard = ({
                     borderRadius: '12px',
                     marginBottom: '0'
                 }}
-                bodyStyle={{
-                    padding: '0',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: viewMode === 'landscape' ? 'row' : 'column'
+                styles={{
+                    body: {
+                        padding: '0',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: viewMode === 'landscape' ? 'row' : 'column'
+                    }
                 }}
                 onClick={handleCardClick}
             >
@@ -845,14 +909,11 @@ const PropertyCard = ({
                         }}
                         onClick={openGallery}
                         onError={(e) => {
-                            console.error('❌ Image failed to load:', currentImage);
                             if (!imageError) {
+                                console.log('🖼️ Image load error, using default');
                                 setImageError(true);
                                 e.target.src = '/default-property.jpg';
                             }
-                        }}
-                        onLoad={(e) => {
-                            console.log('✅ Image loaded successfully:', currentImage);
                         }}
                         onMouseEnter={(e) => {
                             if (!isDragging) {
@@ -977,12 +1038,6 @@ const PropertyCard = ({
                                         backgroundColor: agentAvatarUrl ? 'transparent' : '#1B3C53',
                                         border: '2px solid #1B3C53'
                                     }}
-                                    onError={() => {
-                                        console.error('❌ Agent avatar failed to load:', agentAvatarUrl);
-                                    }}
-                                    onLoad={() => {
-                                        console.log('✅ Agent avatar loaded successfully:', agentAvatarUrl);
-                                    }}
                                 >
                                     {!agentAvatarUrl && agentName?.charAt(0)?.toUpperCase()}
                                 </Avatar>
@@ -1050,7 +1105,7 @@ const PropertyCard = ({
                                 lineHeight: '1.3'
                             }}
                         >
-                            {property.title}
+                            {property.title || 'Untitled Property'}
                         </Title>
                         <Text strong style={{
                             fontSize: viewMode === 'landscape' ? '20px' : '18px',
@@ -1192,7 +1247,7 @@ const PropertyCard = ({
                                             margin: 0
                                         }}
                                     >
-                                        +{property.amenities.length - 3} more
+                                        +{getDisplayAmenities().length - 3} more
                                     </Tag>
                                 )}
                             </div>
@@ -1265,13 +1320,15 @@ const PropertyCard = ({
                     maxWidth: '1200px',
                     top: '20px'
                 }}
-                bodyStyle={{
-                    padding: '0',
-                    height: '80vh',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#000'
+                styles={{
+                    body: {
+                        padding: '0',
+                        height: '80vh',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#000'
+                    }
                 }}
                 closeIcon={
                     <div style={{
@@ -1310,11 +1367,7 @@ const PropertyCard = ({
                             objectFit: 'contain'
                         }}
                         onError={(e) => {
-                            console.error('❌ Gallery image failed to load:', propertyImages[galleryImageIndex]);
                             e.target.src = '/default-property.jpg';
-                        }}
-                        onLoad={() => {
-                            console.log('✅ Gallery image loaded successfully:', propertyImages[galleryImageIndex]);
                         }}
                     />
 

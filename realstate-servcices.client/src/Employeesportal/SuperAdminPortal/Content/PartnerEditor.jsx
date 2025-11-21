@@ -20,8 +20,7 @@ import {
     Spin,
     Row,
     Col,
-    Select,
-    Upload
+    Select
 } from 'antd';
 import {
     EditOutlined,
@@ -31,14 +30,12 @@ import {
     CheckOutlined,
     CloseOutlined,
     ReloadOutlined,
-    UploadOutlined,
     SearchOutlined
 } from '@ant-design/icons';
 import PartnershipServices from './Services/PartnershipServices';
 import PartnershipMapper from './Services/PartnershipMapper';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refreshTrigger }) => {
     const [partners, setPartners] = useState([]);
@@ -51,18 +48,52 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
     // Load partners on component mount and when refreshTrigger changes
     useEffect(() => {
+        console.log('PartnerEditor mounted or refreshTrigger changed:', refreshTrigger);
         loadPartners();
     }, [refreshTrigger]);
 
     const loadPartners = async () => {
         setLoading(true);
         try {
+            console.log('Starting to load partners...');
             const response = await PartnershipServices.getAllPartners();
-            const mappedPartners = PartnershipMapper.mapToPartnersList(response);
+            console.log('Raw partners response:', response);
+
+            let mappedPartners;
+            try {
+                mappedPartners = PartnershipMapper.mapToPartnersList(response);
+                console.log('Mapped partners after mapper:', mappedPartners);
+            } catch (mapperError) {
+                console.error('Mapper error, trying direct mapping:', mapperError);
+                // Fallback: if mapper fails, try direct mapping
+                if (Array.isArray(response)) {
+                    mappedPartners = response.map(partner => ({
+                        id: partner.id || 0,
+                        name: partner.name || '',
+                        logoUrl: partner.logoUrl || '',
+                        category: partner.category || '',
+                        displayOrder: partner.displayOrder || 0,
+                        isActive: partner.isActive || false,
+                        createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
+                        updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
+                    }));
+                } else {
+                    console.warn('Response is not an array, setting empty array');
+                    mappedPartners = [];
+                }
+            }
+
             const sortedPartners = PartnershipMapper.sortPartners(mappedPartners);
+            console.log('Final sorted partners:', sortedPartners);
             setPartners(sortedPartners);
+
+            if (sortedPartners.length === 0) {
+                console.warn('No partners found after processing');
+            }
         } catch (error) {
+            console.error('Full partners error:', error);
             message.error(`Failed to load partners: ${error.message}`);
+            setPartners([]); // Set empty array on error
         } finally {
             setLoading(false);
         }
@@ -152,14 +183,14 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
     // Filter partners based on search text and category
     const filteredPartners = partners.filter(partner => {
-        const matchesSearch = partner.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            partner.category.toLowerCase().includes(searchText.toLowerCase());
+        const matchesSearch = partner.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+            partner.category?.toLowerCase().includes(searchText.toLowerCase());
         const matchesCategory = categoryFilter === 'all' || partner.category === categoryFilter;
         return matchesSearch && matchesCategory;
     });
 
     // Get unique categories for filter
-    const categories = [...new Set(partners.map(partner => partner.category))];
+    const categories = [...new Set(partners.map(partner => partner.category).filter(Boolean))];
 
     const columns = [
         {
@@ -186,10 +217,10 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            sorter: (a, b) => a.name.localeCompare(b.name),
+            sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
             render: (text, record) => (
                 <div>
-                    <div style={{ fontWeight: 500 }}>{text}</div>
+                    <div style={{ fontWeight: 500 }}>{text || 'Unnamed Partner'}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>ID: {record.id}</div>
                 </div>
             ),
@@ -201,7 +232,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             width: 150,
             render: (category) => (
                 <Tag color="blue" style={{ margin: 0 }}>
-                    {category}
+                    {category || 'Uncategorized'}
                 </Tag>
             ),
         },
@@ -210,7 +241,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             dataIndex: 'displayOrder',
             key: 'displayOrder',
             width: 120,
-            sorter: (a, b) => a.displayOrder - b.displayOrder,
+            sorter: (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0),
             render: (order) => (
                 <Tag color="green">{order}</Tag>
             ),
@@ -288,15 +319,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                 style={{ marginBottom: 16 }}
                 bodyStyle={{ padding: '16px 24px' }}
             >
-                <Row justify="space-between" align="middle" gutter={[16, 16]}>
-                    <Col>
-                        <div>
-                            <h3 style={{ margin: 0, color: '#1a365d' }}>Partner Management</h3>
-                            <p style={{ margin: 0, color: '#666' }}>
-                                Manage your partner organizations and their display settings
-                            </p>
-                        </div>
-                    </Col>
+                <Row justify="end" align="middle" gutter={[16, 16]}>
                     <Col>
                         <Button
                             type="primary"
@@ -381,12 +404,13 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                         <Empty
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
                             description={
-                                searchText || categoryFilter !== 'all'
-                                    ? "No partners match your search criteria"
-                                    : "No partners found"
+                                loading ? "Loading partners..." :
+                                    searchText || categoryFilter !== 'all'
+                                        ? "No partners match your search criteria"
+                                        : "No partners found"
                             }
                         >
-                            {!searchText && categoryFilter === 'all' && (
+                            {!loading && !searchText && categoryFilter === 'all' && (
                                 <Button type="primary" onClick={handleCreate}>
                                     <PlusOutlined /> Add Your First Partner
                                 </Button>

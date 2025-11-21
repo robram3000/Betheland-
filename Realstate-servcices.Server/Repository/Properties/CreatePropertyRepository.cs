@@ -329,12 +329,20 @@ namespace Realstate_servcices.Server.Repository.Properties
             {
                 _logger.LogInformation("Retrieving properties for agent ID: {AgentId}", agentId);
 
+                // Validate agent exists
+                var agentExists = await _context.Agents.AnyAsync(a => a.Id == agentId);
+                if (!agentExists)
+                {
+                    _logger.LogWarning("Agent with ID {AgentId} not found", agentId);
+                    return new List<PropertyHouse>();
+                }
+
                 var properties = await _context.Properties
                     .Include(p => p.PropertyImages)
                     .Include(p => p.PropertyVideos)
                     .Include(p => p.Owner)
                     .Include(p => p.Agent)
-                    .Where(p => p.AgentId == agentId)
+                    .Where(p => p.AgentId == agentId) // Strict filtering by agentId
                     .AsNoTracking()
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();

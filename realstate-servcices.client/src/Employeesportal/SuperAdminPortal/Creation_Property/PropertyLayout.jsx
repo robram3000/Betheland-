@@ -1,4 +1,4 @@
-// Enhanced PropertyLayout.jsx with vertical tabs and icons
+// Enhanced PropertyLayout.jsx with sticky vertical tabs and icons
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
@@ -291,14 +291,19 @@ const PropertyLayout = () => {
                         }}
                     >
                         <Layout>
-                            {/* Vertical Tabs Sidebar with Shadow */}
+                            {/* Sticky Vertical Tabs Sidebar with Shadow */}
                             <Sider
                                 width={220}
                                 style={{
                                     background: colorBgContainer,
                                     borderRadius: borderRadiusLG,
                                     boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0'
+                                    borderRight: '1px solid #f0f0f0',
+                                    position: 'sticky',
+                                    top: 68, // Account for topbar height + margin
+                                    height: 'calc(100vh - 68px)', // Full viewport height minus topbar
+                                    overflow: 'auto',
+                                    zIndex: 10
                                 }}
                             >
                                 <div style={{ padding: '20px 0' }}>
@@ -306,7 +311,11 @@ const PropertyLayout = () => {
                                     <div style={{
                                         padding: '0 16px 16px 16px',
                                         borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '8px'
+                                        marginBottom: '8px',
+                                        position: 'sticky',
+                                        top: 0,
+                                        background: colorBgContainer,
+                                        zIndex: 1
                                     }}>
                                         <Title
                                             level={4}
@@ -402,7 +411,8 @@ const PropertyLayout = () => {
                                     minHeight: 280,
                                     borderRadius: borderRadiusLG,
                                     overflow: 'hidden',
-                                    padding: '24px'
+                                    padding: '24px',
+                                    flex: 1
                                 }}
                             >
                                 {/* Header with Back Button for Edit Mode */}

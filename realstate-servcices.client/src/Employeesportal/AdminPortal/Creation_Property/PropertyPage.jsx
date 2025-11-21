@@ -46,8 +46,8 @@ import {
 } from 'react-icons/fa';
 import BaseTable from './BaseTable';
 import ChangeHandlerModal from './ChangeHandlerModal';
-import propertyService from './services/propertyService';
-import agentService from '../Creation_Agent/Services/AgentService';
+import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from './processImageUrl';
 
 const { Search } = Input;
@@ -578,7 +578,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     // Render amenities with dropdown for more than 3 items
     const renderAmenities = (amenities) => {
-        // Parse amenities if it's a JSON string, otherwise ensure it's an array
         let amenitiesArray = [];
 
         try {
@@ -591,7 +590,10 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             }
         } catch (error) {
             console.error('Error parsing amenities:', error);
-            amenitiesArray = [];
+            // If JSON parsing fails, try comma separation
+            if (typeof amenities === 'string') {
+                amenitiesArray = amenities.split(',').map(item => item.trim()).filter(item => item);
+            }
         }
 
         // Final safety check
@@ -817,13 +819,13 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         <Tooltip title="Kitchens">
                             <Space size={4}>
                                 <FaUtensils style={{ color: '#666' }} />
-                                <span>{record.kitchens || 0}</span>
+                                <span>{record.kitchen || 0}</span>
                             </Space>
                         </Tooltip>
                         <Tooltip title="Garages">
                             <Space size={4}>
                                 <FaCar style={{ color: '#666' }} />
-                                <span>{record.garages || 0}</span>
+                                <span>{record.garage || 0}</span>
                             </Space>
                         </Tooltip>
                     </Space>
@@ -1104,6 +1106,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <h3>Location</h3>
                                 <p><strong>Address:</strong> {selectedProperty.address}</p>
                                 <p><strong>City:</strong> {selectedProperty.city}</p>
+                                <p><strong>Barangay:</strong> {selectedProperty.barangay || 'Not specified'}</p>
                                 <p><strong>Zip Code:</strong> {selectedProperty.zipCode}</p>
                             </Col>
                         </Row>
@@ -1112,8 +1115,9 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <h3>Specifications</h3>
                                 <p><strong>Bedrooms:</strong> {selectedProperty.bedrooms}</p>
                                 <p><strong>Bathrooms:</strong> {selectedProperty.bathrooms}</p>
-                                <p><strong>Kitchens:</strong> {selectedProperty.kitchens}</p>
-                                <p><strong>Garages:</strong> {selectedProperty.garages}</p>
+                                <p><strong>Kitchens:</strong> {selectedProperty.kitchen}</p>
+                                <p><strong>Garages:</strong> {selectedProperty.garage}</p>
+                                <p><strong>Area:</strong> {selectedProperty.areaSqm} sqm</p>
                             </Col>
                             <Col span={12}>
                                 <h3>Agent Information</h3>
@@ -1122,6 +1126,12 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <p><strong>Phone:</strong> {selectedProperty.agent?.cellPhoneNo || 'N/A'}</p>
                             </Col>
                         </Row>
+                        {selectedProperty.amenities && (
+                            <div style={{ marginTop: 16 }}>
+                                <h3>Amenities</h3>
+                                {renderAmenities(selectedProperty.amenities)}
+                            </div>
+                        )}
                         {selectedProperty.description && (
                             <div style={{ marginTop: 16 }}>
                                 <h3>Description</h3>
@@ -1162,6 +1172,115 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="Enter rejection reason..."
                 />
+            </Modal>
+
+            {/* Media Gallery Modal */}
+            <Modal
+                title="Property Media Gallery"
+                open={mediaModalVisible}
+                onCancel={() => setMediaModalVisible(false)}
+                footer={null}
+                width={800}
+                style={{ top: 20 }}
+            >
+                {selectedProperty && (() => {
+                    const allMedia = getAllMedia(selectedProperty);
+                    const currentMedia = allMedia[currentMediaIndex];
+
+                    if (allMedia.length === 0) {
+                        return (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                <PictureOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                                <div style={{ color: '#999' }}>No media available for this property</div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                {currentMedia.type === 'image' ? (
+                                    <Image
+                                        width="100%"
+                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        src={currentMedia.url}
+                                        alt={currentMedia.title}
+                                        fallback="/fallback-image.png"
+                                    />
+                                ) : (
+                                    <video
+                                        controls
+                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        src={currentMedia.url}
+                                    >
+                                        Your browser does not support the video tag.
+                                    </video>
+                                )}
+                            </div>
+
+                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                <strong>{currentMedia.title}</strong> ({currentMediaIndex + 1} of {allMedia.length})
+                            </div>
+
+                            {allMedia.length > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev > 0 ? prev - 1 : allMedia.length - 1)}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        onClick={() => setCurrentMediaIndex(prev => prev < allMedia.length - 1 ? prev + 1 : 0)}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Media Thumbnails */}
+                            {allMedia.length > 1 && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Divider>All Media ({allMedia.length})</Divider>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                        {allMedia.map((media, index) => (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    width: 60,
+                                                    height: 60,
+                                                    border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                                    borderRadius: 4,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => setCurrentMediaIndex(index)}
+                                            >
+                                                {media.type === 'image' ? (
+                                                    <img
+                                                        src={media.url}
+                                                        alt={media.title}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        backgroundColor: '#f0f0f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <PlayCircleOutlined style={{ fontSize: 20, color: '#666' }} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
             </Modal>
         </div>
     );

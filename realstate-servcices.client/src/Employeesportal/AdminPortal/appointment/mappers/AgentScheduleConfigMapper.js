@@ -23,18 +23,19 @@
     },
 
     // AgentScheduleConfigMapper.js - Update the toBackend method
+    // AgentScheduleConfigMapper.js - Update the toBackend method
     toBackend: (frontendData) => {
         try {
             return {
-                Id: frontendData.id || 0,
-                AgentId: frontendData.agentId || 0,
-                SlotDurationMinutes: frontendData.slotDurationMinutes || 60,
-                MaxSchedulesPerDay: frontendData.maxSchedulesPerDay || 8, // ✅ Capital M
-                BufferTimeMinutes: frontendData.bufferTimeMinutes || 15,
-                AllowWeekendScheduling: frontendData.allowWeekendScheduling || false, // ✅ Capital A
-                WorkDayStart: frontendData.workDayStart || '09:00:00', // ✅ Capital W
-                WorkDayEnd: frontendData.workDayEnd || '17:00:00', // ✅ Capital W
-                AdvanceBookingDays: frontendData.advanceBookingDays || 30
+                id: frontendData.id || 0,
+                agentId: frontendData.agentId || 0,
+                slotDurationMinutes: frontendData.slotDurationMinutes || 60,
+                maxSchedulesPerDay: frontendData.maxSchedulesPerDay || 8, // ✅ camelCase
+                bufferTimeMinutes: frontendData.bufferTimeMinutes || 15,
+                allowWeekendScheduling: frontendData.allowWeekendScheduling || false, // ✅ camelCase
+                workDayStart: frontendData.workDayStart || '09:00:00', // ✅ camelCase
+                workDayEnd: frontendData.workDayEnd || '17:00:00', // ✅ camelCase
+                advanceBookingDays: frontendData.advanceBookingDays || 30
             };
         } catch (error) {
             console.error('Error mapping schedule config to backend:', error);

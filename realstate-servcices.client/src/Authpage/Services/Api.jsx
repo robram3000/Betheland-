@@ -1,4 +1,4 @@
-﻿// Services/Api.jsx (Enhanced)
+﻿// Services/Api.jsx (Updated)
 import axios from 'axios';
 import authService from './LoginAuth';
 
@@ -31,36 +31,9 @@ api.interceptors.response.use(
         return response.data;
     },
     async (error) => {
-        const originalRequest = error.config;
-
-        // Auto-refresh token on 401
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            try {
-                const refreshResult = await authService.refreshToken();
-                if (refreshResult.success) {
-                    // Retry original request with new token
-                    const token = authService.getToken();
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return api(originalRequest);
-                }
-            } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError);
-                // Refresh failed, logout user but don't redirect for background requests
-                if (!originalRequest._skipAuthRedirect) {
-                    authService.logout();
-                    setTimeout(() => {
-                        window.location.href = '/login?reason=session_expired';
-                    }, 100);
-                }
-                return Promise.reject(refreshError);
-            }
-        }
-
         console.error('API Error:', error);
 
-        // Handle specific status codes
+        // Handle specific status codes - REMOVED 401 auto-logout
         if (error.response?.status === 403) {
             error.message = 'You do not have permission to perform this action.';
         } else if (error.response?.status === 404) {

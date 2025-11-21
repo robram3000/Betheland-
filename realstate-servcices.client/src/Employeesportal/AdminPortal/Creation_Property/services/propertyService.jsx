@@ -256,15 +256,35 @@ class PropertyService {
     // Get properties by agent
     async getPropertiesByAgent(agentId) {
         try {
+            console.log(`🔍 Fetching properties for agent ID: ${agentId}`);
+
             const response = await this.client.get(`/CreationProperty/agent/${agentId}`);
+            console.log('📦 Agent properties API response:', {
+                status: response.status,
+                hasData: !!response.data,
+                dataKeys: response.data ? Object.keys(response.data) : 'no data',
+                success: response.data?.success,
+                propertiesCount: response.data?.properties?.length || 0
+            });
 
             if (response.data && response.data.success) {
-                return propertyMapper.toFrontendList(response.data.properties);
+                console.log(`✅ Found ${response.data.properties?.length || 0} properties for agent ${agentId}`);
+
+                // Handle different response structures
+                if (response.data.properties && Array.isArray(response.data.properties)) {
+                    return response.data.properties;
+                } else if (Array.isArray(response.data)) {
+                    return response.data;
+                } else {
+                    console.warn('❌ Unexpected response structure for agent properties:', response.data);
+                    return [];
+                }
             } else {
-                throw new Error(response.data.message || 'Failed to fetch properties by agent');
+                console.log('❌ No properties found for agent or API returned failure');
+                return [];
             }
         } catch (error) {
-            console.error('Error getting properties by agent:', error);
+            console.error(`❌ Error fetching properties for agent ${agentId}:`, error);
             throw error;
         }
     }

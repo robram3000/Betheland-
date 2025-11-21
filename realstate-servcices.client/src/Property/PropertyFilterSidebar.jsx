@@ -62,40 +62,12 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
 
     return (
         <div style={{ width: '280px', padding: '0' }}>
-            {/* Header */}
-            <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid #f1f5f9',
-                background: 'white'
-            }}>
-                <Row justify="space-between" align="middle">
-                    <Space size="small">
-                        <FilterOutlined style={{ color: '#1B3C53', fontSize: '16px' }} />
-                        <Title level={5} style={{ margin: 0, color: '#1B3C53', fontSize: '16px' }}>
-                            Filters
-                        </Title>
-                    </Space>
-                    <Button
-                        type="text"
-                        icon={<ClearOutlined />}
-                        onClick={clearAllFilters}
-                        size="small"
-                        style={{
-                            color: '#64748b',
-                            fontSize: '12px',
-                            padding: '2px 8px',
-                            height: 'auto'
-                        }}
-                    >
-                        Clear
-                    </Button>
-                </Row>
-            </div>
+         
 
             {/* Filter Content */}
             <div style={{
                 padding: '16px 20px',
-                maxHeight: 'calc(100vh - 200px)',
+                maxHeight: '100%',
                 overflowY: 'auto',
                 background: 'white'
             }}>

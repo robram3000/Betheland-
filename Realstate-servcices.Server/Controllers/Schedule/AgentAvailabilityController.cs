@@ -80,6 +80,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         {
             try
             {
+                // Verify agent exists before creating availability
+                var agentExists = await VerifyAgentExists(availabilityDto.AgentId);
+                if (!agentExists)
+                    return BadRequest($"Agent with ID {availabilityDto.AgentId} does not exist.");
+
                 // Map DTO to entity
                 var availability = new AgentAvailability
                 {
@@ -102,6 +107,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
+
+        private async Task<bool> VerifyAgentExists(int agentId)
+        {
+            // Implement agent existence check - you'll need to inject an agent service/repository
+            // This is a placeholder - implement based on your application structure
+            return await Task.FromResult(true); // Replace with actual check
         }
 
 

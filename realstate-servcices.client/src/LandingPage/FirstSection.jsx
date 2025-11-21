@@ -1,22 +1,54 @@
 ﻿import React, { useState } from 'react';
-import { Button, Row, Col, Typography, Space, Select, Input, Slider, Card, Tabs, Drawer } from 'antd';
-import { EnvironmentOutlined, HomeOutlined, DollarOutlined, FilterOutlined } from '@ant-design/icons';
+import { Button, Row, Col, Typography, Space, Select, Input, Slider, Card, Drawer } from 'antd';
+import { EnvironmentOutlined, HomeOutlined, DollarOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 const FirstSection = () => {
     const navigate = useNavigate();
     const [propertyType, setPropertyType] = useState('');
     const [location, setLocation] = useState('');
-    const [priceRange, setPriceRange] = useState([100000, 500000]);
+    const [priceRange, setPriceRange] = useState([1000000, 10000000]); // Updated for PHP prices
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
-    const [activeTab, setActiveTab] = useState('buy');
     const [filterVisible, setFilterVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
+
+    // Philippines-specific locations
+    const philippineLocations = [
+        'Metro Manila',
+        'Quezon City',
+        'Manila',
+        'Makati',
+        'Taguig',
+        'Pasig',
+        'Mandaluyong',
+        'Pasay',
+        'Parañaque',
+        'Las Piñas',
+        'Muntinlupa',
+        'Marikina',
+        'Caloocan',
+        'Malabon',
+        'Navotas',
+        'Valenzuela',
+        'San Juan',
+        'Cebu City',
+        'Davao City',
+        'Baguio City',
+        'Iloilo City',
+        'Bacolod City',
+        'Cagayan de Oro',
+        'Zamboanga City',
+        'General Santos',
+        'Dagupan City',
+        'Angeles City',
+        'Olongapo City',
+        'Batangas City',
+        'Naga City'
+    ];
 
     const handleSearch = () => {
         navigate('/properties', {
@@ -27,7 +59,7 @@ const FirstSection = () => {
                     priceRange,
                     bedrooms,
                     bathrooms,
-                    transactionType: activeTab
+                    searchText
                 }
             }
         });
@@ -39,6 +71,22 @@ const FirstSection = () => {
 
     const closeFilterDrawer = () => {
         setFilterVisible(false);
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    };
+
+    // Format price in Philippine Peso
+    const formatPrice = (price) => {
+        if (price >= 1000000) {
+            return `₱${(price / 1000000).toFixed(1)}M`;
+        } else if (price >= 1000) {
+            return `₱${(price / 1000).toFixed(0)}K`;
+        }
+        return `₱${price}`;
     };
 
     return (
@@ -81,7 +129,7 @@ const FirstSection = () => {
                                     lineHeight: '1.2',
                                     color: '#001529'
                                 }}>
-                                    Find Your Dream Home
+                                    Find Your Dream Home in the Philippines
                                 </Title>
 
                                 <Paragraph style={{
@@ -91,7 +139,7 @@ const FirstSection = () => {
                                     margin: '0 auto',
                                     color: '#666'
                                 }}>
-                                    Use our advanced search to find the perfect property that matches your lifestyle.
+                                    Discover the perfect property across the beautiful islands of the Philippines.
                                 </Paragraph>
 
                                 {/* Search Card */}
@@ -104,156 +152,54 @@ const FirstSection = () => {
                                     margin: '0 auto',
                                     border: '1px solid #e8e8e8'
                                 }}>
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={setActiveTab}
-                                        className="search-tabs"
-                                    >
-                                        <TabPane tab="Buy" key="buy">
-                                            <Row gutter={[12, 12]} align="middle">
-                                                <Col xs={24} sm={16} md={18}>
-                                                    <Input
-                                                        placeholder="Search by location, property, or keyword"
-                                                        size="large"
-                                                        value={searchText}
-                                                        onChange={(e) => setSearchText(e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            borderRadius: '8px',
-                                                            height: '50px'
-                                                        }}
-                                                    />
-                                                </Col>
-                                                <Col xs={24} sm={8} md={6}>
-                                                    <div className="action-buttons">
-                                                        <Button
-                                                            icon={<FilterOutlined />}
-                                                            size="large"
-                                                            onClick={showFilterDrawer}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Filters
-                                                        </Button>
-                                                        <Button
-                                                            type="primary"
-                                                            size="large"
-                                                            onClick={handleSearch}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
-                                                                border: 'none',
-                                                                fontWeight: '600',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Search
-                                                        </Button>
-                                                    </div>
-                                                </Col>
-                                            </Row>
-                                        </TabPane>
-                                        <TabPane tab="Rent" key="rent">
-                                            <Row gutter={[12, 12]} align="middle">
-                                                <Col xs={24} sm={16} md={18}>
-                                                    <Input
-                                                        placeholder="Search by location, property, or keyword"
-                                                        size="large"
-                                                        value={searchText}
-                                                        onChange={(e) => setSearchText(e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            borderRadius: '8px',
-                                                            height: '50px'
-                                                        }}
-                                                    />
-                                                </Col>
-                                                <Col xs={24} sm={8} md={6}>
-                                                    <div className="action-buttons">
-                                                        <Button
-                                                            icon={<FilterOutlined />}
-                                                            size="large"
-                                                            onClick={showFilterDrawer}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Filters
-                                                        </Button>
-                                                        <Button
-                                                            type="primary"
-                                                            size="large"
-                                                            onClick={handleSearch}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
-                                                                border: 'none',
-                                                                fontWeight: '600',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Search
-                                                        </Button>
-                                                    </div>
-                                                </Col>
-                                            </Row>
-                                        </TabPane>
-                                        <TabPane tab="Sold" key="sold">
-                                            <Row gutter={[12, 12]} align="middle">
-                                                <Col xs={24} sm={16} md={18}>
-                                                    <Input
-                                                        placeholder="Search by location, property, or keyword"
-                                                        size="large"
-                                                        value={searchText}
-                                                        onChange={(e) => setSearchText(e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            borderRadius: '8px',
-                                                            height: '50px'
-                                                        }}
-                                                    />
-                                                </Col>
-                                                <Col xs={24} sm={8} md={6}>
-                                                    <div className="action-buttons">
-                                                        <Button
-                                                            icon={<FilterOutlined />}
-                                                            size="large"
-                                                            onClick={showFilterDrawer}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Filters
-                                                        </Button>
-                                                        <Button
-                                                            type="primary"
-                                                            size="large"
-                                                            onClick={handleSearch}
-                                                            style={{
-                                                                flex: 1,
-                                                                borderRadius: '8px',
-                                                                background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
-                                                                border: 'none',
-                                                                fontWeight: '600',
-                                                                height: '50px'
-                                                            }}
-                                                        >
-                                                            Search
-                                                        </Button>
-                                                    </div>
-                                                </Col>
-                                            </Row>
-                                        </TabPane>
-                                    </Tabs>
+                                    <Row gutter={[12, 12]} align="middle">
+                                        <Col xs={24} sm={16} md={18}>
+                                            <Input
+                                                placeholder="Search by city, municipality, or keyword"
+                                                size="large"
+                                                value={searchText}
+                                                onChange={(e) => setSearchText(e.target.value)}
+                                                onKeyPress={handleKeyPress}
+                                                prefix={<SearchOutlined style={{ color: '#999' }} />}
+                                                style={{
+                                                    width: '100%',
+                                                    borderRadius: '8px',
+                                                    height: '50px'
+                                                }}
+                                            />
+                                        </Col>
+                                        <Col xs={24} sm={8} md={6}>
+                                            <div className="action-buttons">
+                                                <Button
+                                                    icon={<FilterOutlined />}
+                                                    size="large"
+                                                    onClick={showFilterDrawer}
+                                                    style={{
+                                                        flex: 1,
+                                                        borderRadius: '8px',
+                                                        height: '50px'
+                                                    }}
+                                                >
+                                                    Filters
+                                                </Button>
+                                                <Button
+                                                    type="primary"
+                                                    size="large"
+                                                    onClick={handleSearch}
+                                                    style={{
+                                                        flex: 1,
+                                                        borderRadius: '8px',
+                                                        background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
+                                                        border: 'none',
+                                                        fontWeight: '600',
+                                                        height: '50px'
+                                                    }}
+                                                >
+                                                    Search
+                                                </Button>
+                                            </div>
+                                        </Col>
+                                    </Row>
                                 </Card>
 
                                 {/* Filter Drawer */}
@@ -281,9 +227,11 @@ const FirstSection = () => {
                                                 <Option value="">Any Type</Option>
                                                 <Option value="house">House</Option>
                                                 <Option value="apartment">Apartment</Option>
-                                                <Option value="condo">Condo</Option>
+                                                <Option value="condo">Condominium</Option>
                                                 <Option value="villa">Villa</Option>
                                                 <Option value="townhouse">Townhouse</Option>
+                                                <Option value="land">Land</Option>
+                                                <Option value="commercial">Commercial</Option>
                                             </Select>
                                         </div>
 
@@ -292,19 +240,23 @@ const FirstSection = () => {
                                                 <EnvironmentOutlined /> Location
                                             </span>
                                             <Select
-                                                placeholder="Any Location"
+                                                placeholder="Select City/Municipality"
                                                 size="middle"
                                                 value={location}
                                                 onChange={setLocation}
                                                 style={{ width: '100%' }}
                                                 className="search-input"
+                                                showSearch
+                                                filterOption={(input, option) =>
+                                                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                                                }
                                             >
                                                 <Option value="">Any Location</Option>
-                                                <Option value="new-york">New York</Option>
-                                                <Option value="los-angeles">Los Angeles</Option>
-                                                <Option value="chicago">Chicago</Option>
-                                                <Option value="miami">Miami</Option>
-                                                <Option value="seattle">Seattle</Option>
+                                                {philippineLocations.map(location => (
+                                                    <Option key={location} value={location.toLowerCase().replace(/\s+/g, '-')}>
+                                                        {location}
+                                                    </Option>
+                                                ))}
                                             </Select>
                                         </div>
 
@@ -351,15 +303,16 @@ const FirstSection = () => {
                                             </span>
                                             <Slider
                                                 range
-                                                min={50000}
-                                                max={1000000}
-                                                step={50000}
+                                                min={500000}
+                                                max={50000000}
+                                                step={500000}
                                                 value={priceRange}
                                                 onChange={setPriceRange}
                                                 className="price-slider"
+                                                tooltip={{ formatter: formatPrice }}
                                             />
                                             <div className="price-display">
-                                                ${priceRange[0].toLocaleString()} - ${priceRange[1].toLocaleString()}
+                                                {formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}
                                             </div>
                                         </div>
 
@@ -386,9 +339,9 @@ const FirstSection = () => {
                                 {/* Minimal Stats */}
                                 <Row gutter={32} style={{ marginTop: '2rem' }}>
                                     {[
-                                        { number: '10K+', label: 'Properties' },
-                                        { number: '5K+', label: 'Clients' },
-                                        { number: '50+', label: 'Locations' }
+                                        { number: '50K+', label: 'Properties' },
+                                        { number: '25K+', label: 'Happy Clients' },
+                                        { number: '100+', label: 'Cities Nationwide' }
                                     ].map((stat, index) => (
                                         <Col xs={8} key={index}>
                                             <div>
@@ -462,9 +415,10 @@ const FirstSection = () => {
                     font-weight: 600;
                     margin-top: 10px;
                     font-size: 14px;
+                    text-align: center;
                 }
 
-                /* Ensure all form elements have same height */
+      
                 .ant-btn {
                     display: flex;
                     align-items: center;

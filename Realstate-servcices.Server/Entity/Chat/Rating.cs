@@ -62,5 +62,7 @@ namespace Realstate_servcices.Server.Entity.Chat
 
         [ForeignKey("ChatId")]
         public virtual Chat? Chat { get; set; }
+
+        
     }
 }

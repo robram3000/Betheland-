@@ -1,30 +1,12 @@
-﻿// Services/LoginAuth.jsx (Enhanced)
+﻿// Services/LoginAuth.jsx (Updated)
 import api from './Api';
 
 class AuthService {
     constructor() {
-        this.setupTokenRefresh();
+        // REMOVED: setupTokenRefresh();
     }
 
-    setupTokenRefresh() {
-        const checkTokenExpiry = () => {
-            const token = this.getToken();
-            if (token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    const expiresIn = payload.exp * 1000 - Date.now();
-                    if (expiresIn < 5 * 60 * 1000 && expiresIn > 0) {
-                        this.refreshToken().catch(error => {
-                            console.warn('Token refresh failed:', error);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Token expiry check failed:', error);
-                }
-            }
-        };
-        this.tokenCheckInterval = setInterval(checkTokenExpiry, 12 * 60 * 60 * 1000);
-    }
+    // REMOVED: setupTokenRefresh method
 
     async login(usernameOrEmail, password, rememberMe = false) {
         try {
@@ -133,6 +115,7 @@ class AuthService {
             localStorage.setItem('sessionAuthToken', authData.accessToken);
         }
     }
+
     // Get token from appropriate storage
     getToken() {
         return localStorage.getItem('authToken') ||
@@ -140,22 +123,26 @@ class AuthService {
             localStorage.getItem('sessionAuthToken');
     }
 
-    // Logout user
-    logout() {
-        // Clear all storage
-        localStorage.clear();
-        sessionStorage.clear();
+    // Logout user - FIXED VERSION
+    logout = () => {
+        // Clear tokens from localStorage/sessionStorage
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userData'); // Fixed: was 'currentUser'
+        localStorage.removeItem('sessionAuthToken');
 
-        // Clear intervals
-        if (this.tokenCheckInterval) {
-            clearInterval(this.tokenCheckInterval);
-        }
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('userData'); // Fixed: was 'currentUser'
 
-        // Optional: Call backend logout endpoint
-        // await api.post('/Login/logout').catch(() => {}); // Silent fail
-    }
+        // Clear any cookies if used
+        document.cookie = 'authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 
-    // Check if user is authenticated
+        console.log('🔐 AuthService - User logged out and all data cleared');
+    };
+
+    // Enhanced authentication check with auto-cleanup
     isAuthenticated() {
         const token = this.getToken();
         if (!token) return false;
@@ -165,13 +152,22 @@ class AuthService {
             const isExpired = payload.exp * 1000 < Date.now();
 
             if (isExpired) {
-                this.logout(); // Auto cleanup expired tokens
+                // Auto-cleanup expired tokens
+                this.logout();
+                return false;
+            }
+
+            // Additional check: verify we have user data
+            const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
+            if (!userData) {
+                this.logout();
                 return false;
             }
 
             return true;
-        } catch {
-            this.logout(); // Auto cleanup invalid tokens
+        } catch (error) {
+            // Auto-cleanup invalid tokens
+            this.logout();
             return false;
         }
     }
@@ -186,10 +182,6 @@ class AuthService {
         try {
             const user = JSON.parse(userData);
             const payload = JSON.parse(atob(token.split('.')[1]));
-
-            // ✅ Debug logging to see what's actually stored
-            console.log("Stored user data:", user);
-            console.log("Profile picture from storage:", user.profilePicture);
 
             return {
                 userId: user.userId,
@@ -207,45 +199,8 @@ class AuthService {
         }
     }
 
-    async refreshToken() {
-        try {
-            const refreshToken = localStorage.getItem('refreshToken') ||
-                sessionStorage.getItem('refreshToken');
+    // REMOVED: refreshToken method
 
-            if (!refreshToken) {
-                throw new Error('No refresh token available');
-            }
-
-            const response = await api.post('/Login/refresh-token', {
-                refreshToken: refreshToken
-            });
-
-            if (response && response.success && response.accessToken) {
-                // Determine which storage to use
-                const rememberMe = !!localStorage.getItem('authToken');
-                this.setTokens(response, rememberMe);
-
-                return {
-                    success: true,
-                    message: response.message || 'Token refreshed successfully'
-                };
-            }
-
-            throw new Error(response?.message || 'Invalid response from refresh token endpoint');
-        } catch (error) {
-            console.error('Token refresh failed:', error);
-            this.logout(); // Full logout on refresh failure
-
-            const errorMessage = error?.response?.data?.message ||
-                error?.message ||
-                'Token refresh failed';
-
-            return {
-                success: false,
-                message: errorMessage
-            };
-        }
-    }
     async forgotPassword(email) {
         try {
             const response = await api.post('/Login/forgot-password', { email });
@@ -271,6 +226,7 @@ class AuthService {
             };
         }
     }
+
     async resetPassword(token, newPassword, confirmPassword) {
         try {
             const response = await api.post('/Login/reset-password', {
@@ -300,6 +256,7 @@ class AuthService {
             };
         }
     }
+
     async changePassword(currentPassword, newPassword) {
         try {
             const response = await api.post('/Login/change-password', {
@@ -328,6 +285,7 @@ class AuthService {
             };
         }
     }
+
     async verifyEmail(token) {
         try {
             const response = await api.post('/Login/verify-email', { token });
@@ -353,6 +311,7 @@ class AuthService {
             };
         }
     }
+
     async checkEmailExists(email) {
         try {
             const response = await api.post('/Login/check-email', { email });
@@ -367,6 +326,7 @@ class AuthService {
             };
         }
     }
+
     async checkUsernameExists(username) {
         try {
             const response = await api.post('/Login/check-username', { username });

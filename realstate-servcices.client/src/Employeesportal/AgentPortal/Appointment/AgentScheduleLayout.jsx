@@ -1,13 +1,14 @@
 // AgentScheduleLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge, Card, Row, Col, Statistic, Typography, Spin, Alert } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Card, Row, Col, Statistic, Typography, Spin, Alert, Button } from 'antd';
 import {
     CalendarOutlined,
     ClockCircleOutlined,
     CheckCircleOutlined,
     UserOutlined,
-    SettingOutlined
+    SettingOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import AgentScheduleAppointments from './AgentScheduleAppointments';
 import AgentAvailability from './AgentAvailability';
@@ -15,6 +16,7 @@ import AgentTimeOff from './AgentTimeOff';
 import AgentScheduleConfig from './AgentScheduleConfig';
 import { SchedulePropertiesService } from '../../AdminPortal/appointment/Services/index.js';
 import authService from '../../../Authpage/Services/LoginAuth';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
@@ -29,12 +31,37 @@ const AgentScheduleLayout = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [currentAgentId, setCurrentAgentId] = useState(null);
 
     const scheduleService = new SchedulePropertiesService();
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
+
+    // Helper function to get the actual agent ID from base member ID
+    const getCurrentAgentId = async () => {
+        try {
+            const currentUser = authService.getCurrentUser();
+            const baseMemberId = currentUser?.userId;
+
+            if (!baseMemberId) {
+                throw new Error('Unable to determine user ID. Please log in again.');
+            }
+
+            // Get the agent by base member ID to get the actual agent ID
+            const agent = await agentService.getAgentByBaseMemberId(baseMemberId);
+
+            if (!agent || !agent.id) {
+                throw new Error('Agent profile not found. Please complete your agent profile first.');
+            }
+
+            return agent.id;
+        } catch (error) {
+            console.error('Error getting current agent ID:', error);
+            throw new Error('Failed to retrieve agent information: ' + error.message);
+        }
+    };
 
     const handleTabChange = (key) => {
         setActiveTab(key);
@@ -44,12 +71,8 @@ const AgentScheduleLayout = () => {
         setLoading(true);
         setError(null);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
+            const agentId = await getCurrentAgentId();
+            setCurrentAgentId(agentId);
 
             console.log('Loading schedules for agent ID:', agentId);
 

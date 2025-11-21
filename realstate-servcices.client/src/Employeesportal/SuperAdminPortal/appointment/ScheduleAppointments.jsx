@@ -1,3 +1,4 @@
+// ScheduleAppointments.jsx - Fixed with real service integration
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -17,7 +18,8 @@ import {
     Col,
     Statistic,
     Popconfirm,
-    InputNumber
+    InputNumber,
+    Alert
 } from 'antd';
 import {
     SearchOutlined,
@@ -29,13 +31,18 @@ import {
     UserOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
 
-// Import the service
-import schedulePropertiesService  from '../../AdminPortal/appointment/Services/SchedulePropertiesService';
+// Import the services
+import SchedulePropertiesService from '../../AdminPortal/appointment/Services/SchedulePropertiesService';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
+import clientService from '../../AdminPortal/Creation_Agent/Services/ClientService';
+import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
+import { schedulePropertiesMapper } from '../../AdminPortal/appointment/mappers/schedulePropertiesMapper'; 
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -52,22 +59,44 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [clients, setClients] = useState([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [error, setError] = useState(null);
+
+    const scheduleService = new SchedulePropertiesService();
 
     useEffect(() => {
-        loadAppointments();
-        loadAgents();
-        loadProperties();
-        loadClients();
+        loadAllData();
     }, []);
+
+    const loadAllData = async () => {
+        await Promise.all([
+            loadAppointments(),
+            loadAgents(),
+            loadProperties(),
+            loadClients()
+        ]);
+    };
 
     const loadAppointments = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const schedules = await schedulePropertiesService.getAllSchedules();
-            setAppointments(schedules || []);
+            const schedules = await scheduleService.getAllSchedules();
+            console.log('Raw appointments data:', schedules);
+
+            if (schedules && Array.isArray(schedules)) {
+                // Use the mapper to format the data
+                const mappedAppointments = schedulePropertiesMapper.toFrontendList(schedules);
+                console.log('Mapped appointments:', mappedAppointments);
+                setAppointments(mappedAppointments);
+            } else {
+                setAppointments([]);
+                message.warning('No appointments found');
+            }
         } catch (error) {
             console.error('Error loading appointments:', error);
-            message.error(error.message || 'Failed to load appointments');
+            const errorMessage = error.message || 'Failed to load appointments';
+            setError(errorMessage);
+            message.error(errorMessage);
             setAppointments([]);
         } finally {
             setLoading(false);
@@ -75,30 +104,69 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     };
 
     const loadAgents = async () => {
-        // Mock agents data - replace with actual API call
-        setAgents([
-            { id: 1, name: 'John Smith' },
-            { id: 2, name: 'Sarah Johnson' },
-            { id: 3, name: 'Mike Wilson' }
-        ]);
+        try {
+            const agentsData = await agentService.getAgents();
+            if (agentsData && Array.isArray(agentsData)) {
+                const mappedAgents = agentsData.map(agent => ({
+                    id: agent.id,
+                    name: `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Unknown Agent',
+                    phone: agent.cellPhoneNo,
+                    email: agent.email,
+                    profilePicture: agent.profilePictureUrl
+                }));
+                setAgents(mappedAgents);
+            } else {
+                setAgents([]);
+            }
+        } catch (error) {
+            console.error('Error loading agents:', error);
+            setAgents([]);
+            message.warning('Failed to load agents data');
+        }
     };
 
     const loadProperties = async () => {
-        // Mock properties data - replace with actual API call
-        setProperties([
-            { id: 1, title: 'Luxury Villa in Beverly Hills' },
-            { id: 2, title: 'Modern Apartment Downtown' },
-            { id: 3, title: 'Family Home in Suburbs' }
-        ]);
+        try {
+            const propertiesData = await propertyService.getAllProperties();
+            if (propertiesData && Array.isArray(propertiesData)) {
+                const mappedProperties = propertiesData.map(property => ({
+                    id: property.id,
+                    title: property.title || 'Unknown Property',
+                    address: property.address || 'No address',
+                    price: property.price,
+                    bedrooms: property.bedrooms,
+                    bathrooms: property.bathrooms
+                }));
+                setProperties(mappedProperties);
+            } else {
+                setProperties([]);
+            }
+        } catch (error) {
+            console.error('Error loading properties:', error);
+            setProperties([]);
+            message.warning('Failed to load properties data');
+        }
     };
 
     const loadClients = async () => {
-        // Mock clients data - replace with actual API call
-        setClients([
-            { id: 1, name: 'Alice Johnson' },
-            { id: 2, name: 'Bob Brown' },
-            { id: 3, name: 'Carol Davis' }
-        ]);
+        try {
+            const clientsData = await clientService.getClients();
+            if (clientsData && Array.isArray(clientsData)) {
+                const mappedClients = clientsData.map(client => ({
+                    id: client.id,
+                    name: `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown Client',
+                    phone: client.cellPhoneNo,
+                    email: client.email
+                }));
+                setClients(mappedClients);
+            } else {
+                setClients([]);
+            }
+        } catch (error) {
+            console.error('Error loading clients:', error);
+            setClients([]);
+            message.warning('Failed to load clients data');
+        }
     };
 
     const handleCreate = () => {
@@ -110,11 +178,13 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const handleEdit = (appointment) => {
         setSelectedAppointment(appointment);
         form.setFieldsValue({
-            ...appointment,
-            scheduleTime: moment(appointment.scheduleTime),
             agentId: appointment.agentId,
             clientId: appointment.clientId,
-            propertyId: appointment.propertyId
+            propertyId: appointment.propertyId,
+            scheduleTime: moment(appointment.scheduleTime),
+            notes: appointment.notes,
+            meetingType: appointment.meetingType,
+            meetingLocation: appointment.meetingLocation
         });
         setModalVisible(true);
     };
@@ -126,7 +196,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const handleDelete = async (id) => {
         try {
-            await schedulePropertiesService.deleteSchedule(id);
+            await scheduleService.deleteSchedule(id);
             message.success('Appointment deleted successfully');
             loadAppointments();
             if (onScheduleUpdate) onScheduleUpdate();
@@ -139,16 +209,24 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const handleSubmit = async (values) => {
         try {
             const appointmentData = {
-                ...values,
+                agentId: parseInt(values.agentId),
+                clientId: parseInt(values.clientId),
+                propertyId: parseInt(values.propertyId),
                 scheduleTime: values.scheduleTime.format(),
-                id: selectedAppointment?.id
+                notes: values.notes || '',
+                meetingType: values.meetingType || 'InPerson',
+                meetingLocation: values.meetingLocation || '',
+                status: 'Scheduled'
             };
 
             if (selectedAppointment) {
-                await schedulePropertiesService.updateSchedule(selectedAppointment.id, appointmentData);
+                // Update existing appointment
+                await scheduleService.updateSchedule(selectedAppointment.id, appointmentData);
                 message.success('Appointment updated successfully');
             } else {
-                await schedulePropertiesService.createSchedule(appointmentData);
+                // Create new appointment using the mapper
+                const createData = schedulePropertiesMapper.toCreateRequest(appointmentData);
+                await scheduleService.createSchedule(createData);
                 message.success('Appointment created successfully');
             }
 
@@ -164,9 +242,9 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const handleStatusChange = async (id, newStatus) => {
         try {
             if (newStatus === 'Completed') {
-                await schedulePropertiesService.completeSchedule(id);
+                await scheduleService.completeSchedule(id);
             } else if (newStatus === 'Cancelled') {
-                await schedulePropertiesService.cancelSchedule(id);
+                await scheduleService.cancelSchedule(id);
             }
 
             message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
@@ -176,17 +254,6 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             console.error('Error updating appointment status:', error);
             message.error(error.message || 'Failed to update appointment status');
         }
-    };
-
-    // Enhanced data mapping for display
-    const mapAppointmentData = (appointment) => {
-        return {
-            ...appointment,
-            agentName: appointment.agent?.name || 'Unknown Agent',
-            clientName: appointment.client?.name || 'Unknown Client',
-            propertyTitle: appointment.property?.title || 'Unknown Property',
-            propertyAddress: appointment.property?.address || 'No address available'
-        };
     };
 
     const getStatusColor = (status) => {
@@ -199,14 +266,26 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         return colors[status] || 'default';
     };
 
+    const renderErrorAlert = () => {
+        if (!error) return null;
+        return (
+            <Alert
+                message="Loading Error"
+                description={error}
+                type="error"
+                showIcon
+                action={
+                    <Button size="small" onClick={loadAllData} icon={<ReloadOutlined />}>
+                        Retry
+                    </Button>
+                }
+                style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+        );
+    };
+
     const columns = [
-        {
-            title: 'Schedule No',
-            dataIndex: 'scheduleNo',
-            key: 'scheduleNo',
-            width: 120,
-            render: (text) => <Tag color="blue">{text}</Tag>
-        },
+      
         {
             title: 'Agent',
             dataIndex: 'agentName',
@@ -214,8 +293,12 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             width: 150,
             render: (text, record) => (
                 <Space>
-                    <Avatar size="small" src={record.agent?.photo} icon={<UserOutlined />} />
-                    {text}
+                    <Avatar
+                        size="small"
+                        src={record.agent?.profilePicture}
+                        icon={<UserOutlined />}
+                    />
+                    {text || 'Unknown Agent'}
                 </Space>
             )
         },
@@ -223,7 +306,8 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             title: 'Client',
             dataIndex: 'clientName',
             key: 'client',
-            width: 150
+            width: 150,
+            render: (text) => text || 'Unknown Client'
         },
         {
             title: 'Property',
@@ -232,9 +316,9 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             width: 200,
             render: (text, record) => (
                 <Space direction="vertical" size={0}>
-                    <div style={{ fontWeight: 500 }}>{text}</div>
+                    <div style={{ fontWeight: 500 }}>{text || 'Unknown Property'}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
-                        {record.propertyAddress}
+                        {record.propertyAddress || 'No address available'}
                     </div>
                 </Space>
             )
@@ -255,11 +339,15 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             sorter: (a, b) => moment(a.scheduleTime) - moment(b.scheduleTime)
         },
         {
-            title: 'Purpose',
-            dataIndex: 'purpose',
-            key: 'purpose',
-            width: 150,
-            render: (purpose) => purpose || 'Property Viewing'
+            title: 'Meeting Type',
+            dataIndex: 'meetingType',
+            key: 'meetingType',
+            width: 120,
+            render: (type) => (
+                <Tag color={type === 'Virtual' ? 'blue' : type === 'Phone' ? 'orange' : 'green'}>
+                    {type || 'InPerson'}
+                </Tag>
+            )
         },
         {
             title: 'Status',
@@ -321,15 +409,12 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         }
     ];
 
-    // Map appointment data for display
-    const displayAppointments = appointments.map(mapAppointmentData);
-
-    const filteredAppointments = displayAppointments.filter(appointment => {
+    const filteredAppointments = appointments.filter(appointment => {
         const matchesSearch = searchText === '' ||
-            appointment.agentName?.toLowerCase().includes(searchText.toLowerCase()) ||
-            appointment.clientName?.toLowerCase().includes(searchText.toLowerCase()) ||
-            appointment.propertyTitle?.toLowerCase().includes(searchText.toLowerCase()) ||
-            appointment.scheduleNo?.toLowerCase().includes(searchText.toLowerCase());
+            (appointment.agentName || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (appointment.clientName || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (appointment.propertyTitle || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (appointment.scheduleNo || '').toLowerCase().includes(searchText.toLowerCase());
 
         const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
 
@@ -432,6 +517,8 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                     </Button>
                 </div>
 
+                {renderErrorAlert()}
+
                 <BaseTable
                     data={filteredAppointments}
                     columns={columns}
@@ -465,10 +552,10 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                                 label="Agent"
                                 rules={[{ required: true, message: 'Please select an agent' }]}
                             >
-                                <Select placeholder="Select agent">
+                                <Select placeholder="Select agent" showSearch>
                                     {agents.map(agent => (
                                         <Option key={agent.id} value={agent.id}>
-                                            {agent.name}
+                                            {agent.name} ({agent.phone})
                                         </Option>
                                     ))}
                                 </Select>
@@ -480,10 +567,10 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                                 label="Client"
                                 rules={[{ required: true, message: 'Please select a client' }]}
                             >
-                                <Select placeholder="Select client">
+                                <Select placeholder="Select client" showSearch>
                                     {clients.map(client => (
                                         <Option key={client.id} value={client.id}>
-                                            {client.name}
+                                            {client.name} ({client.phone})
                                         </Option>
                                     ))}
                                 </Select>
@@ -496,10 +583,10 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                         label="Property"
                         rules={[{ required: true, message: 'Please select a property' }]}
                     >
-                        <Select placeholder="Select property">
+                        <Select placeholder="Select property" showSearch>
                             {properties.map(property => (
                                 <Option key={property.id} value={property.id}>
-                                    {property.title}
+                                    {property.title} - {property.address}
                                 </Option>
                             ))}
                         </Select>
@@ -522,26 +609,24 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                         </Col>
                         <Col span={12}>
                             <Form.Item
-                                name="duration"
-                                label="Duration (minutes)"
-                                initialValue={60}
+                                name="meetingType"
+                                label="Meeting Type"
+                                initialValue="InPerson"
                             >
-                                <InputNumber
-                                    min={15}
-                                    max={480}
-                                    style={{ width: '100%' }}
-                                    placeholder="Duration in minutes"
-                                />
+                                <Select>
+                                    <Option value="InPerson">In Person</Option>
+                                    <Option value="Virtual">Virtual</Option>
+                                    <Option value="Phone">Phone</Option>
+                                </Select>
                             </Form.Item>
                         </Col>
                     </Row>
 
                     <Form.Item
-                        name="purpose"
-                        label="Purpose"
-                        initialValue="Property Viewing"
+                        name="meetingLocation"
+                        label="Meeting Location"
                     >
-                        <Input placeholder="e.g., Property Viewing, Consultation" />
+                        <Input placeholder="Location for in-person meetings" />
                     </Form.Item>
 
                     <Form.Item
@@ -627,21 +712,34 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                                 <div>{moment(selectedAppointment.scheduleTime).format('MMM DD, YYYY hh:mm A')}</div>
                             </Col>
                             <Col span={12}>
-                                <strong>Duration:</strong>
-                                <div>{selectedAppointment.duration || 60} minutes</div>
+                                <strong>Meeting Type:</strong>
+                                <div>
+                                    <Tag color={selectedAppointment.meetingType === 'Virtual' ? 'blue' : selectedAppointment.meetingType === 'Phone' ? 'orange' : 'green'}>
+                                        {selectedAppointment.meetingType}
+                                    </Tag>
+                                </div>
                             </Col>
                         </Row>
-                        <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={24}>
-                                <strong>Purpose:</strong>
-                                <div>{selectedAppointment.purpose || 'Property Viewing'}</div>
-                            </Col>
-                        </Row>
+                        {selectedAppointment.meetingLocation && (
+                            <Row gutter={16} style={{ marginBottom: 16 }}>
+                                <Col span={24}>
+                                    <strong>Meeting Location:</strong>
+                                    <div>{selectedAppointment.meetingLocation}</div>
+                                </Col>
+                            </Row>
+                        )}
                         {selectedAppointment.notes && (
                             <Row gutter={16}>
                                 <Col span={24}>
                                     <strong>Notes:</strong>
-                                    <div>{selectedAppointment.notes}</div>
+                                    <div style={{
+                                        background: '#f5f5f5',
+                                        padding: '12px',
+                                        borderRadius: '6px',
+                                        marginTop: '8px'
+                                    }}>
+                                        {selectedAppointment.notes}
+                                    </div>
                                 </Col>
                             </Row>
                         )}

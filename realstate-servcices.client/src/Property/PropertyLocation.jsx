@@ -1316,12 +1316,7 @@ const PropertyLocation = ({ property }) => {
                                     <span>{agent.email}</span>
                                 </div>
                             )}
-                            {agent?.licenseNumber && (
-                                <div className="property-location-contact-item">
-                                    <FaIdCard className="property-location-contact-icon" />
-                                    <span>License: {agent.licenseNumber}</span>
-                                </div>
-                            )}
+                           
                         </div>
                     </div>
                 </div>

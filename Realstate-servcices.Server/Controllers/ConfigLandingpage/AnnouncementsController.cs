@@ -25,10 +25,12 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             try
             {
                 var announcements = await _announcementService.GetActiveAnnouncementsAsync();
+                Console.WriteLine($"Returning {announcements?.Count()} active announcements");
                 return Ok(announcements);
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in GetActiveAnnouncements: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -43,10 +45,12 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             try
             {
                 var announcements = await _announcementService.GetAllAnnouncementsAsync();
+                Console.WriteLine($"Returning {announcements?.Count()} announcements");
                 return Ok(announcements);
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in GetAllAnnouncements: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -70,6 +74,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in GetAnnouncementById: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -94,6 +99,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in CreateAnnouncement: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -124,6 +130,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in UpdateAnnouncement: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -148,6 +155,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in DeleteAnnouncement: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -172,6 +180,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in ToggleAnnouncementStatus: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -191,6 +200,7 @@ namespace Realstate_servcices.Server.Controllers.ConfigLandingpage
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in ReorderAnnouncements: {ex.Message}");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }

@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Services.PropertyCreation;
 using Realstate_servcices.Server.Utilities.Storage;
@@ -13,15 +15,18 @@ namespace Realstate_servcices.Server.Controllers.Agent
         private readonly ICreatePropertyService _propertyService;
         private readonly ILocalstorageImage _imageStorage;
         private readonly ILocalStorageVideo _videoStorage;
-
+        private readonly ApplicationDbContext _context;
         public CreationPropertyController(
             ICreatePropertyService propertyService,
             ILocalstorageImage imageStorage,
-            ILocalStorageVideo videoStorage)
+            ILocalStorageVideo videoStorage,
+            ApplicationDbContext context
+            )
         {
             _propertyService = propertyService;
             _imageStorage = imageStorage;
             _videoStorage = videoStorage;
+            _context = context;
         }
 
         [HttpPost]
@@ -707,8 +712,49 @@ namespace Realstate_servcices.Server.Controllers.Agent
         [HttpGet("agent/{agentId}")]
         public async Task<ActionResult<PropertiesResponse>> GetPropertiesByAgent(int agentId)
         {
-            var result = await _propertyService.GetPropertiesByAgentIdAsync(agentId);
-            return Ok(result);
+            try
+            {
+           
+                if (agentId <= 0)
+                {
+                    return BadRequest(new PropertiesResponse
+                    {
+                        Success = false,
+                        Message = "Invalid agent ID"
+                    });
+                }
+
+                var agentExists = await _context.Agents.AnyAsync(a => a.Id == agentId);
+                if (!agentExists)
+                {
+                    return NotFound(new PropertiesResponse
+                    {
+                        Success = false,
+                        Message = "Agent not found"
+                    });
+                }
+
+                var result = await _propertyService.GetPropertiesByAgentIdAsync(agentId);
+
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+           
+             
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+              
+                return StatusCode(500, new PropertiesResponse
+                {
+                    Success = false,
+                    Message = $"Failed to get properties for agent: {ex.Message}"
+                });
+            }
         }
 
         [HttpPut("{id}")]

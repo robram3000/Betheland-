@@ -54,6 +54,10 @@ namespace Realstate_servcices.Server.Entity.Properties
 
         [Required]
         [MaxLength(100)]
+        public string Barangay { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(100)]
         public string State { get; set; } = string.Empty;
         [Required]
         [MaxLength(20)]

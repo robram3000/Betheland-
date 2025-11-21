@@ -1,38 +1,86 @@
-﻿// ChatPage.jsx - Updated with mock data
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
     Row, Col, Card, Input, Avatar, Typography, List, Badge, Button, Space,
-    Tabs, message, Drawer, Popover, Upload, Modal
+    Tabs, message, Drawer, Popover, Upload, Modal, Segmented, Spin
 } from 'antd';
 import {
     SearchOutlined, MoreOutlined, WechatOutlined,
     SendOutlined, InfoCircleOutlined,
     LeftOutlined, SmileOutlined, EyeOutlined,
     PaperClipOutlined, FileImageOutlined, FileOutlined,
-    PlayCircleOutlined, DeleteOutlined
+    PlayCircleOutlined, DeleteOutlined, UserOutlined,
+    TeamOutlined, MessageOutlined, ReloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import chatService from '../../AdminPortal/Convo/chatService';
+import authService from '../../../Authpage/Services/LoginAuth';
+import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Search } = Input;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
-const ChatPage = ({ propertyChatData }) => {
+const ChatPageAgent = ({ propertyChatData }) => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeChat, setActiveChat] = useState(null);
     const [newMessage, setNewMessage] = useState('');
     const [activeTab, setActiveTab] = useState('all');
+    const [chatType, setChatType] = useState('all');
     const [sidebarVisible, setSidebarVisible] = useState(false);
     const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
     const [fileList, setFileList] = useState([]);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewImage, setPreviewImage] = useState('');
+    const [loadingChats, setLoadingChats] = useState(false);
+    const [loadingMessages, setLoadingMessages] = useState(false);
+    const [sendingMessage, setSendingMessage] = useState(false);
+    const [userRole, setUserRole] = useState('agent');
+    const [currentAgent, setCurrentAgent] = useState(null);
+    const [chats, setChats] = useState([]); 
+
     const textAreaRef = useRef(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
+ 
+    const getCurrentAgentInfo = async () => {
+        try {
+         
+            const userData = authService.getCurrentUser();  
+            if (!userData) {
+                console.error('❌ No user found in localStorage');
+                message.error('Please log in to access chats');
+                return null;
+            }
+       
+            const userId = userdata.userId;
+            if (!userId) {
+                console.error('❌ No user ID found');
+                message.error('User ID not found. Please log in again.');
+                return null;
+            }
 
-    // Common emojis for the picker
+       
+            const agentData = await agentService.getAgentByBaseMemberId(userId);
+       
+
+            if (!agentData || !agentData.id) {
+              
+                message.error('Agent profile not found. Please complete your agent profile.');
+                return null;
+            }
+
+            setCurrentAgent(agentData);
+            return agentData;
+
+        } catch (error) {
+            console.error('💥 Error getting agent info:', error);
+            message.error('Failed to load agent profile: ' + (error.message || 'Unknown error'));
+            return null;
+        }
+    };
+
     const commonEmojis = [
         '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
         '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
@@ -48,245 +96,255 @@ const ChatPage = ({ propertyChatData }) => {
         '😾'
     ];
 
-    // Mock chat data
-    const mockChats = [
-        {
-            id: 'chat-1',
-            name: 'Maria Santos',
-            lastMessage: 'Hi! I saw your property listing',
-            time: '2 min ago',
-            unread: 2,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-            online: true,
-            isAgentChat: true,
-            agentData: {
-                id: 1,
-                name: 'Maria Santos',
-                profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-                phone: '+63 912 345 6789',
-                email: 'maria.santos@realestate.com'
-            },
-            propertyData: {
-                id: 101,
-                title: 'Modern Condo in BGC',
-                address: 'Bonifacio Global City, Taguig',
-                price: 8500000,
-                propertyType: 'Condominium',
-                bedrooms: 2,
-                bathrooms: 2,
-                areaSqft: '65 sqm',
-                mainImage: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop'
-            },
-            messages: [
-                {
-                    id: 1,
-                    text: 'Hi! I saw your property listing in BGC and I\'m very interested.',
-                    sender: 'me',
-                    time: '10:30 AM'
-                },
-                {
-                    id: 2,
-                    text: 'Hello! Thank you for your interest in our BGC property. It\'s a great unit with amazing city views.',
-                    sender: 'them',
-                    time: '10:32 AM'
-                },
-                {
-                    id: 3,
-                    text: 'Can I schedule a viewing this weekend?',
-                    sender: 'me',
-                    time: '10:33 AM'
-                }
-            ]
-        },
-        {
-            id: 'chat-2',
-            name: 'John Reyes',
-            lastMessage: 'About the Makati property...',
-            time: '1 hour ago',
-            unread: 0,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-            online: true,
-            isAgentChat: true,
-            agentData: {
-                id: 2,
-                name: 'John Reyes',
-                profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-                phone: '+63 917 654 3210',
-                email: 'john.reyes@realestate.com'
-            },
-            propertyData: {
-                id: 102,
-                title: 'Luxury House in Alabang',
-                address: 'Ayala Alabang Village, Muntinlupa',
-                price: 25000000,
-                propertyType: 'House',
-                bedrooms: 4,
-                bathrooms: 3,
-                areaSqft: '250 sqm',
-                mainImage: 'https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=300&h=200&fit=crop'
-            },
-            messages: [
-                {
-                    id: 1,
-                    text: 'Good morning! I have some questions about the Alabang property.',
-                    sender: 'me',
-                    time: '9:15 AM'
-                },
-                {
-                    id: 2,
-                    text: 'Good morning! I\'d be happy to answer any questions you have about the house.',
-                    sender: 'them',
-                    time: '9:20 AM'
-                }
-            ]
-        },
-        {
-            id: 'chat-3',
-            name: 'Sarah Lim',
-            lastMessage: 'Payment details received',
-            time: '3 hours ago',
-            unread: 0,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-            online: false,
-            isAgentChat: true,
-            agentData: {
-                id: 3,
-                name: 'Sarah Lim',
-                profilePicture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-                phone: '+63 918 765 4321',
-                email: 'sarah.lim@realestate.com'
-            },
-            propertyData: {
-                id: 103,
-                title: 'Beachfront Condo in Boracay',
-                address: 'Station 1, Boracay Island',
-                price: 12000000,
-                propertyType: 'Beach Condo',
-                bedrooms: 3,
-                bathrooms: 2,
-                areaSqft: '85 sqm',
-                mainImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=300&h=200&fit=crop'
-            },
-            messages: [
-                {
-                    id: 1,
-                    text: 'The beachfront condo looks amazing!',
-                    sender: 'me',
-                    time: 'Yesterday'
-                },
-                {
-                    id: 2,
-                    text: 'Yes, it has direct beach access and stunning sunset views!',
-                    sender: 'them',
-                    time: 'Yesterday'
-                }
-            ]
-        },
-        {
-            id: 'chat-4',
-            name: 'Carlos Garcia',
-            lastMessage: 'I will send the documents tomorrow',
-            time: '5 hours ago',
-            unread: 1,
-            type: 'direct',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-            online: true,
-            isAgentChat: true,
-            agentData: {
-                id: 4,
-                name: 'Carlos Garcia',
-                profilePicture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-                phone: '+63 919 876 5432',
-                email: 'carlos.garcia@realestate.com'
-            },
-            propertyData: {
-                id: 104,
-                title: 'Townhouse in Quezon City',
-                address: 'Tomas Morato, Quezon City',
-                price: 6500000,
-                propertyType: 'Townhouse',
-                bedrooms: 3,
-                bathrooms: 2,
-                areaSqft: '120 sqm',
-                mainImage: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=300&h=200&fit=crop'
-            },
-            messages: [
-                {
-                    id: 1,
-                    text: 'Hi, is the townhouse still available?',
-                    sender: 'me',
-                    time: '4 hours ago'
-                }
-            ]
+    // Helper function to generate unique chat key
+    const generateChatKey = (chat, agentId) => {
+        if (!chat) return `chat-${Date.now()}`;
+
+        // For direct chats, use participant IDs
+        if (chat.chatType === 'direct' && chat.participants) {
+            const participantIds = chat.participants
+                .map(p => p.baseMemberId)
+                .filter(id => id !== parseInt(agentId))
+                .sort((a, b) => a - b);
+            return `direct-${participantIds.join('-')}`;
         }
-    ];
 
-    // Initialize with mock chats
-    const [chats, setChats] = useState(mockChats);
-
-    // Set first chat as active by default
-    useEffect(() => {
-        if (chats.length > 0 && !activeChat) {
-            setActiveChat(chats[0].id);
+        // For property chats
+        if (chat.chatType === 'property_chat' && chat.propertyId) {
+            return `property-${chat.propertyId}`;
         }
-    }, [chats, activeChat]);
 
-    // Use property chat data if available
-    useEffect(() => {
-        if (propertyChatData) {
-            console.log('Property chat data received:', propertyChatData);
+        // Fallback
+        return `chat-${chat.id || Date.now()}`;
+    };
 
-            // Create a new chat entry for the agent
-            const agentChatId = `agent-${propertyChatData.agent?.id || Date.now()}`;
+    // Format message time
+    const formatMessageTime = (date) => {
+        if (!date) return 'Just now';
+        const messageDate = new Date(date);
+        const now = new Date();
+        const diffMs = now - messageDate;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
 
-            const newAgentChat = {
-                id: agentChatId,
-                name: propertyChatData.agent?.name || 'Contact Agent',
-                lastMessage: 'Property enquiry',
-                time: 'Now',
-                unread: 1,
-                type: 'direct',
-                avatar: propertyChatData.agent?.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-                online: true,
-                isAgentChat: true,
-                agentData: propertyChatData.agent,
-                propertyData: propertyChatData.property,
-                messages: [
-                    {
-                        id: 1,
-                        text: `Hi! I'm interested in the property at ${propertyChatData.property?.address}`,
-                        sender: 'me',
-                        time: 'Just now'
-                    }
-                ]
-            };
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return messageDate.toLocaleDateString();
+    };
 
-            // Check if this agent chat already exists
-            const existingAgentChatIndex = chats.findIndex(chat =>
-                chat.id === agentChatId || chat.isAgentChat
-            );
+    // Get property data
+    const getPropertyData = async (propertyId) => {
+        if (!propertyId) return null;
+        try {
+            console.log('🏠 Fetching property data for ID:', propertyId);
+            let property;
 
-            if (existingAgentChatIndex === -1) {
-                // Add new agent chat to the beginning of the list
-                setChats(prev => [newAgentChat, ...prev]);
-            } else {
-                // Update existing agent chat
-                const updatedChats = [...chats];
-                updatedChats[existingAgentChatIndex] = {
-                    ...updatedChats[existingAgentChatIndex],
-                    ...newAgentChat,
-                    unread: updatedChats[existingAgentChatIndex].unread + 1
-                };
-                setChats(updatedChats);
+            // Try different service methods
+            try {
+                property = await propertyService.getProperty(parseInt(propertyId));
+            } catch (error) {
+                console.log('Trying alternative property method...');
+                property = await propertyService.getPropertyById(parseInt(propertyId));
             }
 
-            // Set this as active chat
-            setActiveChat(agentChatId);
+            if (property) {
+                const processedProperty = {
+                    id: property.id || propertyId,
+                    title: property.title || property.name || 'Property',
+                    address: property.fullAddress || property.address ||
+                        `${property.street || ''} ${property.city || ''}`.trim() || 'Address not available',
+                    mainImage: property.mainImage || property.imageUrl ||
+                        (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
+                        '/default-property.jpg',
+                    price: property.price || property.listPrice || 0,
+                    propertyType: property.propertyType || property.type || 'residential',
+                    bedrooms: property.bedrooms || 0,
+                    bathrooms: property.bathrooms || 0,
+                    areaSqm: property.areaSqm || property.squareFeet || 0,
+                    areaSqft: property.areaSqft || (property.areaSqm ? `${property.areaSqm} sqm` : 'N/A')
+                };
+                console.log('✅ Processed property:', processedProperty);
+                return processedProperty;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ Error fetching property data:', error);
+            return null;
         }
-    }, [propertyChatData]);
+    };
+
+    // Load existing chats for agent
+    const loadExistingChats = async (type = 'all') => {
+        if (!currentAgent || !currentAgent.id) {
+            console.error('❌ Current agent not available');
+            return;
+        }
+
+        try {
+            setLoadingChats(true);
+            console.log(`🔍 Loading ${type} chats for Agent ID:`, currentAgent.id);
+
+            let existingChats = [];
+
+            // Use agent-specific chat service
+            try {
+                existingChats = await chatService.getAgentChats(currentAgent.id);
+            } catch (error) {
+                console.log('🔄 Fallback to user chats:', error);
+                existingChats = await chatService.getUserChats();
+            }
+
+            if (existingChats && existingChats.length > 0) {
+                console.log(`✅ Found ${existingChats.length} chats`);
+
+                // Process chats with property data
+                const processedChats = await Promise.all(
+                    existingChats.map(async (chat) => {
+                        // Fetch property data if needed
+                        if (chat.propertyId) {
+                            chat.propertyData = await getPropertyData(chat.propertyId);
+                        }
+                        return chat;
+                    })
+                );
+
+                // Transform to frontend format
+                const transformedChats = processedChats.map(chat => {
+                    // For agents, find client participants
+                    const clientParticipant = chat.participants?.find(p =>
+                        p.baseMemberId !== parseInt(currentAgent.id) &&
+                        (p.role === 'client' || p.participantType === 'client')
+                    );
+
+                    const lastMessage = chat.messages && chat.messages.length > 0
+                        ? chat.messages[chat.messages.length - 1]
+                        : null;
+
+                    // Transform messages
+                    const transformedMessages = (chat.messages || []).map(msg => ({
+                        id: msg.id,
+                        text: msg.content,
+                        sender: msg.senderId === parseInt(currentAgent.id) ? 'me' : 'other',
+                        time: formatMessageTime(new Date(msg.sentAt)),
+                        files: msg.files || [],
+                        senderId: msg.senderId,
+                        isCurrentUser: msg.senderId === parseInt(currentAgent.id)
+                    }));
+
+                    // Determine chat type badge
+                    let chatTypeBadge = 'Direct';
+                    if (chat.chatType === 'property_chat') chatTypeBadge = 'Property';
+                    if (chat.chatType === 'group') chatTypeBadge = 'Group';
+
+                    return {
+                        id: chat.id.toString(),
+                        backendChatId: chat.id,
+                        name: chat.name || (clientParticipant?.member?.fullName || 'Unknown Client'),
+                        lastMessage: lastMessage?.content || 'No messages yet',
+                        time: lastMessage ? formatMessageTime(new Date(lastMessage.sentAt)) : 'Just now',
+                        unread: chat.participants?.find(p => p.baseMemberId === parseInt(currentAgent.id))?.unreadCount || 0,
+                        type: chat.chatType || 'direct',
+                        chatTypeBadge: chatTypeBadge,
+                        avatar: clientParticipant?.member?.profileImage || '/default-avatar.png',
+                        online: true,
+                        isPropertyChat: chat.chatType === 'property_chat',
+                        clientData: clientParticipant?.member || null,
+                        propertyData: chat.propertyData || null,
+                        messages: transformedMessages,
+                        participants: chat.participants || [],
+                        chatKey: generateChatKey(chat, currentAgent.id)
+                    };
+                });
+
+                console.log('🎉 Transformed chats:', transformedChats);
+                setChats(transformedChats);
+            } else {
+                console.log('📭 No chats found');
+                setChats([]);
+            }
+        } catch (error) {
+            console.error('💥 Error loading chats:', error);
+            message.error('Failed to load chats: ' + (error.message || 'Unknown error'));
+        } finally {
+            setLoadingChats(false);
+        }
+    };
+
+    // Load messages for specific chat
+    const loadChatMessages = async (chatId) => {
+        if (!chatId) return;
+        try {
+            setLoadingMessages(true);
+            const chat = chats.find(c => c.id === chatId);
+            if (!chat?.backendChatId) {
+                console.log('📝 No backend chat ID, using local messages');
+                return;
+            }
+
+            const messages = await chatService.getChatMessages(chat.backendChatId);
+            if (messages && messages.length > 0) {
+                const transformedMessages = messages.map(msg => ({
+                    id: msg.id,
+                    text: msg.content,
+                    sender: msg.senderId === parseInt(currentAgent.id) ? 'me' : 'other',
+                    time: formatMessageTime(new Date(msg.sentAt)),
+                    files: msg.files || [],
+                    senderId: msg.senderId,
+                    isCurrentUser: msg.senderId === parseInt(currentAgent.id)
+                }));
+
+                setChats(prev => prev.map(chat =>
+                    chat.id === chatId
+                        ? { ...chat, messages: transformedMessages }
+                        : chat
+                ));
+            }
+        } catch (error) {
+            console.error('❌ Error loading messages:', error);
+        } finally {
+            setLoadingMessages(false);
+        }
+    };
+
+    // Initialize on component mount
+    useEffect(() => {
+        console.log('🚀 ChatPageAgent mounted');
+
+        const initializeAgent = async () => {
+            const agent = await getCurrentAgentInfo();
+            if (agent) {
+                loadExistingChats(chatType);
+            }
+        };
+
+        initializeAgent();
+    }, []);
+
+    // Reload when chat type changes
+    useEffect(() => {
+        if (currentAgent && currentAgent.id) {
+            loadExistingChats(chatType);
+        }
+    }, [chatType, currentAgent]);
+
+    // Load messages when active chat changes
+    useEffect(() => {
+        if (activeChat) {
+            loadChatMessages(activeChat);
+        }
+    }, [activeChat]);
+
+    // Scroll to bottom when messages change
+    useEffect(() => {
+        scrollToBottom();
+    }, [activeChat, chats.find(chat => chat.id === activeChat)?.messages]);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
 
     const filteredChats = chats.filter(chat => {
         if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -300,92 +358,108 @@ const ChatPage = ({ propertyChatData }) => {
 
     const activeChatData = chats.find(chat => chat.id === activeChat);
 
-    const handleSendMessage = () => {
-        if (newMessage.trim() === '' && fileList.length === 0) return;
+    const handleSendMessage = async () => {
+        if ((!newMessage || newMessage.trim() === '') && fileList.length === 0) {
+            message.warning('Please enter a message or attach a file');
+            return;
+        }
 
-        // Create message with files
-        const messageData = {
-            text: newMessage,
-            files: fileList.map(file => ({
-                name: file.name,
-                type: file.type,
-                url: file.url || URL.createObjectURL(file),
-                size: file.size
-            }))
-        };
+        if (!activeChatData) {
+            message.error('No active chat selected');
+            return;
+        }
 
-        // Add message to active chat
-        if (activeChatData) {
+        if (!currentAgent || !currentAgent.id) {
+            message.error('Agent information not available');
+            return;
+        }
+
+        setSendingMessage(true);
+        console.log('📤 Sending message as agent:', currentAgent.id);
+
+        try {
+            let uploadedFiles = [];
+
+            // Upload files if any
+            if (fileList.length > 0) {
+                for (const file of fileList) {
+                    try {
+                        const uploadResult = await chatService.uploadFile(file);
+                        if (uploadResult.success && uploadResult.fileUrl) {
+                            uploadedFiles.push({
+                                fileName: file.name,
+                                fileUrl: uploadResult.fileUrl,
+                                fileType: file.type.startsWith('image/') ? 'image' : 'file',
+                                fileSize: file.size,
+                                mimeType: file.type
+                            });
+                        }
+                    } catch (error) {
+                        console.error('❌ File upload failed:', error);
+                        message.error(`Failed to upload ${file.name}`);
+                    }
+                }
+            }
+
+            let backendChatId = activeChatData.backendChatId;
+
+            // Send message to backend if we have a chat ID
+            if (backendChatId) {
+                try {
+                    const messagePayload = {
+                        chatId: backendChatId,
+                        content: newMessage.trim(),
+                        messageType: uploadedFiles.length > 0 ? 'file' : 'text',
+                        files: uploadedFiles.length > 0 ? uploadedFiles : undefined
+                    };
+
+                    console.log('📨 Sending message payload:', messagePayload);
+                    await chatService.sendMessage(messagePayload);
+                } catch (error) {
+                    console.error('❌ Failed to send message to backend:', error);
+                    // Continue to update UI anyway
+                }
+            }
+
+            // Update UI immediately
             const newMessageObj = {
                 id: Date.now(),
-                text: newMessage,
+                text: newMessage.trim(),
                 sender: 'me',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                files: fileList.length > 0 ? fileList.map(file => ({
-                    name: file.name,
-                    type: file.type,
-                    url: file.url || URL.createObjectURL(file),
-                    size: file.size
-                })) : undefined
+                time: 'Just now',
+                files: uploadedFiles,
+                senderId: parseInt(currentAgent.id),
+                isCurrentUser: true
             };
-
-            // Simulate agent reply after 1-2 seconds
-            setTimeout(() => {
-                const agentReply = {
-                    id: Date.now() + 1,
-                    text: 'Thank you for your message! I\'ll get back to you shortly with more information.',
-                    sender: 'them',
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-
-                setChats(prev => prev.map(chat =>
-                    chat.id === activeChat
-                        ? {
-                            ...chat,
-                            messages: [...chat.messages, agentReply],
-                            lastMessage: agentReply.text,
-                            time: 'Now',
-                            unread: 0
-                        }
-                        : chat
-                ));
-            }, 1000 + Math.random() * 1000);
 
             setChats(prev => prev.map(chat =>
                 chat.id === activeChat
                     ? {
                         ...chat,
                         messages: [...chat.messages, newMessageObj],
-                        lastMessage: newMessage,
+                        lastMessage: newMessage.trim(),
                         time: 'Now',
                         unread: 0
                     }
                     : chat
             ));
-        }
 
-        message.success('Message sent! 🎉');
-        setNewMessage('');
-        setFileList([]);
-        setEmojiPickerVisible(false);
+            message.success('Message sent! 🎉');
+            setNewMessage('');
+            setFileList([]);
+            setEmojiPickerVisible(false);
+
+        } catch (error) {
+            console.error('💥 Error sending message:', error);
+            message.error('Failed to send message: ' + (error.message || 'Unknown error'));
+        } finally {
+            setSendingMessage(false);
+        }
     };
 
     const handleEmojiClick = (emoji) => {
-        const textArea = textAreaRef.current?.resizableTextArea?.textArea;
-        if (textArea) {
-            const start = textArea.selectionStart;
-            const end = textArea.selectionEnd;
-            const text = newMessage;
-            const newText = text.substring(0, start) + emoji + text.substring(end);
-            setNewMessage(newText);
-
-            setTimeout(() => {
-                textArea.focus();
-                textArea.setSelectionRange(start + emoji.length, start + emoji.length);
-            }, 0);
-        } else {
-            setNewMessage(prev => prev + emoji);
-        }
+        setNewMessage(prev => prev + emoji);
+        setEmojiPickerVisible(false);
     };
 
     const handleKeyPress = (e) => {
@@ -395,15 +469,6 @@ const ChatPage = ({ propertyChatData }) => {
         }
     };
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [activeChatData?.messages]);
-
-    // File handling functions
     const beforeUpload = (file) => {
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
@@ -419,9 +484,8 @@ const ChatPage = ({ propertyChatData }) => {
             return false;
         }
 
-        // Add file to fileList
-        setFileList(prev => [...prev, file]);
-        return false; // Prevent automatic upload
+        setFileList(prev => [...prev, { ...file, uid: file.uid || Date.now() }]);
+        return false;
     };
 
     const handleFileRemove = (file) => {
@@ -433,7 +497,6 @@ const ChatPage = ({ propertyChatData }) => {
             setPreviewImage(file.url || URL.createObjectURL(file));
             setPreviewVisible(true);
         } else if (file.type.startsWith('video/')) {
-            // For videos, we'll open in a new tab or use a video player
             const videoUrl = file.url || URL.createObjectURL(file);
             window.open(videoUrl, '_blank');
         }
@@ -456,7 +519,6 @@ const ChatPage = ({ propertyChatData }) => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Format price in Philippine Pesos
     const formatPrice = (price) => {
         if (typeof price === 'number') {
             return `₱${price.toLocaleString('en-PH')}`;
@@ -464,9 +526,10 @@ const ChatPage = ({ propertyChatData }) => {
         return price || '₱0';
     };
 
-    // Property Card Component (inside chat messages)
     const PropertyCard = () => {
-        if (!activeChatData?.propertyData) return null;
+        if (!activeChatData?.propertyData) {
+            return null;
+        }
 
         const property = activeChatData.propertyData;
 
@@ -491,7 +554,6 @@ const ChatPage = ({ propertyChatData }) => {
                         gap: '12px',
                         alignItems: 'flex-start'
                     }}>
-                        {/* Property Image */}
                         <img
                             src={property.mainImage}
                             alt={property.title}
@@ -507,8 +569,6 @@ const ChatPage = ({ propertyChatData }) => {
                                 e.target.src = '/default-property.jpg';
                             }}
                         />
-
-                        {/* Property Details */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <Text strong style={{
                                 color: '#1B3C53',
@@ -519,7 +579,6 @@ const ChatPage = ({ propertyChatData }) => {
                             }}>
                                 {property.title}
                             </Text>
-
                             <div style={{
                                 color: '#64748b',
                                 fontSize: '11px',
@@ -528,8 +587,6 @@ const ChatPage = ({ propertyChatData }) => {
                             }}>
                                 {property.address}
                             </div>
-
-                            {/* Property Features */}
                             <div style={{
                                 display: 'flex',
                                 flexWrap: 'wrap',
@@ -544,8 +601,6 @@ const ChatPage = ({ propertyChatData }) => {
                                 <span>🚿 {property.bathrooms}</span>
                                 <span>📏 {property.areaSqft}</span>
                             </div>
-
-                            {/* Price and View Button */}
                             <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -561,7 +616,9 @@ const ChatPage = ({ propertyChatData }) => {
                                     type="primary"
                                     size="small"
                                     icon={<EyeOutlined />}
-                                    onClick={() => navigate('/property', { state: { propertyId: property.id } })}
+                                    onClick={() => {
+                                        navigate('/property', { state: { propertyId: property.id } });
+                                    }}
                                     style={{
                                         background: '#1B3C53',
                                         borderColor: '#1B3C53',
@@ -581,7 +638,85 @@ const ChatPage = ({ propertyChatData }) => {
         );
     };
 
-    // File attachment preview component
+    const ClientInfoCard = () => {
+        if (!activeChatData?.clientData) {
+            return null;
+        }
+
+        const client = activeChatData.clientData;
+
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'flex-start',
+                marginBottom: '16px',
+                padding: '0 8px'
+            }}>
+                <div style={{
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    maxWidth: '100%',
+                    width: '100%',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start'
+                    }}>
+                        <Avatar
+                            size={50}
+                            src={client.profileImage}
+                            style={{
+                                border: '2px solid #e2e8f0',
+                                flexShrink: 0
+                            }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <Text strong style={{
+                                color: '#1B3C53',
+                                fontSize: '14px',
+                                display: 'block',
+                                marginBottom: '4px',
+                                lineHeight: '1.2'
+                            }}>
+                                {client.fullName || `${client.firstName} ${client.lastName}`}
+                            </Text>
+                            <div style={{
+                                color: '#64748b',
+                                fontSize: '11px',
+                                marginBottom: '6px',
+                                lineHeight: '1.2'
+                            }}>
+                                Client
+                            </div>
+                            {client.email && (
+                                <div style={{
+                                    color: '#64748b',
+                                    fontSize: '10px',
+                                    marginBottom: '4px'
+                                }}>
+                                    📧 {client.email}
+                                </div>
+                            )}
+                            {client.phone && (
+                                <div style={{
+                                    color: '#64748b',
+                                    fontSize: '10px',
+                                    marginBottom: '6px'
+                                }}>
+                                    📞 {client.phone}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const FileAttachments = () => {
         if (fileList.length === 0) return null;
 
@@ -639,7 +774,6 @@ const ChatPage = ({ propertyChatData }) => {
         );
     };
 
-    // Simple emoji picker component
     const EmojiPickerContent = () => (
         <div style={{
             width: 280,
@@ -668,6 +802,19 @@ const ChatPage = ({ propertyChatData }) => {
         </div>
     );
 
+    const chatTypeOptions = [
+        {
+            label: 'All Chats',
+            value: 'all',
+            icon: <MessageOutlined />
+        },
+        {
+            label: 'Property Chats',
+            value: 'property',
+            icon: <TeamOutlined />
+        }
+    ];
+
     const chatListContent = (
         <Card
             style={{
@@ -684,32 +831,46 @@ const ChatPage = ({ propertyChatData }) => {
                 flexDirection: 'column'
             }}
         >
-            {/* Search Header */}
             <div style={{
                 padding: '16px',
                 borderBottom: '1px solid #f1f5f9',
                 flexShrink: 0
             }}>
-                <Title level={4} style={{
-                    color: '#1B3C53',
-                    marginBottom: '12px',
-                    fontSize: '16px',
-                    margin: 0
-                }}>
-                    Search Messenger
-                </Title>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <Title level={4} style={{
+                        color: '#1B3C53',
+                        fontSize: '16px',
+                        margin: 0
+                    }}>
+                        Agent Messages
+                    </Title>
+                    <Button
+                        type="text"
+                        icon={<ReloadOutlined />}
+                        onClick={() => loadExistingChats(chatType)}
+                        loading={loadingChats}
+                        size="small"
+                    />
+                </div>
                 <Search
                     placeholder="Search messages..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
                         borderRadius: 0,
-                        width: '100%'
+                        width: '100%',
+                        marginBottom: '12px'
                     }}
+                />
+                <Segmented
+                    options={chatTypeOptions}
+                    value={chatType}
+                    onChange={setChatType}
+                    block
+                    size="small"
                 />
             </div>
 
-            {/* Tabs - Only All and Unread */}
             <div style={{
                 padding: '12px 16px',
                 borderBottom: '1px solid #f1f5f9',
@@ -727,106 +888,151 @@ const ChatPage = ({ propertyChatData }) => {
                 />
             </div>
 
-            {/* Chat List */}
             <div style={{
                 flex: 1,
                 overflowY: 'auto',
                 minHeight: 0
             }}>
-                <List
-                    dataSource={filteredChats}
-                    renderItem={(chat) => (
-                        <List.Item
-                            style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                background: activeChat === chat.id ? '#f0f9ff' : 'transparent',
-                                borderBottom: '1px solid #f8fafc',
-                                transition: 'background-color 0.2s',
-                                margin: 0,
-                                borderRadius: 0
-                            }}
-                            onClick={() => {
-                                setActiveChat(chat.id);
-                                setSidebarVisible(false);
-                            }}
-                        >
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                width: '100%'
-                            }}>
-                                <Badge
-                                    dot={chat.online}
-                                    color="#52c41a"
-                                    offset={[-4, 28]}
-                                >
-                                    <Avatar
-                                        src={chat.avatar}
-                                        size="default"
-                                        style={{ flexShrink: 0 }}
-                                    />
-                                </Badge>
+                {loadingChats ? (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '100px'
+                    }}>
+                        <Spin size="small" />
+                        <Text type="secondary" style={{ marginLeft: 8 }}>Loading chats...</Text>
+                    </div>
+                ) : filteredChats.length > 0 ? (
+                    <List
+                        dataSource={filteredChats}
+                        renderItem={(chat) => (
+                            <List.Item
+                                style={{
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    background: activeChat === chat.id ? '#f0f9ff' : 'transparent',
+                                    borderBottom: '1px solid #f8fafc',
+                                    transition: 'background-color 0.2s',
+                                    margin: 0,
+                                    borderRadius: 0
+                                }}
+                                onClick={() => {
+                                    setActiveChat(chat.id);
+                                    setSidebarVisible(false);
+                                }}
+                            >
                                 <div style={{
-                                    flex: 1,
-                                    marginLeft: '10px',
-                                    minWidth: 0,
-                                    overflow: 'hidden'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    width: '100%'
                                 }}>
+                                    <Badge
+                                        dot={chat.online}
+                                        color="#52c41a"
+                                        offset={[-4, 28]}
+                                    >
+                                        <Avatar
+                                            src={chat.avatar}
+                                            size="default"
+                                            style={{ flexShrink: 0 }}
+                                        />
+                                    </Badge>
                                     <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        width: '100%'
+                                        flex: 1,
+                                        marginLeft: '10px',
+                                        minWidth: 0,
+                                        overflow: 'hidden'
                                     }}>
-                                        <Text strong style={{
-                                            color: '#1B3C53',
-                                            fontSize: '13px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'flex-start',
+                                            width: '100%',
+                                            marginBottom: '4px'
                                         }}>
-                                            {chat.name}
-                                        </Text>
-                                        <Text type="secondary" style={{
-                                            fontSize: '11px',
-                                            flexShrink: 0,
-                                            marginLeft: '8px'
-                                        }}>
-                                            {chat.time}
-                                        </Text>
-                                    </div>
-                                    <div style={{ marginTop: '2px' }}>
-                                        <Text
-                                            style={{
-                                                color: '#64748b',
-                                                fontSize: '12px',
+                                            <Text strong style={{
+                                                color: '#1B3C53',
+                                                fontSize: '13px',
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
                                                 whiteSpace: 'nowrap',
-                                                display: 'block',
-                                                width: '100%'
-                                            }}
-                                        >
-                                            {chat.lastMessage}
-                                        </Text>
+                                                flex: 1
+                                            }}>
+                                                {chat.name}
+                                            </Text>
+                                            <Badge
+                                                count={chat.chatTypeBadge}
+                                                size="small"
+                                                style={{
+                                                    backgroundColor: '#f0f0f0',
+                                                    color: '#666',
+                                                    fontSize: '10px',
+                                                    marginLeft: '8px'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            width: '100%'
+                                        }}>
+                                            <Text
+                                                style={{
+                                                    color: '#64748b',
+                                                    fontSize: '12px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'block',
+                                                    width: '70%'
+                                                }}
+                                            >
+                                                {chat.lastMessage}
+                                            </Text>
+                                            <Text type="secondary" style={{
+                                                fontSize: '11px',
+                                                flexShrink: 0,
+                                                marginLeft: '8px'
+                                            }}>
+                                                {chat.time}
+                                            </Text>
+                                        </div>
                                     </div>
+                                    {chat.unread > 0 && (
+                                        <Badge
+                                            count={chat.unread}
+                                            style={{
+                                                marginLeft: '6px',
+                                                background: '#1B3C53',
+                                                fontSize: '10px',
+                                                flexShrink: 0
+                                            }}
+                                        />
+                                    )}
                                 </div>
-                                {chat.unread > 0 && (
-                                    <Badge
-                                        count={chat.unread}
-                                        style={{
-                                            marginLeft: '6px',
-                                            background: '#1B3C53',
-                                            fontSize: '10px',
-                                            flexShrink: 0
-                                        }}
-                                    />
-                                )}
-                            </div>
-                        </List.Item>
-                    )}
-                />
+                            </List.Item>
+                        )}
+                    />
+                ) : (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '100px',
+                        flexDirection: 'column',
+                        padding: '20px',
+                        textAlign: 'center'
+                    }}>
+                        <WechatOutlined style={{ fontSize: '24px', color: '#ccc', marginBottom: '8px' }} />
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                            {searchQuery ? 'No chats match your search' :
+                                chatType === 'all' ? 'No chats available' :
+                                    `No ${chatType} chats available`}
+                        </Text>
+                    </div>
+                )}
             </div>
         </Card>
     );
@@ -847,7 +1053,7 @@ const ChatPage = ({ propertyChatData }) => {
                 height: '100%',
                 width: '100%'
             }}>
-                {/* Chat List Sidebar - Always on left */}
+                {/* Sidebar - Hidden on mobile */}
                 <Col xs={0} md={6} lg={5} style={{
                     padding: 0,
                     margin: 0,
@@ -857,7 +1063,7 @@ const ChatPage = ({ propertyChatData }) => {
                     {chatListContent}
                 </Col>
 
-                {/* Chat Area - Takes remaining space */}
+                {/* Main Chat Area */}
                 <Col xs={24} md={18} lg={19} style={{
                     padding: 0,
                     margin: 0,
@@ -896,7 +1102,6 @@ const ChatPage = ({ propertyChatData }) => {
                                         width: '100%'
                                     }}>
                                         <Space size="small" style={{ flex: 1 }}>
-                                            {/* Mobile Back Button - Only visible on mobile */}
                                             <Button
                                                 type="text"
                                                 icon={<LeftOutlined />}
@@ -904,9 +1109,8 @@ const ChatPage = ({ propertyChatData }) => {
                                                 style={{
                                                     color: '#1B3C53',
                                                     padding: '4px 8px',
-                                                    display: { xs: 'block', md: 'none' }
+                                                    display: window.innerWidth < 768 ? 'block' : 'none'
                                                 }}
-                                                className="mobile-back-button"
                                             />
                                             <Badge
                                                 dot={activeChatData.online}
@@ -941,7 +1145,8 @@ const ChatPage = ({ propertyChatData }) => {
                                                     display: 'block'
                                                 }}>
                                                     {activeChatData.online ? 'Online 🟢' : 'Last seen recently'}
-                                                    {activeChatData.isAgentChat && ' • Real Estate Agent'}
+                                                    {activeChatData.isPropertyChat && ' • Property Inquiry'}
+                                                    {activeChatData.chatTypeBadge && ` • ${activeChatData.chatTypeBadge}`}
                                                 </Text>
                                             </div>
                                         </Space>
@@ -980,11 +1185,20 @@ const ChatPage = ({ propertyChatData }) => {
                                         width: '100%',
                                         flex: 1
                                     }} size="small">
-                                        {/* Property Card - Inside messages area */}
-                                        {activeChatData.isAgentChat && <PropertyCard />}
+                                        {activeChatData.isPropertyChat && <ClientInfoCard />}
+                                        {activeChatData.isPropertyChat && <PropertyCard />}
 
-                                        {/* Regular Messages */}
-                                        {activeChatData.messages && activeChatData.messages.length > 0 ? (
+                                        {loadingMessages ? (
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                height: '100px'
+                                            }}>
+                                                <Spin size="small" />
+                                                <Text type="secondary" style={{ marginLeft: 8 }}>Loading messages...</Text>
+                                            </div>
+                                        ) : activeChatData.messages && activeChatData.messages.length > 0 ? (
                                             activeChatData.messages.map(message => (
                                                 <div
                                                     key={message.id}
@@ -1037,39 +1251,43 @@ const ChatPage = ({ propertyChatData }) => {
                                     </Space>
                                 </div>
 
-                                {/* File Attachments Preview */}
                                 <FileAttachments />
 
-                                {/* Message Input - Fixed at bottom */}
+                                {/* Message Input */}
                                 <div style={{
                                     padding: '12px 16px',
                                     borderTop: '1px solid #f1f5f9',
                                     background: 'white',
-                                    flexShrink: 0
+                                    flexShrink: 0,
+                                    borderRadius: 0,
+                                    position: 'sticky',
+                                    bottom: 0,
+                                    width: '100%'
                                 }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-end',
-                                        gap: '8px'
+                                    <Space.Compact style={{
+                                        width: '100%',
+                                        display: 'flex'
                                     }}>
-                                        {/* File Upload Button */}
                                         <Upload
                                             beforeUpload={beforeUpload}
-                                            showUploadList={false}
+                                            fileList={fileList}
                                             multiple
+                                            showUploadList={false}
                                             accept="image/*,video/*"
                                         >
                                             <Button
                                                 type="text"
-                                                icon={<PaperClipOutlined style={{ color: '#64748b' }} />}
+                                                icon={<PaperClipOutlined />}
                                                 style={{
-                                                    padding: '4px 8px',
-                                                    height: 'auto'
+                                                    borderRadius: '8px 0 0 8px',
+                                                    color: '#64748b',
+                                                    borderRight: 'none',
+                                                    height: 'auto',
+                                                    padding: '8px 12px',
+                                                    flexShrink: 0
                                                 }}
                                             />
                                         </Upload>
-
-                                        {/* Emoji Picker */}
                                         <Popover
                                             content={<EmojiPickerContent />}
                                             trigger="click"
@@ -1079,68 +1297,81 @@ const ChatPage = ({ propertyChatData }) => {
                                         >
                                             <Button
                                                 type="text"
-                                                icon={<SmileOutlined style={{ color: '#64748b' }} />}
+                                                icon={<SmileOutlined />}
                                                 style={{
-                                                    padding: '4px 8px',
-                                                    height: 'auto'
+                                                    borderRadius: 0,
+                                                    color: '#64748b',
+                                                    borderRight: 'none',
+                                                    borderLeft: 'none',
+                                                    height: 'auto',
+                                                    padding: '8px 12px',
+                                                    flexShrink: 0
                                                 }}
                                             />
                                         </Popover>
-
-                                        {/* Message Input */}
                                         <TextArea
                                             ref={textAreaRef}
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                             onKeyPress={handleKeyPress}
-                                            placeholder="Type a message..."
-                                            autoSize={{ minRows: 1, maxRows: 4 }}
+                                            placeholder="Type a message... 😊"
+                                            autoSize={{ minRows: 1, maxRows: 3 }}
                                             style={{
-                                                flex: 1,
-                                                borderRadius: '20px',
-                                                padding: '8px 12px',
-                                                fontSize: '13px',
-                                                resize: 'none'
+                                                borderRadius: 0,
+                                                resize: 'none',
+                                                borderLeft: 'none',
+                                                borderRight: 'none',
+                                                fontSize: '14px',
+                                                flex: 1
                                             }}
+                                            disabled={sendingMessage}
                                         />
-
-                                        {/* Send Button */}
                                         <Button
                                             type="primary"
                                             icon={<SendOutlined />}
                                             onClick={handleSendMessage}
-                                            disabled={!newMessage.trim() && fileList.length === 0}
+                                            disabled={(!newMessage.trim() && fileList.length === 0) || sendingMessage}
+                                            loading={sendingMessage}
                                             style={{
+                                                borderRadius: '0 8px 8px 0',
                                                 background: '#1B3C53',
                                                 borderColor: '#1B3C53',
-                                                borderRadius: '50%',
-                                                width: '36px',
-                                                height: '36px',
-                                                padding: 0,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
+                                                height: 'auto',
+                                                padding: '8px 12px',
+                                                flexShrink: 0
                                             }}
-                                        />
-                                    </div>
+                                        >
+                                            Send
+                                        </Button>
+                                    </Space.Compact>
                                 </div>
                             </>
                         ) : (
                             <div style={{
                                 display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'center',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 height: '100%',
+                                flexDirection: 'column',
                                 color: '#64748b',
-                                textAlign: 'center'
+                                padding: '20px'
                             }}>
-                                <WechatOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-                                <Title level={4} style={{ color: '#64748b', marginBottom: '8px' }}>
-                                    Welcome to Messenger
+                                <WechatOutlined style={{ fontSize: '40px', marginBottom: '12px' }} />
+                                <Title level={3} style={{
+                                    color: '#64748b',
+                                    textAlign: 'center',
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                }}>
+                                    {chats.length === 0 ? 'No client chats yet 💭' : 'Select a chat to start messaging 💭'}
                                 </Title>
-                                <Text style={{ fontSize: '13px' }}>
-                                    Select a conversation to start messaging
+                                <Text style={{
+                                    textAlign: 'center',
+                                    fontSize: '13px'
+                                }}>
+                                    {chats.length === 0
+                                        ? 'Client inquiries will appear here when they contact you about properties'
+                                        : 'Choose a conversation from the list to begin'}
                                 </Text>
                             </div>
                         )}
@@ -1148,19 +1379,7 @@ const ChatPage = ({ propertyChatData }) => {
                 </Col>
             </Row>
 
-            {/* Mobile Drawer for Chat List */}
-            <Drawer
-                title="Chats"
-                placement="left"
-                onClose={() => setSidebarVisible(false)}
-                open={sidebarVisible}
-                width={280}
-                bodyStyle={{ padding: 0 }}
-            >
-                {chatListContent}
-            </Drawer>
-
-            {/* Image Preview Modal */}
+            {/* Modals and Drawers */}
             <Modal
                 open={previewVisible}
                 footer={null}
@@ -1170,8 +1389,19 @@ const ChatPage = ({ propertyChatData }) => {
             >
                 <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
             </Modal>
+
+            <Drawer
+                title="Agent Chats"
+                placement="left"
+                onClose={() => setSidebarVisible(false)}
+                open={sidebarVisible}
+                width="100%"
+                styles={{ body: { padding: 0 } }}
+            >
+                {chatListContent}
+            </Drawer>
         </div>
     );
 };
 
-export default ChatPage;
+export default ChatPageAgent;

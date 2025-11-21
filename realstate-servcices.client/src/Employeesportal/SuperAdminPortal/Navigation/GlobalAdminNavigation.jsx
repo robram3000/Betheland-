@@ -45,7 +45,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             key: 'chat',
             icon: <MessageOutlined />,
             label: 'Chat Monitor',
-            path: '/admin/chat'
+            path: '/portal/super-admin/chat-monitor'
         },
         {
             key: 'properties-management',
@@ -82,7 +82,7 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             key: 'auth-log',
             icon: <SafetyCertificateOutlined />,
             label: 'Auth Log',
-            path: '/portal/admin/auth-log'
+            path: '/portal/super-admin/authlog'
         }
     ];
 

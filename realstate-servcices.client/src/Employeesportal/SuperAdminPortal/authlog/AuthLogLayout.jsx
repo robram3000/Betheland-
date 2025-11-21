@@ -1,4 +1,4 @@
-// CLI-Themed AuthLogLayout.jsx with vertical tabs and terminal-style interface
+// AuthLogLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography, Card } from 'antd';
@@ -9,9 +9,11 @@ import {
     HistoryOutlined,
     DashboardOutlined,
     ArrowLeftOutlined,
-    TerminalOutlined,
     LockOutlined,
-    AuditOutlined
+    AuditOutlined,
+    CodeOutlined,
+    MonitorOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
@@ -19,11 +21,63 @@ import AuthPage from './AuthPage';
 import LoginHistory from './LoginHistory';
 import SecurityDashboard from './SecurityDashboard';
 import UserManagement from './UserManagement';
-import authService from './services/authService';
 
 const { Content, Sider } = Layout;
 const { TabPane } = Tabs;
 const { Title, Text } = Typography;
+
+const mockAuthService = {
+    getFailedAttempts: () => Promise.resolve(12),
+    getActiveSessions: () => Promise.resolve(45),
+    getSecurityAlerts: () => Promise.resolve(3),
+    getAuthEvents: () => Promise.resolve([
+        {
+            id: 1,
+            username: 'admin',
+            status: 'success',
+            type: 'login',
+            ipAddress: '192.168.1.100',
+            location: 'New York, US',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            timestamp: new Date().toISOString(),
+            additionalInfo: { method: 'password', twoFactor: true }
+        },
+        {
+            id: 2,
+            username: 'john_doe',
+            status: 'failed',
+            type: 'login',
+            ipAddress: '192.168.1.101',
+            location: 'London, UK',
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            timestamp: new Date(Date.now() - 300000).toISOString(),
+            additionalInfo: { reason: 'Invalid password', attempts: 3 }
+        },
+        {
+            id: 3,
+            username: 'jane_smith',
+            status: 'locked',
+            type: 'login',
+            ipAddress: '192.168.1.102',
+            location: 'Tokyo, JP',
+            userAgent: 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36',
+            timestamp: new Date(Date.now() - 600000).toISOString(),
+            additionalInfo: { lockedUntil: new Date(Date.now() + 3600000).toISOString() }
+        }
+    ]),
+    lockUser: (username) => {
+        console.log(`Locking user: ${username}`);
+        return Promise.resolve({ success: true });
+    },
+    unlockUser: (username) => {
+        console.log(`Unlocking user: ${username}`);
+        return Promise.resolve({ success: true });
+    },
+    deleteAuthEvent: (eventId) => {
+        console.log(`Deleting auth event: ${eventId}`);
+        return Promise.resolve({ success: true });
+    }
+};
 
 const AuthLogLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -71,9 +125,9 @@ const AuthLogLayout = () => {
     const loadSecurityStats = async () => {
         try {
             const [attempts, sessions, alerts] = await Promise.all([
-                authService.getFailedAttempts(),
-                authService.getActiveSessions(),
-                authService.getSecurityAlerts()
+                mockAuthService.getFailedAttempts(),
+                mockAuthService.getActiveSessions(),
+                mockAuthService.getSecurityAlerts()
             ]);
             setFailedAttempts(attempts);
             setActiveSessions(sessions);
@@ -87,10 +141,9 @@ const AuthLogLayout = () => {
         loadSecurityStats();
     }, []);
 
-    // Centralized SEO data management
     const getSeoData = () => {
-        const baseTitle = "Betheland Security Console";
-        const baseDescription = "Advanced authentication and security management platform";
+        const baseTitle = "Security Console";
+        const baseDescription = "Authentication and security management platform";
         const baseUrl = window.location.origin;
 
         const tabConfig = {
@@ -101,16 +154,16 @@ const AuthLogLayout = () => {
                         ? `${getStatusDisplayName(statusFilter)} Auth Events | ${baseTitle}`
                         : `Authentication Console | ${baseTitle}`,
                 description: searchText
-                    ? `Search results for "${searchText}" in Betheland security authentication system. Monitor login attempts and security events.`
-                    : 'Monitor and manage authentication events, login attempts, and security logs in Betheland security console.',
-                keywords: "authentication, security logs, login monitoring, Betheland, security console, auth events",
+                    ? `Search results for "${searchText}" in security authentication system. Monitor login attempts and security events.`
+                    : 'Monitor and manage authentication events, login attempts, and security logs in security console.',
+                keywords: "authentication, security logs, login monitoring, security console, auth events",
                 canonical: `${baseUrl}/security/auth`,
                 ogImage: `${baseUrl}/images/auth-console-og.jpg`
             },
             history: {
                 title: `Login History & Audit Trail | ${baseTitle}`,
-                description: 'Comprehensive login history and audit trail monitoring in Betheland security management system. Track user activities and security events.',
-                keywords: "login history, audit trail, security monitoring, user activity, Betheland, security audit",
+                description: 'Comprehensive login history and audit trail monitoring in security management system. Track user activities and security events.',
+                keywords: "login history, audit trail, security monitoring, user activity, security audit",
                 canonical: `${baseUrl}/security/history`,
                 ogImage: `${baseUrl}/images/history-og.jpg`
             },
@@ -119,16 +172,16 @@ const AuthLogLayout = () => {
                     ? `Edit User - ${selectedUser?.username || 'User'} | ${baseTitle}`
                     : `User Management | ${baseTitle}`,
                 description: isEditing
-                    ? `Edit user permissions and security settings for ${selectedUser?.username || 'user'} in Betheland security management system.`
-                    : 'Manage user accounts, permissions, and security settings in Betheland authentication system.',
-                keywords: isEditing ? "edit user, user permissions, security settings, Betheland" : "user management, account management, permissions, Betheland security",
+                    ? `Edit user permissions and security settings for ${selectedUser?.username || 'user'} in security management system.`
+                    : 'Manage user accounts, permissions, and security settings in authentication system.',
+                keywords: isEditing ? "edit user, user permissions, security settings" : "user management, account management, permissions, security",
                 canonical: `${baseUrl}/security/${isEditing ? 'edit' : 'management'}`,
                 ogImage: `${baseUrl}/images/${isEditing ? 'edit-user-og.jpg' : 'user-management-og.jpg'}`
             },
             dashboard: {
                 title: `Security Dashboard | ${baseTitle}`,
-                description: 'Real-time security dashboard with threat monitoring, active sessions, and security analytics for Betheland platform.',
-                keywords: "security dashboard, threat monitoring, active sessions, security analytics, Betheland, real-time security",
+                description: 'Real-time security dashboard with threat monitoring, active sessions, and security analytics.',
+                keywords: "security dashboard, threat monitoring, active sessions, security analytics, real-time security",
                 canonical: `${baseUrl}/security/dashboard`,
                 ogImage: `${baseUrl}/images/dashboard-og.jpg`
             }
@@ -137,7 +190,7 @@ const AuthLogLayout = () => {
         return tabConfig[activeTab] || {
             title: `Security Console | ${baseTitle}`,
             description: baseDescription,
-            keywords: "security, authentication, Betheland, security management",
+            keywords: "security, authentication, security management",
             canonical: `${baseUrl}/security`,
             ogImage: `${baseUrl}/images/security-og.jpg`
         };
@@ -154,13 +207,11 @@ const AuthLogLayout = () => {
         return statusMap[status] || status;
     };
 
-    // Handler to update filters from child components
     const updateFilters = (search, status) => {
         setSearchText(search || '');
         setStatusFilter(status || 'all');
     };
 
-    // Handler for when auth events are updated
     const handleAuthUpdate = () => {
         loadSecurityStats();
         if (activeTab === 'management') {
@@ -175,29 +226,28 @@ const AuthLogLayout = () => {
             theme={{
                 token: {
                     borderRadius: 8,
-                    colorPrimary: '#00d4aa',
-                    colorInfo: '#00d4aa',
-                    colorSuccess: '#00d4aa',
-                    colorBgContainer: '#0a0a0a',
-                    colorText: '#00ff00',
-                    colorBorder: '#00d4aa',
+                    colorPrimary: '#1890ff',
+                    colorInfo: '#1890ff',
+                    colorSuccess: '#52c41a',
+                    colorBgContainer: '#ffffff',
+                    colorText: '#000000',
+                    colorBorder: '#d9d9d9',
                 },
                 components: {
                     Tabs: {
-                        itemSelectedColor: '#00ff00',
-                        itemActiveColor: '#00ff00',
+                        itemSelectedColor: '#1890ff',
+                        itemActiveColor: '#1890ff',
                         horizontalItemPadding: '12px 16px',
                     },
                     Layout: {
-                        siderBg: '#111111',
+                        siderBg: '#ffffff',
                     },
                     Card: {
-                        colorBgContainer: '#1a1a1a',
+                        colorBgContainer: '#ffffff',
                     }
                 },
             }}
         >
-            {/* Centralized Helmet Management */}
             <Helmet>
                 <title>{seoData.title}</title>
                 <meta name="description" content={seoData.description} />
@@ -207,18 +257,18 @@ const AuthLogLayout = () => {
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={seoData.canonical} />
                 <meta property="og:image" content={seoData.ogImage} />
-                <meta property="og:site_name" content="Betheland Security Console" />
+                <meta property="og:site_name" content="Security Console" />
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={seoData.title} />
                 <meta name="twitter:description" content={seoData.description} />
                 <meta name="twitter:image" content={seoData.ogImage} />
                 <meta name="robots" content="index, follow" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <meta name="theme-color" content="#00d4aa" />
+                <meta name="theme-color" content="#1890ff" />
                 <link rel="canonical" href={seoData.canonical} />
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh', background: '#0a0a0a' }}>
+            <Layout style={{ minHeight: '100vh', background: '#ffffff' }}>
                 <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
                 <Layout>
                     <GlobalAdminNavigation collapsed={collapsed} />
@@ -227,49 +277,50 @@ const AuthLogLayout = () => {
                             marginLeft: collapsed ? 80 : 200,
                             marginTop: 52,
                             transition: 'all 0.2s',
-                            background: '#0a0a0a'
+                            background: '#ffffff'
                         }}
                     >
                         <Layout>
-                            {/* CLI-Styled Vertical Tabs Sidebar */}
                             <Sider
                                 width={240}
                                 style={{
-                                    background: '#111111',
+                                    background: '#ffffff',
                                     borderRadius: borderRadiusLG,
-                                    boxShadow: '2px 0 8px rgba(0, 212, 170, 0.3)',
-                                    borderRight: '1px solid #00d4aa'
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    borderRight: '1px solid #d9d9d9',
+                                    position: 'sticky',
+                                    top: 68,
+                                    height: 'calc(100vh - 84px)',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
                                 }}
                             >
                                 <div style={{ padding: '20px 0' }}>
-                                    {/* Security Console Header */}
                                     <div style={{
                                         padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #00d4aa',
+                                        borderBottom: '1px solid #d9d9d9',
                                         marginBottom: '8px'
                                     }}>
                                         <Title
                                             level={4}
                                             style={{
                                                 margin: 0,
-                                                color: '#00ff00',
+                                                color: '#000000',
                                                 fontSize: '16px',
-                                                fontWeight: 600,
-                                                fontFamily: 'monospace'
+                                                fontWeight: 600
                                             }}
                                         >
-                                            > SECURITY_CONSOLE
+                                            Security Console
                                         </Title>
                                         <Text
                                             style={{
                                                 margin: '4px 0 0 0',
-                                                color: '#00d4aa',
-                                                fontSize: '11px',
-                                                lineHeight: 1.4,
-                                                fontFamily: 'monospace'
+                                                color: '#666666',
+                                                fontSize: '12px',
+                                                lineHeight: 1.4
                                             }}
                                         >
-                                            $ authentication_management_system
+                                            Authentication Management System
                                         </Text>
                                     </div>
 
@@ -284,8 +335,7 @@ const AuthLogLayout = () => {
                                         }}
                                         tabBarStyle={{
                                             border: 'none',
-                                            width: '100%',
-                                            fontFamily: 'monospace'
+                                            width: '100%'
                                         }}
                                     >
                                         <TabPane
@@ -294,12 +344,10 @@ const AuthLogLayout = () => {
                                                 <span style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
-                                                    fontFamily: 'monospace',
-                                                    fontSize: '12px'
+                                                    gap: '8px'
                                                 }}>
-                                                    <TerminalOutlined />
-                                                    AUTH_LOG
+                                                    <CodeOutlined />
+                                                    Auth Log
                                                 </span>
                                             }
                                         />
@@ -310,12 +358,10 @@ const AuthLogLayout = () => {
                                                     <span style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '8px',
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '12px'
+                                                        gap: '8px'
                                                     }}>
                                                         <HistoryOutlined />
-                                                        AUDIT_TRAIL
+                                                        Audit Trail
                                                     </span>
                                                 </Badge>
                                             }
@@ -326,12 +372,10 @@ const AuthLogLayout = () => {
                                                 <span style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
-                                                    fontFamily: 'monospace',
-                                                    fontSize: '12px'
+                                                    gap: '8px'
                                                 }}>
-                                                    <UserAddOutlined />
-                                                    {isEditing ? 'EDIT_USER' : 'USER_MGMT'}
+                                                    <TeamOutlined />
+                                                    {isEditing ? 'Edit User' : 'User Management'}
                                                 </span>
                                             }
                                         />
@@ -342,42 +386,38 @@ const AuthLogLayout = () => {
                                                     <span style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '8px',
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '12px'
+                                                        gap: '8px'
                                                     }}>
-                                                        <DashboardOutlined />
-                                                        DASHBOARD
+                                                        <MonitorOutlined />
+                                                        Dashboard
                                                     </span>
                                                 </Badge>
                                             }
                                         />
                                     </Tabs>
 
-                                    {/* CLI Status Panel */}
                                     <Card
                                         size="small"
                                         style={{
                                             margin: '16px',
-                                            background: '#1a1a1a',
-                                            border: '1px solid #00d4aa',
-                                            fontFamily: 'monospace'
+                                            background: '#ffffff',
+                                            border: '1px solid #d9d9d9'
                                         }}
                                         bodyStyle={{ padding: '12px' }}
                                     >
-                                        <div style={{ color: '#00ff00', fontSize: '11px', marginBottom: '8px' }}>
-                                            > SYSTEM_STATUS
+                                        <div style={{ color: '#000000', fontSize: '12px', marginBottom: '8px' }}>
+                                            System Status
                                         </div>
                                         <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                                                <Text style={{ color: '#00d4aa' }}>Active Sessions:</Text>
-                                                <Badge count={activeSessions} color="#00d4aa" />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                                <Text style={{ color: '#000000' }}>Active Sessions:</Text>
+                                                <Badge count={activeSessions} color="#1890ff" />
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                                                 <Text style={{ color: '#ff4d4f' }}>Failed Auth:</Text>
                                                 <Badge count={failedAttempts} color="#ff4d4f" />
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                                                 <Text style={{ color: '#faad14' }}>Alerts:</Text>
                                                 <Badge count={securityAlerts} color="#faad14" />
                                             </div>
@@ -386,20 +426,17 @@ const AuthLogLayout = () => {
                                 </div>
                             </Sider>
 
-                            {/* Main Content Area with CLI Theme */}
                             <Content
                                 style={{
-                                    background: '#0a0a0a',
+                                    background: '#ffffff',
                                     margin: '16px 16px 16px 0',
                                     minHeight: 280,
                                     borderRadius: borderRadiusLG,
                                     overflow: 'hidden',
                                     padding: '24px',
-                                    border: '1px solid #00d4aa',
-                                    fontFamily: 'monospace'
+                                    border: '1px solid #d9d9d9'
                                 }}
                             >
-                                {/* CLI Header */}
                                 <div style={{ marginBottom: 24 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -408,35 +445,35 @@ const AuthLogLayout = () => {
                                                     icon={<ArrowLeftOutlined />}
                                                     onClick={handleBackToAuth}
                                                     style={{
-                                                        border: '1px solid #00d4aa',
+                                                        border: '1px solid #d9d9d9',
                                                         background: 'transparent',
-                                                        color: '#00ff00',
-                                                        fontFamily: 'monospace'
+                                                        color: '#000000'
                                                     }}
                                                 >
-                                                    $ cd ../auth_log
+                                                    Back to Auth Log
                                                 </Button>
                                             )}
                                             <div>
                                                 <div style={{
-                                                    color: '#00ff00',
-                                                    fontSize: '14px',
-                                                    marginBottom: '4px'
+                                                    color: '#000000',
+                                                    fontSize: '16px',
+                                                    marginBottom: '4px',
+                                                    fontWeight: 600
                                                 }}>
-                                                    > {(() => {
-                                                        if (isEditing) return `EDIT_USER --username=${selectedUser?.username || 'unknown'}`;
+                                                    {(() => {
+                                                        if (isEditing) return `Edit User: ${selectedUser?.username || 'unknown'}`;
                                                         switch (activeTab) {
-                                                            case 'auth': return 'AUTHENTICATION_LOG';
-                                                            case 'history': return 'AUDIT_TRAIL --history';
-                                                            case 'management': return 'USER_MANAGEMENT';
-                                                            case 'dashboard': return 'SECURITY_DASHBOARD --live';
-                                                            default: return 'SECURITY_CONSOLE';
+                                                            case 'auth': return 'Authentication Log';
+                                                            case 'history': return 'Audit Trail';
+                                                            case 'management': return 'User Management';
+                                                            case 'dashboard': return 'Security Dashboard';
+                                                            default: return 'Security Console';
                                                         }
                                                     })()}
                                                 </div>
                                                 <div style={{
-                                                    color: '#00d4aa',
-                                                    fontSize: '12px'
+                                                    color: '#666666',
+                                                    fontSize: '14px'
                                                 }}>
                                                     {(() => {
                                                         if (isEditing) return `Modifying user permissions and security settings`;
@@ -457,19 +494,16 @@ const AuthLogLayout = () => {
                                                 icon={<UserAddOutlined />}
                                                 onClick={handleCreateUser}
                                                 style={{
-                                                    background: '#00d4aa',
-                                                    borderColor: '#00d4aa',
-                                                    fontFamily: 'monospace',
-                                                    fontWeight: 'bold'
+                                                    background: '#1890ff',
+                                                    borderColor: '#1890ff'
                                                 }}
                                             >
-                                                $ user_add
+                                                Add User
                                             </Button>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Render active tab content */}
                                 {activeTab === 'auth' && (
                                     <AuthPage
                                         onFilterUpdate={updateFilters}

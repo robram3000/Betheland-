@@ -261,19 +261,7 @@ const PropertyManagementTable = () => {
             ],
             onFilter: (value, record) => record.status === value,
         },
-        {
-            title: 'Agent',
-            dataIndex: 'agent',
-            key: 'agent',
-            render: (agent) => agent ? (
-                <Space>
-                    <Avatar size="small" src={agent.profilePictureUrl}>
-                        {agent.firstName?.[0]}{agent.lastName?.[0]}
-                    </Avatar>
-                    {agent.firstName} {agent.lastName}
-                </Space>
-            ) : 'No Agent',
-        },
+     
         {
             title: 'Listed Date',
             dataIndex: 'listedDate',
@@ -415,13 +403,7 @@ const PropertyManagementTable = () => {
                         </Select>
                     </Space>
                     <Space>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadProperties}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
+                     
                         <div style={{ fontSize: '12px', color: '#666' }}>
                             Showing {filteredProperties.length} of {properties.length} properties
                         </div>

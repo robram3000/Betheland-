@@ -45,6 +45,7 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
     const [missingFields, setMissingFields] = useState([]);
     const [uploading, setUploading] = useState(false);
     const { handleError } = useAgentErrorHandler();
+    const [showLicenseFields, setShowLicenseFields] = useState(false);
 
     useEffect(() => {
         if (agent) {
@@ -60,6 +61,10 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 password: '********',
                 profilePictureUrl: agent.profilePictureUrl
             });
+            // Show license fields if agent has license data
+            if (agent.licenseNumber) {
+                setShowLicenseFields(true);
+            }
         }
     }, [agent, form]);
 
@@ -68,40 +73,62 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         setMissingFields([]);
     };
 
+    // Function to validate if string contains only whitespace
+    const validateNotWhitespace = (value) => {
+        if (value && value.trim() === '') {
+            return false;
+        }
+        return true;
+    };
+
     const validateCurrentStep = () => {
         const fieldNames = getStepFields(currentStep);
         const values = form.getFieldsValue(fieldNames);
         const currentMissing = [];
 
         fieldNames.forEach(field => {
-            if (field === 'firstName' && !values.firstName) {
+            const value = values[field];
+
+            // Skip license fields if they are hidden
+            if ((field === 'licenseNumber' || field === 'licenseExpiry') && !showLicenseFields) {
+                return;
+            }
+
+            if (field === 'firstName' && (!value || !validateNotWhitespace(value))) {
                 currentMissing.push('First Name');
             }
-            if (field === 'lastName' && !values.lastName) {
+            if (field === 'lastName' && (!value || !validateNotWhitespace(value))) {
                 currentMissing.push('Last Name');
             }
-            if (field === 'cellPhoneNo' && !values.cellPhoneNo) {
+            if (field === 'cellPhoneNo' && !value) {
                 currentMissing.push('Cell Phone');
-            } else if (field === 'cellPhoneNo' && values.cellPhoneNo) {
+            } else if (field === 'cellPhoneNo' && value) {
                 // Additional validation for exact 11 digits
-                const cleanPhone = values.cellPhoneNo.replace(/\D/g, '');
+                const cleanPhone = value.replace(/\D/g, '');
                 if (cleanPhone.length !== 11) {
                     currentMissing.push('Cell Phone (must be 11 digits)');
                 }
             }
-            if (field === 'email' && !values.email) {
+            if (field === 'email' && (!value || !validateNotWhitespace(value))) {
                 currentMissing.push('Email');
             }
-            if (field === 'licenseNumber' && !values.licenseNumber) {
+            if (field === 'licenseNumber' && showLicenseFields && (!value || !validateNotWhitespace(value))) {
                 currentMissing.push('License Number');
             }
-            if (field === 'username' && !values.username && !agent) {
+            if (field === 'username' && !value && !agent) {
+                currentMissing.push('Username');
+            } else if (field === 'username' && value && !validateNotWhitespace(value)) {
                 currentMissing.push('Username');
             }
-            if (field === 'password' && !values.password && !agent) {
+            if (field === 'password' && !value && !agent) {
                 currentMissing.push('Password');
             }
         });
+
+        // Add image validation for the account step
+        if (currentStep === 4 && !agent && !imageUrl) {
+            currentMissing.push('Profile Picture');
+        }
 
         setMissingFields(currentMissing);
         return currentMissing.length === 0;
@@ -142,8 +169,13 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             // Check for missing required fields across all steps
             const missingFields = [];
 
-            if (!allValues.firstName) missingFields.push('First Name');
-            if (!allValues.lastName) missingFields.push('Last Name');
+            // Validate required fields (trim whitespace)
+            if (!allValues.firstName || !validateNotWhitespace(allValues.firstName)) {
+                missingFields.push('First Name');
+            }
+            if (!allValues.lastName || !validateNotWhitespace(allValues.lastName)) {
+                missingFields.push('Last Name');
+            }
             if (!allValues.cellPhoneNo) {
                 missingFields.push('Cell Phone');
             } else {
@@ -152,10 +184,23 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                     missingFields.push('Cell Phone (must be 11 digits)');
                 }
             }
-            if (!allValues.email) missingFields.push('Email');
-            if (!allValues.licenseNumber) missingFields.push('License Number');
-            if (!agent && !allValues.username) missingFields.push('Username');
-            if (!agent && !allValues.password) missingFields.push('Password');
+            if (!allValues.email || !validateNotWhitespace(allValues.email)) {
+                missingFields.push('Email');
+            }
+            if (showLicenseFields && (!allValues.licenseNumber || !validateNotWhitespace(allValues.licenseNumber))) {
+                missingFields.push('License Number');
+            }
+            if (!agent && (!allValues.username || !validateNotWhitespace(allValues.username))) {
+                missingFields.push('Username');
+            }
+            if (!agent && !allValues.password) {
+                missingFields.push('Password');
+            }
+
+            // Validate profile picture for new agents
+            if (!agent && !imageUrl) {
+                missingFields.push('Profile Picture');
+            }
 
             if (missingFields.length > 0) {
                 setMissingFields(missingFields);
@@ -164,16 +209,23 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 return;
             }
 
-            // Prepare agent data with profile picture - FIXED: Use 'photourl' as backend expects
+            // Prepare agent data with profile picture
             const agentData = {
                 ...allValues,
-                photourl: imageUrl, // This is the key field the backend expects
-                profilePictureUrl: imageUrl, // Also include for consistency
+                photourl: imageUrl,
+                profilePictureUrl: imageUrl,
             };
+
+            // If license fields are hidden, remove them from the data
+            if (!showLicenseFields) {
+                delete agentData.licenseNumber;
+                delete agentData.licenseExpiry;
+            }
 
             // Debug log
             console.log('=== DEBUG: Submitting agent data ===');
             console.log('Image URL:', imageUrl);
+            console.log('License Fields Visible:', showLicenseFields);
             console.log('Agent data being sent:', agentData);
             console.log('=== END DEBUG ===');
 
@@ -341,6 +393,7 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         form.resetFields();
         setImageUrl('');
         setCurrentStep(0);
+        setShowLicenseFields(false);
     };
 
     const getErrorAlert = () => {
@@ -482,7 +535,17 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="First Name"
                                 name="firstName"
-                                rules={[{ required: true, message: 'Please enter first name' }]}
+                                rules={[
+                                    { required: true, message: 'Please enter first name' },
+                                    {
+                                        validator: (_, value) => {
+                                            if (value && !validateNotWhitespace(value)) {
+                                                return Promise.reject(new Error('First name cannot be only whitespace'));
+                                            }
+                                            return Promise.resolve();
+                                        }
+                                    }
+                                ]}
                                 style={{ marginBottom: 8 }}
                             >
                                 <Input
@@ -509,7 +572,17 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="Last Name"
                                 name="lastName"
-                                rules={[{ required: true, message: 'Please enter last name' }]}
+                                rules={[
+                                    { required: true, message: 'Please enter last name' },
+                                    {
+                                        validator: (_, value) => {
+                                            if (value && !validateNotWhitespace(value)) {
+                                                return Promise.reject(new Error('Last name cannot be only whitespace'));
+                                            }
+                                            return Promise.resolve();
+                                        }
+                                    }
+                                ]}
                                 style={{ marginBottom: 8 }}
                             >
                                 <Input
@@ -572,7 +645,15 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                 name="email"
                                 rules={[
                                     { required: true, message: 'Please enter email' },
-                                    { type: 'email', message: 'Please enter valid email' }
+                                    { type: 'email', message: 'Please enter valid email' },
+                                    {
+                                        validator: (_, value) => {
+                                            if (value && !validateNotWhitespace(value)) {
+                                                return Promise.reject(new Error('Email cannot be only whitespace'));
+                                            }
+                                            return Promise.resolve();
+                                        }
+                                    }
                                 ]}
                                 style={{ marginBottom: 0 }}
                             >
@@ -591,36 +672,68 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             title: 'Professional',
             content: (
                 <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    <Row gutter={[8, 4]}>
-                        <Col span={12}>
-                            <Form.Item
-                                label="License Number"
-                                name="licenseNumber"
-                                rules={[{ required: true, message: 'Please enter license number' }]}
-                                style={{ marginBottom: 8 }}
-                            >
-                                <Input
-                                    placeholder="Enter license number"
-                                    onChange={clearError}
+                    {/* License Fields Toggle */}
+                    <Row gutter={[8, 4]} style={{ marginBottom: 12 }}>
+                        <Col span={24}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text strong>License Information</Text>
+                                <Switch
+                                    checked={showLicenseFields}
+                                    onChange={setShowLicenseFields}
+                                    checkedChildren="Show License"
+                                    unCheckedChildren="Hide License"
                                     size="small"
                                 />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                label="License Expiry"
-                                name="licenseExpiry"
-                                style={{ marginBottom: 8 }}
-                            >
-                                <DatePicker
-                                    style={{ width: '100%' }}
-                                    placeholder="Select expiry date"
-                                    onChange={clearError}
-                                    size="small"
-                                />
-                            </Form.Item>
+                            </div>
                         </Col>
                     </Row>
+
+                    {showLicenseFields && (
+                        <>
+                            <Row gutter={[8, 4]}>
+                                <Col span={12}>
+                                    <Form.Item
+                                        label="License Number"
+                                        name="licenseNumber"
+                                        rules={[
+                                            { required: true, message: 'Please enter license number' },
+                                            {
+                                                validator: (_, value) => {
+                                                    if (value && !validateNotWhitespace(value)) {
+                                                        return Promise.reject(new Error('License number cannot be only whitespace'));
+                                                    }
+                                                    return Promise.resolve();
+                                                }
+                                            }
+                                        ]}
+                                        style={{ marginBottom: 8 }}
+                                    >
+                                        <Input
+                                            placeholder="Enter license number"
+                                            onChange={clearError}
+                                            size="small"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item
+                                        label="License Expiry"
+                                        name="licenseExpiry"
+                                        style={{ marginBottom: 8 }}
+                                    >
+                                        <DatePicker
+                                            style={{ width: '100%' }}
+                                            placeholder="Select expiry date"
+                                            onChange={clearError}
+                                            size="small"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Divider style={{ margin: '8px 0' }} />
+                        </>
+                    )}
+
                     <Row gutter={[8, 4]}>
                         <Col span={12}>
                             <Form.Item
@@ -840,11 +953,20 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             title: agent ? 'Verification' : 'Account',
             content: (
                 <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    {/* Profile Picture Section */}
+                    {/* Profile Picture Section with validation */}
                     <Row gutter={[8, 4]} style={{ marginBottom: 8 }}>
                         <Col span={24}>
                             <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                                <Text strong>Profile Picture</Text>
+                                <Text strong>
+                                    Profile Picture {!agent && <Text type="danger">*</Text>}
+                                </Text>
+                                {!agent && !imageUrl && (
+                                    <div>
+                                        <Text type="danger" style={{ fontSize: '12px' }}>
+                                            Profile picture is required
+                                        </Text>
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                                 <ProfilePictureUpload />
@@ -892,6 +1014,14 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                             {
                                                 pattern: /^[a-zA-Z0-9_]+$/,
                                                 message: 'Username can only contain letters, numbers and underscore'
+                                            },
+                                            {
+                                                validator: (_, value) => {
+                                                    if (value && !validateNotWhitespace(value)) {
+                                                        return Promise.reject(new Error('Username cannot be only whitespace'));
+                                                    }
+                                                    return Promise.resolve();
+                                                }
                                             }
                                         ]}
                                         style={{ marginBottom: 8 }}

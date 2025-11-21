@@ -44,7 +44,7 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
 
         public async Task<AnnouncementDto> CreateAnnouncementAsync(CreateAnnouncementDto createDto)
         {
-            var announcement = new AnnouncementConfig // Fixed: Changed from Announcements to AnnouncementConfig
+            var announcement = new AnnouncementConfig
             {
                 Content = createDto.Content,
                 DisplayOrder = createDto.DisplayOrder,
@@ -82,7 +82,7 @@ namespace Realstate_servcices.Server.Services.ConfigLandingpage
             return await _announcementRepository.ToggleStatusAsync(id, isActive);
         }
 
-        private static AnnouncementDto MapToDto(AnnouncementConfig announcement) 
+        private static AnnouncementDto MapToDto(AnnouncementConfig announcement)
         {
             return new AnnouncementDto
             {

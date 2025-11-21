@@ -32,8 +32,8 @@ import BaseTable from './BaseTable';
 import moment from 'moment';
 
 // Import the service
-import  AgentScheduleConfigService  from '../../AdminPortal/appointment/Services/ScheduleConfigService';
-import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService'; 
+import AgentScheduleConfigService from '../../AdminPortal/appointment/Services/ScheduleConfigService';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 // Destructure necessary components
 const { Option } = Select;
@@ -413,40 +413,32 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
 
     return (
         <div>
-            <Card>
-                <div style={{
-                    marginBottom: 16,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <div>
-                        <h3 style={{ margin: 0 }}>Schedule Configuration</h3>
-                        <p style={{ margin: 0, color: '#666' }}>
-                            Manage agent scheduling preferences and constraints
-                        </p>
-                    </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleCreate}
-                    >
-                        Add Configuration
-                    </Button>
-                </div>
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center'
+            }}>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreate}
+                >
+                    Add Configuration
+                </Button>
+            </div>
 
-                <BaseTable
-                    data={configs}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
-            </Card>
+            <BaseTable
+                data={configs}
+                columns={columns}
+                loading={loading}
+                rowKey="id"
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                }}
+            />
 
             {/* Create/Edit Modal */}
             <Modal

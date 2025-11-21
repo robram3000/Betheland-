@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Card,
     Form,
@@ -15,7 +15,9 @@ import {
     Modal,
     Collapse,
     Upload,
-    Select
+    Select,
+    Alert,
+    notification
 } from 'antd';
 import {
     PlusOutlined,
@@ -27,7 +29,9 @@ import {
     ArrowDownOutlined,
     UploadOutlined,
     CheckCircleOutlined,
-    ArrowRightOutlined
+    ArrowRightOutlined,
+    ExclamationCircleOutlined,
+    InfoCircleOutlined
 } from '@ant-design/icons';
 import ThirdSectionServices from './Services/ThirdSectionServices';
 import ThirdSectionMapper from './Services/ThirdSectionMapper';
@@ -37,110 +41,264 @@ const { TextArea } = Input;
 const { Option } = Select;
 const { Panel } = Collapse;
 
+// Fixed Feature Title Input Component
+const FeatureTitleInput = ({ item, index, onUpdate }) => {
+    const [localValue, setLocalValue] = useState(item.title || '');
+
+    // Handle immediate updates without debounce for better UX
+    const handleChange = (e) => {
+        const value = e.target.value;
+        setLocalValue(value);
+        // Update parent immediately
+        onUpdate(index, 'title', value);
+    };
+
+    // Sync with parent when prop changes
+    useEffect(() => {
+        setLocalValue(item.title || '');
+    }, [item.title]);
+
+    return (
+        <Input
+            value={localValue}
+            onChange={handleChange}
+            placeholder="Feature Title"
+            bordered={false}
+            style={{ padding: 0, fontWeight: 'bold' }}
+        />
+    );
+};
+
+// Fixed Process Step Input Component
+const ProcessStepInput = ({ step, index, onUpdate }) => {
+    const [title, setTitle] = useState(step.title || '');
+    const [description, setDescription] = useState(step.description || '');
+    const [icon, setIcon] = useState(step.icon || '');
+
+    // Update parent immediately on change
+    const handleTitleChange = (e) => {
+        const value = e.target.value;
+        setTitle(value);
+        onUpdate(index, 'title', value);
+    };
+
+    const handleDescriptionChange = (e) => {
+        const value = e.target.value;
+        setDescription(value);
+        onUpdate(index, 'description', value);
+    };
+
+    const handleIconChange = (e) => {
+        const value = e.target.value;
+        setIcon(value);
+        onUpdate(index, 'icon', value);
+    };
+
+    // Sync with parent when props change
+    useEffect(() => {
+        setTitle(step.title || '');
+        setDescription(step.description || '');
+        setIcon(step.icon || '');
+    }, [step.title, step.description, step.icon]);
+
+    return (
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Input
+                placeholder="Step Title"
+                value={title}
+                onChange={handleTitleChange}
+            />
+            <TextArea
+                placeholder="Step Description"
+                rows={3}
+                value={description}
+                onChange={handleDescriptionChange}
+            />
+            <Input
+                placeholder="Icon URL or class name"
+                value={icon}
+                onChange={handleIconChange}
+                prefix={<UploadOutlined />}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Text type="secondary">Step Number:</Text>
+                <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={step.stepNumber}
+                    onChange={(e) => onUpdate(index, 'stepNumber', parseInt(e.target.value) || 1)}
+                    style={{ width: '80px' }}
+                />
+            </div>
+        </Space>
+    );
+};
+
 const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
     const [form] = Form.useForm();
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [thirdSectionData, setThirdSectionData] = useState(null);
     const [processSteps, setProcessSteps] = useState([]);
     const [featureItems, setFeatureItems] = useState([]);
     const [previewVisible, setPreviewVisible] = useState(false);
+    const [error, setError] = useState(null);
+    const [activeProcessKeys, setActiveProcessKeys] = useState([]);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     // Load data on component mount
     useEffect(() => {
         loadThirdSectionData();
     }, []);
 
+    // Warn user about unsaved changes
+    useEffect(() => {
+        if (hasUnsavedChanges) {
+            const handleBeforeUnload = (e) => {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            };
+
+            window.addEventListener('beforeunload', handleBeforeUnload);
+            return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+        }
+    }, [hasUnsavedChanges]);
+
     const loadThirdSectionData = async () => {
         setLoading(true);
+        setError(null);
         try {
+            console.log('Loading third section data...');
             const data = await ThirdSectionServices.getThirdSection();
+            console.log('Raw API data:', data);
+
+            // Always map the data, even if it's empty
             const mappedData = ThirdSectionMapper.mapFromApi(data);
+            console.log('Mapped data:', mappedData);
 
-            // If no data exists, initialize with empty structure
-            if (!mappedData.id && (!mappedData.processSteps || mappedData.processSteps.length === 0)) {
-                const emptyData = ThirdSectionMapper.getEmptyThirdSection();
-                setThirdSectionData(emptyData);
-                setProcessSteps(emptyData.processSteps);
-                setFeatureItems(emptyData.featureItems);
+            // Set the data
+            setThirdSectionData(mappedData);
+            setProcessSteps(mappedData.processSteps || []);
+            setFeatureItems(mappedData.featureItems || []);
 
-                form.setFieldsValue({
-                    title: '',
-                    subtitle: '',
-                    description: ''
-                });
-            } else {
-                setThirdSectionData(mappedData);
-                setProcessSteps(mappedData.processSteps || []);
-                setFeatureItems(mappedData.featureItems || []);
+            // Set form values
+            form.setFieldsValue({
+                title: mappedData.title || '',
+                subtitle: mappedData.subtitle || '',
+                description: mappedData.description || ''
+            });
 
-                // Set form values
-                form.setFieldsValue({
-                    title: mappedData.title,
-                    subtitle: mappedData.subtitle,
-                    description: mappedData.description
-                });
-            }
+            setHasUnsavedChanges(false);
+            console.log('Data loading completed successfully');
+
         } catch (error) {
             console.error('Error loading data:', error);
-
-            // If error loading, initialize with empty data
-            const emptyData = ThirdSectionMapper.getEmptyThirdSection();
-            setThirdSectionData(emptyData);
-            setProcessSteps(emptyData.processSteps);
-            setFeatureItems(emptyData.featureItems);
-
-            message.error('Failed to load third section data. Starting with empty template.');
+            setError(`Failed to load third section data: ${error.message}`);
+            message.error('Failed to load third section data');
+            initializeWithEmptyData();
         } finally {
             setLoading(false);
         }
     };
 
+    const initializeWithEmptyData = () => {
+        const emptyData = ThirdSectionMapper.getEmptyThirdSection();
+        setThirdSectionData(emptyData);
+        setProcessSteps(emptyData.processSteps);
+        setFeatureItems(emptyData.featureItems);
+
+        form.setFieldsValue({
+            title: '',
+            subtitle: '',
+            description: ''
+        });
+    };
+
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
-
-            // Validate minimum requirements
-            if (processSteps.length < 5) {
-                message.error('Minimum of 5 process steps required');
-                return;
-            }
-
-            if (featureItems.length < 5) {
-                message.error('Minimum of 5 feature items required');
-                return;
-            }
-
             setSaving(true);
 
+            // REMOVED: Minimum item requirement validation
+            // Users can now save with any number of items (including 0)
+
+            // Validate that existing process steps have required fields
+            const processStepsErrors = [];
+            processSteps.forEach((step, index) => {
+                if (!step.title || step.title.trim() === '') {
+                    processStepsErrors.push(`Process step ${index + 1} title is required`);
+                }
+                if (!step.description || step.description.trim() === '') {
+                    processStepsErrors.push(`Process step ${index + 1} description is required`);
+                }
+            });
+
+            if (processStepsErrors.length > 0) {
+                message.error(`Please fix process step errors: ${processStepsErrors.join(', ')}`);
+                return;
+            }
+
+            // Validate that existing feature items have required fields
+            const featureItemsErrors = [];
+            featureItems.forEach((item, index) => {
+                if (!item.title || item.title.trim() === '') {
+                    featureItemsErrors.push(`Feature item ${index + 1} title is required`);
+                }
+                if (!item.description || item.description.trim() === '') {
+                    featureItemsErrors.push(`Feature item ${index + 1} description is required`);
+                }
+            });
+
+            if (featureItemsErrors.length > 0) {
+                message.error(`Please fix feature item errors: ${featureItemsErrors.join(', ')}`);
+                return;
+            }
+
+            // Prepare data for saving
             const formData = {
                 ...thirdSectionData,
                 ...values,
                 processSteps: ThirdSectionMapper.cleanBeforeSubmit({
-                    processSteps: processSteps.map(step => ({
+                    processSteps: processSteps.map((step, index) => ({
                         ...step,
-                        stepNumber: processSteps.indexOf(step) + 1
+                        stepNumber: step.stepNumber || index + 1, // Ensure step numbers are set
+                        id: step.id || 0 // Ensure ID is properly set (0 for new items)
                     }))
                 }).processSteps,
                 featureItems: ThirdSectionMapper.cleanBeforeSubmit({
-                    featureItems
+                    featureItems: featureItems.map(item => ({
+                        ...item,
+                        id: item.id || 0 // Ensure ID is properly set (0 for new items)
+                    }))
                 }).featureItems
             };
 
-            const validation = ThirdSectionServices.validateThirdSection(formData);
-            if (!validation.isValid) {
-                message.error('Please fix validation errors before saving');
-                return;
-            }
+            console.log('Saving data:', formData);
 
             const apiData = ThirdSectionMapper.mapToApi(formData);
-            await ThirdSectionServices.updateThirdSection(apiData);
+            const result = await ThirdSectionServices.updateThirdSection(apiData);
 
-            message.success('Third section updated successfully');
-            await loadThirdSectionData(); // Reload to get updated IDs
+            // Show success notification with update confirmation
+            notification.success({
+                message: 'Update Successful',
+                description: 'Third section data has been updated successfully!',
+                duration: 4,
+                icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+            });
+
+            setHasUnsavedChanges(false);
+
+            // Reload to get updated IDs from server
+            await loadThirdSectionData();
+
         } catch (error) {
-            message.error('Failed to save third section data');
             console.error('Error saving data:', error);
+            if (error.errorFields) {
+                message.error('Please fix form validation errors');
+            } else {
+                message.error(`Failed to save third section data: ${error.message}`);
+            }
         } finally {
             setSaving(false);
         }
@@ -148,29 +306,67 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
 
     // Process Steps Management
     const addProcessStep = () => {
-        const nextStepNumber = ThirdSectionServices.getNextStepNumber(processSteps);
+        const nextStepNumber = processSteps.length > 0
+            ? Math.max(...processSteps.map(step => step.stepNumber)) + 1
+            : 1;
+
         const newStep = ThirdSectionMapper.getEmptyProcessStep(nextStepNumber);
-        setProcessSteps([...processSteps, newStep]);
+        const updatedSteps = [...processSteps, newStep];
+        setProcessSteps(updatedSteps);
+        setHasUnsavedChanges(true);
+        message.success('New process step added');
     };
 
-    const updateProcessStep = (index, field, value) => {
-        const updatedSteps = [...processSteps];
-        updatedSteps[index] = { ...updatedSteps[index], [field]: value };
-        setProcessSteps(updatedSteps);
-    };
+    const updateProcessStep = useCallback((index, field, value) => {
+        setProcessSteps(prevSteps => {
+            const updatedSteps = [...prevSteps];
+            updatedSteps[index] = { ...updatedSteps[index], [field]: value };
+
+            // Auto-update step numbers when reordering manually
+            if (field === 'stepNumber') {
+                // Ensure step numbers are unique and sequential
+                const stepNumbers = updatedSteps.map(step => step.stepNumber);
+                const hasDuplicates = new Set(stepNumbers).size !== stepNumbers.length;
+
+                if (hasDuplicates) {
+                    // Auto-correct duplicate step numbers
+                    updatedSteps.forEach((step, idx) => {
+                        step.stepNumber = idx + 1;
+                    });
+                }
+            }
+
+            return updatedSteps;
+        });
+        setHasUnsavedChanges(true);
+    }, []);
 
     const removeProcessStep = (index) => {
-        if (processSteps.length <= 5) {
-            message.warning('Minimum of 5 process steps required. Cannot delete.');
-            return;
-        }
+        // REMOVED: Minimum item requirement check
+        // Users can now remove items freely
 
         Modal.confirm({
             title: 'Are you sure you want to remove this process step?',
             content: 'This action cannot be undone.',
+            okText: 'Yes, Remove',
+            cancelText: 'Cancel',
             onOk: () => {
                 const updatedSteps = processSteps.filter((_, i) => i !== index);
-                setProcessSteps(updatedSteps);
+
+                // Re-number steps after deletion to maintain sequence
+                const renumberedSteps = updatedSteps.map((step, idx) => ({
+                    ...step,
+                    stepNumber: idx + 1
+                }));
+
+                setProcessSteps(renumberedSteps);
+                setHasUnsavedChanges(true);
+
+                // Remove from active keys if it was open
+                setActiveProcessKeys(prevKeys =>
+                    prevKeys.filter(key => key !== ThirdSectionMapper.generateUniqueKey(processSteps[index], index, 'step'))
+                );
+
                 message.success('Process step removed successfully');
             }
         });
@@ -179,36 +375,53 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
     const moveProcessStep = (index, direction) => {
         const newIndex = index + direction;
         if (newIndex >= 0 && newIndex < processSteps.length) {
-            const updatedSteps = [...processSteps];
-            [updatedSteps[index], updatedSteps[newIndex]] = [updatedSteps[newIndex], updatedSteps[index]];
-            setProcessSteps(updatedSteps);
+            setProcessSteps(prevSteps => {
+                const updatedSteps = [...prevSteps];
+                [updatedSteps[index], updatedSteps[newIndex]] = [updatedSteps[newIndex], updatedSteps[index]];
+
+                // Update step numbers after reordering
+                const renumberedSteps = updatedSteps.map((step, idx) => ({
+                    ...step,
+                    stepNumber: idx + 1
+                }));
+
+                setHasUnsavedChanges(true);
+                return renumberedSteps;
+            });
         }
     };
 
     // Feature Items Management
     const addFeatureItem = () => {
         const newItem = ThirdSectionMapper.getEmptyFeatureItem();
-        setFeatureItems([...featureItems, newItem]);
+        const updatedItems = [...featureItems, newItem];
+        setFeatureItems(updatedItems);
+        setHasUnsavedChanges(true);
+        message.success('New feature item added');
     };
 
-    const updateFeatureItem = (index, field, value) => {
-        const updatedItems = [...featureItems];
-        updatedItems[index] = { ...updatedItems[index], [field]: value };
-        setFeatureItems(updatedItems);
-    };
+    const updateFeatureItem = useCallback((index, field, value) => {
+        setFeatureItems(prevItems => {
+            const updatedItems = [...prevItems];
+            updatedItems[index] = { ...updatedItems[index], [field]: value };
+            return updatedItems;
+        });
+        setHasUnsavedChanges(true);
+    }, []);
 
     const removeFeatureItem = (index) => {
-        if (featureItems.length <= 5) {
-            message.warning('Minimum of 5 feature items required. Cannot delete.');
-            return;
-        }
+        // REMOVED: Minimum item requirement check
+        // Users can now remove items freely
 
         Modal.confirm({
             title: 'Are you sure you want to remove this feature item?',
             content: 'This action cannot be undone.',
+            okText: 'Yes, Remove',
+            cancelText: 'Cancel',
             onOk: () => {
                 const updatedItems = featureItems.filter((_, i) => i !== index);
                 setFeatureItems(updatedItems);
+                setHasUnsavedChanges(true);
                 message.success('Feature item removed successfully');
             }
         });
@@ -222,9 +435,14 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
         setPreviewVisible(false);
     };
 
-    // Check if can delete (for UI display)
-    const canDeleteProcessStep = processSteps.length > 5;
-    const canDeleteFeatureItem = featureItems.length > 5;
+    // Handle form field changes
+    const handleFormChange = () => {
+        setHasUnsavedChanges(true);
+    };
+
+    // Check if can delete (for UI display) - REMOVED restrictions
+    const canDeleteProcessStep = processSteps.length > 0;
+    const canDeleteFeatureItem = featureItems.length > 0;
 
     if (loading) {
         return (
@@ -239,16 +457,43 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
 
     return (
         <div>
-            {/* Header Actions */}
-            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <Title level={3} style={{ margin: 0 }}>Third Section Editor</Title>
-                    <Text type="secondary">Manage process steps and feature items for the third section</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Minimum 5 process steps and 5 feature items required
-                    </Text>
-                </div>
+            {/* Unsaved Changes Alert */}
+            {hasUnsavedChanges && (
+                <Alert
+                    message="You have unsaved changes"
+                    description="Don't forget to save your changes before leaving."
+                    type="warning"
+                    showIcon
+                    closable
+                    style={{ marginBottom: 16 }}
+                    action={
+                        <Button size="small" type="primary" onClick={handleSave} loading={saving}>
+                            Save Now
+                        </Button>
+                    }
+                />
+            )}
+
+            {/* Error Display */}
+            {error && (
+                <Alert
+                    message="Error"
+                    description={error}
+                    type="error"
+                    showIcon
+                    action={
+                        <Button size="small" onClick={loadThirdSectionData}>
+                            Retry
+                        </Button>
+                    }
+                    style={{ marginBottom: 16 }}
+                />
+            )}
+
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' , margin : "10px" }}>
+                {/* Empty space on left to push buttons to right */}
+                <div></div>
+
                 <Space>
                     <Button icon={<EyeOutlined />} onClick={showPreview}>
                         Preview
@@ -261,14 +506,20 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                     >
                         Save Changes
                     </Button>
+
+                    {/* Unsaved changes indicator */}
+                    {hasUnsavedChanges && (
+                        <Text type="warning" style={{ marginLeft: 16 }}>
+                            <InfoCircleOutlined /> Unsaved changes
+                        </Text>
+                    )}
                 </Space>
             </div>
-
             <Row gutter={[24, 24]}>
                 {/* Main Content Form */}
                 <Col xs={24} lg={12}>
                     <Card title="Main Content" style={{ marginBottom: 24 }}>
-                        <Form form={form} layout="vertical">
+                        <Form form={form} layout="vertical" onFieldsChange={handleFormChange}>
                             <Form.Item
                                 name="title"
                                 label="Title"
@@ -302,7 +553,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                 {/* Process Steps */}
                 <Col xs={24} lg={12}>
                     <Card
-                        title={`Process Steps (${processSteps.length}/5 minimum)`}
+                        title={`Process Steps (${processSteps.length} items)`}
                         extra={
                             <Button
                                 type="dashed"
@@ -318,13 +569,22 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                         {processSteps.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '20px' }}>
                                 <Text type="secondary">No process steps added yet</Text>
+                                <div style={{ marginTop: 8 }}>
+                                    <Button type="dashed" icon={<PlusOutlined />} onClick={addProcessStep}>
+                                        Add Your First Step
+                                    </Button>
+                                </div>
                             </div>
                         ) : (
-                            <Collapse ghost>
+                            <Collapse
+                                ghost
+                                activeKey={activeProcessKeys}
+                                onChange={(keys) => setActiveProcessKeys(keys)}
+                            >
                                 {processSteps.map((step, index) => (
                                     <Panel
-                                        key={step.tempId || step.id}
-                                        header={`Step ${index + 1}: ${step.title || 'Untitled Step'}`}
+                                        key={ThirdSectionMapper.generateUniqueKey(step, index, 'step')}
+                                        header={`Step ${step.stepNumber}: ${step.title || 'Untitled Step'}`}
                                         extra={
                                             <Space>
                                                 <Button
@@ -360,35 +620,14 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                                             </Space>
                                         }
                                     >
-                                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                                            <Input
-                                                placeholder="Step Title"
-                                                value={step.title}
-                                                onChange={(e) => updateProcessStep(index, 'title', e.target.value)}
-                                            />
-                                            <TextArea
-                                                placeholder="Step Description"
-                                                rows={3}
-                                                value={step.description}
-                                                onChange={(e) => updateProcessStep(index, 'description', e.target.value)}
-                                            />
-                                            <Input
-                                                placeholder="Icon URL or class name"
-                                                value={step.icon}
-                                                onChange={(e) => updateProcessStep(index, 'icon', e.target.value)}
-                                                prefix={<UploadOutlined />}
-                                            />
-                                        </Space>
+                                        <ProcessStepInput
+                                            step={step}
+                                            index={index}
+                                            onUpdate={updateProcessStep}
+                                        />
                                     </Panel>
                                 ))}
                             </Collapse>
-                        )}
-                        {processSteps.length < 5 && (
-                            <div style={{ textAlign: 'center', padding: '10px', background: '#fff2e8', borderRadius: '6px', marginTop: '10px' }}>
-                                <Text type="warning">
-                                    Add {5 - processSteps.length} more process step(s) to meet minimum requirement
-                                </Text>
-                            </div>
                         )}
                     </Card>
                 </Col>
@@ -396,7 +635,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
 
             {/* Feature Items */}
             <Card
-                title={`Feature Items (${featureItems.length}/5 minimum)`}
+                title={`Feature Items (${featureItems.length} items)`}
                 extra={
                     <Button
                         type="dashed"
@@ -409,16 +648,14 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
             >
                 <Row gutter={[16, 16]}>
                     {featureItems.map((item, index) => (
-                        <Col xs={24} md={12} lg={8} key={item.tempId || item.id}>
+                        <Col xs={24} md={12} lg={8} key={ThirdSectionMapper.generateUniqueKey(item, index, 'feature')}>
                             <Card
                                 size="small"
                                 title={
-                                    <Input
-                                        value={item.title}
-                                        onChange={(e) => updateFeatureItem(index, 'title', e.target.value)}
-                                        placeholder="Feature Title"
-                                        bordered={false}
-                                        style={{ padding: 0 }}
+                                    <FeatureTitleInput
+                                        item={item}
+                                        index={index}
+                                        onUpdate={updateFeatureItem}
                                     />
                                 }
                                 extra={
@@ -455,20 +692,17 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                         <Col span={24}>
                             <div style={{ textAlign: 'center', padding: '40px' }}>
                                 <Text type="secondary">No feature items added yet</Text>
+                                <div style={{ marginTop: 16 }}>
+                                    <Button type="dashed" icon={<PlusOutlined />} onClick={addFeatureItem}>
+                                        Add Your First Feature
+                                    </Button>
+                                </div>
                             </div>
                         </Col>
                     )}
                 </Row>
-                {featureItems.length < 5 && (
-                    <div style={{ textAlign: 'center', padding: '10px', background: '#fff2e8', borderRadius: '6px', marginTop: '10px' }}>
-                        <Text type="warning">
-                            Add {5 - featureItems.length} more feature item(s) to meet minimum requirement
-                        </Text>
-                    </div>
-                )}
             </Card>
 
-            {/* Preview Modal */}
             {/* Preview Modal */}
             <Modal
                 title="Third Section Preview"
@@ -488,7 +722,6 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                     maxHeight: '80vh',
                     overflow: 'auto'
                 }}>
-                    {/* This is the actual ThirdSection component preview */}
                     <section style={{
                         padding: '60px 24px',
                         background: 'white'
@@ -584,7 +817,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                                                             fontSize: '24px',
                                                             fontWeight: 'bold'
                                                         }}>
-                                                            {(index + 1).toString().padStart(2, '0')}
+                                                            {(step.stepNumber || index + 1).toString().padStart(2, '0')}
                                                         </div>
                                                     </Col>
                                                     <Col flex={1}>
@@ -595,7 +828,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent }) => {
                                                                 color: index === 0 ? 'white' : '#001529'
                                                             }}
                                                         >
-                                                            {step.title || `Step ${index + 1}`}
+                                                            {step.title || `Step ${step.stepNumber || index + 1}`}
                                                         </Title>
                                                         <Paragraph
                                                             style={{

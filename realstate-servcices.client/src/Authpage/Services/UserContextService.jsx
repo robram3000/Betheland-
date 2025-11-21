@@ -1,7 +1,6 @@
 ﻿// Services/UserContextService.jsx (Updated)
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from './LoginAuth';
-import SessionService from './SessionService';
 import { rolePermissions, canAccessFeature, routePermissions } from './PermissionConfig';
 
 const UserContext = createContext();
@@ -18,7 +17,6 @@ export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [lastActivity, setLastActivity] = useState(Date.now());
     const [userPermissions, setUserPermissions] = useState([]);
 
     // Update permissions when user changes
@@ -32,22 +30,6 @@ export const UserProvider = ({ children }) => {
             setUserPermissions([]);
         }
     }, [user]);
-
-    // Track user activity
-    useEffect(() => {
-        const updateActivity = () => setLastActivity(Date.now());
-
-        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-        events.forEach(event => {
-            document.addEventListener(event, updateActivity);
-        });
-
-        return () => {
-            events.forEach(event => {
-                document.removeEventListener(event, updateActivity);
-            });
-        };
-    }, []);
 
     // Initialize user from storage
     useEffect(() => {
@@ -92,7 +74,6 @@ export const UserProvider = ({ children }) => {
         };
 
         initializeUser();
-        SessionService.setupActivityListeners();
     }, []);
 
     // Update user profile
@@ -205,7 +186,6 @@ export const UserProvider = ({ children }) => {
         setUser(null);
         setProfile(null);
         setUserPermissions([]);
-        SessionService.cleanup();
     };
 
     // Refresh user data
@@ -237,15 +217,6 @@ export const UserProvider = ({ children }) => {
         }
 
         setLoading(false);
-    };
-
-    // Check session validity
-    const checkSession = async () => {
-        const isValid = await SessionService.validateSession();
-        if (!isValid) {
-            logout();
-        }
-        return isValid;
     };
 
     // Enhanced permission system
@@ -284,7 +255,6 @@ export const UserProvider = ({ children }) => {
         user,
         profile,
         loading,
-        lastActivity,
         userPermissions,
         isAuthenticated: !!user && authService.isAuthenticated(),
         updateProfile,
@@ -292,7 +262,6 @@ export const UserProvider = ({ children }) => {
         login,
         logout,
         refreshUser,
-        checkSession,
 
         // Enhanced permission system
         hasRole,

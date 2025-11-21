@@ -1,103 +1,70 @@
 ﻿using Realstate_servcices.Server.Dto.Device;
-using Realstate_servcices.Server.Utilities.Device;
+using Realstate_servcices.Server.Repository.DeviceInfoRepository;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace Realstate_servcices.Server.Services.Device
 {
     public class DeviceInfoService : IDeviceInfoService
     {
-        private readonly DeviceInfoUtility _deviceInfoUtility;
-        private readonly SystemInfoUtility _systemInfoUtility;
-        private readonly HardwareInfoUtility _hardwareInfoUtility;
-        private readonly EnvironmentUtility _environmentUtility;
+        private readonly IDeviceInfoRepository _deviceInfoRepository;
 
-        public DeviceInfoService()
+        public DeviceInfoService(IDeviceInfoRepository deviceInfoRepository)
         {
-            _deviceInfoUtility = new DeviceInfoUtility();
-            _systemInfoUtility = new SystemInfoUtility();
-            _hardwareInfoUtility = new HardwareInfoUtility();
-            _environmentUtility = new EnvironmentUtility();
+            _deviceInfoRepository = deviceInfoRepository;
         }
 
         public async Task<DeviceInfoDto> GetDeviceInfoAsync()
         {
-            return await Task.Run(() => new DeviceInfoDto
-            {
-                DeviceName = _deviceInfoUtility.GetDeviceName(),
-                Manufacturer = _deviceInfoUtility.GetManufacturer(),
-                Model = _deviceInfoUtility.GetModel(),
-                DeviceType = _deviceInfoUtility.GetDeviceType(),
-                SerialNumber = _deviceInfoUtility.GetSerialNumber(),
-                BiosVersion = _deviceInfoUtility.GetBiosVersion(),
-                SystemFamily = _deviceInfoUtility.GetSystemFamily(),
-                MacAddress = _deviceInfoUtility.GetMacAddress()
-            });
+            return await _deviceInfoRepository.GetDeviceInfoAsync();
         }
 
         public async Task<SystemInfoDto> GetSystemInfoAsync()
         {
-            return await Task.Run(() => new SystemInfoDto
-            {
-                OperatingSystem = _systemInfoUtility.GetOperatingSystem(),
-                OSVersion = _systemInfoUtility.GetOSVersion(),
-                WindowsVersion = _systemInfoUtility.GetWindowsVersion(),
-                SystemArchitecture = _systemInfoUtility.GetSystemArchitecture(),
-                FrameworkVersion = _systemInfoUtility.GetFrameworkVersion(),
-                SystemInstallDate = _systemInfoUtility.GetSystemInstallDate(),
-                SystemUpTime = _systemInfoUtility.GetSystemUpTime(),
-                SystemLocale = _systemInfoUtility.GetSystemLocale(),
-                TimeZone = _systemInfoUtility.GetTimeZone(),
-                Is64BitOperatingSystem = _systemInfoUtility.Is64BitOperatingSystem(),
-                Is64BitProcess = _systemInfoUtility.Is64BitProcess()
-            });
+            return await _deviceInfoRepository.GetSystemInfoAsync();
         }
 
         public async Task<Dictionary<string, object>> GetHardwareInfoAsync()
         {
-            return await Task.Run(() => new Dictionary<string, object>
+            var hardwareInfo = await _deviceInfoRepository.GetHardwareInfoAsync();
+            return new Dictionary<string, object>
             {
-                ["Processor"] = _hardwareInfoUtility.GetProcessorInfo(),
-                ["Memory"] = _hardwareInfoUtility.GetMemoryInfo(),
-                ["Graphics"] = _hardwareInfoUtility.GetGraphicsCardInfo(),
-                ["Storage"] = _hardwareInfoUtility.GetStorageInfo(),
-                ["NetworkAdapters"] = _hardwareInfoUtility.GetNetworkAdaptersInfo(),
-                ["Motherboard"] = _hardwareInfoUtility.GetMotherboardInfo(),
-                ["CpuUsage"] = _hardwareInfoUtility.GetCpuUsage(),
-                ["AvailableMemory"] = _hardwareInfoUtility.GetAvailableMemory()
-            });
+                ["Processor"] = hardwareInfo.Processor,
+                ["Memory"] = hardwareInfo.Memory,
+                ["Graphics"] = hardwareInfo.Graphics,
+                ["Storage"] = hardwareInfo.Storage,
+                ["NetworkAdapters"] = hardwareInfo.NetworkAdapters,
+                ["Motherboard"] = hardwareInfo.Motherboard,
+                ["CpuUsage"] = hardwareInfo.CpuUsage,
+                ["AvailableMemory"] = hardwareInfo.AvailableMemory
+            };
         }
 
         public async Task<Dictionary<string, object>> GetEnvironmentInfoAsync()
         {
-            return await Task.Run(() => new Dictionary<string, object>
+            var environmentInfo = await _deviceInfoRepository.GetEnvironmentInfoAsync();
+            return new Dictionary<string, object>
             {
-                ["CurrentUser"] = _environmentUtility.GetCurrentUser(),
-                ["UserDomain"] = _environmentUtility.GetUserDomain(),
-                ["MachineName"] = _environmentUtility.GetMachineName(),
-                ["CurrentDirectory"] = _environmentUtility.GetCurrentDirectory(),
-                ["LogicalDrives"] = _environmentUtility.GetLogicalDrives(),
-                ["EnvironmentVariables"] = _environmentUtility.GetEnvironmentVariables(),
-                ["ProcessorCount"] = _environmentUtility.GetProcessorCount(),
-                ["WorkingSet"] = _environmentUtility.GetWorkingSet(),
-                ["IsUserInteractive"] = _environmentUtility.IsUserInteractive()
-            });
+                ["CurrentUser"] = environmentInfo.CurrentUser,
+                ["UserDomain"] = environmentInfo.UserDomain,
+                ["MachineName"] = environmentInfo.MachineName,
+                ["CurrentDirectory"] = environmentInfo.CurrentDirectory,
+                ["LogicalDrives"] = environmentInfo.LogicalDrives,
+                ["EnvironmentVariables"] = environmentInfo.EnvironmentVariables,
+                ["ProcessorCount"] = environmentInfo.ProcessorCount,
+                ["WorkingSet"] = environmentInfo.WorkingSet,
+                ["IsUserInteractive"] = environmentInfo.IsUserInteractive
+            };
         }
 
         public async Task<string> GetSystemSummaryAsync()
         {
-            return await Task.Run(() =>
-            {
-                var deviceInfo = _deviceInfoUtility;
-                var systemInfo = _systemInfoUtility;
+            return await _deviceInfoRepository.GetSystemSummaryAsync();
+        }
 
-                return $@"
-System Summary:
-- Device: {deviceInfo.GetDeviceName()} ({deviceInfo.GetModel()})
-- Manufacturer: {deviceInfo.GetManufacturer()}
-- OS: {systemInfo.GetOperatingSystem()}
-- Architecture: {systemInfo.GetSystemArchitecture()}
-- Uptime: {systemInfo.GetSystemUpTime()}
-- User: {_environmentUtility.GetCurrentUser()}@{_environmentUtility.GetUserDomain()}
-";
-            });
+        public async Task<Dictionary<string, object>> GetCompleteSystemInfoAsync()
+        {
+            return await _deviceInfoRepository.GetCompleteSystemInfoAsync();
         }
     }
 }

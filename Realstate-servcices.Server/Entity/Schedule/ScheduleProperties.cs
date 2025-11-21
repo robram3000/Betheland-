@@ -18,10 +18,10 @@ namespace Realstate_servcices.Server.Entity.Schedule
         public int PropertyId { get; set; }
 
         [Required]
-        public int AgentId { get; set; } // This should match Agent.BaseMemberId type
+        public int AgentId { get; set; } // References Agent.Id
 
         [Required]
-        public int ClientId { get; set; } // This should match Client.BaseMemberId type
+        public int ClientId { get; set; } // References Client.Id
 
         [Required]
         public DateTime ScheduleTime { get; set; }
@@ -63,11 +63,9 @@ namespace Realstate_servcices.Server.Entity.Schedule
         public virtual PropertyHouse Property { get; set; } = null!;
 
         [ForeignKey("AgentId")]
-      
         public virtual Agent Agent { get; set; } = null!;
 
         [ForeignKey("ClientId")]
-     
         public virtual Client Client { get; set; } = null!;
     }
 }

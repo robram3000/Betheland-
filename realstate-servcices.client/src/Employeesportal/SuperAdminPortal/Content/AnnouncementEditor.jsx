@@ -1,4 +1,4 @@
-// AnnouncementEditor.jsx
+﻿// AnnouncementEditor.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -50,17 +50,36 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
     // Load announcements on component mount and when refreshTrigger changes
     useEffect(() => {
+        console.log('🚀 AnnouncementEditor mounted, loading announcements...');
         loadAnnouncements();
     }, [refreshTrigger]);
 
     const loadAnnouncements = async () => {
         setLoading(true);
         try {
+            console.log('🔍 Starting to load announcements...');
             const response = await AnnouncementServices.getAllAnnouncements();
-            const mappedAnnouncements = AnnouncementMapper.mapToAnnouncementsList(response);
+            console.log('📦 Raw API Response:', response);
+
+            // Use the ultra-simple mapper for direct array responses
+            let mappedAnnouncements = AnnouncementMapper.mapDirectArray(response);
+            console.log('✅ Mapped Announcements:', mappedAnnouncements);
+
             const sortedAnnouncements = AnnouncementMapper.sortAnnouncements(mappedAnnouncements);
+            console.log('🔢 Final Sorted Announcements:', sortedAnnouncements);
+
             setAnnouncements(sortedAnnouncements);
+
+            if (sortedAnnouncements.length === 0) {
+                console.warn('⚠️ No announcements found after mapping');
+                message.info('No announcements found in the system');
+            } else {
+                console.log(`🎉 Successfully loaded ${sortedAnnouncements.length} announcements`);
+                message.success(`Loaded ${sortedAnnouncements.length} announcements`);
+            }
         } catch (error) {
+            console.error('💥 Error loading announcements:', error);
+            console.error('💥 Error response:', error.response);
             message.error(`Failed to load announcements: ${error.message}`);
         } finally {
             setLoading(false);
@@ -123,11 +142,13 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
             if (editingAnnouncement) {
                 // Update existing announcement
                 const updateDto = AnnouncementMapper.mapToUpdateAnnouncementDto(values);
+                console.log('📤 Update DTO:', updateDto);
                 await AnnouncementServices.updateAnnouncement(editingAnnouncement.id, updateDto);
                 message.success('Announcement updated successfully');
             } else {
                 // Create new announcement
                 const createDto = AnnouncementMapper.mapToCreateAnnouncementDto(values);
+                console.log('📤 Create DTO:', createDto);
                 await AnnouncementServices.createAnnouncement(createDto);
                 message.success('Announcement created successfully');
             }
@@ -273,20 +294,14 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
     return (
         <div>
+     
+
             {/* Header Section */}
             <Card
                 style={{ marginBottom: 16 }}
                 bodyStyle={{ padding: '16px 24px' }}
             >
-                <Row justify="space-between" align="middle" gutter={[16, 16]}>
-                    <Col>
-                        <div>
-                            <h3 style={{ margin: 0, color: '#1a365d' }}>Announcement Management</h3>
-                            <p style={{ margin: 0, color: '#666' }}>
-                                Manage your running letter announcements and display settings
-                            </p>
-                        </div>
-                    </Col>
+                <Row justify="end" align="middle">
                     <Col>
                         <Button
                             type="primary"
@@ -386,10 +401,12 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                             description={
                                 searchText || categoryFilter !== 'all' || statusFilter !== 'all'
                                     ? "No announcements match your search criteria"
-                                    : "No announcements found"
+                                    : announcements.length === 0
+                                        ? "No announcements found in the system"
+                                        : "No announcements match current filters"
                             }
                         >
-                            {!searchText && categoryFilter === 'all' && statusFilter === 'all' && (
+                            {!searchText && categoryFilter === 'all' && statusFilter === 'all' && announcements.length === 0 && (
                                 <Button type="primary" onClick={handleCreate}>
                                     <PlusOutlined /> Add Your First Announcement
                                 </Button>

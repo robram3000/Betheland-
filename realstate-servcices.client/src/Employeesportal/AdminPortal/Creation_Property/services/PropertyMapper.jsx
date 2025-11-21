@@ -11,6 +11,7 @@ export const propertyMapper = {
                 amenitiesValue = formData.amenities;
             } else if (typeof formData.amenities === 'string') {
                 try {
+                    // Try to parse as JSON first
                     amenitiesValue = JSON.parse(formData.amenities);
                 } catch (e) {
                     // If it's a comma-separated string, split it
@@ -56,9 +57,10 @@ export const propertyMapper = {
                     state: formData.state?.trim() || '',
                     zipCode: formData.zipCode?.trim() || '',
                     country: formData.country?.trim() || '',
+                    barangay: formData.barangay?.trim() || '', // FIX: Ensure barangay is included
                     latitude: parseFloat(formData.latitude) || 0,
                     longitude: parseFloat(formData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
+                    amenities: JSON.stringify(amenitiesValue),
                     ownerId: formData.ownerId ? parseInt(formData.ownerId) : null,
                     agentId: formData.agentId ? parseInt(formData.agentId) : null,
                     listedDate: listedDateValue,
@@ -67,7 +69,8 @@ export const propertyMapper = {
                 videoUrls: Array.isArray(formData.videoUrls) ? formData.videoUrls : []
             };
 
-            console.log('Mapped create request:', createRequest);
+            console.log('Mapped create request with barangay:', createRequest.property.barangay);
+            console.log('Mapped create request with amenities:', createRequest.property.amenities);
             return createRequest;
         } catch (error) {
             console.error('Error in toCreateRequest:', error, formData);
@@ -130,9 +133,10 @@ export const propertyMapper = {
                     state: formData.state?.trim() || '',
                     zipCode: formData.zipCode?.trim() || '',
                     country: formData.country?.trim() || '',
+                    barangay: formData.barangay?.trim() || '', // FIX: Ensure barangay is included
                     latitude: parseFloat(formData.latitude) || 0,
                     longitude: parseFloat(formData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
+                    amenities: JSON.stringify(amenitiesValue),
                     ownerId: formData.ownerId ? parseInt(formData.ownerId) : null,
                     agentId: formData.agentId ? parseInt(formData.agentId) : null,
                     listedDate: listedDateValue,
@@ -147,7 +151,8 @@ export const propertyMapper = {
                 updateData.videoUrls = formData.videoUrls;
             }
 
-            console.log('Mapped update request:', updateData);
+            console.log('Mapped update request with barangay:', updateData.property.barangay);
+            console.log('Mapped update request with amenities:', updateData.property.amenities);
             return updateData;
         } catch (error) {
             console.error('Error in toUpdateRequest:', error, formData);
@@ -162,7 +167,29 @@ export const propertyMapper = {
                 return null;
             }
 
-            console.log('Raw backend data:', backendData);
+            console.log('Raw backend data for mapping:', backendData);
+
+            // FIX: Enhanced amenities parsing with multiple fallbacks
+            let amenitiesValue = [];
+            if (backendData.amenities) {
+                if (Array.isArray(backendData.amenities)) {
+                    amenitiesValue = backendData.amenities;
+                } else if (typeof backendData.amenities === 'string') {
+                    try {
+                        // Try to parse as JSON
+                        const parsed = JSON.parse(backendData.amenities);
+                        if (Array.isArray(parsed)) {
+                            amenitiesValue = parsed;
+                        } else if (typeof parsed === 'string') {
+                            // If it's a string inside JSON, try to split it
+                            amenitiesValue = parsed.split(',').map(item => item.trim()).filter(item => item);
+                        }
+                    } catch (e) {
+                        // If JSON parsing fails, try comma separation
+                        amenitiesValue = backendData.amenities.split(',').map(item => item.trim()).filter(item => item);
+                    }
+                }
+            }
 
             const property = {
                 id: backendData.id || 0,
@@ -183,11 +210,13 @@ export const propertyMapper = {
                 city: backendData.city || '',
                 state: backendData.state || '',
                 zipCode: backendData.zipCode || '',
+                barangay: backendData.barangay || '', // FIX: Ensure barangay is mapped
+                country: backendData.country || '',
                 latitude: parseFloat(backendData.latitude) || 0,
                 longitude: parseFloat(backendData.longitude) || 0,
+                amenities: amenitiesValue, // FIX: Now properly parsed as array
                 ownerId: backendData.ownerId || null,
                 agentId: backendData.agentId || null,
-                amenities: backendData.amenities || '[]',
                 listedDate: backendData.listedDate ? moment(backendData.listedDate) : null,
                 createdAt: backendData.createdAt ? moment(backendData.createdAt) : null,
                 updatedAt: backendData.updatedAt ? moment(backendData.updatedAt) : null,
@@ -257,22 +286,7 @@ export const propertyMapper = {
                 property.mainVideo = property.videoUrls[0] || '';
             }
 
-            // Parse amenities if it's a string
-            if (typeof property.amenities === 'string') {
-                try {
-                    property.amenities = JSON.parse(property.amenities);
-                    // Ensure it's an array after parsing
-                    if (!Array.isArray(property.amenities)) {
-                        property.amenities = [];
-                    }
-                } catch (e) {
-                    console.warn('Failed to parse amenities:', property.amenities);
-                    property.amenities = [];
-                }
-            } else if (!Array.isArray(property.amenities)) {
-                property.amenities = [];
-            }
-
+            console.log('Mapped frontend property with barangay:', property.barangay);
             console.log('Mapped frontend property with amenities:', property.amenities);
             return property;
         } catch (error) {
@@ -357,9 +371,10 @@ export const propertyMapper = {
                     state: propertyData.state?.trim() || '',
                     zipCode: propertyData.zipCode?.trim() || '',
                     country: propertyData.country?.trim() || '',
+                    barangay: propertyData.barangay?.trim() || '', // FIX: Include barangay
                     latitude: parseFloat(propertyData.latitude) || 0,
                     longitude: parseFloat(propertyData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
+                    amenities: JSON.stringify(amenitiesValue),
                     ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
@@ -386,6 +401,7 @@ export const propertyMapper = {
                 });
             }
 
+            console.log('FormData created with barangay:', createRequest.property.barangay);
             console.log('FormData created with amenities:', createRequest.property.amenities);
             return formData;
         } catch (error) {
@@ -448,9 +464,10 @@ export const propertyMapper = {
                     state: propertyData.state?.trim() || '',
                     zipCode: propertyData.zipCode?.trim() || '',
                     country: propertyData.country?.trim() || '',
+                    barangay: propertyData.barangay?.trim() || '', // FIX: Include barangay
                     latitude: parseFloat(propertyData.latitude) || 0,
                     longitude: parseFloat(propertyData.longitude) || 0,
-                    amenities: JSON.stringify(amenitiesValue), // Now properly stringified array
+                    amenities: JSON.stringify(amenitiesValue),
                     ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
@@ -477,6 +494,7 @@ export const propertyMapper = {
                 });
             }
 
+            console.log('Update FormData created with barangay:', updateRequest.property.barangay);
             console.log('Update FormData created with amenities:', updateRequest.property.amenities);
             return formData;
         } catch (error) {

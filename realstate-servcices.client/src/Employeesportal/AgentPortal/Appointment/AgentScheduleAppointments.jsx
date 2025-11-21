@@ -1,4 +1,4 @@
-// AgentScheduleAppointments.jsx
+// AgentScheduleAppointments.jsx - Complete Implementation
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -52,6 +52,7 @@ import { SchedulePropertiesService } from '../../AdminPortal/appointment/Service
 import authService from '../../../Authpage/Services/LoginAuth';
 import clientService from '../../AdminPortal/Creation_Agent/Services/ClientService';
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -78,32 +79,75 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
     const [editLoading, setEditLoading] = useState(false);
+    const [currentAgentId, setCurrentAgentId] = useState(null);
 
     // Create service instance
     const scheduleService = new SchedulePropertiesService();
+
+    // Helper function to get the actual agent ID from base member ID
+    const getCurrentAgentId = async () => {
+        try {
+            const currentUser = authService.getCurrentUser();
+            const baseMemberId = currentUser?.userId;
+
+            if (!baseMemberId) {
+                throw new Error('Unable to determine user ID. Please log in again.');
+            }
+
+            console.log('Getting agent ID for base member:', baseMemberId);
+
+            // Get the agent by base member ID to get the actual agent ID
+            const agent = await agentService.getAgentByBaseMemberId(baseMemberId);
+
+            if (!agent || !agent.id) {
+                throw new Error('Agent profile not found. Please complete your agent profile first.');
+            }
+
+            console.log('Found agent ID:', agent.id);
+            return agent.id;
+        } catch (error) {
+            console.error('Error getting current agent ID:', error);
+            throw new Error('Failed to retrieve agent information: ' + error.message);
+        }
+    };
+
+    // Enhanced agent ID retrieval with caching
+    const getAgentId = async (forceRefresh = false) => {
+        if (currentAgentId && !forceRefresh) {
+            return currentAgentId;
+        }
+
+        try {
+            const agentId = await getCurrentAgentId();
+            setCurrentAgentId(agentId);
+            return agentId;
+        } catch (error) {
+            console.error('Failed to get agent ID:', error);
+            throw error;
+        }
+    };
 
     useEffect(() => {
         loadAllData();
     }, []);
 
     const loadAllData = async () => {
-        await Promise.all([
-            loadAppointments(),
-            loadClients(),
-            loadProperties()
-        ]);
+        try {
+            await Promise.all([
+                loadAppointments(),
+                loadClients(),
+                loadProperties()
+            ]);
+        } catch (error) {
+            console.error('Error loading all data:', error);
+            message.error('Failed to load data: ' + error.message);
+        }
     };
 
     const loadClients = async () => {
         setLoadingClients(true);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
-
+            const agentId = await getAgentId();
             console.log('Fetching clients for agent:', agentId);
 
             // Using the client service to get all clients
@@ -113,7 +157,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
             setClients(clientsData || []);
         } catch (error) {
             console.error('Error loading clients:', error);
-            message.warning('Failed to load clients data');
+            message.warning('Failed to load clients data: ' + error.message);
             setClients([]);
         } finally {
             setLoadingClients(false);
@@ -123,13 +167,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     const loadProperties = async () => {
         setLoadingProperties(true);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
-
+            const agentId = await getAgentId();
             console.log('Fetching properties for agent:', agentId);
 
             // Using the property service to get all properties
@@ -139,7 +177,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
             setProperties(propertiesData || []);
         } catch (error) {
             console.error('Error loading properties:', error);
-            message.warning('Failed to load properties data');
+            message.warning('Failed to load properties data: ' + error.message);
             setProperties([]);
         } finally {
             setLoadingProperties(false);
@@ -150,19 +188,13 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         setLoading(true);
         setError(null);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
-
+            const agentId = await getAgentId();
             console.log('Fetching appointments for agent:', agentId);
 
-            // Use the service instance
+            // Use the service instance to get schedules by agent ID
             const result = await scheduleService.getSchedulesByAgent(parseInt(agentId));
 
-            console.log('Raw API response:', result);
+            console.log('Raw API response for schedules:', result);
 
             if (!result || !Array.isArray(result)) {
                 console.warn('No appointments found or invalid response format');
@@ -261,13 +293,13 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
                         // Store IDs for reference
                         clientId: appointment.clientId || clientData?.id,
-                        propertyId: appointment.propertyId || propertyData?.id
+                        propertyId: appointment.propertyId || propertyData?.id,
+                        agentId: appointment.agentId || agentId
                     };
                 })
             );
 
             console.log('Formatted appointments with integrated data:', formattedAppointments);
-
             setAppointments(formattedAppointments);
             onScheduleUpdate?.();
 
@@ -284,6 +316,40 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         }
     };
 
+    // Refresh function that forces agent ID refresh if needed
+    const refreshData = async () => {
+        try {
+            // Force refresh agent ID in case it changed
+            await getAgentId(true);
+            await loadAllData();
+            message.success('Data refreshed successfully');
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+            message.error('Failed to refresh data: ' + error.message);
+        }
+    };
+
+    // Debug function to check agent ID
+    const debugAgentInfo = async () => {
+        try {
+            const currentUser = authService.getCurrentUser();
+            const baseMemberId = currentUser?.userId;
+            const agentId = await getAgentId();
+
+            console.log('Debug Agent Info:', {
+                currentUser,
+                baseMemberId,
+                agentId
+            });
+
+            message.info(`Agent ID: ${agentId}, Base Member ID: ${baseMemberId}`);
+        } catch (error) {
+            console.error('Debug error:', error);
+            message.error('Debug failed: ' + error.message);
+        }
+    };
+
+    // Rest of your component functions (handleView, handleChat, handleEdit, etc.)
     const handleView = (appointment) => {
         setSelectedAppointment(appointment);
         setViewModalVisible(true);
@@ -302,7 +368,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const handleEdit = (appointment) => {
         setSelectedAppointment(appointment);
-        // Pre-fill the form with existing data
         editForm.setFieldsValue({
             meetingType: appointment.meetingType || 'InPerson',
             meetingLocation: appointment.meetingLocation || '',
@@ -321,7 +386,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
             console.log('Updating appointment with values:', values);
 
-            // Prepare update data
             const updateData = {
                 ...selectedAppointment,
                 meetingType: values.meetingType,
@@ -330,13 +394,12 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 notes: values.notes
             };
 
-            // Call the update service
             const result = await scheduleService.updateSchedule(selectedAppointment.id, updateData);
 
             if (result && result.success) {
                 message.success('Appointment updated successfully');
                 setEditModalVisible(false);
-                loadAppointments(); // Refresh the data
+                loadAppointments();
             } else {
                 throw new Error(result?.message || 'Failed to update appointment');
             }
@@ -350,7 +413,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const loadChatMessages = async (appointmentId) => {
         try {
-            // Mock chat messages for demo
             const mockMessages = [
                 {
                     id: 1,
@@ -399,7 +461,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
 
             setChatMessages([...chatMessages, newMessageObj]);
             setNewMessage('');
-
             message.success('Message sent successfully');
         } catch (error) {
             message.error('Failed to send message');
@@ -462,7 +523,6 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
         return icons[meetingType] || <InfoCircleOutlined />;
     };
 
-    // Enhanced search function
     const filteredAppointments = appointments.filter(appointment => {
         const clientName = appointment.clientName || appointment.client?.name || '';
         const propertyTitle = appointment.propertyTitle || appointment.property?.title || '';
@@ -702,7 +762,23 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             <Option value="Rescheduled">Rescheduled</Option>
                         </Select>
                     </Space>
-                 
+
+                    <Space>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={refreshData}
+                            loading={loading}
+                        >
+                            Refresh
+                        </Button>
+                        {/* Debug button - remove in production */}
+                        <Button
+                            type="dashed"
+                            onClick={debugAgentInfo}
+                        >
+                            Debug Agent Info
+                        </Button>
+                    </Space>
                 </div>
 
                 {(loadingClients || loadingProperties) && (
@@ -726,7 +802,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                                 size="small"
                                 type="primary"
                                 ghost
-                                onClick={loadAllData}
+                                onClick={refreshData}
                                 icon={<ReloadOutlined />}
                                 loading={loading}
                             >
@@ -740,7 +816,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 {loading ? (
                     <LoadingIndicator />
                 ) : error ? (
-                    <ErrorIndicator message={error} onRetry={loadAllData} />
+                    <ErrorIndicator message={error} onRetry={refreshData} />
                 ) : (
                     <BaseTable
                         dataSource={filteredAppointments}
@@ -761,7 +837,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                                     <Button
                                         type="primary"
                                         icon={<ReloadOutlined />}
-                                        onClick={loadAllData}
+                                        onClick={refreshData}
                                     >
                                         Refresh
                                     </Button>
@@ -772,6 +848,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                 )}
             </Card>
 
+            {/* Rest of your modals (View, Meeting Details, Edit, Chat) remain the same */}
             {/* View Modal */}
             <Modal
                 title="Appointment Details"

@@ -18,7 +18,6 @@ import ScheduleAppointments from './ScheduleAppointments';
 import AgentAvailability from './AgentAvailability';
 import ScheduleConfig from './ScheduleConfig';
 import AgentTimeOff from './AgentTimeOff';
-import ScheduleProperties from './ScheduleProperties';
 
 // Import the services
 import {
@@ -114,13 +113,6 @@ const ScheduleLayout = () => {
                 keywords: "schedule configuration, agent settings, scheduling constraints, real estate tools, Betheland",
                 canonical: `${baseUrl}/schedule/config`,
                 ogImage: `${baseUrl}/images/config-og.jpg`
-            },
-            properties: {
-                title: `Schedule Properties | ${baseTitle}`,
-                description: 'Manage properties available for scheduling appointments and configure property-specific scheduling parameters.',
-                keywords: "property management, schedule properties, real estate listings, appointment scheduling, Betheland",
-                canonical: `${baseUrl}/schedule/properties`,
-                ogImage: `${baseUrl}/images/properties-og.jpg`
             }
         };
 
@@ -171,16 +163,7 @@ const ScheduleLayout = () => {
                     Configuration
                 </span>
             ),
-        },
-        {
-            key: 'properties',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HomeOutlined />
-                    Properties
-                </span>
-            ),
-        },
+        }
     ];
 
     const getHeaderTitle = () => {
@@ -189,7 +172,6 @@ const ScheduleLayout = () => {
             case 'availability': return 'Agent Availability';
             case 'timeoff': return 'Time Off Management';
             case 'config': return 'Schedule Configuration';
-            case 'properties': return 'Schedule Properties';
             default: return 'Schedule Management';
         }
     };
@@ -200,7 +182,6 @@ const ScheduleLayout = () => {
             case 'availability': return 'Manage agent working hours and availability schedules';
             case 'timeoff': return pendingCount > 0 ? `${pendingCount} time off requests pending approval` : 'Manage agent time off requests and approvals';
             case 'config': return 'Configure agent scheduling preferences and constraints';
-            case 'properties': return 'Manage properties available for scheduling appointments';
             default: return 'Manage appointments, agent availability, and scheduling configurations';
         }
     };
@@ -300,14 +281,19 @@ const ScheduleLayout = () => {
                         }}
                     >
                         <Layout>
-                            {/* Vertical Tabs Sidebar */}
+                            {/* Vertical Tabs Sidebar - Sticky */}
                             <Sider
                                 width={220}
                                 style={{
                                     background: colorBgContainer,
                                     borderRadius: borderRadiusLG,
                                     boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0'
+                                    borderRight: '1px solid #f0f0f0',
+                                    position: 'sticky',
+                                    top: 68, // Topbar height + some padding
+                                    height: 'calc(100vh - 84px)', // Full viewport height minus top offset
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
                                 }}
                             >
                                 <div style={{ padding: '20px 0' }}>
@@ -397,9 +383,6 @@ const ScheduleLayout = () => {
                                 )}
                                 {activeTab === 'config' && (
                                     <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />
-                                )}
-                                {activeTab === 'properties' && (
-                                    <ScheduleProperties onScheduleUpdate={handleScheduleUpdate} />
                                 )}
                             </Content>
                         </Layout>

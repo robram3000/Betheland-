@@ -1,13 +1,12 @@
 // ConfigContentLandingpage.jsx
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Card, Typography, Button, Space, message } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Card, Typography, Button, Space, message, Spin } from 'antd';
 import {
     EditOutlined,
     EyeOutlined,
     SettingOutlined,
     GlobalOutlined,
-    CodeOutlined,
     ArrowLeftOutlined,
     NotificationOutlined
 } from '@ant-design/icons';
@@ -27,6 +26,7 @@ const ConfigContentLandingpage = () => {
     const [isViewing, setIsViewing] = useState(false);
     const [selectedContent, setSelectedContent] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [contentLoading, setContentLoading] = useState(false);
 
     const handleContentUpdated = () => {
         setRefreshTrigger(prev => prev + 1);
@@ -42,6 +42,7 @@ const ConfigContentLandingpage = () => {
     };
 
     const handleTabChange = (key) => {
+        console.log('Tab changed to:', key);
         setActiveTab(key);
         setIsEditing(false);
         setIsViewing(false);
@@ -49,21 +50,17 @@ const ConfigContentLandingpage = () => {
     };
 
     const handleEditContent = (content) => {
+        console.log('Edit content:', content);
         setSelectedContent(content);
         setIsEditing(true);
         setIsViewing(false);
     };
 
     const handleViewContent = (content) => {
+        console.log('View content:', content);
         setSelectedContent(content);
         setIsViewing(true);
         setIsEditing(false);
-    };
-
-    const handleCreateContent = () => {
-        setSelectedContent(null);
-        setIsEditing(false);
-        setIsViewing(false);
     };
 
     const handleBackToMain = () => {
@@ -424,30 +421,32 @@ const ConfigContentLandingpage = () => {
                                         }}
                                         bodyStyle={{ padding: 0 }}
                                     >
-                                        {activeTab === 'partner' && (
-                                            <PartnerEditor
-                                                onEditContent={handleEditContent}
-                                                onViewContent={handleViewContent}
-                                                onContentUpdated={handleContentUpdated}
-                                                refreshTrigger={refreshTrigger}
-                                            />
-                                        )}
-                                        {activeTab === 'announcements' && (
-                                            <AnnouncementEditor
-                                                onEditContent={handleEditContent}
-                                                onViewContent={handleViewContent}
-                                                onContentUpdated={handleContentUpdated}
-                                                refreshTrigger={refreshTrigger}
-                                            />
-                                        )}
-                                        {activeTab === 'third' && (
-                                            <ThirdContentEditor
-                                                onEditContent={handleEditContent}
-                                                onViewContent={handleViewContent}
-                                                onContentUpdated={handleContentUpdated}
-                                                refreshTrigger={refreshTrigger}
-                                            />
-                                        )}
+                                        <Spin spinning={contentLoading} tip="Loading content...">
+                                            {activeTab === 'partner' && (
+                                                <PartnerEditor
+                                                    onEditContent={handleEditContent}
+                                                    onViewContent={handleViewContent}
+                                                    onContentUpdated={handleContentUpdated}
+                                                    refreshTrigger={refreshTrigger}
+                                                />
+                                            )}
+                                            {activeTab === 'announcements' && (
+                                                <AnnouncementEditor
+                                                    onEditContent={handleEditContent}
+                                                    onViewContent={handleViewContent}
+                                                    onContentUpdated={handleContentUpdated}
+                                                    refreshTrigger={refreshTrigger}
+                                                />
+                                            )}
+                                            {activeTab === 'third' && (
+                                                <ThirdContentEditor
+                                                    onEditContent={handleEditContent}
+                                                    onViewContent={handleViewContent}
+                                                    onContentUpdated={handleContentUpdated}
+                                                    refreshTrigger={refreshTrigger}
+                                                />
+                                            )}
+                                        </Spin>
                                     </Card>
                                 )}
                             </Content>

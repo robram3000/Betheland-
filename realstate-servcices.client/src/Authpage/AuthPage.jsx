@@ -41,6 +41,11 @@ const AuthPage = () => {
         },
     };
 
+    // Add this function to handle logo click
+    const handleLogoClick = () => {
+        navigate('/');
+    };
+
     const getRedirectPath = (userRole) => {
         let role;
 
@@ -395,14 +400,30 @@ const AuthPage = () => {
                         bodyStyle={{ padding: '32px' }}
                     >
                         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                            <img
-                                src={BethelandIcon}
-                                alt="BeTheLand"
+                            {/* Clickable Logo */}
+                            <div
+                                onClick={handleLogoClick}
                                 style={{
-                                    height: '180px',
-                                    objectFit: 'contain'
+                                    cursor: 'pointer',
+                                    display: 'inline-block'
                                 }}
-                            />
+                            >
+                                <img
+                                    src={BethelandIcon}
+                                    alt="BeTheLand"
+                                    style={{
+                                        height: '180px',
+                                        objectFit: 'contain',
+                                        transition: 'transform 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'scale(1.05)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'scale(1)';
+                                    }}
+                                />
+                            </div>
                             <Text style={{
                                 color: '#64748b',
                                 fontSize: '16px',

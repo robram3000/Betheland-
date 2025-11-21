@@ -1,8 +1,7 @@
-﻿// SchedulingPage.jsx
+﻿// SchedulingPage.jsx - Updated with new service methods
 import React, { useState, useEffect } from 'react';
 import {
     Card,
-    Calendar,
     Button,
     Modal,
     Form,
@@ -13,10 +12,15 @@ import {
     Tag,
     message,
     Tabs,
-    Table,
     Space,
     Avatar,
-    Tooltip
+    Tooltip,
+    Empty,
+    Alert,
+    Divider,
+    Badge,
+    Popconfirm,
+    Typography
 } from 'antd';
 import {
     PlusOutlined,
@@ -24,25 +28,52 @@ import {
     UnorderedListOutlined,
     UserOutlined,
     HomeOutlined,
-    PhoneOutlined
+    ReloadOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    WechatOutlined,
+    StarOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    EnvironmentOutlined,
+    ClockCircleOutlined,
+    VideoCameraOutlined,
+    EyeOutlined,
+    ArrowRightOutlined,
+    MessageOutlined
 } from '@ant-design/icons';
-import clientService from '../Employeesportal/AdminPortal/Creation_Agent/Services/ClientService';
+import { useNavigate } from 'react-router-dom';
 import propertyService from '../Employeesportal/AdminPortal/Creation_Property/services/propertyService';
-import SchedulePropertiesService from '../Employeesportal/AdminPortal/appointment/Services/SchedulePropertiesService'; // ✅ Fixed import
+import SchedulePropertiesService from '../Employeesportal/AdminPortal/appointment/Services/SchedulePropertiesService';
+import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
 import authService from '../Authpage/Services/LoginAuth';
+import BaseRating from '../Ratings/BaseRatings';
 
+const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
 
 const SchedulingPage = () => {
+    const navigate = useNavigate();
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [isNotesModalVisible, setIsNotesModalVisible] = useState(false);
+    const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [appointments, setAppointments] = useState([]);
-    const [clients, setClients] = useState([]);
     const [properties, setProperties] = useState([]);
-    const [activeTab, setActiveTab] = useState('calendar');
+    const [agents, setAgents] = useState([]);
+    const [propertyDetails, setPropertyDetails] = useState({});
+    const [agentDetails, setAgentDetails] = useState({});
+    const [activeTab, setActiveTab] = useState('upcoming');
     const [loading, setLoading] = useState(false);
+    const [notesLoading, setNotesLoading] = useState(false);
+    const [editLoading, setEditLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [form] = Form.useForm();
+    const [editForm] = Form.useForm();
+    const [notesForm] = Form.useForm();
 
     const scheduleService = new SchedulePropertiesService();
 
@@ -52,41 +83,213 @@ const SchedulingPage = () => {
 
     const loadAllData = async () => {
         setLoading(true);
+        setError(null);
         try {
             const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
+            const clientId = currentUser?.userId;
 
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID');
+            if (!clientId) {
+                throw new Error('Unable to determine client ID');
             }
 
-            // Load agent's appointments
-            const appointmentsData = await scheduleService.getSchedulesByAgent(parseInt(agentId));
-            console.log('Loaded appointments:', appointmentsData);
+            // Load appointments, properties, and agents
+            let appointmentsData = [];
+            try {
+                appointmentsData = await scheduleService.getSchedulesByClient(parseInt(clientId));
+                if (appointmentsData && Array.isArray(appointmentsData)) {
+                    appointmentsData = appointmentsData.map(appointment => ({
+                        id: appointment.id,
+                        scheduleNo: appointment.scheduleNo,
+                        agentId: appointment.agentId,
+                        clientId: appointment.clientId,
+                        propertyId: appointment.propertyId,
+                        scheduleTime: appointment.scheduleTime,
+                        scheduleEndTime: appointment.scheduleEndTime,
+                        status: appointment.status,
+                        notes: appointment.notes,
+                        meetingType: appointment.meetingType,
+                        meetingLocation: appointment.meetingLocation,
+                        virtualMeetingLink: appointment.virtualMeetingLink,
+                        createdAt: appointment.createdAt,
+                        updatedAt: appointment.updatedAt
+                    }));
+                }
+            } catch (scheduleError) {
+                console.error('Error loading schedules:', scheduleError);
+                appointmentsData = [];
+            }
+
             setAppointments(appointmentsData || []);
 
-            // Load clients
-            const clientsData = await clientService.getClients();
-            console.log('Loaded clients:', clientsData);
-            setClients(clientsData || []);
-
             // Load properties
-            const propertiesData = await propertyService.getAllProperties();
-            console.log('Loaded properties:', propertiesData);
+            let propertiesData = [];
+            try {
+                propertiesData = await propertyService.getAllProperties();
+                if (propertiesData && Array.isArray(propertiesData)) {
+                    propertiesData = propertiesData.map(property => ({
+                        id: property.id,
+                        title: property.title,
+                        address: property.address,
+                        city: property.city,
+                        state: property.state,
+                        mainImage: property.mainImage,
+                        propertyImages: property.propertyImages,
+                        bedrooms: property.bedrooms,
+                        bathrooms: property.bathrooms,
+                        areaSqm: property.areaSqm,
+                        price: property.price
+                    }));
+                }
+            } catch (propertyError) {
+                console.error('Error loading properties:', propertyError);
+                propertiesData = [];
+            }
             setProperties(propertiesData || []);
+
+            // Load agents
+            let agentsData = [];
+            try {
+                agentsData = await agentService.getAgent(appointmentsData.agentId);
+                if (agentsData && Array.isArray(agentsData)) {
+                    agentsData = agentsData.map(agent => ({
+                        id: agent.id,
+                        firstName: agent.firstName,
+                        lastName: agent.lastName,
+                        cellPhoneNo: agent.cellPhoneNo,
+                        profilePictureUrl: agent.profilePictureUrl,
+                        brokerageName: agent.brokerageName,
+                        email: agent.email
+                    }));
+                }
+            } catch (agentError) {
+                console.error('Error loading agents:', agentError);
+                agentsData = [];
+            }
+            setAgents(agentsData || []);
+
+            if (appointmentsData && appointmentsData.length > 0) {
+                await loadAdditionalDetails(appointmentsData);
+            }
 
         } catch (error) {
             console.error('Error loading data:', error);
-            message.error('Failed to load scheduling data');
+            setError(error.message || 'Failed to load scheduling data');
         } finally {
             setLoading(false);
         }
     };
 
-    const showModal = () => {
-        setIsModalVisible(true);
+    // Safe data extraction functions
+    const getSafePropertyData = (propertyId) => {
+        if (!propertyId) return { title: 'Unknown Property', address: 'No address' };
+        if (propertyDetails[propertyId]) {
+            const prop = propertyDetails[propertyId];
+            return {
+                title: prop?.title || prop?.property?.title || 'Unknown Property',
+                address: prop?.address || prop?.property?.address || 'No address available',
+                mainImage: prop?.mainImage || prop?.property?.mainImage,
+                bedrooms: prop?.bedrooms || prop?.property?.bedrooms || 0,
+                bathrooms: prop?.bathrooms || prop?.property?.bathrooms || 0,
+                areaSqm: prop?.areaSqm || prop?.property?.areaSqm || 0,
+                price: prop?.price || prop?.property?.price || 0
+            };
+        }
+        const property = properties.find(p => p.id === propertyId || p.property?.id === propertyId);
+        const propData = property?.property || property;
+        return {
+            title: propData?.title || 'Unknown Property',
+            address: propData?.address || 'No address available',
+            mainImage: propData?.mainImage,
+            bedrooms: propData?.bedrooms || 0,
+            bathrooms: propData?.bathrooms || 0,
+            areaSqm: propData?.areaSqm || 0,
+            price: propData?.price || 0
+        };
     };
 
+    const getSafeAgentData = (agentId) => {
+        if (!agentId) return { name: 'Unknown Agent', phone: 'N/A', profilePicture: '', email: '' };
+        if (agentDetails[agentId]) {
+            const agent = agentDetails[agentId];
+            return {
+                name: agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() : 'Unknown Agent',
+                phone: agent?.cellPhoneNo || 'N/A',
+                profilePicture: agent?.profilePictureUrl,
+                email: agent?.email || '',
+                brokerageName: agent?.brokerageName || 'Real Estate'
+            };
+        }
+        const agent = agents.find(a => a.id === agentId);
+        return {
+            name: agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() : 'Unknown Agent',
+            phone: agent?.cellPhoneNo || 'N/A',
+            profilePicture: agent?.profilePictureUrl,
+            email: agent?.email || '',
+            brokerageName: agent?.brokerageName || 'Real Estate'
+        };
+    };
+
+    const loadAdditionalDetails = async (appointments) => {
+        if (!appointments || !Array.isArray(appointments)) return;
+        const propertyDetailsCache = {};
+        const agentDetailsCache = {};
+
+        for (const appointment of appointments) {
+            if (appointment.propertyId && !propertyDetailsCache[appointment.propertyId]) {
+                try {
+                    const propertyDetail = await propertyService.getProperty(appointment.propertyId);
+                    propertyDetailsCache[appointment.propertyId] = {
+                        title: propertyDetail?.title || 'Unknown Property',
+                        address: propertyDetail?.address || 'Address not available',
+                        mainImage: propertyDetail?.mainImage,
+                        bedrooms: propertyDetail?.bedrooms || 0,
+                        bathrooms: propertyDetail?.bathrooms || 0,
+                        areaSqm: propertyDetail?.areaSqm || 0,
+                        price: propertyDetail?.price || 0
+                    };
+                } catch (error) {
+                    propertyDetailsCache[appointment.propertyId] = {
+                        title: 'Unknown Property',
+                        address: 'Address not available',
+                        mainImage: null,
+                        bedrooms: 0,
+                        bathrooms: 0,
+                        areaSqm: 0,
+                        price: 0
+                    };
+                }
+            }
+
+            if (appointment.agentId && !agentDetailsCache[appointment.agentId]) {
+                try {
+                    const agentDetail = await agentService.getAgent(appointment.agentId);
+                    agentDetailsCache[appointment.agentId] = {
+                        firstName: agentDetail?.firstName || 'Unknown',
+                        lastName: agentDetail?.lastName || 'Agent',
+                        profilePictureUrl: agentDetail?.profilePictureUrl || '',
+                        cellPhoneNo: agentDetail?.cellPhoneNo || 'N/A',
+                        email: agentDetail?.email || '',
+                        brokerageName: agentDetail?.brokerageName || 'Real Estate'
+                    };
+                } catch (error) {
+                    agentDetailsCache[appointment.agentId] = {
+                        firstName: 'Unknown',
+                        lastName: 'Agent',
+                        profilePictureUrl: '',
+                        cellPhoneNo: 'N/A',
+                        email: '',
+                        brokerageName: 'Real Estate'
+                    };
+                }
+            }
+        }
+
+        setPropertyDetails(propertyDetailsCache);
+        setAgentDetails(agentDetailsCache);
+    };
+
+    // Modal handlers
+    const showModal = () => setIsModalVisible(true);
     const handleCancel = () => {
         setIsModalVisible(false);
         form.resetFields();
@@ -97,376 +300,603 @@ const SchedulingPage = () => {
             .then(async (values) => {
                 try {
                     const currentUser = authService.getCurrentUser();
-                    const agentId = currentUser?.userId;
+                    const clientId = currentUser?.userId;
+                    if (!clientId) throw new Error('Unable to determine client ID');
 
-                    if (!agentId) {
-                        throw new Error('Unable to determine agent ID');
-                    }
-
-                    // Create proper appointment data
                     const newAppointment = {
-                        clientId: parseInt(values.clientId),
+                        clientId: parseInt(clientId),
                         propertyId: parseInt(values.propertyId),
+                        agentId: parseInt(values.agentId),
                         scheduleTime: `${values.date}T${values.time}:00`,
                         notes: values.notes || '',
                         meetingType: values.meetingType || 'InPerson',
                         meetingLocation: values.meetingLocation || '',
-                        agentId: parseInt(agentId),
                         status: 'Scheduled'
                     };
 
-                    console.log('Creating appointment:', newAppointment);
-
                     const result = await scheduleService.createSchedule(newAppointment);
-
-                    if (result && result.success) {
+                    if (result) {
                         message.success('Appointment scheduled successfully!');
                         setIsModalVisible(false);
                         form.resetFields();
-                        loadAllData(); // Refresh data
-                    } else {
-                        throw new Error(result?.message || 'Failed to create appointment');
+                        loadAllData();
                     }
                 } catch (error) {
-                    console.error('Error creating appointment:', error);
                     message.error(error.message || 'Failed to schedule appointment');
                 }
-            })
-            .catch(info => {
-                console.log('Validate Failed:', info);
             });
     };
 
-    const getListData = (value) => {
-        return appointments.filter(appointment => {
-            if (!appointment.scheduleTime) return false;
-            const appointmentDate = new Date(appointment.scheduleTime).toISOString().split('T')[0];
-            return appointmentDate === value.format('YYYY-MM-DD');
+    const handleOpenChat = (record) => {
+        const agentData = getSafeAgentData(record.agentId);
+        const propertyData = getSafePropertyData(record.propertyId);
+        navigate('/messages', {
+            state: { propertyChat: { agent: { id: record.agentId, name: agentData.name }, property: { id: record.propertyId, title: propertyData.title } } }
         });
     };
 
-    const dateCellRender = (value) => {
-        const listData = getListData(value);
-        return (
-            <div style={{ minHeight: '80px' }}>
-                {listData.map(item => {
-                    const client = clients.find(c => c.id === item.clientId);
-                    const property = properties.find(p => p.id === item.propertyId);
+    const handleOpenRating = (record) => {
+        setSelectedAppointment(record);
+        setIsRatingModalVisible(true);
+    };
 
-                    return (
-                        <Tooltip
-                            key={item.id}
-                            title={
-                                <div>
-                                    <div><strong>Client:</strong> {client ? `${client.firstName} ${client.lastName}` : 'Unknown'}</div>
-                                    <div><strong>Property:</strong> {property?.title || 'Unknown'}</div>
-                                    <div><strong>Time:</strong> {new Date(item.scheduleTime).toLocaleTimeString()}</div>
-                                    <div><strong>Status:</strong> {item.status}</div>
-                                </div>
-                            }
-                        >
-                            <Tag
-                                color={getStatusColor(item.status)}
-                                style={{ marginBottom: '2px', width: '100%', cursor: 'pointer' }}
-                            >
-                                {new Date(item.scheduleTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -
-                                {client ? ` ${client.firstName}` : ' Appointment'}
-                            </Tag>
-                        </Tooltip>
-                    );
-                })}
-            </div>
-        );
+    const handleCloseRating = () => {
+        setIsRatingModalVisible(false);
+        setSelectedAppointment(null);
     };
 
     const getStatusColor = (status) => {
         const colors = {
-            'Scheduled': 'blue',
-            'Completed': 'green',
-            'Cancelled': 'red',
-            'Rescheduled': 'orange'
+            'Scheduled': '#1B3C53',
+            'Completed': '#52c41a',
+            'Cancelled': '#ff4d4f',
+            'Rescheduled': '#fa8c16'
         };
-        return colors[status] || 'default';
+        return colors[status] || '#d9d9d9';
     };
 
-    // Enhanced table columns for client appointments
-    const columns = [
-        {
-            title: 'Date & Time',
-            dataIndex: 'scheduleTime',
-            key: 'scheduleTime',
-            render: (time) => (
-                <Space direction="vertical" size={0}>
-                    <div>{time ? new Date(time).toLocaleDateString() : 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                        {time ? new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                    </div>
-                </Space>
-            ),
-            sorter: (a, b) => new Date(a.scheduleTime) - new Date(b.scheduleTime),
-        },
-        {
-            title: 'Client',
-            key: 'client',
-            render: (_, record) => {
-                const client = clients.find(c => c.id === record.clientId);
-                return (
-                    <Space>
-                        <Avatar size="small" icon={<UserOutlined />} />
-                        <div>
-                            <div style={{ fontWeight: 500 }}>
-                                {client ? `${client.firstName} ${client.lastName}` : 'Unknown Client'}
+    const getMeetingTypeIcon = (type) => {
+        switch (type) {
+            case 'Virtual': return <VideoCameraOutlined style={{ color: '#1B3C53' }} />;
+            case 'Phone': return <PhoneOutlined style={{ color: '#52c41a' }} />;
+            default: return <EnvironmentOutlined style={{ color: '#fa8c16' }} />;
+        }
+    };
+
+    const getMeetingTypeText = (type) => {
+        switch (type) {
+            case 'Virtual': return 'Virtual Tour';
+            case 'Phone': return 'Phone Consultation';
+            default: return 'In Person';
+        }
+    };
+
+    // Format price for display
+    const formatPrice = (price) => {
+        if (!price && price !== 0) return 'Price on request';
+        const priceNum = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, "")) : price;
+        return `₱${priceNum.toLocaleString()}`;
+    };
+
+    // Property Card Style Appointment Component
+    const AppointmentCard = ({ appointment }) => {
+        const propertyData = getSafePropertyData(appointment.propertyId);
+        const agentData = getSafeAgentData(appointment.agentId);
+        const isCompleted = appointment.status === 'Completed';
+        const isCancelled = appointment.status === 'Cancelled';
+        const appointmentDate = new Date(appointment.scheduleTime);
+        const isToday = appointmentDate.toDateString() === new Date().toDateString();
+        const isUpcoming = (appointment.status === 'Scheduled' || appointment.status === 'Rescheduled') && !isCancelled && !isCompleted;
+
+        return (
+            <Card
+                key={appointment.id}
+                style={{
+                    marginBottom: 20,
+                    overflow: 'hidden',
+                    border: '1px solid #e2e8f0',
+                    transition: 'all 0.3s ease',
+                    cursor: 'default'
+                }}
+                bodyStyle={{ padding: 0 }}
+            >
+                {/* Top Action Buttons - Right Corner */}
+                <div style={{
+                    position: 'absolute',
+                    top: '150px',
+                    right: 16,
+                    zIndex: 10,
+                    display: 'flex',
+                    gap: 8
+                }}>
+                    {isUpcoming && (
+                        <Button
+                            size="small"
+                            type="primary"
+                            icon={<WechatOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenChat(appointment);
+                            }}
+                            style={{
+                                background: '#1B3C53',
+                                border: 'none',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                height: '28px',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Message
+                        </Button>
+                    )}
+                    {isCompleted && (
+                        <Button
+                            size="small"
+                            type="primary"
+                            icon={<StarOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenRating(appointment);
+                            }}
+                            style={{
+                                background: '#1B3C53',
+                                border: 'none',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                height: '28px',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Rate Experience
+                        </Button>
+                    )}
+                </div>
+
+                {/* Card Content */}
+                <div style={{ padding: '20px' }}>
+                    <Row gutter={[16, 16]} align="middle">
+                        {/* Date Section */}
+                        <Col xs={24} sm={6}>
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '16px 8px',
+                                background: isToday ? '#e6f7ff' : '#f8fafc',
+                                border: `2px dashed ${isToday ? '#1B3C53' : '#e2e8f0'}`,
+                                borderRadius: 8,
+                            }}>
+                                <div style={{
+                                    fontSize: '28px',
+                                    fontWeight: 'bold',
+                                    color: isToday ? '#1B3C53' : '#1B3C53',
+                                    lineHeight: 1.2
+                                }}>
+                                    {appointmentDate.getDate()}
+                                </div>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: isToday ? '#1B3C53' : '#64748b',
+                                    textTransform: 'uppercase',
+                                    fontWeight: 600,
+                                    marginBottom: 4
+                                }}>
+                                    {appointmentDate.toLocaleDateString('en', { month: 'short' })}
+                                </div>
+                                <div style={{
+                                    fontSize: '13px',
+                                    color: '#64748b',
+                                    fontWeight: 500
+                                }}>
+                                    {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                {isToday && (
+                                    <Tag color="#1B3C53" style={{
+                                        marginTop: 6,
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        background: '#1B3C53',
+                                        color: 'white',
+                                        border: 'none'
+                                    }}>
+                                        TODAY
+                                    </Tag>
+                                )}
                             </div>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                {client?.cellPhoneNo || 'N/A'}
+                        </Col>
+
+                        {/* Property & Agent Info */}
+                        <Col xs={24} sm={12}>
+                            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                                {/* Property Info */}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                    <div style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 8,
+                                        background: '#1B3C53',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        <HomeOutlined style={{ fontSize: '20px', color: 'white' }} />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{
+                                            fontWeight: 700,
+                                            fontSize: '16px',
+                                            marginBottom: 4,
+                                            color: '#1B3C53'
+                                        }}>
+                                            {propertyData.title}
+                                        </div>
+                                        <div style={{
+                                            color: '#64748b',
+                                            fontSize: '13px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            marginBottom: 4
+                                        }}>
+                                            <EnvironmentOutlined style={{ color: '#1B3C53' }} />
+                                            {propertyData.address}
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 12,
+                                            flexWrap: 'wrap'
+                                        }}>
+                                            <Text strong style={{ color: '#1B3C53', fontSize: '14px' }}>
+                                                {formatPrice(propertyData.price)}
+                                            </Text>
+                                            <Space size="small">
+                                                <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                                                    {propertyData.bedrooms || 0} beds
+                                                </Text>
+                                                <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                                                    {propertyData.bathrooms || 0} baths
+                                                </Text>
+                                                <Text style={{ fontSize: '12px', color: '#64748b' }}>
+                                                    {propertyData.areaSqm || 0} sqm
+                                                </Text>
+                                            </Space>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Reduced gap divider */}
+                                <Divider style={{
+                                    margin: '12px 0 8px 0',
+                                    borderColor: '#f0f0f0'
+                                }} />
+
+                                {/* Agent Info */}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                    <Avatar
+                                        size={48}
+                                        icon={<UserOutlined />}
+                                        src={agentData.profilePicture}
+                                        style={{
+                                            flexShrink: 0,
+                                            border: '2px solid #1B3C53',
+                                            backgroundColor: '#1B3C53'
+                                        }}
+                                    />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{
+                                            fontWeight: 600,
+                                            fontSize: '14px',
+                                            marginBottom: 2,
+                                            color: '#1B3C53'
+                                        }}>
+                                            {agentData.name}
+                                        </div>
+                                        <div style={{
+                                            color: '#64748b',
+                                            fontSize: '12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            marginBottom: 2
+                                        }}>
+                                            <PhoneOutlined style={{ color: '#52c41a' }} />
+                                            {agentData.phone}
+                                        </div>
+                                        <div style={{
+                                            color: '#64748b',
+                                            fontSize: '12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6
+                                        }}>
+                                            <MailOutlined style={{ color: '#fa8c16' }} />
+                                            {agentData.email || 'No email provided'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Space>
+                        </Col>
+
+                        {/* Actions - Removed the upcoming appointment buttons from here */}
+                        <Col xs={24} sm={6}>
+                            <Space direction="vertical" style={{ width: '100%' }} size="small">
+                                {/* Removed the upcoming appointment buttons from this section */}
+                            </Space>
+                        </Col>
+                    </Row>
+
+                    {/* Notes Section */}
+                    {appointment.notes && (
+                        <>
+                            <Divider style={{ margin: '16px 0', borderColor: '#f0f0f0' }} />
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '12px 16px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                color: '#64748b'
+                            }}>
+                                <div style={{ fontWeight: 600, marginBottom: 4, color: '#1B3C53' }}>
+                                    <EditOutlined style={{ marginRight: 6 }} />
+                                    Additional Notes:
+                                </div>
+                                {appointment.notes}
                             </div>
-                        </div>
-                    </Space>
-                );
-            },
-        },
-        {
-            title: 'Property',
-            key: 'property',
-            render: (_, record) => {
-                const property = properties.find(p => p.id === record.propertyId);
-                return (
-                    <Space direction="vertical" size={0}>
-                        <div style={{ fontWeight: 500 }}>
-                            {property?.title || 'Unknown Property'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                            {property?.address || 'No address'}
-                        </div>
-                    </Space>
-                );
-            },
-        },
-        {
-            title: 'Meeting Type',
-            dataIndex: 'meetingType',
-            key: 'meetingType',
-            render: (type) => (
-                <Tag color={type === 'Virtual' ? 'blue' : type === 'InPerson' ? 'green' : 'orange'}>
-                    {type || 'Not specified'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status) => (
-                <Tag color={getStatusColor(status)}>
-                    {status || 'Scheduled'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Notes',
-            dataIndex: 'notes',
-            key: 'notes',
-            ellipsis: true,
-            render: (notes) => notes || 'No notes',
-        },
-    ];
+                        </>
+                    )}
+                </div>
+            </Card>
+        );
+    };
+
+    // Group appointments by status for tabs
+    const getAppointmentsByTab = (tabKey) => {
+        switch (tabKey) {
+            case 'upcoming':
+                return appointments.filter(app => app.status === 'Scheduled' || app.status === 'Rescheduled');
+            case 'completed':
+                return appointments.filter(app => app.status === 'Completed');
+            case 'cancelled':
+                return appointments.filter(app => app.status === 'Cancelled');
+            case 'all':
+            default:
+                return appointments;
+        }
+    };
+
+    const renderErrorAlert = () => {
+        if (!error) return null;
+        return (
+            <Alert
+                message="Loading Error"
+                description={error}
+                type="error"
+                showIcon
+                action={
+                    <Button size="small" onClick={loadAllData} icon={<ReloadOutlined />}>
+                        Retry
+                    </Button>
+                }
+                style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+        );
+    };
 
     return (
-        <div style={{ padding: '24px' }}>
-            <Row gutter={[16, 16]}>
-                <Col span={24}>
-                    <Card
-                        title="Client Appointment Scheduling"
-                        extra={
-                            <Space>
-                                <Button
-                                    icon={<PlusOutlined />}
-                                    onClick={showModal}
-                                    loading={loading}
-                                >
-                                    Schedule Appointment
-                                </Button>
-                                <Button
-                                    icon={<UnorderedListOutlined />}
-                                    onClick={loadAllData}
-                                    loading={loading}
-                                >
-                                    Refresh
-                                </Button>
-                            </Space>
+        <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+            {renderErrorAlert()}
+
+            <Card
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                            width: 4,
+                            height: 24,
+                            background: '#1B3C53',
+                            borderRadius: 2
+                        }} />
+                        <span style={{ fontSize: '20px', fontWeight: 700, color: '#1B3C53' }}>
+                            My Property Viewing Appointments
+                        </span>
+                    </div>
+                }
+
+                style={{
+                    borderRadius: 12,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    border: 'none'
+                }}
+                bodyStyle={{ padding: '24px' }}
+            >
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={setActiveTab}
+                    type="card"
+                    style={{ borderRadius: 8 }}
+                >
+                    <TabPane
+                        tab={
+                            <span style={{ fontWeight: 600, color: '#1B3C53' }}>
+                                <CalendarOutlined />
+                                Upcoming ({getAppointmentsByTab('upcoming').length})
+                            </span>
                         }
+                        key="upcoming"
                     >
-                        <Tabs
-                            activeKey={activeTab}
-                            onChange={setActiveTab}
-                            type="card"
-                        >
-                            <TabPane
-                                tab={
-                                    <span>
-                                        <CalendarOutlined />
-                                        Calendar View
-                                    </span>
-                                }
-                                key="calendar"
+                        {getAppointmentsByTab('upcoming').length === 0 ? (
+                            <Empty
+                                description="No upcoming appointments"
+                                imageStyle={{ height: 80 }}
                             >
-                                <Calendar
-                                    dateCellRender={dateCellRender}
-                                    style={{ background: 'white', borderRadius: '8px' }}
-                                />
-                            </TabPane>
+                                <Button
+                                    type="primary"
+                                    onClick={showModal}
+                                    size="large"
+                                    style={{
+                                        background: '#1B3C53',
+                                        border: 'none',
+                                        fontWeight: 600,
+                                        borderRadius: 8
+                                    }}
+                                >
+                                    Schedule Your First Viewing
+                                </Button>
+                            </Empty>
+                        ) : (
+                            getAppointmentsByTab('upcoming').map(appointment => (
+                                <AppointmentCard key={appointment.id} appointment={appointment} />
+                            ))
+                        )}
+                    </TabPane>
 
-                            <TabPane
-                                tab={
-                                    <span>
-                                        <UnorderedListOutlined />
-                                        All Appointments ({appointments.length})
-                                    </span>
-                                }
-                                key="list"
+                    <TabPane
+                        tab={
+                            <span style={{ fontWeight: 600, color: '#52c41a' }}>
+                                <StarOutlined />
+                                Completed ({getAppointmentsByTab('completed').length})
+                            </span>
+                        }
+                        key="completed"
+                    >
+                        {getAppointmentsByTab('completed').length === 0 ? (
+                            <Empty
+                                description="No completed appointments"
+                                imageStyle={{ height: 80 }}
+                            />
+                        ) : (
+                            getAppointmentsByTab('completed').map(appointment => (
+                                <AppointmentCard key={appointment.id} appointment={appointment} />
+                            ))
+                        )}
+                    </TabPane>
+
+                    <TabPane
+                        tab={
+                            <span style={{ fontWeight: 600, color: '#ff4d4f' }}>
+                                <DeleteOutlined />
+                                Cancelled ({getAppointmentsByTab('cancelled').length})
+                            </span>
+                        }
+                        key="cancelled"
+                    >
+                        {getAppointmentsByTab('cancelled').length === 0 ? (
+                            <Empty
+                                description="No cancelled appointments"
+                                imageStyle={{ height: 80 }}
+                            />
+                        ) : (
+                            getAppointmentsByTab('cancelled').map(appointment => (
+                                <AppointmentCard key={appointment.id} appointment={appointment} />
+                            ))
+                        )}
+                    </TabPane>
+
+                    <TabPane
+                        tab={
+                            <span style={{ fontWeight: 600, color: '#666' }}>
+                                <UnorderedListOutlined />
+                                All Appointments ({appointments.length})
+                            </span>
+                        }
+                        key="all"
+                    >
+                        {appointments.length === 0 ? (
+                            <Empty
+                                description="No appointments scheduled"
+                                imageStyle={{ height: 80 }}
                             >
-                                <Table
-                                    columns={columns}
-                                    dataSource={appointments}
-                                    rowKey="id"
-                                    pagination={{ pageSize: 10 }}
-                                    loading={loading}
-                                    locale={{ emptyText: 'No appointments scheduled' }}
-                                />
-                            </TabPane>
-                        </Tabs>
-                    </Card>
-                </Col>
-            </Row>
+                                <Button
+                                    type="primary"
+                                    onClick={showModal}
+                                    size="large"
+                                    style={{
+                                        background: '#1B3C53',
+                                        border: 'none',
+                                        fontWeight: 600,
+                                        borderRadius: 8
+                                    }}
+                                >
+                                    Schedule Your First Viewing
+                                </Button>
+                            </Empty>
+                        ) : (
+                            appointments.map(appointment => (
+                                <AppointmentCard key={appointment.id} appointment={appointment} />
+                            ))
+                        )}
+                    </TabPane>
+                </Tabs>
+            </Card>
 
-            {/* Schedule Appointment Modal */}
+            {/* Schedule Modal */}
             <Modal
-                title="Schedule Client Appointment"
+                title="Schedule Property Viewing"
                 open={isModalVisible}
                 onOk={handleOk}
                 onCancel={handleCancel}
                 width={600}
-                confirmLoading={loading}
-                okText="Schedule Appointment"
+                okText="Schedule Viewing"
                 cancelText="Cancel"
+                styles={{
+                    body: { padding: '24px' }
+                }}
             >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    name="appointmentForm"
-                >
-                    <Form.Item
-                        name="clientId"
-                        label="Select Client"
-                        rules={[{ required: true, message: 'Please select a client!' }]}
-                    >
-                        <Select
-                            placeholder="Choose a client"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                            }
-                            loading={loading}
-                        >
-                            {clients.map(client => (
-                                <Option key={client.id} value={client.id}>
-                                    <Space>
-                                        <UserOutlined />
-                                        {client.firstName} {client.lastName}
-                                        {client.cellPhoneNo && <span>({client.cellPhoneNo})</span>}
-                                    </Space>
+                <Form form={form} layout="vertical">
+                    <Form.Item name="agentId" label="Select Agent" rules={[{ required: true }]}>
+                        <Select placeholder="Choose an agent" showSearch size="large">
+                            {agents.map(agent => (
+                                <Option key={agent.id} value={agent.id}>
+                                    {agent.firstName} {agent.lastName} ({agent.cellPhoneNo})
                                 </Option>
                             ))}
                         </Select>
                     </Form.Item>
-
-                    <Form.Item
-                        name="propertyId"
-                        label="Select Property"
-                        rules={[{ required: true, message: 'Please select a property!' }]}
-                    >
-                        <Select
-                            placeholder="Choose a property"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                            }
-                            loading={loading}
-                        >
+                    <Form.Item name="propertyId" label="Select Property" rules={[{ required: true }]}>
+                        <Select placeholder="Choose a property" showSearch size="large">
                             {properties.map(property => (
                                 <Option key={property.id} value={property.id}>
-                                    <Space>
-                                        <HomeOutlined />
-                                        {property.title} - {property.address}
-                                    </Space>
+                                    {property.title} - {property.address}
                                 </Option>
                             ))}
                         </Select>
                     </Form.Item>
-
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item
-                                name="date"
-                                label="Appointment Date"
-                                rules={[{ required: true, message: 'Please select a date!' }]}
-                            >
-                                <Input type="date" />
+                            <Form.Item name="date" label="Date" rules={[{ required: true }]}>
+                                <Input type="date" size="large" />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
-                            <Form.Item
-                                name="time"
-                                label="Appointment Time"
-                                rules={[{ required: true, message: 'Please select a time!' }]}
-                            >
-                                <Input type="time" />
+                            <Form.Item name="time" label="Time" rules={[{ required: true }]}>
+                                <Input type="time" size="large" />
                             </Form.Item>
                         </Col>
                     </Row>
-
-                    <Form.Item
-                        name="meetingType"
-                        label="Meeting Type"
-                        rules={[{ required: true, message: 'Please select meeting type!' }]}
-                    >
-                        <Select placeholder="Select meeting type">
+                    <Form.Item name="meetingType" label="Meeting Type" rules={[{ required: true }]}>
+                        <Select size="large">
                             <Option value="InPerson">In Person</Option>
-                            <Option value="Virtual">Virtual</Option>
-                            <Option value="Phone">Phone Call</Option>
+                            <Option value="Virtual">Virtual Tour</Option>
+                            <Option value="Phone">Phone Consultation</Option>
                         </Select>
                     </Form.Item>
-
-                    <Form.Item
-                        name="meetingLocation"
-                        label="Meeting Location"
-                        extra="Required for in-person meetings"
-                        rules={[
-                            ({ getFieldValue }) => ({
-                                validator(_, value) {
-                                    if (getFieldValue('meetingType') === 'InPerson' && !value) {
-                                        return Promise.reject(new Error('Please provide meeting location for in-person meetings'));
-                                    }
-                                    return Promise.resolve();
-                                },
-                            }),
-                        ]}
-                    >
-                        <Input placeholder="Enter meeting location (for in-person meetings)" />
+                    <Form.Item name="meetingLocation" label="Meeting Location">
+                        <Input placeholder="Location for in-person meetings" size="large" />
                     </Form.Item>
-
-                    <Form.Item
-                        name="notes"
-                        label="Additional Notes"
-                    >
-                        <TextArea
-                            rows={3}
-                            placeholder="Enter any additional notes or instructions for the client"
-                        />
+                    <Form.Item name="notes" label="Additional Notes">
+                        <TextArea rows={3} placeholder="Any specific requirements..." size="large" />
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            {/* Rating Modal */}
+            <Modal
+                open={isRatingModalVisible}
+                onCancel={handleCloseRating}
+                footer={null}
+                width={800}
+            >
+                {selectedAppointment && <BaseRating appointment={selectedAppointment} onClose={handleCloseRating} />}
             </Modal>
         </div>
     );

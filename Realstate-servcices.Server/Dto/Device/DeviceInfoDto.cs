@@ -8,7 +8,8 @@
         public string DeviceType { get; set; }
         public string SerialNumber { get; set; }
         public string BiosVersion { get; set; }
-        public string SystemFamily { get; set; }
+        public DateTime BiosReleaseDate { get; set; }
         public string MacAddress { get; set; }
+        public string SystemFamily { get; set; }
     }
 }

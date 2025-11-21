@@ -31,7 +31,7 @@ import BaseTable from './BaseTable';
 import moment from 'moment';
 
 import { AgentAvailabilityService } from '../../AdminPortal/appointment/Services/index';
-import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService'; 
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 // Destructure necessary components
 const { Option } = Select;
@@ -406,40 +406,32 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
 
     return (
         <div>
-            <Card>
-                <div style={{
-                    marginBottom: 16,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <div>
-                        <h3 style={{ margin: 0 }}>Agent Availability</h3>
-                        <p style={{ margin: 0, color: '#666' }}>
-                            Manage agent working hours and availability
-                        </p>
-                    </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleCreate}
-                    >
-                        Add Availability
-                    </Button>
-                </div>
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center'
+            }}>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreate}
+                >
+                    Add Availability
+                </Button>
+            </div>
 
-                <BaseTable
-                    data={availabilities}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
-            </Card>
+            <BaseTable
+                data={availabilities}
+                columns={columns}
+                loading={loading}
+                rowKey="id"
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                }}
+            />
 
             {/* Create/Edit Modal */}
             <Modal
@@ -543,7 +535,7 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                 </Form>
             </Modal>
         </div>
-    );  
+    );
 };
 
 export default AgentAvailability;

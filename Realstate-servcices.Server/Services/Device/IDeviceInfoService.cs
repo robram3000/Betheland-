@@ -10,5 +10,6 @@ namespace Realstate_servcices.Server.Services.Device
         Task<Dictionary<string, object>> GetHardwareInfoAsync();
         Task<Dictionary<string, object>> GetEnvironmentInfoAsync();
         Task<string> GetSystemSummaryAsync();
+        Task<Dictionary<string, object>> GetCompleteSystemInfoAsync();
     }
 }

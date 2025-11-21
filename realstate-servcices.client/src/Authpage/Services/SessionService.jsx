@@ -1,10 +1,10 @@
-// Services/SessionService.jsx
+// Services/SessionService.jsx (Updated)
 import authService from './LoginAuth';
 
 class SessionService {
     constructor() {
         this.inactivityTimer = null;
-        this.sessionCheckInterval = null;
+        // REMOVED: sessionCheckInterval
     }
 
     setupActivityListeners() {
@@ -26,70 +26,28 @@ class SessionService {
             }
         });
 
-        // Start session checking
-        this.startSessionChecking();
+        // REMOVED: Start session checking
     }
 
     resetInactivityTimer() {
         clearTimeout(this.inactivityTimer);
 
-        // Logout after 30 minutes of inactivity (configurable)
-        const inactivityTimeout = 30 * 60 * 1000; // 30 minutes
+        
+        const inactivityTimeout = 30 * 60 * 1000; 
 
         this.inactivityTimer = setTimeout(() => {
             if (authService.isAuthenticated()) {
                 authService.logout();
-                // Redirect to login with reason
+          
                 const returnUrl = window.location.pathname + window.location.search;
                 window.location.href = `/login?reason=inactivity&returnUrl=${encodeURIComponent(returnUrl)}`;
             }
         }, inactivityTimeout);
     }
 
-    startSessionChecking() {
-        // Check session every 30 minutes for 12-hour sessions
-        this.sessionCheckInterval = setInterval(async () => {
-            if (authService.isAuthenticated()) {
-                try {
-                    const isValid = await this.validateSession();
-                    if (!isValid) {
-                        authService.logout();
-                        window.location.href = '/login?reason=session_expired';
-                    }
-                } catch (error) {
-                    console.warn('Session validation failed:', error);
-                }
-            }
-        }, 30 * 60 * 1000); // 30 minutes
-    }
-
-    // Check session validity with backend
-    async validateSession() {
-        const token = authService.getToken();
-        if (!token) return false;
-
-        try {
-            // You might want to create a simple endpoint that just validates the token
-            const response = await fetch('/api/Login/validate-session', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            return response.ok;
-        } catch (error) {
-            console.error('Session validation error:', error);
-            return false;
-        }
-    }
-
-    // Cleanup
     cleanup() {
         clearTimeout(this.inactivityTimer);
-        clearInterval(this.sessionCheckInterval);
-
-        // Remove event listeners
+   
         const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
         events.forEach(event => {
             document.removeEventListener(event, this.resetInactivityTimer);
@@ -109,16 +67,7 @@ class SessionService {
         }
     }
 
-    // Extend session (if your backend supports it)
-    async extendSession() {
-        try {
-            const result = await authService.refreshToken();
-            return result.success;
-        } catch (error) {
-            console.error('Session extension failed:', error);
-            return false;
-        }
-    }
+    // REMOVED: extendSession method
 }
 
 // Create singleton instance

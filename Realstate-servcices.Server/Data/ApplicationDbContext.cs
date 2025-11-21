@@ -8,6 +8,7 @@ using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Entity.OTP;
 using Realstate_servcices.Server.Entity.Properties;
+using Realstate_servcices.Server.Entity.Ratings;
 using Realstate_servcices.Server.Entity.Schedule;
 
 namespace Realstate_servcices.Server.Data
@@ -42,7 +43,8 @@ namespace Realstate_servcices.Server.Data
         public DbSet<AgentTimeOff> AgentTimeOffs { get; set; }
         public DbSet<AgentScheduleConfig> AgentScheduleConfigs { get; set; }
 
-
+        // Rating Schedule DbSet
+        public DbSet<RatingSchedule> RatingSchedules { get; set; }
 
         // Landing Page DbSets 
         public DbSet<ThirdSection> ThirdSections { get; set; }
@@ -50,6 +52,7 @@ namespace Realstate_servcices.Server.Data
         public DbSet<FeatureItem> FeatureItems { get; set; }
         public DbSet<Partner> Partners { get; set; }
         public DbSet<AnnouncementConfig> Announcements { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -163,14 +166,17 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => new { e.Email, e.IsUsed, e.ExpirationTime });
                 entity.HasIndex(e => e.CreatedAt);
             });
+
             modelBuilder.Entity<Partner>(entity =>
             {
                 entity.HasKey(e => e.Id);
             });
+
             modelBuilder.Entity<AnnouncementConfig>(entity =>
             {
                 entity.HasKey(e => e.Id);
             });
+
             modelBuilder.Entity<ThirdSection>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -317,6 +323,51 @@ namespace Realstate_servcices.Server.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.RatingNo).IsUnique();
+            });
+
+            // ✅ RatingSchedule Configuration
+            modelBuilder.Entity<RatingSchedule>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.ScheduleId).IsRequired();
+                entity.Property(e => e.ClientId).IsRequired();
+                entity.Property(e => e.AgentId).IsRequired();
+                entity.Property(e => e.Rating).IsRequired().HasDefaultValue(1);
+                entity.Property(e => e.Comment).HasMaxLength(1000);
+                entity.Property(e => e.RatingType).IsRequired().HasMaxLength(20).HasDefaultValue("Service");
+                entity.Property(e => e.RatingDate).IsRequired();
+                entity.Property(e => e.UpdatedAt);
+                entity.Property(e => e.IsVisible).IsRequired().HasDefaultValue(true);
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Active");
+
+                // Relationships
+                entity.HasOne(rs => rs.Schedule)
+                      .WithMany() // No navigation property back to RatingSchedule in ScheduleProperties
+                      .HasForeignKey(rs => rs.ScheduleId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // FIXED: Client relationship - using BaseMemberId as principal key
+                entity.HasOne(rs => rs.Client)
+                      .WithMany(c => c.RatingSchedules)
+                      .HasForeignKey(rs => rs.ClientId)
+                      .HasPrincipalKey(c => c.BaseMemberId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // FIXED: Agent relationship - using BaseMemberId as principal key
+                entity.HasOne(rs => rs.Agent)
+                      .WithMany(a => a.RatingSchedules)
+                      .HasForeignKey(rs => rs.AgentId)
+                      .HasPrincipalKey(a => a.BaseMemberId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Index for better performance
+                entity.HasIndex(e => new { e.ScheduleId }).IsUnique(); // One rating per schedule
+                entity.HasIndex(e => e.AgentId);
+                entity.HasIndex(e => e.ClientId);
+                entity.HasIndex(e => e.Rating);
+                entity.HasIndex(e => e.RatingDate);
+                entity.HasIndex(e => new { e.IsVisible, e.Status });
             });
 
             modelBuilder.Entity<BaseMember>(entity =>
@@ -536,6 +587,7 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.ScheduleNo).IsUnique();
                 entity.HasIndex(e => e.Status);
             });
+
             modelBuilder.Entity<WishlistProperties>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -592,7 +644,7 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.Type).IsRequired().HasMaxLength(20).HasDefaultValue("Vacation");
                 entity.Property(e => e.Reason).HasMaxLength(500);
                 entity.Property(e => e.IsApproved).HasDefaultValue(false);
-                entity.Property(e => e.IsAllDay).HasDefaultValue(true); // ✅ Fixed: Added missing field
+                entity.Property(e => e.IsAllDay).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);
 
@@ -607,7 +659,6 @@ namespace Realstate_servcices.Server.Data
                 entity.HasIndex(e => e.IsApproved);
             });
 
-    
             modelBuilder.Entity<AgentScheduleConfig>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -616,8 +667,8 @@ namespace Realstate_servcices.Server.Data
                 entity.Property(e => e.WorkDayEnd).IsRequired().HasDefaultValue(new TimeSpan(17, 0, 0));
                 entity.Property(e => e.SlotDurationMinutes).IsRequired().HasDefaultValue(60);
                 entity.Property(e => e.BufferTimeMinutes).IsRequired().HasDefaultValue(15);
-                entity.Property(e => e.MaxSchedulesPerDay).IsRequired().HasDefaultValue(8); 
-                entity.Property(e => e.AllowWeekendScheduling).IsRequired().HasDefaultValue(false); 
+                entity.Property(e => e.MaxSchedulesPerDay).IsRequired().HasDefaultValue(8);
+                entity.Property(e => e.AllowWeekendScheduling).IsRequired().HasDefaultValue(false);
                 entity.Property(e => e.AdvanceBookingDays).IsRequired().HasDefaultValue(30);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt);

@@ -35,6 +35,43 @@ namespace Realstate_servcices.Server.Controllers
             }
         }
 
+        [HttpGet("client/{clientId}")]
+        public async Task<ActionResult<List<ChatDto>>> GetClientChats(int clientId)
+        {
+            try
+            {
+              
+                var chats = await _chatService.GetByClientChatAsync(clientId);
+                return Ok(new { success = true, data = chats });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("agent/{agentId}")]
+        public async Task<ActionResult<List<ChatDto>>> GetAgentChats(int agentId)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+
+                // Authorization: Users can only access their own agent chats unless they're admin
+                if (userId != agentId && !User.IsInRole("Admin"))
+                {
+                    return Forbid();
+                }
+
+                var chats = await _chatService.GetByAgentChatAsync(agentId);
+                return Ok(new { success = true, data = chats });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<ChatDto>> GetChat(int id)
         {

@@ -32,7 +32,7 @@ import moment from 'moment';
 
 // Import the service
 import { AgentAvailabilityService } from '../appointment/Services/index.js';
-import agentService from '../Creation_Agent/Services/AgentService'; // Import agent service
+import agentService from '../Creation_Agent/Services/AgentService'; 
 
 // Destructure necessary components
 const { Option } = Select;

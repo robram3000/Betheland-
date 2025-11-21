@@ -23,7 +23,6 @@
     <Folder Include="src\Employeesportal\SuperAdminPortal\Content\Services\" />
     <Folder Include="src\Employeesportal\SuperAdminPortal\Convo\" />
     <Folder Include="src\Employeesportal\SuperAdminPortal\Client\" />
-    <Folder Include="src\Employeesportal\SuperAdminPortal\authlog\" />
     <Folder Include="src\LandingPage\Services\" />
   </ItemGroup>
   <ItemGroup>

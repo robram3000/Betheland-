@@ -31,7 +31,7 @@ import moment from 'moment';
 
 // Import the service
 import { AgentTimeOffService } from '../../AdminPortal/appointment/Services/index';
-import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService'; 
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 // Destructure necessary components
 const { Option } = Select;
@@ -294,10 +294,31 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
 
     const handleStatusChange = async (id, newStatus) => {
         try {
+            console.log(`Changing status to: ${newStatus} for time off ID: ${id}`);
+
             if (newStatus === 'Approved') {
                 await agentTimeOffService.approveTimeOff(id);
             } else if (newStatus === 'Rejected') {
-                await agentTimeOffService.rejectTimeOff(id);
+                console.log('Attempting to reject time off...');
+                // Try different possible method names
+                try {
+                    // First try the expected method name
+                    await agentTimeOffService.rejectTimeOff(id);
+                } catch (rejectError) {
+                    console.log('rejectTimeOff failed, trying alternative methods...');
+
+                    // Try alternative method names
+                    if (agentTimeOffService.denyTimeOff) {
+                        await agentTimeOffService.denyTimeOff(id);
+                    } else if (agentTimeOffService.declineTimeOff) {
+                        await agentTimeOffService.declineTimeOff(id);
+                    } else if (agentTimeOffService.cancelTimeOff) {
+                        await agentTimeOffService.cancelTimeOff(id);
+                    } else {
+                        // Fallback to update method
+                        await agentTimeOffService.updateTimeOff(id, { status: 'Rejected' });
+                    }
+                }
             }
 
             message.success(`Time off ${newStatus.toLowerCase()} successfully`);
@@ -476,40 +497,32 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
 
     return (
         <div>
-            <Card>
-                <div style={{
-                    marginBottom: 16,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <div>
-                        <h3 style={{ margin: 0 }}>Agent Time Off</h3>
-                        <p style={{ margin: 0, color: '#666' }}>
-                            Manage agent time off requests and approvals
-                        </p>
-                    </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleCreate}
-                    >
-                        Add Time Off
-                    </Button>
-                </div>
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center'
+            }}>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreate}
+                >
+                    Add Time Off
+                </Button>
+            </div>
 
-                <BaseTable
-                    data={timeOffs}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
-            </Card>
+            <BaseTable
+                data={timeOffs}
+                columns={columns}
+                loading={loading}
+                rowKey="id"
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                }}
+            />
 
             {/* Create/Edit Modal */}
             <Modal

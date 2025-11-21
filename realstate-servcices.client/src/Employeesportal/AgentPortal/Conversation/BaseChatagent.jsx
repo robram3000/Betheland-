@@ -1,7 +1,7 @@
-// BaseChat.jsx
+// BaseChatAgent.jsx
 import { Layout, ConfigProvider } from 'antd';
-import ChatPage from './ChatPage';
-
+import ChatPageAgent from './Chatpage.jsx';
+import  GlobalNavigation  from '../Navigation/GlobalAdminNavigation.jsx';
 import { useLocation } from 'react-router-dom';
 
 const { Content } = Layout;
@@ -15,7 +15,7 @@ const theme = {
     },
 };
 
-const BaseChatagent = () => {
+const BaseChatAgent = () => {
     const location = useLocation();
     const propertyChatData = location.state?.propertyChat;
 
@@ -27,19 +27,19 @@ const BaseChatagent = () => {
                 margin: 0,
                 padding: 0
             }}>
-               
+                <GlobalNavigation />
                 <Content style={{
                     padding: 0,
                     margin: 0,
-                    height: 'calc(100vh - 64px)', 
+                    height: 'calc(100vh - 64px)',
                     overflow: 'hidden',
                     background: 'transparent'
                 }}>
-                    <ChatPage propertyChatData={propertyChatData} />
+                    <ChatPageAgent propertyChatData={propertyChatData} />
                 </Content>
             </Layout>
         </ConfigProvider>
     );
 };
 
-export default BaseChatagent;
+export default BaseChatAgent;

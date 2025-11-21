@@ -121,7 +121,7 @@ const ProfilePage = () => {
         }
 
         if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
+            return `https://localhost:7080${url}`;
         }
 
         if (url.includes('.') && !url.startsWith('/')) {
@@ -460,7 +460,7 @@ const ProfilePage = () => {
                                 </TabPane>
 
                                 {/* Change Password Tab - Commented Out */}
-                                {/*
+                                
                                 <TabPane tab="Password" key="password">
                                     <Form
                                         form={passwordForm}
@@ -543,7 +543,7 @@ const ProfilePage = () => {
                                         </Form.Item>
                                     </Form>
                                 </TabPane>
-                                */}
+                                
                             </Tabs>
 
                             {error && (

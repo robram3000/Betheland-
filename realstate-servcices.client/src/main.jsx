@@ -39,6 +39,11 @@ import Agentlayoutadmins from './Employeesportal/SuperAdminPortal/Creation_Agent
 import ProfileLayoutAdmins from './Employeesportal/SuperadminPortal/Profile/profilelayoutadmin'
 import ConfigContentLandingpage from './Employeesportal/SuperAdminPortal/Content/ConfigContentLandingpage'
 import ClientPageLayout from './Employeesportal/SuperAdminPortal/Client/ClientPageLayout'
+import AuthLogLayout from './Employeesportal/SuperAdminPortal/authlog/AuthLogLayout'
+import ChatMonitor from './Employeesportal/SuperAdminPortal/Convo/ChatMonitor'
+
+import BaseChatAgent from './Employeesportal/AgentPortal/Conversation/BaseChatagent.jsx'
+
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
@@ -129,7 +134,14 @@ createRoot(document.getElementById('root')).render(
 
                 
                     {/* ################ SUPERADMIN ROUTES ################## */}
-
+                    <Route path="/portal/super-admin/chat-monitor" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <ChatMonitor />
+                        </ProtectedRoute>
+                    } />
 
                     <Route path="/portal/super-admin/dashboard" element={
                         <ProtectedRoute
@@ -171,7 +183,6 @@ createRoot(document.getElementById('root')).render(
                             <ProfileLayoutAdmins />
                         </ProtectedRoute>
                     } />
-
                     <Route path="/portal/super-admin/config-landing-page" element={
                         <ProtectedRoute
                             requiredRole="SuperAdmin"
@@ -190,6 +201,14 @@ createRoot(document.getElementById('root')).render(
                         </ProtectedRoute>
                     } />
 
+                    <Route path="/portal/super-admin/authlog" element={
+                        <ProtectedRoute
+                            requiredRole="SuperAdmin"
+                            requiredPermission="all"
+                        >
+                            <AuthLogLayout />
+                        </ProtectedRoute>
+                    } />
 
 
 
@@ -260,16 +279,21 @@ createRoot(document.getElementById('root')).render(
                             <Propertylaouts/>
                         </ProtectedRoute>
                     } />
-                    <Route path="/portal/agent/all-chats" element={
-                        <ProtectedRoute requiredRole="Agent"
-                            requiredPermission="manage_profile"
-                        >
-                            <AgentLayout>
-                              
-                            </AgentLayout>
-                         
-                        </ProtectedRoute>
-                    } />
+                    <Route
+                        path="/portal/agent/all-chats"
+                        element={
+                            <ProtectedRoute
+                                requiredRole="Agent"
+                                requiredPermission="manage_profile"
+                            >
+                                <AgentLayout>
+                                    <BaseChatAgent>
+                                     
+                                    </BaseChatAgent>
+                                </AgentLayout>
+                            </ProtectedRoute>
+                        }
+                    />
                     <Route path="/portal/agent/profile" element={
                         <ProtectedRoute requiredRole="Agent"
                             requiredPermission= "manage_profile"

@@ -1,4 +1,4 @@
-﻿// PropertySearchPage.jsx (FIXED VERSION - Debugging Enabled)
+﻿// PropertySearchPage.jsx (FIXED VERSION - Optimized Drawer Width)
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Layout,
@@ -27,7 +27,7 @@ import PropertyCard from './PropertyCard';
 import PropertyFilterSidebar from './PropertyFilterSidebar';
 import { usePropertyData } from './Services/GetdataProperty';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
@@ -39,8 +39,7 @@ const PropertySearchPage = () => {
     const [viewMode, setViewMode] = useState('grid');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(8);
-    const [mobileFilterVisible, setMobileFilterVisible] = useState(false);
-    const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+    const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
 
     const [filters, setFilters] = useState({
         priceRange: [0, 10000000],
@@ -48,7 +47,7 @@ const PropertySearchPage = () => {
         bathrooms: null,
         propertyType: [],
         amenities: [],
-        squareFeet: [0, 100000] // Increased max area to accommodate larger properties
+        squareFeet: [0, 100000]
     });
 
     // DEBUG: Comprehensive logging
@@ -64,34 +63,26 @@ const PropertySearchPage = () => {
 
         if (properties && properties.length > 0) {
             console.log('📋 Sample Property Data:', properties[0]);
-            console.log('🏠 All Property IDs:', properties.map(p => p.id));
         }
     }, [properties, loading, error, searchTerm, filters, currentPage]);
 
-    // SIMPLIFIED: Filter properties - Only basic search for now
+    // Filter properties with all filters enabled
     const filteredProperties = useMemo(() => {
         if (!properties || !Array.isArray(properties)) {
             console.log('❌ No properties array found');
             return [];
         }
 
-        console.log('🔄 Starting SIMPLIFIED filter process with', properties.length, 'properties');
+        console.log('🔄 Starting filter process with', properties.length, 'properties');
 
-        // TEMPORARY: Return all properties without complex filtering
-        const allProperties = properties.filter(property => {
+        let filtered = properties.filter(property => {
             if (!property || !property.id) {
-                console.log('Skipping invalid property:', property);
                 return false;
             }
-            return true;
-        });
 
-        console.log('✅ After basic validation:', allProperties.length, 'properties');
-
-        // Only apply search term filter for now
-        if (searchTerm) {
-            const query = searchTerm.toLowerCase().trim();
-            const searched = allProperties.filter(property => {
+            // Search term filter
+            if (searchTerm) {
+                const query = searchTerm.toLowerCase().trim();
                 const searchFields = [
                     property.title,
                     property.description,
@@ -101,17 +92,56 @@ const PropertySearchPage = () => {
                     property.propertyType
                 ].filter(field => field && typeof field === 'string');
 
-                return searchFields.some(field =>
+                const matchesSearch = searchFields.some(field =>
                     field.toLowerCase().includes(query)
                 );
-            });
-            console.log('🔍 After search filter:', searched.length, 'properties');
-            return searched;
-        }
+                if (!matchesSearch) return false;
+            }
 
-        console.log('🎯 Returning all properties:', allProperties.length);
-        return allProperties;
-    }, [properties, searchTerm]); // Removed filters dependency for now
+            // Price range filter
+            const [minPrice, maxPrice] = filters.priceRange;
+            if (property.price < minPrice || property.price > maxPrice) {
+                return false;
+            }
+
+            // Bedrooms filter
+            if (filters.bedrooms !== null && property.bedrooms !== filters.bedrooms) {
+                return false;
+            }
+
+            // Bathrooms filter
+            if (filters.bathrooms !== null && property.bathrooms !== filters.bathrooms) {
+                return false;
+            }
+
+            // Property type filter
+            if (filters.propertyType.length > 0 &&
+                !filters.propertyType.includes(property.propertyType)) {
+                return false;
+            }
+
+            // Square footage filter
+            const [minSqFt, maxSqFt] = filters.squareFeet;
+            const propertySqFt = property.areaSqm ? property.areaSqm * 10.764 : 0; // Convert sqm to sqft
+            if (propertySqFt < minSqFt || propertySqFt > maxSqFt) {
+                return false;
+            }
+
+            // Amenities filter
+            if (filters.amenities.length > 0) {
+                const propertyAmenities = property.amenities || [];
+                const hasAllAmenities = filters.amenities.every(amenity =>
+                    propertyAmenities.includes(amenity)
+                );
+                if (!hasAllAmenities) return false;
+            }
+
+            return true;
+        });
+
+        console.log('✅ After all filters:', filtered.length, 'properties');
+        return filtered;
+    }, [properties, searchTerm, filters]);
 
     // Sort properties
     const sortedProperties = useMemo(() => {
@@ -135,18 +165,10 @@ const PropertySearchPage = () => {
         }
     }, [filteredProperties, sortBy]);
 
-    // Paginate properties - 8 cards per page
+    // Paginate properties
     const paginatedProperties = useMemo(() => {
         const startIndex = (currentPage - 1) * pageSize;
-        const paginated = sortedProperties.slice(startIndex, startIndex + pageSize);
-        console.log('📄 Pagination:', {
-            currentPage,
-            pageSize,
-            startIndex,
-            total: sortedProperties.length,
-            showing: paginated.length
-        });
-        return paginated;
+        return sortedProperties.slice(startIndex, startIndex + pageSize);
     }, [sortedProperties, currentPage, pageSize]);
 
     // Handle filter changes
@@ -158,7 +180,6 @@ const PropertySearchPage = () => {
 
     // Handle search
     const handleSearch = useCallback((value) => {
-        console.log('🔍 Search term changed:', value);
         setSearchTerm(value);
         setCurrentPage(1);
     }, []);
@@ -174,19 +195,14 @@ const PropertySearchPage = () => {
         setPageSize(size || 8);
     }, []);
 
-    // Toggle filter sidebar
-    const toggleFilterSidebar = useCallback(() => {
-        setIsFilterCollapsed(!isFilterCollapsed);
-    }, [isFilterCollapsed]);
-
-    // Show mobile filter drawer
-    const showMobileFilter = useCallback(() => {
-        setMobileFilterVisible(true);
+    // Show filter drawer
+    const showFilterDrawer = useCallback(() => {
+        setFilterDrawerVisible(true);
     }, []);
 
-    // Close mobile filter drawer
-    const closeMobileFilter = useCallback(() => {
-        setMobileFilterVisible(false);
+    // Close filter drawer
+    const closeFilterDrawer = useCallback(() => {
+        setFilterDrawerVisible(false);
     }, []);
 
     // Reset all filters
@@ -202,30 +218,28 @@ const PropertySearchPage = () => {
         });
         setSearchTerm('');
         setCurrentPage(1);
+        message.success('All filters have been reset');
     }, []);
 
     // Handle errors
     useEffect(() => {
         if (error) {
             message.error(`Failed to load properties: ${error}`);
-            console.error('❌ Property loading error:', error);
         }
     }, [error]);
 
-    // Reset to first page when search term changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, filters]);
-
-    // Force refresh if no properties after loading
-    useEffect(() => {
-        if (!loading && properties && properties.length === 0) {
-            console.log('🔄 No properties found, attempting refresh...');
-            refreshProperties().catch(err => {
-                console.error('❌ Refresh failed:', err);
-            });
-        }
-    }, [loading, properties, refreshProperties]);
+    // Show active filters count
+    const activeFiltersCount = useMemo(() => {
+        let count = 0;
+        if (searchTerm) count++;
+        if (filters.priceRange[0] > 0 || filters.priceRange[1] < 10000000) count++;
+        if (filters.bedrooms !== null) count++;
+        if (filters.bathrooms !== null) count++;
+        if (filters.propertyType.length > 0) count++;
+        if (filters.amenities.length > 0) count++;
+        if (filters.squareFeet[0] > 0 || filters.squareFeet[1] < 100000) count++;
+        return count;
+    }, [filters, searchTerm]);
 
     return (
         <div style={{
@@ -247,7 +261,6 @@ const PropertySearchPage = () => {
                     padding: '0 16px'
                 }}>
                     <Row gutter={[16, 16]} align="middle">
-                        {/* Title Section */}
                         <Col xs={24} md={12}>
                             <Title level={2} style={{
                                 margin: 0,
@@ -267,10 +280,14 @@ const PropertySearchPage = () => {
                                 {filteredProperties.length !== properties?.length &&
                                     ` (${filteredProperties.length} filtered)`
                                 }
+                                {activeFiltersCount > 0 && (
+                                    <Tag color="blue" style={{ marginLeft: '8px' }}>
+                                        {activeFiltersCount} active filter{activeFiltersCount !== 1 ? 's' : ''}
+                                    </Tag>
+                                )}
                             </Text>
                         </Col>
 
-                        {/* Controls Section */}
                         <Col xs={24} md={12}>
                             <div style={{
                                 display: 'flex',
@@ -278,7 +295,6 @@ const PropertySearchPage = () => {
                                 gap: '16px',
                                 alignItems: window.innerWidth < 768 ? 'stretch' : 'flex-end'
                             }}>
-                                {/* Search and Sort Row */}
                                 <div style={{
                                     display: 'flex',
                                     flexDirection: window.innerWidth < 768 ? 'column' : 'row',
@@ -286,7 +302,6 @@ const PropertySearchPage = () => {
                                     width: '100%',
                                     justifyContent: window.innerWidth < 768 ? 'stretch' : 'flex-end'
                                 }}>
-                                    {/* Search Input */}
                                     <Input
                                         placeholder="Search properties..."
                                         prefix={<SearchOutlined />}
@@ -301,7 +316,6 @@ const PropertySearchPage = () => {
                                         allowClear
                                     />
 
-                                    {/* Sort Select */}
                                     <Select
                                         value={sortBy}
                                         onChange={handleSortChange}
@@ -320,7 +334,6 @@ const PropertySearchPage = () => {
                                     </Select>
                                 </div>
 
-                                {/* View Toggles and Filter Row */}
                                 <div style={{
                                     display: 'flex',
                                     gap: '12px',
@@ -328,19 +341,28 @@ const PropertySearchPage = () => {
                                     alignItems: 'center',
                                     flexWrap: 'wrap'
                                 }}>
-                                    {/* Reset Filters Button */}
+                                    {/* Filter Button - Shows Drawer */}
+                                    <Button
+                                        icon={<FilterOutlined />}
+                                        onClick={showFilterDrawer}
+                                        size="large"
+                                        type={activeFiltersCount > 0 ? "primary" : "default"}
+                                    >
+                                        Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+                                    </Button>
+
                                     <Button
                                         onClick={handleResetFilters}
                                         size="large"
+                                        disabled={activeFiltersCount === 0}
                                         style={{
                                             borderColor: '#ff4d4f',
-                                            color: '#ff4d4f'
+                                            color: activeFiltersCount === 0 ? '#ccc' : '#ff4d4f'
                                         }}
                                     >
                                         Reset Filters
                                     </Button>
 
-                                    {/* View Mode Toggle - Hidden on mobile */}
                                     <Button.Group
                                         size="large"
                                         style={{
@@ -351,27 +373,13 @@ const PropertySearchPage = () => {
                                             type={viewMode === 'grid' ? 'primary' : 'default'}
                                             icon={<AppstoreOutlined />}
                                             onClick={() => setViewMode('grid')}
-                                            title="Grid View"
                                         />
                                         <Button
                                             type={viewMode === 'landscape' ? 'primary' : 'default'}
                                             icon={<PicLeftOutlined />}
                                             onClick={() => setViewMode('landscape')}
-                                            title="Landscape View"
                                         />
                                     </Button.Group>
-
-                                    {/* Mobile Filter Button */}
-                                    <Button
-                                        icon={<FilterOutlined />}
-                                        onClick={showMobileFilter}
-                                        size="large"
-                                        style={{
-                                            display: window.innerWidth < 768 ? 'inline-block' : 'none'
-                                        }}
-                                    >
-                                        Filters
-                                    </Button>
                                 </div>
                             </div>
                         </Col>
@@ -379,168 +387,215 @@ const PropertySearchPage = () => {
                 </div>
             </div>
 
-            {/* Main Content */}
+            {/* Main Content - Full Width */}
             <Layout style={{
                 background: 'transparent',
                 maxWidth: '1600px',
                 margin: '0 auto',
-                padding: '24px 16px'
+                padding: '24px 16px',
+                minHeight: '600px'
             }}>
-                <Row gutter={[24, 24]}>
-                    {/* Property Results */}
-                    <Col xs={24}>
-                        <Card
-                            style={{
-                                background: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                border: '1px solid #f1f5f9'
-                            }}
-                            bodyStyle={{ padding: '16px' }}
-                        >
-                            {loading ? (
-                                <div style={{
-                                    textAlign: 'center',
-                                    padding: '60px 20px'
-                                }}>
-                                    <Spin size="large" />
-                                    <div style={{ marginTop: '16px' }}>
-                                        <Text style={{ color: '#64748b' }}>
-                                            Loading properties...
-                                        </Text>
-                                    </div>
-                                </div>
-                            ) : error ? (
-                                <div style={{
-                                    textAlign: 'center',
-                                    padding: '60px 20px'
-                                }}>
-                                    <Text type="danger" style={{ display: 'block', marginBottom: '16px' }}>
-                                        Error loading properties: {error}
+                <Content>
+                    <Card
+                        style={{
+                            background: 'white',
+                            borderRadius: '12px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                            border: '1px solid #f1f5f9'
+                        }}
+                        bodyStyle={{ padding: '16px' }}
+                    >
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                                <Spin size="large" />
+                                <div style={{ marginTop: '16px' }}>
+                                    <Text style={{ color: '#64748b' }}>
+                                        Loading properties...
                                     </Text>
-                                    <Button onClick={refreshProperties} type="primary">
-                                        Retry
-                                    </Button>
                                 </div>
-                            ) : paginatedProperties.length === 0 ? (
-                                <Empty
-                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    description={
-                                        <div>
-                                            <Text style={{ color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                                                {properties?.length === 0
-                                                    ? 'No properties found'
-                                                    : 'No properties match your search criteria'
-                                                }
-                                            </Text>
-                                            <Button onClick={handleResetFilters}>
-                                                Reset All Filters
-                                            </Button>
-                                        </div>
-                                    }
-                                    style={{
-                                        padding: '60px 20px'
-                                    }}
-                                />
-                            ) : (
-                                <>
-                                    {/* Debug Info */}
+                            </div>
+                        ) : error ? (
+                            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                                <Text type="danger" style={{ display: 'block', marginBottom: '16px' }}>
+                                    Error loading properties: {error}
+                                </Text>
+                                <Button onClick={refreshProperties} type="primary">
+                                    Retry
+                                </Button>
+                            </div>
+                        ) : paginatedProperties.length === 0 ? (
+                            <Empty
+                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                description={
+                                    <div>
+                                        <Text style={{ color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                                            {properties?.length === 0
+                                                ? 'No properties found'
+                                                : 'No properties match your search criteria'
+                                            }
+                                        </Text>
+                                        <Button onClick={handleResetFilters}>
+                                            Reset All Filters
+                                        </Button>
+                                    </div>
+                                }
+                                style={{ padding: '60px 20px' }}
+                            />
+                        ) : (
+                            <>
+                                {/* Active Filters Info */}
+                                {activeFiltersCount > 0 && (
                                     <div style={{
-                                        padding: '8px 12px',
-                                        backgroundColor: '#f8f9fa',
+                                        padding: '12px 16px',
+                                        backgroundColor: '#f0f7ff',
                                         borderRadius: '6px',
                                         marginBottom: '16px',
-                                        border: '1px solid #e9ecef'
+                                        border: '1px solid #d0e3ff'
                                     }}>
-                                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                                            Showing {paginatedProperties.length} of {filteredProperties.length} properties
-                                            {searchTerm && ` (filtered by: "${searchTerm}")`}
-                                        </Text>
+                                        <Space wrap>
+                                            <Text strong>Active Filters:</Text>
+                                            {searchTerm && (
+                                                <Tag closable onClose={() => setSearchTerm('')}>
+                                                    Search: "{searchTerm}"
+                                                </Tag>
+                                            )}
+                                            {(filters.priceRange[0] > 0 || filters.priceRange[1] < 10000000) && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    priceRange: [0, 10000000]
+                                                })}>
+                                                    Price: ${filters.priceRange[0].toLocaleString()} - ${filters.priceRange[1].toLocaleString()}
+                                                </Tag>
+                                            )}
+                                            {filters.bedrooms !== null && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    bedrooms: null
+                                                })}>
+                                                    Bedrooms: {filters.bedrooms}
+                                                </Tag>
+                                            )}
+                                            {filters.bathrooms !== null && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    bathrooms: null
+                                                })}>
+                                                    Bathrooms: {filters.bathrooms}
+                                                </Tag>
+                                            )}
+                                            {filters.propertyType.length > 0 && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    propertyType: []
+                                                })}>
+                                                    Type: {filters.propertyType.join(', ')}
+                                                </Tag>
+                                            )}
+                                        </Space>
                                     </div>
+                                )}
 
-                                    {/* Property Grid/Landscape */}
-                                    <div
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns:
-                                                viewMode === 'grid' || window.innerWidth < 768 ?
-                                                    'repeat(auto-fill, minmax(min(100%, 350px), 1fr))' :
-                                                    viewMode === 'landscape' ?
-                                                        'repeat(auto-fill, minmax(min(100%, 550px), 1fr))' : 'none', // Increased min width for landscape
-                                            gap: '24px',
-                                            width: '100%',
-                                            alignItems: 'stretch',
-                                            justifyItems: 'center'
-                                        }}
-                                    >
-                                        {paginatedProperties.map((property) => (
-                                            <div
-                                                key={property.id}
+                                {/* Property Grid */}
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns:
+                                            viewMode === 'grid' || window.innerWidth < 768 ?
+                                                'repeat(auto-fill, minmax(min(100%, 350px), 1fr))' :
+                                                'repeat(auto-fill, minmax(min(100%, 550px), 1fr))',
+                                        gap: '24px',
+                                        width: '100%',
+                                        alignItems: 'stretch',
+                                        justifyItems: 'center'
+                                    }}
+                                >
+                                    {paginatedProperties.map((property) => (
+                                        <div
+                                            key={property.id}
+                                            style={{
+                                                display: 'flex',
+                                                width: '100%',
+                                                height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '320px' : 'auto',
+                                                minHeight: 'auto',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <PropertyCard
+                                                property={property}
+                                                showActions={false}
+                                                viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
+                                                landscapeHeight="320px"
                                                 style={{
-                                                    display: 'flex',
                                                     width: '100%',
-                                                    height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '320px' : 'auto', // Increased height
-                                                    minHeight: 'auto',
-                                                    justifyContent: 'center'
+                                                    height: '100%'
                                                 }}
-                                            >
-                                                <PropertyCard
-                                                    property={property}
-                                                    showActions={false}
-                                                    viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
-                                                    landscapeHeight="320px" // Increased height for landscape
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%'
-                                                    }}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Pagination */}
-                                    {sortedProperties.length > pageSize && (
-                                        <div style={{
-                                            marginTop: '32px',
-                                            display: 'flex',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <Pagination
-                                                current={currentPage}
-                                                pageSize={pageSize}
-                                                total={sortedProperties.length}
-                                                onChange={handlePageChange}
-                                                showSizeChanger
-                                                showQuickJumper
-                                                showTotal={(total, range) =>
-                                                    `${range[0]}-${range[1]} of ${total} properties`
-                                                }
-                                                pageSizeOptions={['8', '16', '24', '48']}
-                                                responsive={true}
                                             />
                                         </div>
-                                    )}
-                                </>
-                            )}
-                        </Card>
-                    </Col>
-                </Row>
+                                    ))}
+                                </div>
+
+                                {/* Pagination */}
+                                {sortedProperties.length > pageSize && (
+                                    <div style={{
+                                        marginTop: '32px',
+                                        display: 'flex',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Pagination
+                                            current={currentPage}
+                                            pageSize={pageSize}
+                                            total={sortedProperties.length}
+                                            onChange={handlePageChange}
+                                            showSizeChanger
+                                            showQuickJumper
+                                            showTotal={(total, range) =>
+                                                `${range[0]}-${range[1]} of ${total} properties`
+                                            }
+                                            pageSizeOptions={['8', '16', '24', '48']}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </Card>
+                </Content>
             </Layout>
 
-            {/* Mobile Filter Drawer */}
+            {/* Filter Drawer - Optimized Width */}
             <Drawer
-                title="Filters"
+                title={
+                    <Space>
+                        <FilterOutlined />
+                        Filters
+                        {activeFiltersCount > 0 && (
+                            <Tag color="blue">{activeFiltersCount}</Tag>
+                        )}
+                    </Space>
+                }
                 placement="right"
-                onClose={closeMobileFilter}
-                open={mobileFilterVisible}
-                width={320}
-                bodyStyle={{ padding: '0' }}
+                onClose={closeFilterDrawer}
+                open={filterDrawerVisible}
+                width={320} 
+                style={{
+                    zIndex: 1001
+                }}
+                bodyStyle={{
+                    padding: '0',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
+           
             >
-                <PropertyFilterSidebar
-                    filters={filters}
-                    onFilterChange={handleFilterChange}
-                    isCollapsed={false}
-                />
+                <div style={{
+                    flex: 1,
+                    overflow: 'auto'
+                }}>
+                    <PropertyFilterSidebar
+                        filters={filters}
+                        onFilterChange={handleFilterChange}
+                        isCollapsed={false}
+                    />
+                </div>
             </Drawer>
         </div>
     );

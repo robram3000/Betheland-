@@ -19,7 +19,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
 import profileService from '../Accounts/Services/ProfileService';
-import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl'; 
+import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -150,6 +150,33 @@ const GlobalNavigation = () => {
         return null;
     };
 
+    // Enhanced authentication check
+    const checkAuthStatus = () => {
+        const authenticated = authService.isAuthenticated();
+
+        // Additional safety check - if token exists but user data is corrupted
+        if (authenticated) {
+            const user = authService.getCurrentUser();
+            if (!user || !user.userId) {
+                console.warn('💥 Invalid user data detected, forcing logout');
+                authService.logout();
+                setIsLoggedIn(false);
+                setCurrentUser(null);
+                setProfileData(null);
+                return;
+            }
+            setCurrentUser(user);
+            setProfileImageError(false);
+        } else {
+            // Ensure clean state when not authenticated
+            setCurrentUser(null);
+            setProfileData(null);
+            setProfileImageError(false);
+        }
+
+        setIsLoggedIn(authenticated);
+    };
+
     useEffect(() => {
         checkAuthStatus();
     }, [location]);
@@ -178,19 +205,23 @@ const GlobalNavigation = () => {
         }
     }, [isLoggedIn, refreshWishlist]);
 
-    const checkAuthStatus = () => {
-        const authenticated = authService.isAuthenticated();
-        setIsLoggedIn(authenticated);
-        if (authenticated) {
-            const user = authService.getCurrentUser();
-            setCurrentUser(user);
-            setProfileImageError(false);
-        } else {
-            setCurrentUser(null);
-            setProfileData(null);
-            setProfileImageError(false);
-        }
-    };
+    // Add session termination detection
+    useEffect(() => {
+        // Handle page refresh/close - check auth status
+        const handleBeforeUnload = () => {
+            // If using sessionStorage, it will be cleared on tab close
+            // This is just a safety check
+            if (!authService.isAuthenticated()) {
+                authService.logout();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
 
     const handleImageError = () => {
         setProfileImageError(true);
@@ -283,12 +314,11 @@ const GlobalNavigation = () => {
             }
         }
 
-        // Fallback to username if no name parts available
+
         if (profileData?.username && profileData.username.trim() !== '') {
             return profileData.username;
         }
 
-        // Fallback to currentUser data
         if (currentUser?.username && currentUser.username.trim() !== '') {
             return currentUser.username;
         }

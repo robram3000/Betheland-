@@ -32,6 +32,8 @@ import BaseTable from './BaseTable';
 import moment from 'moment';
 import { agentTimeOffService } from '../../AdminPortal/appointment/Services/index.js';
 import authService from '../../../Authpage/Services/LoginAuth';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
+
 const { Option } = Select;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
@@ -45,6 +47,7 @@ const AgentTimeOff = () => {
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [currentAgentId, setCurrentAgentId] = useState(null);
 
     const timeOffTypes = [
         'Vacation',
@@ -55,6 +58,30 @@ const AgentTimeOff = () => {
         'Other'
     ];
 
+    // Helper function to get the actual agent ID from base member ID
+    const getCurrentAgentId = async () => {
+        try {
+            const currentUser = authService.getCurrentUser();
+            const baseMemberId = currentUser?.userId;
+
+            if (!baseMemberId) {
+                throw new Error('Unable to determine user ID. Please log in again.');
+            }
+
+            // Get the agent by base member ID to get the actual agent ID
+            const agent = await agentService.getAgentByBaseMemberId(baseMemberId);
+
+            if (!agent || !agent.id) {
+                throw new Error('Agent profile not found. Please complete your agent profile first.');
+            }
+
+            return agent.id;
+        } catch (error) {
+            console.error('Error getting current agent ID:', error);
+            throw new Error('Failed to retrieve agent information: ' + error.message);
+        }
+    };
+
     useEffect(() => {
         loadTimeOffs();
     }, []);
@@ -63,12 +90,8 @@ const AgentTimeOff = () => {
         setLoading(true);
         setError(null);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
+            const agentId = await getCurrentAgentId();
+            setCurrentAgentId(agentId);
 
             const result = await agentTimeOffService.getTimeOffsByAgent(agentId);
             setTimeOffs(result);
@@ -116,8 +139,12 @@ const AgentTimeOff = () => {
     const handleSubmit = async (values) => {
         setSubmitting(true);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
+            // Get the actual agent ID for submission
+            let agentId = currentAgentId;
+            if (!agentId) {
+                agentId = await getCurrentAgentId();
+                setCurrentAgentId(agentId);
+            }
 
             if (!agentId) {
                 throw new Error('Unable to determine agent ID. Please log in again.');
@@ -128,7 +155,7 @@ const AgentTimeOff = () => {
                 startDate: values.dateRange[0].format('YYYY-MM-DD'),
                 endDate: values.dateRange[1].format('YYYY-MM-DD'),
                 reason: values.reason,
-                agentId: parseInt(agentId),
+                agentId: parseInt(agentId), // Use the actual agent ID
                 isApproved: false,
                 isAllDay: true
             };

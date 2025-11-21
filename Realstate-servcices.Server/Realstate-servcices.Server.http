@@ -32,6 +32,19 @@ Content-Type: {{ContentType}}
   "username": "Acecent@2k13",
   "password": "Acecent@2k13",
   "firstName": "Acecent",
+  "lastName": "Sandobal",
+  "cellPhoneNo": "09123456789",
+  "licenseNumber": "LIC-98434123"
+}
+###
+POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
+Content-Type: {{ContentType}}
+
+{
+  "email": "acecentsandoval10@gmail.com",
+  "username": "Acecent@2k13",
+  "password": "Acecent@2k13",
+  "firstName": "Acecent",
   "middleName": "O",
   "lastName": "Sandobal",
   "suffix": "Jr",

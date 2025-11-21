@@ -32,6 +32,7 @@ import {
 import moment from 'moment';
 import { agentScheduleConfigService } from '../../AdminPortal/appointment/Services/index.js';
 import authService from '../../../Authpage/Services/LoginAuth';
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
 
@@ -41,6 +42,7 @@ const AgentScheduleConfig = () => {
     const [config, setConfig] = useState(null);
     const [form] = Form.useForm();
     const [error, setError] = useState(null);
+    const [currentAgentId, setCurrentAgentId] = useState(null);
 
     // Default config aligned with backend DTO
     const defaultConfig = {
@@ -53,6 +55,30 @@ const AgentScheduleConfig = () => {
         advanceBookingDays: 30
     };
 
+    // Helper function to get the actual agent ID from base member ID
+    const getCurrentAgentId = async () => {
+        try {
+            const currentUser = authService.getCurrentUser();
+            const baseMemberId = currentUser?.userId;
+
+            if (!baseMemberId) {
+                throw new Error('Unable to determine user ID. Please log in again.');
+            }
+
+            // Get the agent by base member ID to get the actual agent ID
+            const agent = await agentService.getAgentByBaseMemberId(baseMemberId);
+
+            if (!agent || !agent.id) {
+                throw new Error('Agent profile not found. Please complete your agent profile first.');
+            }
+
+            return agent.id;
+        } catch (error) {
+            console.error('Error getting current agent ID:', error);
+            throw new Error('Failed to retrieve agent information: ' + error.message);
+        }
+    };
+
     useEffect(() => {
         loadConfig();
     }, []);
@@ -61,12 +87,8 @@ const AgentScheduleConfig = () => {
         setLoading(true);
         setError(null);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
-
-            if (!agentId) {
-                throw new Error('Unable to determine agent ID. Please log in again.');
-            }
+            const agentId = await getCurrentAgentId();
+            setCurrentAgentId(agentId);
 
             console.log('Loading config for agent ID:', agentId);
 
@@ -115,8 +137,12 @@ const AgentScheduleConfig = () => {
         setSaving(true);
         setError(null);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
+            // Get the actual agent ID for submission
+            let agentId = currentAgentId;
+            if (!agentId) {
+                agentId = await getCurrentAgentId();
+                setCurrentAgentId(agentId);
+            }
 
             if (!agentId) {
                 message.error('Unable to determine agent ID. Please log in again.');
@@ -128,7 +154,7 @@ const AgentScheduleConfig = () => {
 
             // Prepare data according to backend DTO structure with proper TimeSpan format
             const configData = {
-                agentId: parseInt(agentId),
+                agentId: parseInt(agentId), // Use the actual agent ID
                 slotDurationMinutes: values.slotDurationMinutes || defaultConfig.slotDurationMinutes,
                 bufferTimeMinutes: values.bufferTimeMinutes || defaultConfig.bufferTimeMinutes,
                 maxSchedulesPerDay: values.maxSchedulesPerDay || defaultConfig.maxSchedulesPerDay,
@@ -168,8 +194,12 @@ const AgentScheduleConfig = () => {
     const handleResetToDefaults = async () => {
         setSaving(true);
         try {
-            const currentUser = authService.getCurrentUser();
-            const agentId = currentUser?.userId;
+            // Get the actual agent ID for submission
+            let agentId = currentAgentId;
+            if (!agentId) {
+                agentId = await getCurrentAgentId();
+                setCurrentAgentId(agentId);
+            }
 
             if (!agentId) {
                 message.error('Unable to determine agent ID. Please log in again.');
@@ -201,7 +231,6 @@ const AgentScheduleConfig = () => {
         }
     };
 
-    // ... rest of the component methods remain the same
     const handleFormReset = () => {
         if (config) {
             // Reset to current config values

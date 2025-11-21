@@ -145,6 +145,9 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("RecipientId")
+                        .HasColumnType("int");
+
                     b.Property<int>("SenderId")
                         .HasColumnType("int");
 
@@ -552,6 +555,11 @@ namespace Realstate_servcices.Server.Migrations
                     b.Property<int>("AreaSqm")
                         .HasColumnType("int");
 
+                    b.Property<string>("Barangay")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("BaseMemberId")
                         .HasColumnType("int");
 
@@ -753,6 +761,75 @@ namespace Realstate_servcices.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("Wishlists");
+                });
+
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Ratings.RatingSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("Rating")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<DateTime>("RatingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RatingType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Service");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Active");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("Rating");
+
+                    b.HasIndex("RatingDate");
+
+                    b.HasIndex("ScheduleId")
+                        .IsUnique();
+
+                    b.HasIndex("IsVisible", "Status");
+
+                    b.ToTable("RatingSchedules");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentAvailability", b =>
@@ -1588,6 +1665,35 @@ namespace Realstate_servcices.Server.Migrations
                     b.Navigation("Property");
                 });
 
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Ratings.RatingSchedule", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
+                        .WithMany("RatingSchedules")
+                        .HasForeignKey("AgentId")
+                        .HasPrincipalKey("BaseMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Realstate_servcices.Server.Entity.member.Client", "Client")
+                        .WithMany("RatingSchedules")
+                        .HasForeignKey("ClientId")
+                        .HasPrincipalKey("BaseMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Realstate_servcices.Server.Entity.Schedule.ScheduleProperties", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Schedule");
+                });
+
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Schedule.AgentAvailability", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.member.Agent", "Agent")
@@ -1751,6 +1857,8 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Navigation("Properties");
 
+                    b.Navigation("RatingSchedules");
+
                     b.Navigation("Ratings");
 
                     b.Navigation("ScheduleProperties");
@@ -1759,6 +1867,8 @@ namespace Realstate_servcices.Server.Migrations
             modelBuilder.Entity("Realstate_servcices.Server.Entity.member.Client", b =>
                 {
                     b.Navigation("Properties");
+
+                    b.Navigation("RatingSchedules");
 
                     b.Navigation("Ratings");
 

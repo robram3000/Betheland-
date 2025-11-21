@@ -1,11 +1,37 @@
+﻿// ThirdSectionMapper.js - FIXED VERSION
 class ThirdSectionMapper {
     // Map API response to frontend format
     mapFromApi(apiData) {
-        if (!apiData) {
+        console.log('🔍 ThirdSectionMapper: Mapping from API data:', apiData);
+
+        // Handle null/undefined API response
+        if (!apiData || apiData === undefined) {
+            console.log('❌ ThirdSectionMapper: No API data received, returning empty structure');
             return this.getEmptyThirdSection();
         }
 
-        return {
+        // Check if it's an empty DTO (all fields empty or default)
+        const isEmptyDto =
+            (apiData.id === 0 || apiData.id === undefined) &&
+            (!apiData.title || apiData.title === '') &&
+            (!apiData.subtitle || apiData.subtitle === '') &&
+            (!apiData.description || apiData.description === '') &&
+            (!apiData.processSteps || apiData.processSteps.length === 0) &&
+            (!apiData.featureItems || apiData.featureItems.length === 0);
+
+        if (isEmptyDto) {
+            console.log('ℹ️ ThirdSectionMapper: Empty DTO received, returning empty structure');
+            return this.getEmptyThirdSection();
+        }
+
+        console.log('✅ ThirdSectionMapper: Processing valid data -', {
+            id: apiData.id,
+            title: apiData.title,
+            hasProcessSteps: !!apiData.processSteps,
+            hasFeatureItems: !!apiData.featureItems
+        });
+
+        const mappedData = {
             id: apiData.id || 0,
             title: apiData.title || '',
             subtitle: apiData.subtitle || '',
@@ -13,11 +39,15 @@ class ThirdSectionMapper {
             processSteps: (apiData.processSteps || []).map(step => this.mapProcessStepFromApi(step)),
             featureItems: (apiData.featureItems || []).map(item => this.mapFeatureItemFromApi(item))
         };
+
+        console.log('🎯 ThirdSectionMapper: Mapped data result:', mappedData);
+        return mappedData;
     }
 
-    // Map frontend data to API format
     mapToApi(frontendData) {
-        return {
+        console.log('🔍 ThirdSectionMapper: Mapping to API data:', frontendData);
+
+        const apiData = {
             id: frontendData.id || 0,
             title: frontendData.title || '',
             subtitle: frontendData.subtitle || '',
@@ -25,22 +55,27 @@ class ThirdSectionMapper {
             processSteps: (frontendData.processSteps || []).map(step => this.mapProcessStepToApi(step)),
             featureItems: (frontendData.featureItems || []).map(item => this.mapFeatureItemToApi(item))
         };
+
+        console.log('🎯 ThirdSectionMapper: API data result:', apiData);
+        return apiData;
     }
 
-    // Map process step from API
     mapProcessStepFromApi(apiStep) {
+        if (!apiStep) return this.getEmptyProcessStep();
+
         return {
             id: apiStep.id || 0,
             stepNumber: apiStep.stepNumber || 0,
             title: apiStep.title || '',
             description: apiStep.description || '',
             icon: apiStep.icon || '',
-            isNew: apiStep.id === 0 // Flag for new items
+            isNew: apiStep.id === 0
         };
     }
 
-    // Map process step to API
     mapProcessStepToApi(frontendStep) {
+        if (!frontendStep) return this.getEmptyProcessStep();
+
         return {
             id: frontendStep.id || 0,
             stepNumber: frontendStep.stepNumber || 0,
@@ -50,19 +85,21 @@ class ThirdSectionMapper {
         };
     }
 
-    // Map feature item from API
     mapFeatureItemFromApi(apiItem) {
+        if (!apiItem) return this.getEmptyFeatureItem();
+
         return {
             id: apiItem.id || 0,
             title: apiItem.title || '',
             description: apiItem.description || '',
             icon: apiItem.icon || '',
-            isNew: apiItem.id === 0 // Flag for new items
+            isNew: apiItem.id === 0
         };
     }
 
-    // Map feature item to API
     mapFeatureItemToApi(frontendItem) {
+        if (!frontendItem) return this.getEmptyFeatureItem();
+
         return {
             id: frontendItem.id || 0,
             title: frontendItem.title || '',
@@ -71,7 +108,6 @@ class ThirdSectionMapper {
         };
     }
 
-    // Get empty third section structure
     getEmptyThirdSection() {
         return {
             id: 0,
@@ -83,7 +119,6 @@ class ThirdSectionMapper {
         };
     }
 
-    // Get empty process step
     getEmptyProcessStep(stepNumber = 0) {
         return {
             id: 0,
@@ -95,7 +130,6 @@ class ThirdSectionMapper {
         };
     }
 
-    // Get empty feature item
     getEmptyFeatureItem() {
         return {
             id: 0,
@@ -106,69 +140,58 @@ class ThirdSectionMapper {
         };
     }
 
-    // Prepare data for form (add temporary IDs for new items)
+    generateUniqueKey(item, index, type = 'item') {
+        if (item.id && item.id > 0) {
+            return `${type}_${item.id}`;
+        }
+        if (item.tempId) {
+            return item.tempId;
+        }
+        return `${type}_temp_${index}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
     prepareForForm(data) {
         const preparedData = { ...data };
 
         // Add temporary IDs for new process steps
         preparedData.processSteps = (preparedData.processSteps || []).map((step, index) => ({
             ...step,
-            tempId: step.id === 0 ? `temp_step_${index}` : undefined
+            tempId: step.id === 0 ? `temp_step_${index}_${Date.now()}` : undefined
         }));
 
         // Add temporary IDs for new feature items
         preparedData.featureItems = (preparedData.featureItems || []).map((item, index) => ({
             ...item,
-            tempId: item.id === 0 ? `temp_item_${index}` : undefined
+            tempId: item.id === 0 ? `temp_item_${index}_${Date.now()}` : undefined
         }));
 
         return preparedData;
     }
 
-    // Clean data before submission (remove temporary IDs)
     cleanBeforeSubmit(data) {
         const cleanedData = { ...data };
 
         cleanedData.processSteps = (cleanedData.processSteps || []).map(step => {
-            const { tempId, ...cleanStep } = step;
+            const { tempId, isNew, ...cleanStep } = step;
             return cleanStep;
         });
 
         cleanedData.featureItems = (cleanedData.featureItems || []).map(item => {
-            const { tempId, ...cleanItem } = item;
+            const { tempId, isNew, ...cleanItem } = item;
             return cleanItem;
         });
 
         return cleanedData;
     }
 
-    // Merge existing data with updates
-    mergeData(existingData, updates) {
-        return {
-            ...existingData,
-            ...updates,
-            processSteps: this.mergeArrays(existingData.processSteps, updates.processSteps, 'id'),
-            featureItems: this.mergeArrays(existingData.featureItems, updates.featureItems, 'id')
-        };
-    }
-
-    // Helper method to merge arrays while preserving order
-    mergeArrays(existingArray, updateArray, key) {
-        if (!updateArray) return existingArray || [];
-        if (!existingArray) return updateArray;
-
-        const merged = [...existingArray];
-
-        updateArray.forEach(updateItem => {
-            const existingIndex = merged.findIndex(item => item[key] === updateItem[key]);
-            if (existingIndex >= 0) {
-                merged[existingIndex] = { ...merged[existingIndex], ...updateItem };
-            } else {
-                merged.push(updateItem);
-            }
-        });
-
-        return merged;
+    isEmpty(data) {
+        return !data ||
+            (!data.id &&
+                !data.title &&
+                !data.subtitle &&
+                !data.description &&
+                (!data.processSteps || data.processSteps.length === 0) &&
+                (!data.featureItems || data.featureItems.length === 0));
     }
 }
 

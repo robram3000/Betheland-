@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { schedulePropertiesMapper } from '../mappers';
+import { schedulePropertiesMapper } from '../mappers/schedulePropertiesMapper';
 
 const API_BASE_URL = '/api';
 
@@ -107,7 +107,6 @@ class SchedulePropertiesService {
         try {
             const backendData = schedulePropertiesMapper.toCreateRequest(scheduleData);
 
-            // Ensure we're only sending the IDs, not the full objects
             const requestPayload = {
                 propertyId: backendData.propertyId,
                 agentId: backendData.agentId,
@@ -128,7 +127,6 @@ class SchedulePropertiesService {
         } catch (error) {
             console.error('Error creating schedule:', error);
 
-            // Enhanced error logging for debugging
             if (error.response) {
                 console.error('Backend response error:', {
                     status: error.response.status,
@@ -155,9 +153,15 @@ class SchedulePropertiesService {
         }
     }
 
-    async cancelSchedule(id) {
+    async cancelSchedule(id, cancellationReason = '') {
         try {
-            const response = await this.client.patch(`/ScheduleProperties/${id}/cancel`);
+            const requestData = {
+                status: 'Cancelled',
+                cancellationReason: cancellationReason,
+                updatedAt: new Date().toISOString()
+            };
+
+            const response = await this.client.patch(`/ScheduleProperties/${id}/cancel`, requestData);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error cancelling schedule:', error);
@@ -165,9 +169,23 @@ class SchedulePropertiesService {
         }
     }
 
-    async reschedule(id, newScheduleTime) {
+    async reschedule(id, newScheduleTime, newScheduleEndTime = null, rescheduleReason = '') {
         try {
-            const response = await this.client.patch(`/ScheduleProperties/${id}/reschedule`, newScheduleTime);
+            let scheduleEndTime = newScheduleEndTime;
+            if (!scheduleEndTime && newScheduleTime) {
+                const baseTime = new Date(newScheduleTime);
+                scheduleEndTime = new Date(baseTime.getTime() + 60 * 60 * 1000).toISOString();
+            }
+
+            const requestData = {
+                scheduleTime: newScheduleTime,
+                scheduleEndTime: scheduleEndTime,
+                status: 'Rescheduled',
+                rescheduleReason: rescheduleReason,
+                updatedAt: new Date().toISOString()
+            };
+
+            const response = await this.client.patch(`/ScheduleProperties/${id}/reschedule`, requestData);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error rescheduling:', error);
@@ -175,9 +193,29 @@ class SchedulePropertiesService {
         }
     }
 
+    async updateNotes(id, notes) {
+        try {
+            const requestData = {
+                notes: notes,
+                updatedAt: new Date().toISOString()
+            };
+
+            const response = await this.client.patch(`/ScheduleProperties/${id}/notes`, requestData);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error updating notes:', error);
+            throw error;
+        }
+    }
+
     async completeSchedule(id) {
         try {
-            const response = await this.client.patch(`/ScheduleProperties/${id}/complete`);
+            const requestData = {
+                status: 'Completed',
+                updatedAt: new Date().toISOString()
+            };
+
+            const response = await this.client.patch(`/ScheduleProperties/${id}/complete`, requestData);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error completing schedule:', error);
@@ -185,12 +223,39 @@ class SchedulePropertiesService {
         }
     }
 
-    async deleteSchedule(id) {
+    async quickReschedule(id, date, time) {
         try {
-            const response = await this.client.delete(`/ScheduleProperties/${id}`);
+            const scheduleTime = `${date}T${time}:00`;
+            return await this.reschedule(id, scheduleTime);
+        } catch (error) {
+            console.error('Error in quick reschedule:', error);
+            throw error;
+        }
+    }
+
+    async bulkUpdateStatus(scheduleIds, status, reason = '') {
+        try {
+            const requestData = {
+                scheduleIds: scheduleIds,
+                status: status,
+                reason: reason,
+                updatedAt: new Date().toISOString()
+            };
+
+            const response = await this.client.patch('/ScheduleProperties/bulk/status', requestData);
+            return schedulePropertiesMapper.toFrontendList(response.data);
+        } catch (error) {
+            console.error('Error in bulk status update:', error);
+            throw error;
+        }
+    }
+
+    async getScheduleHistory(id) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/${id}/history`);
             return response.data;
         } catch (error) {
-            console.error('Error deleting schedule:', error);
+            console.error('Error fetching schedule history:', error);
             throw error;
         }
     }
@@ -207,7 +272,6 @@ class SchedulePropertiesService {
         }
     }
 
-    // New debug method to test backend validation
     async debugBackendValidation(testData) {
         try {
             const response = await this.client.post('/ScheduleProperties/debug/test-creation', testData);
@@ -231,10 +295,8 @@ class SchedulePropertiesService {
                 responseData: serverError
             };
 
-            // Enhanced status code handling
             if (error.response.status === 400) {
                 errorObj.message = serverError.message || 'Bad request - please check your data';
-                // Include validation errors if available
                 if (serverError.errors) {
                     errorObj.validationErrors = serverError.errors;
                 }

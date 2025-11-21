@@ -48,8 +48,8 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 _logger.LogInformation("Property Details - Title: {Title}, Type: {Type}, Price: {Price}, Bedrooms: {Bedrooms}, Bathrooms: {Bathrooms}",
                     request.Property.Title, request.Property.Type, request.Property.Price, request.Property.Bedrooms, request.Property.Bathrooms);
 
-                _logger.LogInformation("Address Details - Address: {Address}, City: {City}, State: {State}, Zip: {ZipCode}",
-                    request.Property.Address, request.Property.City, request.Property.State, request.Property.ZipCode);
+                _logger.LogInformation("Address Details - Address: {Address}, City: {City}, State: {State}, Zip: {ZipCode}, Barangay: {Barangay}",
+                    request.Property.Address, request.Property.City, request.Property.State, request.Property.ZipCode, request.Property.Barangay);
 
                 // Validate owner exists if provided
                 if (request.Property.OwnerId.HasValue && request.Property.OwnerId > 0)
@@ -632,6 +632,7 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 City = dto.City,
                 State = dto.State,
                 ZipCode = dto.ZipCode,
+                Barangay = dto.Barangay,
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
                 Status = dto.Status,
@@ -671,6 +672,7 @@ namespace Realstate_servcices.Server.Services.PropertyCreation
                 City = property.City,
                 State = property.State,
                 ZipCode = property.ZipCode,
+                Barangay = property.Barangay,
                 Latitude = property.Latitude,
                 Longitude = property.Longitude,
                 Status = property.Status,

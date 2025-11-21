@@ -1,5 +1,7 @@
 export class ApiMapper {
     static mapChat(chatData) {
+        if (!chatData) return null;
+
         return {
             id: chatData.id,
             chatNo: chatData.chatNo,
@@ -16,6 +18,8 @@ export class ApiMapper {
     }
 
     static mapChatParticipant(participantData) {
+        if (!participantData) return null;
+
         return {
             id: participantData.id,
             chatId: participantData.chatId,
@@ -44,7 +48,10 @@ export class ApiMapper {
             username: memberData.username
         };
     }
+
     static mapMessage(messageData) {
+        if (!messageData) return null;
+
         return {
             id: messageData.id,
             messageNo: messageData.messageNo,
@@ -62,7 +69,10 @@ export class ApiMapper {
             reactions: messageData.reactions?.map(r => this.mapMessageReaction(r)) || []
         };
     }
+
     static mapMessageFile(fileData) {
+        if (!fileData) return null;
+
         return {
             id: fileData.id,
             messageId: fileData.messageId,
@@ -77,6 +87,8 @@ export class ApiMapper {
     }
 
     static mapMessageReaction(reactionData) {
+        if (!reactionData) return null;
+
         return {
             id: reactionData.id,
             messageId: reactionData.messageId,
@@ -88,6 +100,8 @@ export class ApiMapper {
     }
 
     static mapNotification(notificationData) {
+        if (!notificationData) return null;
+
         return {
             id: notificationData.id,
             notificationNo: notificationData.notificationNo,

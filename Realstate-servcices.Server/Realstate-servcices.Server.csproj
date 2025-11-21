@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <Folder Include="Entity\footer\" />
+    <Folder Include="Entity\landingpage\NewFolder\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// SchedulePropertiesController.cs
+using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
@@ -17,11 +18,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetAllSchedules()
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetAllSchedules()
         {
             try
             {
-                var schedules = await _scheduleService.GetAllSchedulesAsync();
+                var schedules = await _scheduleService.GetAllSchedulesDtoAsync();
                 return Ok(schedules);
             }
             catch (Exception ex)
@@ -31,11 +32,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ScheduleProperties>> GetScheduleById(int id)
+        public async Task<ActionResult<ScheduleResponseDto>> GetScheduleById(int id)
         {
             try
             {
-                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                var schedule = await _scheduleService.GetScheduleByIdDtoAsync(id);
                 if (schedule == null)
                     return NotFound($"Schedule with ID {id} not found.");
 
@@ -63,42 +64,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        // In SchedulePropertiesController.cs - Update the GetSchedulesByAgent method
+
         [HttpGet("agent/{agentId}")]
         public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByAgent(int agentId)
         {
             try
             {
-                var schedules = await _scheduleService.GetSchedulesByAgentAsync(agentId);
-                var scheduleDtos = schedules.Select(s => new ScheduleResponseDto
-                {
-                    Id = s.Id,
-                    ScheduleNo = s.ScheduleNo,
-                    PropertyId = s.PropertyId,
-                    AgentId = s.AgentId,
-                    ClientId = s.ClientId,
-                    ScheduleTime = s.ScheduleTime,
-                    ScheduleEndTime = s.ScheduleEndTime,
-                    Status = s.Status,
-                    Notes = s.Notes,
-                    MeetingType = s.MeetingType,
-                    MeetingLocation = s.MeetingLocation,
-                    VirtualMeetingLink = s.VirtualMeetingLink,
-                    CancelledAt = s.CancelledAt,
-                    CompletedAt = s.CompletedAt,
-                    CancellationReason = s.CancellationReason,
-                    CreatedAt = s.CreatedAt,
-                    UpdatedAt = s.UpdatedAt,
-
-                    // Enhanced mapping with null checks
-                    PropertyTitle = s.Property?.Title ?? string.Empty,
-                    PropertyAddress = s.Property?.Address ?? string.Empty,
-                    AgentName = s.Agent != null ? $"{s.Agent.FirstName} {s.Agent.LastName}" : string.Empty,
-                    ClientName = s.Client != null ? $"{s.Client.FirstName} {s.Client.LastName}" : string.Empty,
-                        
-                }).ToList();
-
-                return Ok(scheduleDtos);
+                var schedules = await _scheduleService.GetSchedulesByAgentDtoAsync(agentId);
+                return Ok(schedules);
             }
             catch (Exception ex)
             {
@@ -106,13 +79,12 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
         }
 
-
         [HttpGet("client/{clientId}")]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByClient(int clientId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByClient(int clientId)
         {
             try
             {
-                var schedules = await _scheduleService.GetSchedulesByClientAsync(clientId);
+                var schedules = await _scheduleService.GetSchedulesByClientDtoAsync(clientId);
                 return Ok(schedules);
             }
             catch (Exception ex)
@@ -122,11 +94,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet("property/{propertyId}")]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByProperty(int propertyId)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByProperty(int propertyId)
         {
             try
             {
-                var schedules = await _scheduleService.GetSchedulesByPropertyAsync(propertyId);
+                var schedules = await _scheduleService.GetSchedulesByPropertyDtoAsync(propertyId);
                 return Ok(schedules);
             }
             catch (Exception ex)
@@ -136,11 +108,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet("status/{status}")]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByStatus(string status)
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByStatus(string status)
         {
             try
             {
-                var schedules = await _scheduleService.GetSchedulesByStatusAsync(status);
+                var schedules = await _scheduleService.GetSchedulesByStatusDtoAsync(status);
                 return Ok(schedules);
             }
             catch (Exception ex)
@@ -150,12 +122,12 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpGet("date-range")]
-        public async Task<ActionResult<IEnumerable<ScheduleProperties>>> GetSchedulesByDateRange(
+        public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetSchedulesByDateRange(
             [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
         {
             try
             {
-                var schedules = await _scheduleService.GetSchedulesByDateRangeAsync(startDate, endDate);
+                var schedules = await _scheduleService.GetSchedulesByDateRangeDtoAsync(startDate, endDate);
                 return Ok(schedules);
             }
             catch (Exception ex)
@@ -163,6 +135,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
         [HttpPost]
         public async Task<ActionResult<ScheduleProperties>> CreateSchedule(CreateScheduleRequest request)
         {
@@ -331,7 +304,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         {
             try
             {
-                var availabilities = await _scheduleService.GetSchedulesByAgentAsync(agentId);
+                var availabilities = await _scheduleService.GetSchedulesByAgentDtoAsync(agentId);
 
                 // Group by day for better visualization
                 var availabilityByDay = availabilities

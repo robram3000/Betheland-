@@ -13,15 +13,21 @@ using Realstate_servcices.Server.Entity.Member;
 using Realstate_servcices.Server.Repositories;
 using Realstate_servcices.Server.Repository.ContentLandingPage;
 using Realstate_servcices.Server.Repository.Conversation;
+using Realstate_servcices.Server.Repository.DeviceInfoRepository;
 using Realstate_servcices.Server.Repository.OTP;
 using Realstate_servcices.Server.Repository.Properties;
+using Realstate_servcices.Server.Repository.Ratings;
+using Realstate_servcices.Server.Repository.ScheduleDao;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Repository.WishRepo;
 using Realstate_servcices.Server.Services.Authentication;
 using Realstate_servcices.Server.Services.ConfigLandingpage;
 using Realstate_servcices.Server.Services.Conversation;
+using Realstate_servcices.Server.Services.Device;
+using Realstate_servcices.Server.Services.Ipaddress;
 using Realstate_servcices.Server.Services.ProfileCreation;
 using Realstate_servcices.Server.Services.PropertyCreation;
+using Realstate_servcices.Server.Services.Ratings;
 using Realstate_servcices.Server.Services.Scheduling;
 using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Services.SMTP.interfaces;
@@ -29,6 +35,8 @@ using Realstate_servcices.Server.Services.SMTP.rollout;
 using Realstate_servcices.Server.Services.Wishlist;
 using Realstate_servcices.Server.Utilities.Storage;
 using System.Text;
+using System.Text.Json.Serialization;
+using static Realstate_servcices.Server.Repository.DeviceInfoRepository.IDeviceInfoRepository;
 using static Realstate_servcices.Server.Services.Scheduling.ISchedulePropertiesService;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
@@ -112,21 +120,26 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
 builder.Services.AddScoped<IBaseMemberRepository, BaseMemberRepository>();
-
-
-// landing page config services
-
+builder.Services.AddScoped<IRatingRepository, RatingRepository>();
+builder.Services.AddScoped<IRatingService, RatingService>();
+builder.Services.AddScoped<IRatingSchedulesRepository, RatingSchedulesRepository>();
+builder.Services.AddScoped<IRatingSchedulesServices, RatingSchedulesServices>();
+builder.Services.AddScoped<IDeviceInfoRepository, DeviceInfoRepository>();
+builder.Services.AddScoped<IDeviceInfoService, DeviceInfoService>();
+builder.Services.AddScoped<IIPAddressService, IPAddressService>();
+builder.Services.AddScoped<ISystemInformationService, SystemInformationService>();
 builder.Services.AddScoped<IThirdSectionRepository, ThirdSectionRepository>();
 builder.Services.AddScoped<IThirdSectionServices, ThirdSectionServices>();
-
-
 builder.Services.AddScoped<IPartnershipContentRepository, PartnershipContentRepository>();
 builder.Services.AddScoped<IPartnershipContentService, PartnershipContentService>();
-
 builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
 builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
-
-
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

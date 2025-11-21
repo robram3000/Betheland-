@@ -30,6 +30,7 @@ namespace Realstate_servcices.Server.Services.Conversation
             {
                 ChatId = createDto.ChatId,
                 SenderId = senderId,
+                // FIXED: RecipientId removed
                 Content = createDto.Content,
                 MessageType = createDto.MessageType,
                 SentAt = DateTime.UtcNow
@@ -64,6 +65,7 @@ namespace Realstate_servcices.Server.Services.Conversation
             return MapToMessageDto(createdMessage);
         }
 
+        // ... rest of the methods remain the same as your original
         public async Task<List<MessageDto>> GetChatMessagesAsync(int chatId, int userId, int page = 1, int pageSize = 50)
         {
             if (!await _chatRepository.UserHasAccessToChatAsync(userId, chatId))
@@ -163,7 +165,6 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Sender = message.Sender != null ? new BaseMemberDto
                 {
                     Id = message.Sender.Id,
-               
                 } : null,
                 Files = message.MessageFiles.Select(f => new MessageFileDto
                 {
@@ -187,7 +188,6 @@ namespace Realstate_servcices.Server.Services.Conversation
                     Member = r.BaseMember != null ? new BaseMemberDto
                     {
                         Id = r.BaseMember.Id,
-                 
                     } : null
                 }).ToList()
             };

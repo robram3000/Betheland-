@@ -23,6 +23,7 @@ namespace Realstate_servcices.Server.Dto.Property
         public string City { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
+        public string Barangay { get; set; } = string.Empty;
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public string Status { get; set; } = "available";

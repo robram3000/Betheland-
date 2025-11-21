@@ -1,4 +1,4 @@
-// ScheduleProperties.jsx
+// ScheduleProperties.jsx - Fixed with real service integration
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -16,7 +16,9 @@ import {
     Row,
     Col,
     Popconfirm,
-    InputNumber
+    InputNumber,
+    Alert,
+    Spin
 } from 'antd';
 import {
     PlusOutlined,
@@ -24,9 +26,11 @@ import {
     DeleteOutlined,
     CheckOutlined,
     CloseOutlined,
-    HomeOutlined
+    HomeOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
+import propertyService from '../Creation_Property/services/propertyService';
 
 // Destructure necessary components
 const { Option } = Select;
@@ -38,6 +42,7 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [form] = Form.useForm();
+    const [error, setError] = useState(null);
 
     const propertyTypes = [
         'Residential',
@@ -61,53 +66,44 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
 
     const loadProperties = async () => {
         setLoading(true);
+        setError(null);
         try {
-            // Mock data - replace with actual service call when available
-            const mockData = [
-                {
-                    id: 1,
-                    title: 'Luxury Villa in Beverly Hills',
-                    address: '123 Beverly Hills, CA',
-                    type: 'Residential',
-                    status: 'Available',
-                    isSchedulable: true,
-                    maxVisitors: 5,
-                    visitDurationMinutes: 60,
-                    specialInstructions: 'Please bring shoe covers',
-                    contactPerson: 'John Doe',
-                    contactPhone: '+1234567890'
-                },
-                {
-                    id: 2,
-                    title: 'Modern Apartment Downtown',
-                    address: '456 Downtown Ave, NY',
-                    type: 'Commercial',
-                    status: 'Under Contract',
-                    isSchedulable: false,
-                    maxVisitors: 3,
-                    visitDurationMinutes: 45,
-                    specialInstructions: 'Security clearance required',
-                    contactPerson: 'Jane Smith',
-                    contactPhone: '+1234567891'
-                },
-                {
-                    id: 3,
-                    title: 'Family Home in Suburbs',
-                    address: '789 Suburb Lane, TX',
-                    type: 'Residential',
-                    status: 'Available',
-                    isSchedulable: true,
-                    maxVisitors: 6,
-                    visitDurationMinutes: 90,
-                    specialInstructions: 'Parking available in driveway',
-                    contactPerson: 'Mike Johnson',
-                    contactPhone: '+1234567892'
-                }
-            ];
-            setProperties(mockData);
+            // Use actual service instead of mock data
+            const propertiesData = await propertyService.getAllProperties();
+
+            if (propertiesData && Array.isArray(propertiesData)) {
+                // Map the properties to include scheduling-specific fields
+                const mappedProperties = propertiesData.map(property => ({
+                    id: property.id,
+                    title: property.title,
+                    address: property.address,
+                    city: property.city,
+                    state: property.state,
+                    type: property.propertyType || 'Residential',
+                    status: property.status || 'Available',
+                    isSchedulable: property.isActive !== false, // Default to true if active
+                    maxVisitors: property.maxVisitors || 5,
+                    visitDurationMinutes: property.visitDurationMinutes || 60,
+                    specialInstructions: property.specialInstructions || '',
+                    contactPerson: property.contactPerson || 'Property Manager',
+                    contactPhone: property.contactPhone || 'N/A',
+                    price: property.price,
+                    bedrooms: property.bedrooms,
+                    bathrooms: property.bathrooms,
+                    areaSqm: property.areaSqm,
+                    mainImage: property.mainImage
+                }));
+                setProperties(mappedProperties);
+            } else {
+                setProperties([]);
+                message.warning('No properties found');
+            }
         } catch (error) {
             console.error('Error loading properties:', error);
-            message.error('Failed to load properties');
+            const errorMessage = error.message || 'Failed to load properties';
+            setError(errorMessage);
+            message.error(errorMessage);
+            setProperties([]);
         } finally {
             setLoading(false);
         }
@@ -121,18 +117,33 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
 
     const handleEdit = (property) => {
         setSelectedProperty(property);
-        form.setFieldsValue(property);
+        form.setFieldsValue({
+            title: property.title,
+            address: property.address,
+            type: property.type,
+            status: property.status,
+            maxVisitors: property.maxVisitors,
+            visitDurationMinutes: property.visitDurationMinutes,
+            specialInstructions: property.specialInstructions,
+            contactPerson: property.contactPerson,
+            contactPhone: property.contactPhone,
+            isSchedulable: property.isSchedulable
+        });
         setModalVisible(true);
     };
 
     const handleDelete = async (id) => {
         try {
-            // API call to delete property - implement when service is available
-            message.success('Property deleted successfully');
-            loadProperties();
-            if (onScheduleUpdate) onScheduleUpdate();
+            // Use actual service to delete property
+            const result = await propertyService.deleteProperty(id);
+            if (result) {
+                message.success('Property deleted successfully');
+                loadProperties();
+                if (onScheduleUpdate) onScheduleUpdate();
+            }
         } catch (error) {
-            message.error('Failed to delete property');
+            console.error('Error deleting property:', error);
+            message.error(error.message || 'Failed to delete property');
         }
     };
 
@@ -144,18 +155,25 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
             };
 
             if (selectedProperty) {
-                // Update existing - implement when service is available
-                message.success('Property updated successfully');
+                // Update existing property
+                const result = await propertyService.updateProperty(selectedProperty.id, propertyData);
+                if (result) {
+                    message.success('Property updated successfully');
+                }
             } else {
-                // Create new - implement when service is available
-                message.success('Property created successfully');
+                // Create new property
+                const result = await propertyService.createProperty(propertyData);
+                if (result) {
+                    message.success('Property created successfully');
+                }
             }
 
             setModalVisible(false);
             loadProperties();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            message.error('Failed to save property');
+            console.error('Error saving property:', error);
+            message.error(error.message || 'Failed to save property');
         }
     };
 
@@ -168,6 +186,24 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
             'Maintenance': 'purple'
         };
         return colors[status] || 'default';
+    };
+
+    const renderErrorAlert = () => {
+        if (!error) return null;
+        return (
+            <Alert
+                message="Loading Error"
+                description={error}
+                type="error"
+                showIcon
+                action={
+                    <Button size="small" onClick={loadProperties} icon={<ReloadOutlined />}>
+                        Retry
+                    </Button>
+                }
+                style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+        );
     };
 
     const columns = [
@@ -287,6 +323,8 @@ const ScheduleProperties = ({ onScheduleUpdate }) => {
                         Add Property
                     </Button>
                 </div>
+
+                {renderErrorAlert()}
 
                 <BaseTable
                     data={properties}
