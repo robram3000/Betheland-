@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip, Skeleton } from 'antd';
+import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip, Skeleton, message } from 'antd';
 import {
     MenuOutlined,
     CloseOutlined,
@@ -13,13 +13,13 @@ import {
     BellOutlined,
     EyeOutlined,
     PhoneOutlined,
-    MailOutlined,
-    ReloadOutlined
+    MailOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../Authpage/Services/LoginAuth';
 import profileService from '../Accounts/Services/ProfileService';
 import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
+import chatService from '../Employeesportal/AdminPortal/Convo/chatService';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -29,19 +29,80 @@ const useSafeWishlistData = () => {
     try {
         const { useWishlistData } = require('../Property/Services/WishlistAdded');
         const wishlistData = useWishlistData();
+
+        // Add debugging
+        console.log('🔄 Wishlist Data:', {
+            count: wishlistData.wishlistCount,
+            items: wishlistData.wishlistItems?.length,
+            authenticated: wishlistData.isAuthenticated,
+            updateTrigger: wishlistData.updateTrigger
+        });
+
         return wishlistData;
     } catch (error) {
+        console.error('❌ Wishlist hook error:', error);
         return {
             wishlistCount: 0,
             isAuthenticated: false,
-            refreshWishlist: () => { },
+            refreshWishlist: () => console.log('Wishlist not available'),
             toggleWishlist: () => Promise.resolve(),
             isPropertyInWishlist: () => Promise.resolve(false),
             loading: false,
             wishlistPropertyIds: [],
-            updateTrigger: 0
+            updateTrigger: 0,
+            wishlistItems: []
         };
     }
+};
+
+// Helper functions for notifications
+const formatNotificationTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+
+    return date.toLocaleDateString();
+};
+
+const mapNotificationType = (notificationType) => {
+    const typeMap = {
+        'property_match': 'property',
+        'property_update': 'property',
+        'schedule_reminder': 'schedule',
+        'schedule_update': 'schedule',
+        'message_received': 'message',
+        'price_drop': 'price',
+        'new_message': 'message',
+        'chat_invitation': 'message'
+    };
+    return typeMap[notificationType] || 'property';
+};
+
+const getNotificationColor = (type) => {
+    const colors = {
+        property: '#1890ff',
+        schedule: '#52c41a',
+        message: '#722ed1',
+        price: '#fa541c'
+    };
+    return colors[type] || '#1890ff';
+};
+
+const getNotificationIcon = (type) => {
+    const icons = {
+        property: '🏠',
+        schedule: '📅',
+        message: '💬',
+        price: '💰'
+    };
+    return icons[type] || '🔔';
 };
 
 const GlobalNavigation = () => {
@@ -53,6 +114,9 @@ const GlobalNavigation = () => {
     const [profileData, setProfileData] = useState(null);
     const [profileImageError, setProfileImageError] = useState(false);
     const [loadingProfile, setLoadingProfile] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
+    const [notificationCount, setNotificationCount] = useState(0);
     const screens = useBreakpoint();
     const {
         wishlistCount,
@@ -61,43 +125,8 @@ const GlobalNavigation = () => {
         wishlistPropertyIds,
         updateTrigger
     } = useSafeWishlistData();
-    const [notifications, setNotifications] = useState([
-        {
-            id: 1,
-            title: 'New Property Match',
-            description: 'A new property matching your criteria is available',
-            time: '5 min ago',
-            read: false,
-            type: 'property'
-        },
-        {
-            id: 2,
-            title: 'Schedule Reminder',
-            description: 'Your property viewing is scheduled for tomorrow',
-            time: '1 hour ago',
-            read: false,
-            type: 'schedule'
-        },
-        {
-            id: 3,
-            title: 'Message Received',
-            description: 'You have a new message from the agent',
-            time: '2 hours ago',
-            read: true,
-            type: 'message'
-        },
-        {
-            id: 4,
-            title: 'Price Drop',
-            description: 'A property in your wishlist has reduced price',
-            time: '1 day ago',
-            read: true,
-            type: 'price'
-        }
-    ]);
 
     const displayWishlistCount = wishlistCount || 0;
-    const notificationCount = notifications.filter(notification => !notification.read).length;
     const companyContact = {
         phone: '0977-849-1888 / 0917-791-1981',
         email: 'allanlao@betheland.com.ph'
@@ -108,6 +137,134 @@ const GlobalNavigation = () => {
         { key: '/about', label: 'About Us' },
         { key: '/contact-us', label: 'Contact Us' }
     ];
+
+    // Load real notifications
+    const loadNotifications = useCallback(async () => {
+        if (!isLoggedIn) {
+            setNotifications([]);
+            setNotificationCount(0);
+            return;
+        }
+
+        setLoadingNotifications(true);
+        try {
+            const userNotifications = await chatService.getUserNotifications(true); // unreadOnly = true
+            const mappedNotifications = userNotifications.map(notification => ({
+                id: notification.id,
+                title: notification.title,
+                description: notification.content,
+                time: formatNotificationTime(notification.createdAt),
+                read: notification.isRead,
+                type: mapNotificationType(notification.notificationType),
+                rawNotification: notification
+            }));
+
+            setNotifications(mappedNotifications);
+            setNotificationCount(mappedNotifications.filter(n => !n.read).length);
+        } catch (error) {
+            console.error('💥 Error loading notifications:', error);
+            // Fallback to empty array on error
+            setNotifications([]);
+            setNotificationCount(0);
+        } finally {
+            setLoadingNotifications(false);
+        }
+    }, [isLoggedIn]);
+
+    // Load notification count separately for performance
+    const loadNotificationCount = useCallback(async () => {
+        if (!isLoggedIn) {
+            setNotificationCount(0);
+            return;
+        }
+
+        try {
+            const countData = await chatService.getNotificationCount();
+            if (countData.success) {
+                setNotificationCount(countData.unreadCount);
+            }
+        } catch (error) {
+            console.error('💥 Error loading notification count:', error);
+        }
+    }, [isLoggedIn]);
+
+    // Real notification actions
+    const markAsRead = async (notificationId) => {
+        try {
+            await chatService.markNotificationAsRead(notificationId);
+            setNotifications(prev =>
+                prev.map(notif =>
+                    notif.id === notificationId ? { ...notif, read: true } : notif
+                )
+            );
+            setNotificationCount(prev => Math.max(0, prev - 1));
+            message.success('Notification marked as read');
+        } catch (error) {
+            console.error('💥 Error marking notification as read:', error);
+            message.error('Failed to mark notification as read');
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            await chatService.markAllNotificationsAsRead();
+            setNotifications(prev =>
+                prev.map(notif => ({ ...notif, read: true }))
+            );
+            setNotificationCount(0);
+            message.success('All notifications marked as read');
+        } catch (error) {
+            console.error('💥 Error marking all notifications as read:', error);
+            message.error('Failed to mark all notifications as read');
+        }
+    };
+
+    const deleteNotification = async (notificationId) => {
+        try {
+            await chatService.deleteNotification(notificationId);
+            setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+            setNotificationCount(prev => {
+                const notification = notifications.find(n => n.id === notificationId);
+                return notification && !notification.read ? Math.max(0, prev - 1) : prev;
+            });
+            message.success('Notification deleted');
+        } catch (error) {
+            console.error('💥 Error deleting notification:', error);
+            message.error('Failed to delete notification');
+        }
+    };
+
+    const handleNotificationClick = (notification) => {
+        // Mark as read when clicked
+        if (!notification.read) {
+            markAsRead(notification.id);
+        }
+
+        // Navigate based on notification type
+        const navData = notification.rawNotification?.data;
+        switch (notification.type) {
+            case 'property':
+                if (navData?.propertyId) {
+                    navigate(`/properties/${navData.propertyId}`);
+                } else {
+                    navigate('/properties');
+                }
+                break;
+            case 'schedule':
+                navigate('/schedule');
+                break;
+            case 'message':
+                if (navData?.chatId) {
+                    navigate(`/messages?chat=${navData.chatId}`);
+                } else {
+                    navigate('/messages');
+                }
+                break;
+            default:
+                navigate('/notifications');
+        }
+        setDrawerVisible(false);
+    };
 
     const loadUserProfile = async () => {
         if (!isLoggedIn) return;
@@ -167,6 +324,15 @@ const GlobalNavigation = () => {
             }
             setCurrentUser(user);
             setProfileImageError(false);
+
+            // Force wishlist refresh when auth is confirmed
+            setTimeout(() => {
+                if (window.wishlistContextRef) {
+                    window.wishlistContextRef.refreshAuth();
+                    window.wishlistContextRef.loadWishlist();
+                }
+                refreshWishlist();
+            }, 100);
         } else {
             // Ensure clean state when not authenticated
             setCurrentUser(null);
@@ -184,10 +350,14 @@ const GlobalNavigation = () => {
     useEffect(() => {
         if (isLoggedIn) {
             loadUserProfile();
+            loadNotifications();
+            loadNotificationCount();
         } else {
             setProfileData(null);
+            setNotifications([]);
+            setNotificationCount(0);
         }
-    }, [isLoggedIn]);
+    }, [isLoggedIn, loadNotifications, loadNotificationCount]);
 
     useEffect(() => {
         if (isLoggedIn) {
@@ -195,22 +365,38 @@ const GlobalNavigation = () => {
         }
     }, [isLoggedIn, updateTrigger, refreshWishlist]);
 
+    // Debug wishlist state
+    useEffect(() => {
+        console.log('🔍 GlobalNavigation Wishlist State:', {
+            displayWishlistCount,
+            isWishlistAuthenticated,
+            isLoggedIn,
+            updateTrigger
+        });
+    }, [displayWishlistCount, isWishlistAuthenticated, isLoggedIn, updateTrigger]);
+
+    // Auto-refresh notifications and wishlist
     useEffect(() => {
         if (isLoggedIn) {
             const interval = setInterval(() => {
                 refreshWishlist();
-            }, 30000);
+                loadNotificationCount(); // Lightweight count check
+            }, 30000); // Every 30 seconds
 
             return () => clearInterval(interval);
         }
-    }, [isLoggedIn, refreshWishlist]);
+    }, [isLoggedIn, refreshWishlist, loadNotificationCount]);
+
+    // Refresh notifications when navigating to notification-related pages
+    useEffect(() => {
+        if (isLoggedIn && (location.pathname === '/notifications' || location.pathname === '/messages')) {
+            loadNotifications();
+        }
+    }, [location.pathname, isLoggedIn, loadNotifications]);
 
     // Add session termination detection
     useEffect(() => {
-        // Handle page refresh/close - check auth status
         const handleBeforeUnload = () => {
-            // If using sessionStorage, it will be cleared on tab close
-            // This is just a safety check
             if (!authService.isAuthenticated()) {
                 authService.logout();
             }
@@ -258,6 +444,7 @@ const GlobalNavigation = () => {
 
     const handleNotificationsClick = () => {
         navigate('/notifications');
+        setDrawerVisible(false);
     };
 
     const handleLogout = () => {
@@ -266,7 +453,9 @@ const GlobalNavigation = () => {
         setCurrentUser(null);
         setProfileData(null);
         setProfileImageError(false);
-        navigate('/');
+        setNotifications([]);
+        setNotificationCount(0);
+        window.location.href = '/';
         setDrawerVisible(false);
     };
 
@@ -286,18 +475,11 @@ const GlobalNavigation = () => {
         }
     };
 
-    const markAsRead = (notificationId) => {
-        setNotifications(prev =>
-            prev.map(notif =>
-                notif.id === notificationId ? { ...notif, read: true } : notif
-            )
-        );
-    };
-
-    const markAllAsRead = () => {
-        setNotifications(prev =>
-            prev.map(notif => ({ ...notif, read: true }))
-        );
+    const refreshNotifications = () => {
+        if (isLoggedIn) {
+            loadNotifications();
+            loadNotificationCount();
+        }
     };
 
     const getDisplayName = () => {
@@ -313,7 +495,6 @@ const GlobalNavigation = () => {
                 return fullName;
             }
         }
-
 
         if (profileData?.username && profileData.username.trim() !== '') {
             return profileData.username;
@@ -366,85 +547,106 @@ const GlobalNavigation = () => {
                 background: 'white'
             }}>
                 <Text strong>Notifications</Text>
-                {notificationCount > 0 && (
-                    <Button
-                        type="link"
-                        size="small"
-                        onClick={markAllAsRead}
-                        style={{ padding: 0, height: 'auto' }}
-                    >
-                        Mark all as read
-                    </Button>
-                )}
+                <Space>
+                    {notificationCount > 0 && (
+                        <Button
+                            type="link"
+                            size="small"
+                            onClick={markAllAsRead}
+                            style={{ padding: 0, height: 'auto' }}
+                        >
+                            Mark all as read
+                        </Button>
+                    )}
+                </Space>
             </div>
 
-            <List
-                dataSource={notifications}
-                locale={{ emptyText: 'No notifications' }}
-                renderItem={(notification) => (
-                    <List.Item
-                        style={{
-                            padding: '12px 16px',
-                            cursor: 'pointer',
-                            backgroundColor: notification.read ? 'white' : '#f6ffed',
-                            borderBottom: '1px solid #f0f0f0',
-                            transition: 'background-color 0.3s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed';
-                        }}
-                        onClick={() => markAsRead(notification.id)}
-                    >
-                        <List.Item.Meta
-                            avatar={
-                                <Badge dot={!notification.read}>
-                                    <div style={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: '50%',
-                                        backgroundColor: getNotificationColor(notification.type),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        {getNotificationIcon(notification.type)}
-                                    </div>
-                                </Badge>
-                            }
-                            title={
-                                <Text
-                                    strong={!notification.read}
-                                    style={{ fontSize: '14px' }}
+            {loadingNotifications ? (
+                <div style={{ padding: '16px' }}>
+                    <Skeleton active paragraph={{ rows: 3 }} />
+                </div>
+            ) : (
+                <List
+                    dataSource={notifications}
+                    locale={{ emptyText: 'No notifications' }}
+                    renderItem={(notification) => (
+                        <List.Item
+                            style={{
+                                padding: '12px 16px',
+                                cursor: 'pointer',
+                                backgroundColor: notification.read ? 'white' : '#f6ffed',
+                                borderBottom: '1px solid #f0f0f0',
+                                transition: 'background-color 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed';
+                            }}
+                            onClick={() => handleNotificationClick(notification)}
+                            actions={[
+                                <Button
+                                    type="text"
+                                    size="small"
+                                    danger
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNotification(notification.id);
+                                    }}
                                 >
-                                    {notification.title}
-                                </Text>
-                            }
-                            description={
-                                <div>
+                                    Delete
+                                </Button>
+                            ]}
+                        >
+                            <List.Item.Meta
+                                avatar={
+                                    <Badge dot={!notification.read}>
+                                        <div style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: '50%',
+                                            backgroundColor: getNotificationColor(notification.type),
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {getNotificationIcon(notification.type)}
+                                        </div>
+                                    </Badge>
+                                }
+                                title={
                                     <Text
-                                        type="secondary"
-                                        style={{ fontSize: '12px', display: 'block' }}
+                                        strong={!notification.read}
+                                        style={{ fontSize: '14px' }}
                                     >
-                                        {notification.description}
+                                        {notification.title}
                                     </Text>
-                                    <Text
-                                        type="secondary"
-                                        style={{ fontSize: '11px', display: 'block', marginTop: 2 }}
-                                    >
-                                        {notification.time}
-                                    </Text>
-                                </div>
-                            }
-                        />
-                    </List.Item>
-                )}
-            />
+                                }
+                                description={
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: '12px', display: 'block' }}
+                                        >
+                                            {notification.description}
+                                        </Text>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: '11px', display: 'block', marginTop: 2 }}
+                                        >
+                                            {notification.time}
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                        </List.Item>
+                    )}
+                />
+            )}
 
             <div style={{
                 padding: '12px 16px',
@@ -464,26 +666,6 @@ const GlobalNavigation = () => {
         </div>
     );
 
-    const getNotificationColor = (type) => {
-        const colors = {
-            property: '#1890ff',
-            schedule: '#52c41a',
-            message: '#722ed1',
-            price: '#fa541c'
-        };
-        return colors[type] || '#1890ff';
-    };
-
-    const getNotificationIcon = (type) => {
-        const icons = {
-            property: '🏠',
-            schedule: '📅',
-            message: '💬',
-            price: '💰'
-        };
-        return icons[type] || '🔔';
-    };
-
     const userMenuItems = [
         {
             key: 'user-info',
@@ -495,16 +677,6 @@ const GlobalNavigation = () => {
                     <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
                         {getUserEmail()}
                     </div>
-                    <Button
-                        type="link"
-                        size="small"
-                        onClick={refreshProfile}
-                        loading={loadingProfile}
-                        icon={<ReloadOutlined />}
-                        style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
-                    >
-                        Refresh Profile
-                    </Button>
                 </div>
             ),
             disabled: true,
@@ -655,6 +827,11 @@ const GlobalNavigation = () => {
                                             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                                             borderRadius: '8px',
                                             background: 'white'
+                                        }}
+                                        onOpenChange={(open) => {
+                                            if (open) {
+                                                refreshNotifications();
+                                            }
                                         }}
                                     >
                                         <Badge count={notificationCount} size="small" offset={[-5, 5]}>
@@ -929,7 +1106,8 @@ const GlobalNavigation = () => {
                                         style={{
                                             background: '#001529',
                                             borderColor: '#001529',
-                                            fontWeight: '500'
+                                            fontWeight: '500',
+                                            height: '44px'
                                         }}
                                         aria-label="Register new account"
                                     >
@@ -1246,16 +1424,6 @@ const GlobalNavigation = () => {
                                 }}>
                                     {getUserEmail()}
                                 </div>
-                                <Button
-                                    type="link"
-                                    size="small"
-                                    onClick={refreshProfile}
-                                    loading={loadingProfile}
-                                    icon={<ReloadOutlined />}
-                                    style={{ padding: 0, height: 'auto', fontSize: '11px', marginTop: '4px' }}
-                                >
-                                    Refresh
-                                </Button>
                             </div>
                         </div>
 

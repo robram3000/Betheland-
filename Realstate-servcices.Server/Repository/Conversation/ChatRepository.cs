@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// ChatRepository.cs
+using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Chat;
 
@@ -13,100 +14,130 @@ namespace Realstate_servcices.Server.Repository.Conversation
             _context = context;
         }
 
-        public async Task<Chat> GetByIdAsync(int chatId)
+        public async Task<Chat> CreateAsync(Chat chat)
+        {
+            _context.Chats.Add(chat);
+            await _context.SaveChangesAsync();
+            return chat;
+        }
+
+        public async Task<Chat?> GetByIdAsync(int id)
+        {
+            return await _context.Chats
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .FirstOrDefaultAsync(c => c.Id == id);
+        }
+
+        public async Task<Chat?> GetByIdWithPropertyAsync(int id)
         {
             return await _context.Chats
                 .Include(c => c.Participants)
                     .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(m => m.Client)
+                        .ThenInclude(bm => bm.Client)
                 .Include(c => c.Participants)
                     .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(m => m.Agent)
+                        .ThenInclude(bm => bm.Agent)
+                .Include(c => c.Participants)
+                    .ThenInclude(p => p.Recipient)
                 .Include(c => c.Messages)
                     .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Client)
                 .Include(c => c.Messages)
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Agent)
+                    .ThenInclude(m => m.Recipient)
                 .Include(c => c.Messages)
                     .ThenInclude(m => m.MessageFiles)
                 .Include(c => c.Messages)
                     .ThenInclude(m => m.Reactions)
                         .ThenInclude(r => r.BaseMember)
-                            .ThenInclude(bm => bm.Client)
-                .Include(c => c.Messages)
-                    .ThenInclude(m => m.Reactions)
-                        .ThenInclude(r => r.BaseMember)
-                            .ThenInclude(bm => bm.Agent)
-                .FirstOrDefaultAsync(c => c.Id == chatId);
-        }
-
-        public async Task<Chat?> GetByChatNoAsync(Guid chatNo)
-        {
-            return await _context.Chats
-                .FirstOrDefaultAsync(c => c.ChatNo == chatNo);
+                .Include(c => c.Property) // Include property
+                .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task<List<Chat>> GetUserChatsAsync(int userId)
         {
             return await _context.Chats
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Client)
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Agent)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Client)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Agent)
                 .Where(c => c.Participants.Any(p => p.BaseMemberId == userId && p.IsActive))
-                .OrderByDescending(c => c.UpdatedAt)
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Chat>> GetUserChatsWithPropertiesAsync(int userId)
+        {
+            return await _context.Chats
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == userId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .Include(c => c.Property) // Include property
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<List<Chat>> GetByClientChatAsync(int clientId)
         {
             return await _context.Chats
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Client)
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Agent)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Client)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Agent)
-                .Where(c => c.Participants.Any(p => p.BaseMemberId == clientId && p.IsActive) &&
-                           c.Participants.Any(p => p.BaseMember.Client != null))
-                .OrderByDescending(c => c.UpdatedAt)
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == clientId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Chat>> GetByClientChatWithPropertiesAsync(int clientId)
+        {
+            return await _context.Chats
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == clientId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .Include(c => c.Property) // Include property
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<List<Chat>> GetByAgentChatAsync(int agentId)
         {
             return await _context.Chats
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Client)
-                .Include(c => c.Participants.Where(p => p.IsActive))
-                    .ThenInclude(p => p.BaseMember)
-                        .ThenInclude(bm => bm.Agent)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Client)
-                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-                    .ThenInclude(m => m.Sender)
-                        .ThenInclude(s => s.Agent)
-                .Where(c => c.Participants.Any(p => p.BaseMemberId == agentId && p.IsActive) &&
-                           c.Participants.Any(p => p.BaseMember.Agent != null))
-                .OrderByDescending(c => c.UpdatedAt)
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == agentId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
                 .ToListAsync();
+        }
+
+        public async Task<List<Chat>> GetByAgentChatWithPropertiesAsync(int agentId)
+        {
+            return await _context.Chats
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == agentId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .Include(c => c.Property) // Include property
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Chat> UpdateAsync(Chat chat)
+        {
+            _context.Chats.Update(chat);
+            await _context.SaveChangesAsync();
+            return chat;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var chat = await _context.Chats.FindAsync(id);
+            if (chat == null)
+                return false;
+
+            _context.Chats.Remove(chat);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> UserHasAccessToChatAsync(int userId, int chatId)
+        {
+            return await _context.ChatParticipants
+                .AnyAsync(p => p.ChatId == chatId && p.BaseMemberId == userId && p.IsActive);
         }
 
         public async Task UpdateLastMessageAsync(int chatId, string lastMessage, DateTime lastMessageAt)
@@ -121,35 +152,25 @@ namespace Realstate_servcices.Server.Repository.Conversation
             }
         }
 
-        public async Task<Chat> CreateAsync(Chat chat)
+        public async Task<List<Chat>> GetChatsByRecipientAsync(int recipientId)
         {
-            _context.Chats.Add(chat);
-            await _context.SaveChangesAsync();
-            return chat;
+            return await _context.Chats
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == recipientId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+                .ToListAsync();
         }
 
-        public async Task<Chat> UpdateAsync(Chat chat)
+        public async Task<List<Chat>> GetChatsByRecipientWithPropertiesAsync(int recipientId)
         {
-            chat.UpdatedAt = DateTime.UtcNow;
-            _context.Chats.Update(chat);
-            await _context.SaveChangesAsync();
-            return chat;
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var chat = await _context.Chats.FindAsync(id);
-            if (chat == null) return false;
-
-            _context.Chats.Remove(chat);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> UserHasAccessToChatAsync(int userId, int chatId)
-        {
-            return await _context.ChatParticipants
-                .AnyAsync(p => p.ChatId == chatId && p.BaseMemberId == userId && p.IsActive);
+            return await _context.Chats
+                .Where(c => c.Participants.Any(p => p.BaseMemberId == recipientId && p.IsActive))
+                .Include(c => c.Participants)
+                .Include(c => c.Messages)
+                .Include(c => c.Property) 
+                .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+                .ToListAsync();
         }
     }
 }

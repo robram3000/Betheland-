@@ -9,5 +9,8 @@ namespace Realstate_servcices.Server.Repository.Conversation
         Task<Message> UpdateAsync(Message message);
         Task<bool> DeleteAsync(int id);
         Task<int> GetUnreadCountAsync(int chatId, int userId);
+
+        // Fixed method signature - removed userId parameter
+        Task<List<Message>> GetMessagesByRecipientAsync(int recipientId, int page = 1, int pageSize = 50);
     }
 }

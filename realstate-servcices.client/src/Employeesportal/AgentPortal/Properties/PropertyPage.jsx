@@ -358,13 +358,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             </span>
                         )}
                     </span>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleAddProperty}
-                    >
-                        Add New Property
-                    </Button>
+           
                 </div>
             );
         }

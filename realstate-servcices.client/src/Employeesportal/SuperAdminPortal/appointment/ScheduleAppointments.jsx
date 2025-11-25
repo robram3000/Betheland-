@@ -1,4 +1,4 @@
-// ScheduleAppointments.jsx - Fixed with real service integration
+// ScheduleAppointments.jsx - Fixed with Scheduled status for reopen and removed create appointment
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -19,7 +19,10 @@ import {
     Statistic,
     Popconfirm,
     InputNumber,
-    Alert
+    Alert,
+    Dropdown,
+    Menu,
+    TimePicker
 } from 'antd';
 import {
     SearchOutlined,
@@ -32,7 +35,14 @@ import {
     CheckCircleOutlined,
     CloseCircleOutlined,
     ClockCircleOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    MoreOutlined,
+    StopOutlined,
+    CheckOutlined,
+    ExclamationCircleOutlined,
+    SyncOutlined,
+    PlayCircleOutlined,
+    PauseCircleOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
@@ -42,7 +52,7 @@ import SchedulePropertiesService from '../../AdminPortal/appointment/Services/Sc
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 import clientService from '../../AdminPortal/Creation_Agent/Services/ClientService';
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
-import { schedulePropertiesMapper } from '../../AdminPortal/appointment/mappers/schedulePropertiesMapper'; 
+import { schedulePropertiesMapper } from '../../AdminPortal/appointment/mappers/schedulePropertiesMapper';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -50,10 +60,12 @@ const { Option } = Select;
 const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [modalVisible, setModalVisible] = useState(false);
     const [viewModalVisible, setViewModalVisible] = useState(false);
+    const [statusModalVisible, setStatusModalVisible] = useState(false);
+    const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
-    const [form] = Form.useForm();
+    const [selectedStatus, setSelectedStatus] = useState('');
+    const [rescheduleForm] = Form.useForm();
     const [agents, setAgents] = useState([]);
     const [properties, setProperties] = useState([]);
     const [clients, setClients] = useState([]);
@@ -84,7 +96,6 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             console.log('Raw appointments data:', schedules);
 
             if (schedules && Array.isArray(schedules)) {
-                // Use the mapper to format the data
                 const mappedAppointments = schedulePropertiesMapper.toFrontendList(schedules);
                 console.log('Mapped appointments:', mappedAppointments);
                 setAppointments(mappedAppointments);
@@ -169,26 +180,6 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         }
     };
 
-    const handleCreate = () => {
-        setSelectedAppointment(null);
-        form.resetFields();
-        setModalVisible(true);
-    };
-
-    const handleEdit = (appointment) => {
-        setSelectedAppointment(appointment);
-        form.setFieldsValue({
-            agentId: appointment.agentId,
-            clientId: appointment.clientId,
-            propertyId: appointment.propertyId,
-            scheduleTime: moment(appointment.scheduleTime),
-            notes: appointment.notes,
-            meetingType: appointment.meetingType,
-            meetingLocation: appointment.meetingLocation
-        });
-        setModalVisible(true);
-    };
-
     const handleView = (appointment) => {
         setSelectedAppointment(appointment);
         setViewModalVisible(true);
@@ -196,6 +187,13 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const handleDelete = async (id) => {
         try {
+            // Check if appointment can be deleted
+            const canDelete = await scheduleService.canScheduleBeDeleted(id);
+            if (!canDelete) {
+                message.warning('Cannot delete a completed or cancelled appointment');
+                return;
+            }
+
             await scheduleService.deleteSchedule(id);
             message.success('Appointment deleted successfully');
             loadAppointments();
@@ -206,64 +204,134 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         }
     };
 
-    const handleSubmit = async (values) => {
+    // NEW: Complete status actions using the new service methods
+    const handleAccept = async (id) => {
         try {
-            const appointmentData = {
-                agentId: parseInt(values.agentId),
-                clientId: parseInt(values.clientId),
-                propertyId: parseInt(values.propertyId),
-                scheduleTime: values.scheduleTime.format(),
-                notes: values.notes || '',
-                meetingType: values.meetingType || 'InPerson',
-                meetingLocation: values.meetingLocation || '',
-                status: 'Scheduled'
-            };
-
-            if (selectedAppointment) {
-                // Update existing appointment
-                await scheduleService.updateSchedule(selectedAppointment.id, appointmentData);
-                message.success('Appointment updated successfully');
-            } else {
-                // Create new appointment using the mapper
-                const createData = schedulePropertiesMapper.toCreateRequest(appointmentData);
-                await scheduleService.createSchedule(createData);
-                message.success('Appointment created successfully');
-            }
-
-            setModalVisible(false);
+            await scheduleService.acceptSchedule(id);
+            message.success('Appointment accepted successfully');
             loadAppointments();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            console.error('Error saving appointment:', error);
-            message.error(error.message || 'Failed to save appointment');
+            console.error('Error accepting appointment:', error);
+            message.error(error.message || 'Failed to accept appointment');
         }
     };
 
-    const handleStatusChange = async (id, newStatus) => {
+    const handleComplete = async (id) => {
         try {
-            if (newStatus === 'Completed') {
-                await scheduleService.completeSchedule(id);
-            } else if (newStatus === 'Cancelled') {
-                await scheduleService.cancelSchedule(id);
-            }
-
-            message.success(`Appointment ${newStatus.toLowerCase()} successfully`);
+            await scheduleService.completeSchedule(id);
+            message.success('Appointment marked as completed');
             loadAppointments();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
-            console.error('Error updating appointment status:', error);
-            message.error(error.message || 'Failed to update appointment status');
+            console.error('Error completing appointment:', error);
+            message.error(error.message || 'Failed to complete appointment');
+        }
+    };
+
+    const handleCancel = async (id, reason = '') => {
+        try {
+            await scheduleService.cancelSchedule(id, reason);
+            message.success('Appointment cancelled successfully');
+            loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
+        } catch (error) {
+            console.error('Error cancelling appointment:', error);
+            message.error(error.message || 'Failed to cancel appointment');
+        }
+    };
+
+    const handleReschedule = async (id, newScheduleTime, reason = '') => {
+        try {
+            await scheduleService.reschedule(id, newScheduleTime, reason);
+            message.success('Appointment rescheduled successfully');
+            loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
+        } catch (error) {
+            console.error('Error rescheduling appointment:', error);
+            message.error(error.message || 'Failed to reschedule appointment');
+        }
+    };
+
+    // MODIFIED: Reopen sets status to "Scheduled" instead of "Pending"
+    const handleReopen = async (id) => {
+        try {
+            // For reopening cancelled appointments, we'll update directly to Scheduled status
+            await scheduleService.updateSchedule(id, {
+                status: 'Scheduled',
+                cancelledAt: null,
+                cancellationReason: null
+            });
+            message.success('Appointment reopened and scheduled successfully');
+            loadAppointments();
+            if (onScheduleUpdate) onScheduleUpdate();
+        } catch (error) {
+            console.error('Error reopening appointment:', error);
+            message.error(error.message || 'Failed to reopen appointment');
+        }
+    };
+
+    // Status change modal handlers
+    const openCancelModal = (appointment) => {
+        setSelectedAppointment(appointment);
+        setSelectedStatus('Cancelled');
+        setStatusModalVisible(true);
+    };
+
+    const openRescheduleModal = (appointment) => {
+        setSelectedAppointment(appointment);
+        rescheduleForm.setFieldsValue({
+            newScheduleTime: moment(appointment.scheduleTime)
+        });
+        setRescheduleModalVisible(true);
+    };
+
+    const handleStatusSubmit = async (values) => {
+        try {
+            if (selectedStatus === 'Cancelled') {
+                await handleCancel(selectedAppointment.id, values.reason || '');
+            }
+            setStatusModalVisible(false);
+        } catch (error) {
+            console.error('Error updating status:', error);
+            message.error(error.message || 'Failed to update status');
+        }
+    };
+
+    const handleRescheduleSubmit = async (values) => {
+        try {
+            await handleReschedule(
+                selectedAppointment.id,
+                values.newScheduleTime.format(),
+                values.reason || ''
+            );
+            setRescheduleModalVisible(false);
+        } catch (error) {
+            console.error('Error rescheduling:', error);
+            message.error(error.message || 'Failed to reschedule appointment');
         }
     };
 
     const getStatusColor = (status) => {
         const colors = {
+            'Pending': 'gold',
             'Scheduled': 'blue',
             'Completed': 'green',
             'Cancelled': 'red',
             'Rescheduled': 'orange'
         };
         return colors[status] || 'default';
+    };
+
+    const getStatusIcon = (status) => {
+        const icons = {
+            'Pending': <ClockCircleOutlined />,
+            'Scheduled': <PlayCircleOutlined />,
+            'Completed': <CheckCircleOutlined />,
+            'Cancelled': <CloseCircleOutlined />,
+            'Rescheduled': <SyncOutlined />
+        };
+        return icons[status] || <ClockCircleOutlined />;
     };
 
     const renderErrorAlert = () => {
@@ -284,8 +352,93 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         );
     };
 
+    const getAvailableActions = (appointment) => {
+        const actions = [];
+        const status = appointment.status;
+
+        switch (status) {
+            case 'Pending':
+                actions.push(
+                    {
+                        key: 'accept',
+                        label: 'Accept',
+                        icon: <CheckOutlined />,
+                        onClick: () => handleAccept(appointment.id),
+                        color: 'green'
+                    },
+                    {
+                        key: 'cancel',
+                        label: 'Cancel',
+                        icon: <CloseCircleOutlined />,
+                        onClick: () => openCancelModal(appointment),
+                        color: 'red'
+                    }
+                );
+                break;
+            case 'Scheduled':
+                actions.push(
+                    {
+                        key: 'complete',
+                        label: 'Complete',
+                        icon: <CheckCircleOutlined />,
+                        onClick: () => handleComplete(appointment.id),
+                        color: 'green'
+                    },
+                    {
+                        key: 'reschedule',
+                        label: 'Reschedule',
+                        icon: <SyncOutlined />,
+                        onClick: () => openRescheduleModal(appointment),
+                        color: 'orange'
+                    },
+                    {
+                        key: 'cancel',
+                        label: 'Cancel',
+                        icon: <CloseCircleOutlined />,
+                        onClick: () => openCancelModal(appointment),
+                        color: 'red'
+                    }
+                );
+                break;
+            case 'Rescheduled':
+                actions.push(
+                    {
+                        key: 'complete',
+                        label: 'Complete',
+                        icon: <CheckCircleOutlined />,
+                        onClick: () => handleComplete(appointment.id),
+                        color: 'green'
+                    },
+                    {
+                        key: 'cancel',
+                        label: 'Cancel',
+                        icon: <CloseCircleOutlined />,
+                        onClick: () => openCancelModal(appointment),
+                        color: 'red'
+                    }
+                );
+                break;
+            case 'Cancelled':
+                actions.push(
+                    {
+                        key: 'reopen',
+                        label: 'Reopen as Scheduled', // MODIFIED: Changed label
+                        icon: <ReloadOutlined />,
+                        onClick: () => handleReopen(appointment.id),
+                        color: 'blue'
+                    }
+                );
+                break;
+            case 'Completed':
+                // No actions for completed appointments
+                break;
+        }
+
+        return actions;
+    };
+
     const columns = [
-      
+       
         {
             title: 'Agent',
             dataIndex: 'agentName',
@@ -355,7 +508,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
             key: 'status',
             width: 120,
             render: (status) => (
-                <Tag color={getStatusColor(status)}>
+                <Tag color={getStatusColor(status)} icon={getStatusIcon(status)}>
                     {status}
                 </Tag>
             )
@@ -363,49 +516,64 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         {
             title: 'Actions',
             key: 'actions',
-            width: 150,
-            render: (_, record) => (
-                <Space size="small">
-                    <Tooltip title="View Details">
-                        <Button
-                            icon={<EyeOutlined />}
-                            size="small"
-                            onClick={() => handleView(record)}
-                        />
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                        <Button
-                            icon={<EditOutlined />}
-                            size="small"
-                            onClick={() => handleEdit(record)}
-                        />
-                    </Tooltip>
-                    <Popconfirm
-                        title="Are you sure to delete this appointment?"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Tooltip title="Delete">
+            width: 200,
+            render: (_, record) => {
+                const availableActions = getAvailableActions(record);
+
+                const actionMenu = (
+                    <Menu>
+                        {availableActions.map(action => (
+                            <Menu.Item
+                                key={action.key}
+                                icon={action.icon}
+                                onClick={action.onClick}
+                                style={{ color: action.color }}
+                            >
+                                {action.label}
+                            </Menu.Item>
+                        ))}
+                    </Menu>
+                );
+
+                return (
+                    <Space size="small">
+                        <Tooltip title="View Details">
                             <Button
-                                icon={<DeleteOutlined />}
+                                icon={<EyeOutlined />}
                                 size="small"
-                                danger
+                                onClick={() => handleView(record)}
                             />
                         </Tooltip>
-                    </Popconfirm>
-                    {record.status === 'Scheduled' && (
-                        <Tooltip title="Mark Complete">
-                            <Button
-                                icon={<CheckCircleOutlined />}
-                                size="small"
-                                type="primary"
-                                onClick={() => handleStatusChange(record.id, 'Completed')}
-                            />
-                        </Tooltip>
-                    )}
-                </Space>
-            )
+
+                        {/* Status Actions Dropdown */}
+                        {availableActions.length > 0 && (
+                            <Dropdown overlay={actionMenu} trigger={['click']}>
+                                <Button
+                                    icon={<MoreOutlined />}
+                                    size="small"
+                                />
+                            </Dropdown>
+                        )}
+
+                        {record.canDelete && (
+                            <Popconfirm
+                                title="Are you sure to delete this appointment?"
+                                onConfirm={() => handleDelete(record.id)}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <Tooltip title="Delete">
+                                    <Button
+                                        icon={<DeleteOutlined />}
+                                        size="small"
+                                        danger
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
+                        )}
+                    </Space>
+                );
+            }
         }
     ];
 
@@ -423,39 +591,48 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
 
     const stats = {
         total: appointments.length,
+        pending: appointments.filter(a => a.status === 'Pending').length,
         scheduled: appointments.filter(a => a.status === 'Scheduled').length,
         completed: appointments.filter(a => a.status === 'Completed').length,
-        upcoming: appointments.filter(a =>
-            a.status === 'Scheduled' &&
-            moment(a.scheduleTime).isAfter(moment())
-        ).length
+        cancelled: appointments.filter(a => a.status === 'Cancelled').length,
+        rescheduled: appointments.filter(a => a.status === 'Rescheduled').length
     };
 
     return (
         <div>
             {/* Statistics Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={12} sm={6}>
+                <Col xs={12} sm={4}>
                     <Card size="small">
                         <Statistic
-                            title="Total Appointments"
+                            title="Total"
                             value={stats.total}
                             prefix={<CalendarOutlined />}
                             valueStyle={{ color: '#1a365d' }}
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6}>
+                <Col xs={12} sm={4}>
+                    <Card size="small">
+                        <Statistic
+                            title="Pending"
+                            value={stats.pending}
+                            prefix={<ClockCircleOutlined />}
+                            valueStyle={{ color: '#faad14' }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={12} sm={4}>
                     <Card size="small">
                         <Statistic
                             title="Scheduled"
                             value={stats.scheduled}
-                            prefix={<ClockCircleOutlined />}
+                            prefix={<PlayCircleOutlined />}
                             valueStyle={{ color: '#1890ff' }}
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6}>
+                <Col xs={12} sm={4}>
                     <Card size="small">
                         <Statistic
                             title="Completed"
@@ -465,13 +642,13 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6}>
+                <Col xs={12} sm={4}>
                     <Card size="small">
                         <Statistic
-                            title="Upcoming"
-                            value={stats.upcoming}
-                            prefix={<CalendarOutlined />}
-                            valueStyle={{ color: '#faad14' }}
+                            title="Cancelled"
+                            value={stats.cancelled}
+                            prefix={<CloseCircleOutlined />}
+                            valueStyle={{ color: '#ff4d4f' }}
                         />
                     </Card>
                 </Col>
@@ -501,6 +678,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             placeholder="Filter by status"
                         >
                             <Option value="all">All Status</Option>
+                            <Option value="Pending">Pending</Option>
                             <Option value="Scheduled">Scheduled</Option>
                             <Option value="Completed">Completed</Option>
                             <Option value="Cancelled">Cancelled</Option>
@@ -508,13 +686,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                         </Select>
                     </Space>
 
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleCreate}
-                    >
-                        New Appointment
-                    </Button>
+                    {/* REMOVED: New Appointment Button */}
                 </div>
 
                 {renderErrorAlert()}
@@ -532,117 +704,95 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                 />
             </Card>
 
-            {/* Create/Edit Modal */}
+            {/* REMOVED: Create/Edit Modal */}
+
+            {/* Cancel Confirmation Modal */}
             <Modal
-                title={selectedAppointment ? 'Edit Appointment' : 'Create New Appointment'}
-                open={modalVisible}
-                onCancel={() => setModalVisible(false)}
+                title="Cancel Appointment"
+                open={statusModalVisible}
+                onCancel={() => setStatusModalVisible(false)}
                 footer={null}
-                width={600}
+                width={500}
             >
                 <Form
-                    form={form}
                     layout="vertical"
-                    onFinish={handleSubmit}
+                    onFinish={handleStatusSubmit}
                 >
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="agentId"
-                                label="Agent"
-                                rules={[{ required: true, message: 'Please select an agent' }]}
-                            >
-                                <Select placeholder="Select agent" showSearch>
-                                    {agents.map(agent => (
-                                        <Option key={agent.id} value={agent.id}>
-                                            {agent.name} ({agent.phone})
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="clientId"
-                                label="Client"
-                                rules={[{ required: true, message: 'Please select a client' }]}
-                            >
-                                <Select placeholder="Select client" showSearch>
-                                    {clients.map(client => (
-                                        <Option key={client.id} value={client.id}>
-                                            {client.name} ({client.phone})
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
                     <Form.Item
-                        name="propertyId"
-                        label="Property"
-                        rules={[{ required: true, message: 'Please select a property' }]}
+                        name="reason"
+                        label="Reason for Cancellation (Optional)"
                     >
-                        <Select placeholder="Select property" showSearch>
-                            {properties.map(property => (
-                                <Option key={property.id} value={property.id}>
-                                    {property.title} - {property.address}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="scheduleTime"
-                                label="Schedule Date & Time"
-                                rules={[{ required: true, message: 'Please select date and time' }]}
-                            >
-                                <DatePicker
-                                    showTime
-                                    format="YYYY-MM-DD HH:mm"
-                                    style={{ width: '100%' }}
-                                    placeholder="Select date and time"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="meetingType"
-                                label="Meeting Type"
-                                initialValue="InPerson"
-                            >
-                                <Select>
-                                    <Option value="InPerson">In Person</Option>
-                                    <Option value="Virtual">Virtual</Option>
-                                    <Option value="Phone">Phone</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item
-                        name="meetingLocation"
-                        label="Meeting Location"
-                    >
-                        <Input placeholder="Location for in-person meetings" />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="notes"
-                        label="Notes"
-                    >
-                        <TextArea rows={3} placeholder="Additional notes..." />
+                        <TextArea
+                            rows={4}
+                            placeholder="Enter reason for cancellation..."
+                        />
                     </Form.Item>
 
                     <Form.Item style={{ textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={() => setModalVisible(false)}>
+                            <Button onClick={() => setStatusModalVisible(false)}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
-                                {selectedAppointment ? 'Update' : 'Create'} Appointment
+                            <Button
+                                type="primary"
+                                danger
+                                htmlType="submit"
+                                icon={<CloseCircleOutlined />}
+                            >
+                                Cancel Appointment
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Reschedule Modal */}
+            <Modal
+                title="Reschedule Appointment"
+                open={rescheduleModalVisible}
+                onCancel={() => setRescheduleModalVisible(false)}
+                footer={null}
+                width={500}
+            >
+                <Form
+                    form={rescheduleForm}
+                    layout="vertical"
+                    onFinish={handleRescheduleSubmit}
+                >
+                    <Form.Item
+                        name="newScheduleTime"
+                        label="New Schedule Date & Time"
+                        rules={[{ required: true, message: 'Please select new date and time' }]}
+                    >
+                        <DatePicker
+                            showTime
+                            format="YYYY-MM-DD HH:mm"
+                            style={{ width: '100%' }}
+                            placeholder="Select new date and time"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="reason"
+                        label="Reason for Rescheduling (Optional)"
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="Enter reason for rescheduling..."
+                        />
+                    </Form.Item>
+
+                    <Form.Item style={{ textAlign: 'right' }}>
+                        <Space>
+                            <Button onClick={() => setRescheduleModalVisible(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                icon={<SyncOutlined />}
+                            >
+                                Reschedule
                             </Button>
                         </Space>
                     </Form.Item>
@@ -657,16 +807,6 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                 footer={[
                     <Button key="close" onClick={() => setViewModalVisible(false)}>
                         Close
-                    </Button>,
-                    <Button
-                        key="edit"
-                        type="primary"
-                        onClick={() => {
-                            setViewModalVisible(false);
-                            handleEdit(selectedAppointment);
-                        }}
-                    >
-                        Edit Appointment
                     </Button>
                 ]}
                 width={600}
@@ -739,6 +879,38 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                                         marginTop: '8px'
                                     }}>
                                         {selectedAppointment.notes}
+                                    </div>
+                                </Col>
+                            </Row>
+                        )}
+                        {selectedAppointment.cancellationReason && (
+                            <Row gutter={16}>
+                                <Col span={24}>
+                                    <strong>Cancellation Reason:</strong>
+                                    <div style={{
+                                        background: '#fff2f0',
+                                        padding: '12px',
+                                        borderRadius: '6px',
+                                        marginTop: '8px',
+                                        border: '1px solid #ffccc7'
+                                    }}>
+                                        {selectedAppointment.cancellationReason}
+                                    </div>
+                                </Col>
+                            </Row>
+                        )}
+                        {selectedAppointment.rescheduleReason && (
+                            <Row gutter={16}>
+                                <Col span={24}>
+                                    <strong>Reschedule Reason:</strong>
+                                    <div style={{
+                                        background: '#fff7e6',
+                                        padding: '12px',
+                                        borderRadius: '6px',
+                                        marginTop: '8px',
+                                        border: '1px solid #ffd591'
+                                    }}>
+                                        {selectedAppointment.rescheduleReason}
                                     </div>
                                 </Col>
                             </Row>

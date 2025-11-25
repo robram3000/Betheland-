@@ -92,7 +92,7 @@ const SchedulingPage = () => {
                 throw new Error('Unable to determine client ID');
             }
 
-            // Load appointments, properties, and agents
+            // Load appointments first
             let appointmentsData = [];
             try {
                 appointmentsData = await scheduleService.getSchedulesByClient(parseInt(clientId));
@@ -146,10 +146,10 @@ const SchedulingPage = () => {
             }
             setProperties(propertiesData || []);
 
-            // Load agents
+            // Load ALL agents (not just by appointment agentId)
             let agentsData = [];
             try {
-                agentsData = await agentService.getAgent(appointmentsData.agentId);
+                agentsData = await agentService.getAllAgents();
                 if (agentsData && Array.isArray(agentsData)) {
                     agentsData = agentsData.map(agent => ({
                         id: agent.id,
@@ -167,6 +167,7 @@ const SchedulingPage = () => {
             }
             setAgents(agentsData || []);
 
+            // Load additional details for appointments
             if (appointmentsData && appointmentsData.length > 0) {
                 await loadAdditionalDetails(appointmentsData);
             }
@@ -178,8 +179,6 @@ const SchedulingPage = () => {
             setLoading(false);
         }
     };
-
-    // Safe data extraction functions
     const getSafePropertyData = (propertyId) => {
         if (!propertyId) return { title: 'Unknown Property', address: 'No address' };
         if (propertyDetails[propertyId]) {
@@ -228,7 +227,6 @@ const SchedulingPage = () => {
             brokerageName: agent?.brokerageName || 'Real Estate'
         };
     };
-
     const loadAdditionalDetails = async (appointments) => {
         if (!appointments || !Array.isArray(appointments)) return;
         const propertyDetailsCache = {};
@@ -259,7 +257,6 @@ const SchedulingPage = () => {
                     };
                 }
             }
-
             if (appointment.agentId && !agentDetailsCache[appointment.agentId]) {
                 try {
                     const agentDetail = await agentService.getAgent(appointment.agentId);

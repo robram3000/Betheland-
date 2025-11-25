@@ -52,14 +52,15 @@ namespace Realstate_servcices.Server.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("PropertyId")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                    b.Property<int?>("PropertyId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PropertyId");
 
                     b.ToTable("Chats");
                 });
@@ -89,13 +90,14 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Property<string>("ParticipantType")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RecipientId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UnreadCount")
                         .HasColumnType("int");
@@ -103,6 +105,8 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BaseMemberId");
+
+                    b.HasIndex("RecipientId");
 
                     b.HasIndex("ChatId", "BaseMemberId")
                         .IsUnique();
@@ -122,8 +126,8 @@ namespace Realstate_servcices.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Content")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("datetime2");
@@ -139,13 +143,12 @@ namespace Realstate_servcices.Server.Migrations
 
                     b.Property<string>("MessageType")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("RecipientId")
+                    b.Property<int?>("RecipientId")
                         .HasColumnType("int");
 
                     b.Property<int>("SenderId")
@@ -157,6 +160,8 @@ namespace Realstate_servcices.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ChatId");
+
+                    b.HasIndex("RecipientId");
 
                     b.HasIndex("SenderId");
 
@@ -1459,6 +1464,15 @@ namespace Realstate_servcices.Server.Migrations
                     b.ToTable("Clients");
                 });
 
+            modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Chat", b =>
+                {
+                    b.HasOne("Realstate_servcices.Server.Entity.Properties.PropertyHouse", "Property")
+                        .WithMany()
+                        .HasForeignKey("PropertyId");
+
+                    b.Navigation("Property");
+                });
+
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.ChatParticipant", b =>
                 {
                     b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "BaseMember")
@@ -1473,9 +1487,16 @@ namespace Realstate_servcices.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("BaseMember");
 
                     b.Navigation("Chat");
+
+                    b.Navigation("Recipient");
                 });
 
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Message", b =>
@@ -1486,6 +1507,11 @@ namespace Realstate_servcices.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Realstate_servcices.Server.Entity.Member.BaseMember", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -1493,6 +1519,8 @@ namespace Realstate_servcices.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Chat");
+
+                    b.Navigation("Recipient");
 
                     b.Navigation("Sender");
                 });
@@ -1541,7 +1569,7 @@ namespace Realstate_servcices.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Realstate_servcices.Server.Entity.Chat.Message", "Message")
-                        .WithMany("Notifications")
+                        .WithMany()
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Restrict);
 
@@ -1814,8 +1842,6 @@ namespace Realstate_servcices.Server.Migrations
             modelBuilder.Entity("Realstate_servcices.Server.Entity.Chat.Message", b =>
                 {
                     b.Navigation("MessageFiles");
-
-                    b.Navigation("Notifications");
 
                     b.Navigation("Reactions");
                 });

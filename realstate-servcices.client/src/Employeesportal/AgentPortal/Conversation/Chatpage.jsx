@@ -26,8 +26,6 @@ const ChatPageAgent = ({ propertyChatData }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeChat, setActiveChat] = useState(null);
     const [newMessage, setNewMessage] = useState('');
-    const [activeTab, setActiveTab] = useState('all');
-    const [chatType, setChatType] = useState('all');
     const [sidebarVisible, setSidebarVisible] = useState(false);
     const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
     const [fileList, setFileList] = useState([]);
@@ -38,39 +36,68 @@ const ChatPageAgent = ({ propertyChatData }) => {
     const [sendingMessage, setSendingMessage] = useState(false);
     const [userRole, setUserRole] = useState('agent');
     const [currentAgent, setCurrentAgent] = useState(null);
-    const [chats, setChats] = useState([]); 
+    const [chats, setChats] = useState([]);
 
     const textAreaRef = useRef(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
- 
+
     const getCurrentAgentInfo = async () => {
         try {
-         
-            const userData = authService.getCurrentUser();  
+            const userData = authService.getCurrentUser();
+            console.log('🔍 Current user data:', userData);
+
             if (!userData) {
                 console.error('❌ No user found in localStorage');
                 message.error('Please log in to access chats');
                 return null;
             }
-       
-            const userId = userdata.userId;
+
+            // ✅ FIX: Correct variable name and add multiple fallbacks
+            const userId = userData.userId || userData.id || userData.baseMemberId || userData.clientId;
+            console.log('🔍 Extracted user ID:', userId);
+
             if (!userId) {
-                console.error('❌ No user ID found');
+                console.error('❌ No user ID found in:', userData);
                 message.error('User ID not found. Please log in again.');
                 return null;
             }
 
-       
-            const agentData = await agentService.getAgentByBaseMemberId(userId);
-       
+            // ✅ Try different methods to get agent data
+            let agentData;
+            try {
+                agentData = await agentService.getAgentByBaseMemberId(userId);
+                console.log('✅ Agent data from base member:', agentData);
+            } catch (error) {
+                console.log('🔄 Trying alternative agent lookup...', error);
+                try {
+                    // Try getting agent by user ID directly
+                    agentData = await agentService.getAgent(userId);
+                } catch (secondError) {
+                    console.log('🔄 Trying getCurrentAgent...');
+                    try {
+                        agentData = await agentService.getCurrentAgent();
+                    } catch (thirdError) {
+                        console.error('❌ All agent lookup methods failed');
+                        // Create a fallback agent object
+                        agentData = {
+                            id: userId,
+                            firstName: userData.firstName || userData.username || 'Agent',
+                            lastName: userData.lastName || '',
+                            email: userData.email,
+                            baseMemberId: userId
+                        };
+                    }
+                }
+            }
 
-            if (!agentData || !agentData.id) {
-              
+            if (!agentData) {
+                console.error('❌ Agent profile not found for user:', userId);
                 message.error('Agent profile not found. Please complete your agent profile.');
                 return null;
             }
 
+            console.log('✅ Final agent data:', agentData);
             setCurrentAgent(agentData);
             return agentData;
 
@@ -147,7 +174,12 @@ const ChatPageAgent = ({ propertyChatData }) => {
                 property = await propertyService.getProperty(parseInt(propertyId));
             } catch (error) {
                 console.log('Trying alternative property method...');
-                property = await propertyService.getPropertyById(parseInt(propertyId));
+                try {
+                    property = await propertyService.getPropertyById(parseInt(propertyId));
+                } catch (secondError) {
+                    console.log('Trying getPropertyDetails...');
+                    property = await propertyService.getPropertyDetails(parseInt(propertyId));
+                }
             }
 
             if (property) {
@@ -177,90 +209,119 @@ const ChatPageAgent = ({ propertyChatData }) => {
     };
 
     // Load existing chats for agent
-    const loadExistingChats = async (type = 'all') => {
-        if (!currentAgent || !currentAgent.id) {
+    const loadExistingChats = async (agent = null) => {
+        const targetAgent = agent || currentAgent;
+
+        if (!targetAgent || !targetAgent.id) {
             console.error('❌ Current agent not available');
             return;
         }
 
         try {
             setLoadingChats(true);
-            console.log(`🔍 Loading ${type} chats for Agent ID:`, currentAgent.id);
+            console.log(`🔍 Loading chats for Agent:`, targetAgent);
 
             let existingChats = [];
 
-            // Use agent-specific chat service
+            // ✅ Try multiple approaches to get chats
             try {
-                existingChats = await chatService.getAgentChats(currentAgent.id);
+                // First try agent-specific endpoint
+                existingChats = await chatService.getAgentChats(targetAgent.id);
+                console.log('✅ Got chats from agent endpoint:', existingChats);
             } catch (error) {
-                console.log('🔄 Fallback to user chats:', error);
-                existingChats = await chatService.getUserChats();
+                console.log('🔄 Agent endpoint failed, trying user chats...', error);
+                try {
+                    existingChats = await chatService.getUserChats();
+                    console.log('✅ Got chats from user endpoint:', existingChats);
+                } catch (userError) {
+                    console.error('❌ Both chat endpoints failed:', userError);
+                    // Fallback to empty array
+                    existingChats = [];
+                }
             }
 
             if (existingChats && existingChats.length > 0) {
                 console.log(`✅ Found ${existingChats.length} chats`);
 
-                // Process chats with property data
+                // ✅ Process chats
                 const processedChats = await Promise.all(
                     existingChats.map(async (chat) => {
-                        // Fetch property data if needed
-                        if (chat.propertyId) {
-                            chat.propertyData = await getPropertyData(chat.propertyId);
+                        try {
+                            if (chat.propertyId) {
+                                chat.propertyData = await getPropertyData(chat.propertyId);
+                            }
+                            return chat;
+                        } catch (error) {
+                            console.error('❌ Error processing chat:', error);
+                            return chat; // Return chat even if property data fails
                         }
-                        return chat;
                     })
                 );
 
-                // Transform to frontend format
+                // ✅ Transform chats with proper error handling
                 const transformedChats = processedChats.map(chat => {
-                    // For agents, find client participants
-                    const clientParticipant = chat.participants?.find(p =>
-                        p.baseMemberId !== parseInt(currentAgent.id) &&
-                        (p.role === 'client' || p.participantType === 'client')
-                    );
+                    try {
+                        // Find participants excluding current agent
+                        const otherParticipants = chat.participants?.filter(p =>
+                            p.baseMemberId !== parseInt(targetAgent.id)
+                        ) || [];
 
-                    const lastMessage = chat.messages && chat.messages.length > 0
-                        ? chat.messages[chat.messages.length - 1]
-                        : null;
+                        const clientParticipant = otherParticipants.find(p =>
+                            p.role === 'client' || p.participantType === 'client' ||
+                            p.member?.memberType === 'Client'
+                        ) || otherParticipants[0]; // Fallback to first participant
 
-                    // Transform messages
-                    const transformedMessages = (chat.messages || []).map(msg => ({
-                        id: msg.id,
-                        text: msg.content,
-                        sender: msg.senderId === parseInt(currentAgent.id) ? 'me' : 'other',
-                        time: formatMessageTime(new Date(msg.sentAt)),
-                        files: msg.files || [],
-                        senderId: msg.senderId,
-                        isCurrentUser: msg.senderId === parseInt(currentAgent.id)
-                    }));
+                        const lastMessage = chat.messages && chat.messages.length > 0
+                            ? chat.messages[chat.messages.length - 1]
+                            : null;
 
-                    // Determine chat type badge
-                    let chatTypeBadge = 'Direct';
-                    if (chat.chatType === 'property_chat') chatTypeBadge = 'Property';
-                    if (chat.chatType === 'group') chatTypeBadge = 'Group';
+                        // Transform messages
+                        const transformedMessages = (chat.messages || []).map(msg => ({
+                            id: msg.id,
+                            text: msg.content,
+                            sender: msg.senderId === parseInt(targetAgent.id) ? 'me' : 'other',
+                            time: formatMessageTime(new Date(msg.sentAt)),
+                            files: msg.files || [],
+                            senderId: msg.senderId,
+                            isCurrentUser: msg.senderId === parseInt(targetAgent.id)
+                        }));
 
-                    return {
-                        id: chat.id.toString(),
-                        backendChatId: chat.id,
-                        name: chat.name || (clientParticipant?.member?.fullName || 'Unknown Client'),
-                        lastMessage: lastMessage?.content || 'No messages yet',
-                        time: lastMessage ? formatMessageTime(new Date(lastMessage.sentAt)) : 'Just now',
-                        unread: chat.participants?.find(p => p.baseMemberId === parseInt(currentAgent.id))?.unreadCount || 0,
-                        type: chat.chatType || 'direct',
-                        chatTypeBadge: chatTypeBadge,
-                        avatar: clientParticipant?.member?.profileImage || '/default-avatar.png',
-                        online: true,
-                        isPropertyChat: chat.chatType === 'property_chat',
-                        clientData: clientParticipant?.member || null,
-                        propertyData: chat.propertyData || null,
-                        messages: transformedMessages,
-                        participants: chat.participants || [],
-                        chatKey: generateChatKey(chat, currentAgent.id)
-                    };
-                });
+                        // Determine chat type
+                        let chatTypeBadge = 'Direct';
+                        if (chat.chatType === 'property_chat') chatTypeBadge = 'Property';
+                        if (chat.chatType === 'group') chatTypeBadge = 'Group';
 
-                console.log('🎉 Transformed chats:', transformedChats);
+                        return {
+                            id: chat.id?.toString() || `chat-${Date.now()}`,
+                            backendChatId: chat.id,
+                            name: chat.name || (clientParticipant?.member?.fullName || 'Unknown User'),
+                            lastMessage: lastMessage?.content || 'No messages yet',
+                            time: lastMessage ? formatMessageTime(new Date(lastMessage.sentAt)) : 'Just now',
+                            unread: chat.participants?.find(p => p.baseMemberId === parseInt(targetAgent.id))?.unreadCount || 0,
+                            type: chat.chatType || 'direct',
+                            chatTypeBadge: chatTypeBadge,
+                            avatar: clientParticipant?.member?.profileImage || '/default-avatar.png',
+                            online: true,
+                            isPropertyChat: chat.chatType === 'property_chat',
+                            clientData: clientParticipant?.member || null,
+                            propertyData: chat.propertyData || null,
+                            messages: transformedMessages,
+                            participants: chat.participants || [],
+                            chatKey: generateChatKey(chat, targetAgent.id)
+                        };
+                    } catch (error) {
+                        console.error('❌ Error transforming chat:', error, chat);
+                        return null;
+                    }
+                }).filter(chat => chat !== null);
+
+                console.log('🎉 Final transformed chats:', transformedChats);
                 setChats(transformedChats);
+
+                // Auto-select first chat if none selected
+                if (!activeChat && transformedChats.length > 0) {
+                    setActiveChat(transformedChats[0].id);
+                }
             } else {
                 console.log('📭 No chats found');
                 setChats([]);
@@ -284,7 +345,9 @@ const ChatPageAgent = ({ propertyChatData }) => {
                 return;
             }
 
+            console.log('🔍 Loading messages for chat:', chat.backendChatId);
             const messages = await chatService.getChatMessages(chat.backendChatId);
+
             if (messages && messages.length > 0) {
                 const transformedMessages = messages.map(msg => ({
                     id: msg.id,
@@ -304,6 +367,7 @@ const ChatPageAgent = ({ propertyChatData }) => {
             }
         } catch (error) {
             console.error('❌ Error loading messages:', error);
+            message.error('Failed to load messages: ' + (error.message || 'Unknown error'));
         } finally {
             setLoadingMessages(false);
         }
@@ -316,19 +380,15 @@ const ChatPageAgent = ({ propertyChatData }) => {
         const initializeAgent = async () => {
             const agent = await getCurrentAgentInfo();
             if (agent) {
-                loadExistingChats(chatType);
+                await loadExistingChats(agent); // Pass agent directly to avoid timing issues
+            } else {
+                console.error('❌ Failed to initialize agent');
+                message.error('Unable to load agent information');
             }
         };
 
         initializeAgent();
     }, []);
-
-    // Reload when chat type changes
-    useEffect(() => {
-        if (currentAgent && currentAgent.id) {
-            loadExistingChats(chatType);
-        }
-    }, [chatType, currentAgent]);
 
     // Load messages when active chat changes
     useEffect(() => {
@@ -348,9 +408,6 @@ const ChatPageAgent = ({ propertyChatData }) => {
 
     const filteredChats = chats.filter(chat => {
         if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-            return false;
-        }
-        if (activeTab === 'unread' && chat.unread === 0) {
             return false;
         }
         return true;
@@ -802,19 +859,6 @@ const ChatPageAgent = ({ propertyChatData }) => {
         </div>
     );
 
-    const chatTypeOptions = [
-        {
-            label: 'All Chats',
-            value: 'all',
-            icon: <MessageOutlined />
-        },
-        {
-            label: 'Property Chats',
-            value: 'property',
-            icon: <TeamOutlined />
-        }
-    ];
-
     const chatListContent = (
         <Card
             style={{
@@ -847,7 +891,7 @@ const ChatPageAgent = ({ propertyChatData }) => {
                     <Button
                         type="text"
                         icon={<ReloadOutlined />}
-                        onClick={() => loadExistingChats(chatType)}
+                        onClick={() => loadExistingChats()}
                         loading={loadingChats}
                         size="small"
                     />
@@ -858,33 +902,8 @@ const ChatPageAgent = ({ propertyChatData }) => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
                         borderRadius: 0,
-                        width: '100%',
-                        marginBottom: '12px'
+                        width: '100%'
                     }}
-                />
-                <Segmented
-                    options={chatTypeOptions}
-                    value={chatType}
-                    onChange={setChatType}
-                    block
-                    size="small"
-                />
-            </div>
-
-            <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f1f5f9',
-                flexShrink: 0
-            }}>
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    size="small"
-                    items={[
-                        { key: 'all', label: 'All' },
-                        { key: 'unread', label: 'Unread' },
-                    ]}
-                    style={{ width: '100%' }}
                 />
             </div>
 
@@ -1027,9 +1046,7 @@ const ChatPageAgent = ({ propertyChatData }) => {
                     }}>
                         <WechatOutlined style={{ fontSize: '24px', color: '#ccc', marginBottom: '8px' }} />
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                            {searchQuery ? 'No chats match your search' :
-                                chatType === 'all' ? 'No chats available' :
-                                    `No ${chatType} chats available`}
+                            {searchQuery ? 'No chats match your search' : 'No chats available'}
                         </Text>
                     </div>
                 )}

@@ -246,8 +246,11 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
     const handleEdit = (timeOff) => {
         setSelectedTimeOff(timeOff);
         form.setFieldsValue({
-            ...timeOff,
-            dateRange: [moment(timeOff.startDate), moment(timeOff.endDate)]
+            agentId: timeOff.agentId,
+            type: timeOff.type,
+            dateRange: [moment(timeOff.startDate), moment(timeOff.endDate)],
+            reason: timeOff.reason,
+            status: timeOff.status || 'Pending'
         });
         setModalVisible(true);
     };
@@ -267,13 +270,17 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
     const handleSubmit = async (values) => {
         try {
             const timeOffData = {
-                ...values,
+                agentId: values.agentId,
+                type: values.type,
                 startDate: values.dateRange[0].format('YYYY-MM-DD'),
                 endDate: values.dateRange[1].format('YYYY-MM-DD'),
+                reason: values.reason,
+                isAllDay: true,
+                status: values.status || 'Pending',
                 id: selectedTimeOff?.id
             };
 
-            delete timeOffData.dateRange;
+            console.log('Submitting time off data:', timeOffData);
 
             if (selectedTimeOff) {
                 await agentTimeOffService.updateTimeOff(selectedTimeOff.id, timeOffData);
@@ -299,25 +306,16 @@ const AgentTimeOff = ({ onScheduleUpdate }) => {
             if (newStatus === 'Approved') {
                 await agentTimeOffService.approveTimeOff(id);
             } else if (newStatus === 'Rejected') {
-                console.log('Attempting to reject time off...');
-                // Try different possible method names
+                // Try multiple approaches
                 try {
-                    // First try the expected method name
                     await agentTimeOffService.rejectTimeOff(id);
                 } catch (rejectError) {
-                    console.log('rejectTimeOff failed, trying alternative methods...');
-
-                    // Try alternative method names
-                    if (agentTimeOffService.denyTimeOff) {
-                        await agentTimeOffService.denyTimeOff(id);
-                    } else if (agentTimeOffService.declineTimeOff) {
-                        await agentTimeOffService.declineTimeOff(id);
-                    } else if (agentTimeOffService.cancelTimeOff) {
-                        await agentTimeOffService.cancelTimeOff(id);
-                    } else {
-                        // Fallback to update method
-                        await agentTimeOffService.updateTimeOff(id, { status: 'Rejected' });
-                    }
+                    console.log('rejectTimeOff failed, trying update method...');
+                    // Fallback to update method
+                    await agentTimeOffService.updateTimeOff(id, {
+                        status: 'Rejected',
+                        isApproved: false
+                    });
                 }
             }
 

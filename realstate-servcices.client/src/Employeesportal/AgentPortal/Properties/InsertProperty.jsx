@@ -644,6 +644,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         ? Object.values(amenities).flat()
         : [];
 
+    // Hidden coordinates state (internal use only)
+    const [hiddenCoordinates, setHiddenCoordinates] = useState({
+        latitude: null,
+        longitude: null
+    });
+
     // Show success notification
     const showSuccessMessage = (action, propertyTitle) => {
         const messages = {
@@ -904,12 +910,16 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 setVideoList(videosWithPreview);
             }
 
-            // Handle coordinates
+            // Handle coordinates - store internally but don't show in form
             if (property.latitude && property.longitude) {
                 const lat = parseFloat(property.latitude);
                 const lng = parseFloat(property.longitude);
                 setMapCenter([lat, lng]);
                 setMarkerPosition([lat, lng]);
+                setHiddenCoordinates({
+                    latitude: lat,
+                    longitude: lng
+                });
             }
 
         } catch (error) {
@@ -937,7 +947,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 );
 
                 if (coordinates) {
-                    form.setFieldsValue({
+                    // Store coordinates internally but don't show in form
+                    setHiddenCoordinates({
                         latitude: coordinates.lat,
                         longitude: coordinates.lng
                     });
@@ -1202,50 +1213,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
     };
 
-    // Enhanced coordinates change handler
+    // Enhanced coordinates change handler - REMOVED since fields are hidden
     const handleCoordinatesChange = () => {
-        const latitude = form.getFieldValue('latitude');
-        const longitude = form.getFieldValue('longitude');
-
-        if (latitude && longitude) {
-            const lat = parseFloat(latitude);
-            const lng = parseFloat(longitude);
-
-            if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                setMapCenter([lat, lng]);
-                setMarkerPosition([lat, lng]);
-                setMapZoom(DEFAULT_ZOOM);
-            }
-        }
+        // This function is no longer needed since coordinates fields are hidden
     };
 
-    // Manual coordinate update with validation
+    // Manual coordinate update with validation - REMOVED since fields are hidden
     const handleManualCoordinateUpdate = () => {
-        const latitude = form.getFieldValue('latitude');
-        const longitude = form.getFieldValue('longitude');
-
-        if (!latitude || !longitude) {
-            message.warning('Please enter both latitude and longitude');
-            return;
-        }
-
-        const lat = parseFloat(latitude);
-        const lng = parseFloat(longitude);
-
-        if (lat < -90 || lat > 90) {
-            message.error('Latitude must be between -90 and 90');
-            return;
-        }
-
-        if (lng < -180 || lng > 180) {
-            message.error('Longitude must be between -180 and 180');
-            return;
-        }
-
-        setMapCenter([lat, lng]);
-        setMarkerPosition([lat, lng]);
-        setMapZoom(DEFAULT_ZOOM);
-        message.success('Map location updated from coordinates');
+        // This function is no longer needed since coordinates fields are hidden
     };
 
     // Enhanced handleMapClick function
@@ -1254,7 +1229,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         setMapCenter([latlng.lat, latlng.lng]);
         setMapZoom(DEFAULT_ZOOM);
 
-        form.setFieldsValue({
+        // Store coordinates internally but don't show in form
+        setHiddenCoordinates({
             latitude: latlng.lat,
             longitude: latlng.lng
         });
@@ -1473,17 +1449,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         itemRender: customItemRender
     };
 
-    // Geocode from coordinates handler
+    // Geocode from coordinates handler - REMOVED since fields are hidden
     const handleGeocodeFromCoordinates = async () => {
-        const latitude = form.getFieldValue('latitude');
-        const longitude = form.getFieldValue('longitude');
-
-        if (!latitude || !longitude) {
-            message.warning('Please enter both latitude and longitude');
-            return;
-        }
-
-        await enhancedReverseGeocode(latitude, longitude);
+        // This function is no longer needed since coordinates fields are hidden
     };
 
     const clearError = () => {
@@ -1530,11 +1498,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         return currentMissing.length === 0;
     };
 
-    // MODIFIED: Removed assignment step from step fields
+    // MODIFIED: Removed assignment step from step fields and latitude/longitude fields
     const getStepFields = (step) => {
         const stepFields = {
             0: ['title', 'type', 'description', 'price', 'status'],
-            1: ['address', 'city', 'state', 'zipCode', 'latitude', 'longitude', 'barangay'],
+            1: ['address', 'city', 'state', 'zipCode', 'barangay'], // REMOVED: latitude, longitude
             2: ['bedrooms', 'bathrooms', 'kitchen', 'garage', 'areaSqm', 'propertyAge', 'propertyFloor', 'amenities'],
             // REMOVED: Assignment step fields
         };
@@ -1615,7 +1583,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 amenitiesValue = '';
             }
 
-            // MODIFIED: Use the fetched agentId
+            // MODIFIED: Use the fetched agentId and hidden coordinates
             const propertyData = {
                 title: allValues.title.trim(),
                 type: allValues.type,
@@ -1628,8 +1596,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 state: allValues.state,
                 zipCode: allValues.zipCode.trim(),
                 country: 'Philippines', // Hardcoded as Philippines
-                latitude: allValues.latitude ? parseFloat(allValues.latitude) : null,
-                longitude: allValues.longitude ? parseFloat(allValues.longitude) : null,
+                // Use hidden coordinates instead of form values
+                latitude: hiddenCoordinates.latitude,
+                longitude: hiddenCoordinates.longitude,
                 barangay: allValues.barangay || '',
                 bedrooms: parseInt(allValues.bedrooms) || 0,
                 bathrooms: parseFloat(allValues.bathrooms) || 0,
@@ -1650,7 +1619,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             console.log('Submitting property with agent ID:', {
                 propertyData,
                 currentUser,
-                agentId
+                agentId,
+                coordinates: hiddenCoordinates
             });
 
             let result;
@@ -1683,7 +1653,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     referenceId: propertyResult.id || `PROP-${Date.now()}`,
                     // Add current user and agent info to display
                     assignedTo: currentUser?.agentName || `${currentUser?.firstName} ${currentUser?.lastName}` || 'You',
-                    agentId: agentId
+                    agentId: agentId,
+                    // Add coordinates to success display
+                    coordinates: hiddenCoordinates
                 });
 
                 setShowSuccessInfo(true);
@@ -1774,6 +1746,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         setSelectedProvinceCode(null);
         setSelectedCityCode(null);
         setSelectedBarangayCode(null);
+        setHiddenCoordinates({ latitude: null, longitude: null });
 
         setTimeout(() => {
             setDefaultLocation();
@@ -1957,42 +1930,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         </Col>
                     </Row>
 
-                    {/* FIXED: Agent Information Display - Memoized to prevent re-renders */}
-                    {React.useMemo(() => (
-                        <Card
-                            size="small"
-                            style={{ marginTop: 16, background: '#f0f8ff', border: '1px solid #1890ff' }}
-                        >
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                                <div>
-                                    <UserOutlined style={{ color: '#1890ff', marginRight: 8 }} />
-                                    <Text strong>Property will be automatically assigned to: </Text>
-                                    <Text type="success">
-                                        {currentUser?.firstName} {currentUser?.lastName}
-                                    </Text>
-                                    <Text type="secondary">({currentUser?.email})</Text>
-                                </div>
-                                {loadingAgent ? (
-                                    <div>
-                                        <Spin size="small" style={{ marginRight: 8 }} />
-                                        <Text type="secondary">Loading agent information...</Text>
-                                    </div>
-                                ) : agentId ? (
-                                    <div>
-                                        <Text strong>Agent ID: </Text>
-                                        <Text code>{agentId}</Text>
-                                        <Text type="secondary" style={{ marginLeft: 8 }}>
-                                            (Auto-assigned from your profile)
-                                        </Text>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <Text type="warning">No agent profile found. Creating property as owner.</Text>
-                                    </div>
-                                )}
-                            </Space>
-                        </Card>
-                    ), [currentUser, loadingAgent, agentId])}
+
                 </Card>
             )
         },
@@ -2028,27 +1966,16 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         }
                                     }}
                                     suffix={
-                                        <Space>
-                                            <Button
-                                                type="text"
-                                                icon={<SearchOutlined />}
-                                                onClick={handleAutoGeocode}
-                                                loading={geocoding}
-                                                size="small"
-                                                title="Get coordinates from address"
-                                            >
-                                                Locate
-                                            </Button>
-                                            <Button
-                                                type="text"
-                                                icon={<AimOutlined />}
-                                                onClick={handleManualCoordinateUpdate}
-                                                size="small"
-                                                title="Update map from coordinates"
-                                            >
-                                                Update Map
-                                            </Button>
-                                        </Space>
+                                        <Button
+                                            type="text"
+                                            icon={<SearchOutlined />}
+                                            onClick={handleAutoGeocode}
+                                            loading={geocoding}
+                                            size="small"
+                                            title="Get coordinates from address"
+                                        >
+                                            Locate
+                                        </Button>
                                     }
                                 />
                             </Form.Item>
@@ -2182,68 +2109,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
                             Click on the map to set the property location and automatically fill Philippine address details using PSGC data
                         </p>
+                        {/* REMOVED: Coordinates display and manual input fields */}
                     </Card>
 
-                    <Row gutter={[16, 0]} style={{ marginTop: 16 }}>
-                        <Col span={10}>
-                            <Form.Item label="Latitude" name="latitude">
-                                <InputNumber
-                                    style={{ width: '100%' }}
-                                    placeholder="Enter latitude"
-                                    step={0.000001}
-                                    min={-90}
-                                    max={90}
-                                    onChange={handleCoordinatesChange}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={10}>
-                            <Form.Item label="Longitude" name="longitude">
-                                <InputNumber
-                                    style={{ width: '100%' }}
-                                    placeholder="Enter longitude"
-                                    step={0.000001}
-                                    min={-180}
-                                    max={180}
-                                    onChange={handleCoordinatesChange}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={4}>
-                            <Form.Item label=" ">
-                                <Button
-                                    onClick={handleGeocodeFromCoordinates}
-                                    loading={geocoding}
-                                    style={{ marginTop: '29px', width: '100%' }}
-                                    icon={<SearchOutlined />}
-                                >
-                                    Get Address
-                                </Button>
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    {/* REMOVED: Latitude and Longitude input fields */}
 
-                    {(selectedProvinceCode || selectedCityCode || selectedBarangayCode) && (
-                        <Card title="PSGC Information" size="small" style={{ marginTop: 16 }}>
-                            <Descriptions size="small" column={2}>
-                                {selectedProvinceCode && (
-                                    <Descriptions.Item label="Province Code">
-                                        <Text code>{selectedProvinceCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                                {selectedCityCode && (
-                                    <Descriptions.Item label="City/Municipality Code">
-                                        <Text code>{selectedCityCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                                {selectedBarangayCode && (
-                                    <Descriptions.Item label="Barangay Code">
-                                        <Text code>{selectedBarangayCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                            </Descriptions>
-                        </Card>
-                    )}
+
                 </Card>
             )
         },
@@ -2499,6 +2370,17 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     <Descriptions.Item label="Agent ID">
                                         <Text code>{submittedData.agentId}</Text>
                                     </Descriptions.Item>
+                                )}
+                                {/* ADDED: Coordinates in success display (optional) */}
+                                {submittedData?.coordinates?.latitude && submittedData?.coordinates?.longitude && (
+                                    <>
+                                        <Descriptions.Item label="Latitude">
+                                            <Text code>{submittedData.coordinates.latitude}</Text>
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label="Longitude">
+                                            <Text code>{submittedData.coordinates.longitude}</Text>
+                                        </Descriptions.Item>
+                                    </>
                                 )}
                                 <Descriptions.Item label="Reference ID">
                                     <Text type="secondary">{submittedData?.referenceId}</Text>

@@ -1,5 +1,9 @@
-﻿// ThirdSectionMapper.js - FIXED VERSION
+﻿// ThirdSectionMapper.js - COMPLETE FIXED VERSION
 class ThirdSectionMapper {
+    // Constants for limits
+    static MAX_PROCESS_STEPS = 5;
+    static MAX_FEATURE_ITEMS = 5;
+
     // Map API response to frontend format
     mapFromApi(apiData) {
         console.log('🔍 ThirdSectionMapper: Mapping from API data:', apiData);
@@ -31,13 +35,14 @@ class ThirdSectionMapper {
             hasFeatureItems: !!apiData.featureItems
         });
 
+        // Apply limits during mapping
         const mappedData = {
             id: apiData.id || 0,
             title: apiData.title || '',
             subtitle: apiData.subtitle || '',
             description: apiData.description || '',
-            processSteps: (apiData.processSteps || []).map(step => this.mapProcessStepFromApi(step)),
-            featureItems: (apiData.featureItems || []).map(item => this.mapFeatureItemFromApi(item))
+            processSteps: (apiData.processSteps || []).slice(0, ThirdSectionMapper.MAX_PROCESS_STEPS).map(step => this.mapProcessStepFromApi(step)),
+            featureItems: (apiData.featureItems || []).slice(0, ThirdSectionMapper.MAX_FEATURE_ITEMS).map(item => this.mapFeatureItemFromApi(item))
         };
 
         console.log('🎯 ThirdSectionMapper: Mapped data result:', mappedData);
@@ -47,17 +52,37 @@ class ThirdSectionMapper {
     mapToApi(frontendData) {
         console.log('🔍 ThirdSectionMapper: Mapping to API data:', frontendData);
 
+        // Apply limits before sending to API
         const apiData = {
             id: frontendData.id || 0,
             title: frontendData.title || '',
             subtitle: frontendData.subtitle || '',
             description: frontendData.description || '',
-            processSteps: (frontendData.processSteps || []).map(step => this.mapProcessStepToApi(step)),
-            featureItems: (frontendData.featureItems || []).map(item => this.mapFeatureItemToApi(item))
+            processSteps: (frontendData.processSteps || []).slice(0, ThirdSectionMapper.MAX_PROCESS_STEPS).map(step => this.mapProcessStepToApi(step)),
+            featureItems: (frontendData.featureItems || []).slice(0, ThirdSectionMapper.MAX_FEATURE_ITEMS).map(item => this.mapFeatureItemToApi(item))
         };
 
         console.log('🎯 ThirdSectionMapper: API data result:', apiData);
         return apiData;
+    }
+
+    // Check if can add more process steps
+    canAddProcessStep(currentSteps) {
+        return (currentSteps?.length || 0) < ThirdSectionMapper.MAX_PROCESS_STEPS;
+    }
+
+    // Check if can add more feature items
+    canAddFeatureItem(currentItems) {
+        return (currentItems?.length || 0) < ThirdSectionMapper.MAX_FEATURE_ITEMS;
+    }
+
+    // Get remaining slots
+    getRemainingProcessSlots(currentSteps) {
+        return Math.max(0, ThirdSectionMapper.MAX_PROCESS_STEPS - (currentSteps?.length || 0));
+    }
+
+    getRemainingFeatureSlots(currentItems) {
+        return Math.max(0, ThirdSectionMapper.MAX_FEATURE_ITEMS - (currentItems?.length || 0));
     }
 
     mapProcessStepFromApi(apiStep) {

@@ -326,13 +326,7 @@ const AgentTimeOff = () => {
                         </p>
                     </div>
                     <Space>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadTimeOffs}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
+                      
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}

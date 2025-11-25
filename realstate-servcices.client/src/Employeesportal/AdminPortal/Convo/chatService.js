@@ -1,7 +1,9 @@
-﻿import api from '../../../Authpage/Services/Api';
+﻿// chatService.js - COMPLETE UPDATED VERSION
+import api from '../../../Authpage/Services/Api';
 import { ApiMapper } from './apiMapper.js';
 
 const baseChatService = {
+    // Existing Chat Methods
     async getUserChats() {
         console.log('🔍 Fetching user chats...');
         try {
@@ -173,12 +175,29 @@ const baseChatService = {
 
     async sendMessage(messageData) {
         console.log('🔍 Sending message:', messageData);
+
+        // FIXED: Updated request payload to match backend expectations
         const createRequest = {
             chatId: messageData.chatId,
             content: messageData.content || '',
             messageType: messageData.messageType || 'text',
-            files: messageData.files || null
+            files: messageData.files || [],
+            recipientId: messageData.recipientId || null,
+            senderId: messageData.senderId || this.getCurrentUserId()
         };
+
+        // Remove null/undefined values to avoid validation issues
+        Object.keys(createRequest).forEach(key => {
+            if (createRequest[key] === null || createRequest[key] === undefined) {
+                delete createRequest[key];
+            }
+        });
+
+        // Ensure files is always an array, not null
+        if (!createRequest.files) {
+            createRequest.files = [];
+        }
+
         console.log('📦 Send message request:', createRequest);
 
         try {
@@ -200,6 +219,12 @@ const baseChatService = {
             return ApiMapper.mapMessage(response.data);
         } catch (error) {
             console.error('💥 Error sending message:', error);
+
+            // Log detailed validation errors if available
+            if (error.response?.data?.errors) {
+                console.error('📋 Validation errors:', error.response.data.errors);
+            }
+
             throw error;
         }
     },
@@ -266,6 +291,179 @@ const baseChatService = {
         }
     },
 
+    // NOTIFICATION METHODS
+    async getUserNotifications(unreadOnly = false) {
+        console.log('🔍 Fetching user notifications...', { unreadOnly });
+        try {
+            const response = await api.get('/notifications', {
+                params: { unreadOnly }
+            });
+            console.log('📦 Notifications response:', response);
+
+            if (response.data) {
+                let data;
+                if (response.data.success && Array.isArray(response.data.data)) {
+                    data = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    data = response.data;
+                } else if (response.data.data && Array.isArray(response.data.data)) {
+                    data = response.data.data;
+                }
+
+                if (data && Array.isArray(data)) {
+                    const mappedNotifications = data.map(notification =>
+                        ApiMapper.mapNotification(notification)
+                    ).filter(notification => notification !== null);
+
+                    console.log(`✅ Successfully mapped ${mappedNotifications.length} notifications`);
+                    return mappedNotifications;
+                }
+            }
+
+            console.warn('⚠️ Unexpected notifications response format');
+            return [];
+        } catch (error) {
+            console.error('💥 Error fetching notifications:', error);
+            throw error;
+        }
+    },
+
+    async getNotification(id) {
+        console.log('🔍 Fetching notification:', id);
+        try {
+            const response = await api.get(`/notifications/${id}`);
+            console.log('📦 Notification response:', response);
+
+            if (response.data) {
+                const data = response.data.success ? response.data.data : response.data;
+                if (data) {
+                    return ApiMapper.mapNotification(data);
+                }
+            }
+
+            throw new Error('Notification not found or invalid response format');
+        } catch (error) {
+            console.error('💥 Error fetching notification:', error);
+            throw error;
+        }
+    },
+
+    async markNotificationAsRead(id) {
+        console.log('🔍 Marking notification as read:', id);
+        try {
+            const response = await api.post(`/notifications/${id}/read`);
+            console.log('📦 Mark as read response:', response);
+
+            if (response.data && response.data.success) {
+                return {
+                    success: true,
+                    message: response.data.message,
+                    notificationId: id
+                };
+            }
+
+            throw new Error('Failed to mark notification as read');
+        } catch (error) {
+            console.error('💥 Error marking notification as read:', error);
+            throw error;
+        }
+    },
+
+    async markAllNotificationsAsRead() {
+        console.log('🔍 Marking all notifications as read');
+        try {
+            const response = await api.post('/notifications/read-all');
+            console.log('📦 Mark all as read response:', response);
+
+            if (response.data && response.data.success) {
+                return {
+                    success: true,
+                    message: response.data.message,
+                    userId: response.data.userId
+                };
+            }
+
+            throw new Error('Failed to mark all notifications as read');
+        } catch (error) {
+            console.error('💥 Error marking all notifications as read:', error);
+            throw error;
+        }
+    },
+
+    async deleteNotification(id) {
+        console.log('🔍 Deleting notification:', id);
+        try {
+            const response = await api.delete(`/notifications/${id}`);
+            console.log('📦 Delete notification response:', response);
+
+            if (response.data && response.data.success) {
+                return {
+                    success: true,
+                    message: response.data.message,
+                    notificationId: id
+                };
+            }
+
+            throw new Error('Failed to delete notification');
+        } catch (error) {
+            console.error('💥 Error deleting notification:', error);
+            throw error;
+        }
+    },
+
+    async getNotificationCount() {
+        console.log('🔍 Fetching notification count');
+        try {
+            const response = await api.get('/notifications/count');
+            console.log('📦 Notification count response:', response);
+
+            if (response.data && response.data.success) {
+                return {
+                    success: true,
+                    totalCount: response.data.data?.totalCount || 0,
+                    unreadCount: response.data.data?.unreadCount || 0
+                };
+            }
+
+            return {
+                success: false,
+                totalCount: 0,
+                unreadCount: 0
+            };
+        } catch (error) {
+            console.error('💥 Error fetching notification count:', error);
+            return {
+                success: false,
+                totalCount: 0,
+                unreadCount: 0
+            };
+        }
+    },
+
+    async createNotification(notificationData) {
+        console.log('🔍 Creating notification:', notificationData);
+        try {
+            const response = await api.post('/notifications', notificationData);
+            console.log('📦 Create notification response:', response);
+
+            if (response.data) {
+                if (response.data.success) {
+                    const data = response.data.data || response.data;
+                    return ApiMapper.mapNotification(data);
+                } else if (response.data.id || response.data.notificationNo) {
+                    return ApiMapper.mapNotification(response.data);
+                }
+            }
+
+            console.warn('⚠️ Unexpected response format for create notification');
+            return response.data ? ApiMapper.mapNotification(response.data) : null;
+        } catch (error) {
+            console.error('💥 Error creating notification:', error);
+            throw error;
+        }
+    },
+
+    // Utility Methods
     getCurrentUser() {
         try {
             const userData = localStorage.getItem('user');
@@ -307,7 +505,7 @@ const baseChatService = {
     }
 };
 
-// Error handling wrapper
+// Enhanced Error handling wrapper with notification support
 const createChatServiceWithErrorHandling = (service) => {
     const handler = {
         get(target, prop) {
@@ -318,6 +516,18 @@ const createChatServiceWithErrorHandling = (service) => {
                         return await original.apply(target, args);
                     } catch (error) {
                         console.error(`💥 Error in ChatService.${prop}:`, error);
+
+                        // Enhanced error logging for specific methods
+                        if (prop === 'sendMessage' && error.response?.data?.errors) {
+                            console.error('📋 Detailed validation errors:', error.response.data.errors);
+                        }
+
+                        // Auto-retry for notification methods on network errors
+                        if (prop.includes('Notification') && error.message?.includes('Network Error')) {
+                            console.warn('🔄 Network error detected, retrying notification operation...');
+                            // You could implement retry logic here if needed
+                        }
+
                         throw error;
                     }
                 };

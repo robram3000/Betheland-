@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
     Layout,
     Typography,
@@ -12,7 +12,9 @@ import {
     Switch,
     message,
     Grid,
-    Drawer
+    Drawer,
+    List,
+    Skeleton
 } from 'antd';
 import {
     QuestionCircleOutlined,
@@ -22,49 +24,272 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     SettingOutlined,
-    CloseOutlined
+    CloseOutlined,
+    EyeOutlined,
+    ReloadOutlined,
+    DeleteOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../../Authpage/Services/LoginAuth';
 import { useUser } from '../../../Authpage/Services/UserContextService';
+import chatService from '../../AdminPortal/Convo/chatService'; 
+
 const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
+// Helper functions for notifications
+const formatNotificationTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+
+    return date.toLocaleDateString();
+};
+
+const mapNotificationType = (notificationType) => {
+    const typeMap = {
+        'property_match': 'property',
+        'property_update': 'property',
+        'schedule_reminder': 'schedule',
+        'schedule_update': 'schedule',
+        'message_received': 'message',
+        'price_drop': 'price',
+        'new_message': 'message',
+        'chat_invitation': 'message',
+        'system_alert': 'system',
+        'admin_alert': 'system'
+    };
+    return typeMap[notificationType] || 'system';
+};
+
+const getNotificationColor = (type) => {
+    const colors = {
+        property: '#1890ff',
+        schedule: '#52c41a',
+        message: '#722ed1',
+        price: '#fa541c',
+        system: '#fa8c16'
+    };
+    return colors[type] || '#1890ff';
+};
+
+const getNotificationIcon = (type) => {
+    const icons = {
+        property: '🏠',
+        schedule: '📅',
+        message: '💬',
+        price: '💰',
+        system: '⚡'
+    };
+    return icons[type] || '🔔';
+};
+
 const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [notificationDrawerVisible, setNotificationDrawerVisible] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [notificationCount, setNotificationCount] = useState(0);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
     const navigate = useNavigate();
     const { user, logout } = useUser();
     const screens = useBreakpoint();
     const {
         token: { colorBgContainer },
     } = theme.useToken();
+
+    // Load real notifications
+    const loadNotifications = useCallback(async () => {
+        if (!user) {
+            setNotifications([]);
+            setNotificationCount(0);
+            return;
+        }
+
+        setLoadingNotifications(true);
+        try {
+            const userNotifications = await chatService.getUserNotifications(true); // unreadOnly = true
+            const mappedNotifications = userNotifications.map(notification => ({
+                id: notification.id,
+                title: notification.title,
+                description: notification.content,
+                time: formatNotificationTime(notification.createdAt),
+                read: notification.isRead,
+                type: mapNotificationType(notification.notificationType),
+                rawNotification: notification
+            }));
+
+            setNotifications(mappedNotifications);
+            setNotificationCount(mappedNotifications.filter(n => !n.read).length);
+        } catch (error) {
+            console.error('💥 Error loading notifications:', error);
+            setNotifications([]);
+            setNotificationCount(0);
+        } finally {
+            setLoadingNotifications(false);
+        }
+    }, [user]);
+
+    // Load notification count separately for performance
+    const loadNotificationCount = useCallback(async () => {
+        if (!user) {
+            setNotificationCount(0);
+            return;
+        }
+
+        try {
+            const countData = await chatService.getNotificationCount();
+            if (countData.success) {
+                setNotificationCount(countData.unreadCount);
+            }
+        } catch (error) {
+            console.error('💥 Error loading notification count:', error);
+        }
+    }, [user]);
+
+    // Real notification actions
+    const markAsRead = async (notificationId) => {
+        try {
+            await chatService.markNotificationAsRead(notificationId);
+            setNotifications(prev =>
+                prev.map(notif =>
+                    notif.id === notificationId ? { ...notif, read: true } : notif
+                )
+            );
+            setNotificationCount(prev => Math.max(0, prev - 1));
+            message.success('Notification marked as read');
+        } catch (error) {
+            console.error('💥 Error marking notification as read:', error);
+            message.error('Failed to mark notification as read');
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            await chatService.markAllNotificationsAsRead();
+            setNotifications(prev =>
+                prev.map(notif => ({ ...notif, read: true }))
+            );
+            setNotificationCount(0);
+            message.success('All notifications marked as read');
+        } catch (error) {
+            console.error('💥 Error marking all notifications as read:', error);
+            message.error('Failed to mark all notifications as read');
+        }
+    };
+
+    const deleteNotification = async (notificationId) => {
+        try {
+            await chatService.deleteNotification(notificationId);
+            setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+            setNotificationCount(prev => {
+                const notification = notifications.find(n => n.id === notificationId);
+                return notification && !notification.read ? Math.max(0, prev - 1) : prev;
+            });
+            message.success('Notification deleted');
+        } catch (error) {
+            console.error('💥 Error deleting notification:', error);
+            message.error('Failed to delete notification');
+        }
+    };
+
+    const handleNotificationClick = (notification) => {
+        // Mark as read when clicked
+        if (!notification.read) {
+            markAsRead(notification.id);
+        }
+
+        // Navigate based on notification type for admin
+        const navData = notification.rawNotification?.data;
+        switch (notification.type) {
+            case 'property':
+                if (navData?.propertyId) {
+                    navigate(`/portal/admin/properties/${navData.propertyId}`);
+                } else {
+                    navigate('/portal/admin/properties');
+                }
+                break;
+            case 'schedule':
+                navigate('/portal/admin/schedule');
+                break;
+            case 'message':
+                if (navData?.chatId) {
+                    navigate(`/portal/admin/messages?chat=${navData.chatId}`);
+                } else {
+                    navigate('/portal/admin/messages');
+                }
+                break;
+            case 'system':
+                navigate('/portal/admin/system-alerts');
+                break;
+            default:
+                navigate('/portal/admin/notifications');
+        }
+        setNotificationDrawerVisible(false);
+    };
+
     const handleLogout = () => {
         logout();
         message.success('Logged out successfully');
-        navigate('/login');
+        window.location.href = '/';
         setDropdownVisible(false);
     };
+
     const handleProfile = () => {
         navigate('/portal/agent/profile');
         setDropdownVisible(false);
     };
+
     const handleSettings = () => {
         navigate('/settings');
         setDropdownVisible(false);
     };
+
     const handleHelp = () => {
         console.log('Help clicked');
     };
+
     const handleNotifications = () => {
         if (mobileView) {
             setNotificationDrawerVisible(true);
         } else {
-
-            console.log('Notifications clicked');
+            // For desktop, show dropdown
+            console.log('Notifications clicked - desktop view');
         }
     };
+
+    const refreshNotifications = () => {
+        loadNotifications();
+        loadNotificationCount();
+    };
+
+    // Load notifications on component mount and user change
+    useEffect(() => {
+        if (user) {
+            loadNotifications();
+            loadNotificationCount();
+        }
+    }, [user, loadNotifications, loadNotificationCount]);
+
+    // Auto-refresh notifications every 30 seconds
+    useEffect(() => {
+        if (user) {
+            const interval = setInterval(() => {
+                loadNotificationCount(); // Lightweight count check
+            }, 30000);
+
+            return () => clearInterval(interval);
+        }
+    }, [user, loadNotificationCount]);
+
     const getDisplayName = () => {
         if (!user) return 'Admin';
         if (user.username && user.username.trim() !== '') {
@@ -85,6 +310,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 return 'User';
         }
     };
+
     const getUserInitials = () => {
         const displayName = getDisplayName();
         if (displayName === 'Admin' || displayName === 'User') {
@@ -102,6 +328,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             .toUpperCase()
             .slice(0, 2);
     };
+
     const getRoleDisplayName = () => {
         const role = user?.role || user?.userType;
         switch (role?.toLowerCase()) {
@@ -117,6 +344,190 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 return role || 'User';
         }
     };
+
+    const NotificationContent = () => (
+        <div style={{
+            width: 320,
+            maxHeight: 400,
+            overflow: 'auto',
+            background: 'white',
+            borderRadius: '8px'
+        }}>
+            <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'white'
+            }}>
+                <Text strong>Notifications</Text>
+                <Space>
+                    <Button
+                        type="link"
+                        size="small"
+                        onClick={refreshNotifications}
+                        loading={loadingNotifications}
+                        icon={<ReloadOutlined />}
+                        style={{ padding: 0, height: 'auto' }}
+                    >
+                        Refresh
+                    </Button>
+                    {notificationCount > 0 && (
+                        <Button
+                            type="link"
+                            size="small"
+                            onClick={markAllAsRead}
+                            style={{ padding: 0, height: 'auto' }}
+                        >
+                            Mark all as read
+                        </Button>
+                    )}
+                </Space>
+            </div>
+
+            {loadingNotifications ? (
+                <div style={{ padding: '16px' }}>
+                    <Skeleton active paragraph={{ rows: 3 }} />
+                </div>
+            ) : (
+                <List
+                    dataSource={notifications}
+                    locale={{ emptyText: 'No notifications' }}
+                    renderItem={(notification) => (
+                        <List.Item
+                            style={{
+                                padding: '12px 16px',
+                                cursor: 'pointer',
+                                backgroundColor: notification.read ? 'white' : '#f6ffed',
+                                borderBottom: '1px solid #f0f0f0',
+                                transition: 'background-color 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed';
+                            }}
+                            onClick={() => handleNotificationClick(notification)}
+                            actions={[
+                                <Button
+                                    type="text"
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNotification(notification.id);
+                                    }}
+                                />
+                            ]}
+                        >
+                            <List.Item.Meta
+                                avatar={
+                                    <Badge dot={!notification.read}>
+                                        <div style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: '50%',
+                                            backgroundColor: getNotificationColor(notification.type),
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {getNotificationIcon(notification.type)}
+                                        </div>
+                                    </Badge>
+                                }
+                                title={
+                                    <Text
+                                        strong={!notification.read}
+                                        style={{ fontSize: '14px' }}
+                                    >
+                                        {notification.title}
+                                    </Text>
+                                }
+                                description={
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: '12px', display: 'block' }}
+                                        >
+                                            {notification.description}
+                                        </Text>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: '11px', display: 'block', marginTop: 2 }}
+                                        >
+                                            {notification.time}
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                        </List.Item>
+                    )}
+                />
+            )}
+
+            <div style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #f0f0f0',
+                textAlign: 'center',
+                background: 'white'
+            }}>
+                <Button
+                    type="link"
+                    onClick={() => {
+                        navigate('/portal/admin/notifications');
+                        setNotificationDrawerVisible(false);
+                    }}
+                    icon={<EyeOutlined />}
+                    style={{ padding: 0 }}
+                >
+                    View All Notifications
+                </Button>
+            </div>
+        </div>
+    );
+
+    const NotificationDrawer = () => (
+        <Drawer
+            title={
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0'
+                }}>
+                    <span style={{ fontSize: '18px', fontWeight: 600 }}>Notifications</span>
+                    <Space>
+                        <Button
+                            type="text"
+                            icon={<ReloadOutlined />}
+                            loading={loadingNotifications}
+                            onClick={refreshNotifications}
+                            size="small"
+                        />
+                        <Button
+                            type="text"
+                            icon={<CloseOutlined />}
+                            onClick={() => setNotificationDrawerVisible(false)}
+                        />
+                    </Space>
+                </div>
+            }
+            placement="right"
+            onClose={() => setNotificationDrawerVisible(false)}
+            open={notificationDrawerVisible}
+            width={mobileView ? '100%' : 400}
+        >
+            <NotificationContent />
+        </Drawer>
+    );
+
     const profileMenuItems = [
         {
             key: 'user-info',
@@ -183,34 +594,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             onClick: handleLogout,
         },
     ];
-    const NotificationDrawer = () => (
-        <Drawer
-            title={
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 0'
-                }}>
-                    <span style={{ fontSize: '18px', fontWeight: 600 }}>Notifications</span>
-                    <Button
-                        type="text"
-                        icon={<CloseOutlined />}
-                        onClick={() => setNotificationDrawerVisible(false)}
-                    />
-                </div>
-            }
-            placement="right"
-            onClose={() => setNotificationDrawerVisible(false)}
-            open={notificationDrawerVisible}
-            width={320}
-        >
-            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <BellOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                <Text type="secondary">No new notifications</Text>
-            </div>
-        </Drawer>
-    );
+
     return (
         <>
             <Header
@@ -278,30 +662,45 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
 
                 {/* Right Side */}
                 <Space size="middle">
-
-
                     {/* Notifications */}
-                    <Badge
-                        count={5}
-                        size="small"
-                        style={{
-                            backgroundColor: '#ff4d4f',
+                    <Dropdown
+                        overlay={<NotificationContent />}
+                        trigger={['click']}
+                        placement="bottomRight"
+                        disabled={mobileView}
+                        overlayStyle={{
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                            borderRadius: '8px',
+                            background: 'white'
+                        }}
+                        onOpenChange={(open) => {
+                            if (open && !mobileView) {
+                                refreshNotifications();
+                            }
                         }}
                     >
-                        <Button
-                            type="text"
-                            icon={<BellOutlined />}
-                            onClick={handleNotifications}
+                        <Badge
+                            count={notificationCount}
+                            size="small"
                             style={{
-                                width: 40,
-                                height: 40,
-                                color: '#1a365d',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
+                                backgroundColor: '#ff4d4f',
                             }}
-                        />
-                    </Badge>
+                        >
+                            <Button
+                                type="text"
+                                icon={<BellOutlined />}
+                                onClick={mobileView ? handleNotifications : undefined}
+                                style={{
+                                    width: 40,
+                                    height: 40,
+                                    color: '#1a365d',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            />
+                        </Badge>
+                    </Dropdown>
 
                     {/* Help Button */}
                     {mobileView ? (
@@ -402,4 +801,5 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         </>
     );
 };
+
 export default GlobalAdminTopbar;

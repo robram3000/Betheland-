@@ -41,12 +41,12 @@ const GlobalAdminNavigation = ({ collapsed, onMenuClick, isMobileDrawer = false 
             label: 'Dashboard',
             path: '/portal/super-admin/dashboard'
         },
-        {
+    /*    {
             key: 'chat',
             icon: <MessageOutlined />,
             label: 'Chat Monitor',
             path: '/portal/super-admin/chat-monitor'
-        },
+        },*/
         {
             key: 'properties-management',
             icon: <HomeOutlined />,

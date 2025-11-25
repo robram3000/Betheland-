@@ -1,4 +1,4 @@
-﻿// PropertySearchPage.jsx (FIXED VERSION - Optimized Drawer Width)
+﻿// PropertySearchPage.jsx - FIXED VERSION
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Layout,
@@ -31,6 +31,44 @@ const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+// Helper function to normalize property data for PropertyCard
+const normalizePropertyForCard = (property) => {
+    if (!property) return property;
+
+    // Ensure property has the image structure that PropertyCard expects
+    const normalizedProperty = { ...property };
+
+    // Create propertyImages array if it doesn't exist
+    if (!normalizedProperty.propertyImages && (normalizedProperty.imageUrls || normalizedProperty.mainImage)) {
+        normalizedProperty.propertyImages = [];
+
+        // Add main image
+        if (normalizedProperty.mainImage) {
+            normalizedProperty.propertyImages.push({
+                imageUrl: normalizedProperty.mainImage
+            });
+        }
+
+        // Add imageUrls
+        if (normalizedProperty.imageUrls && Array.isArray(normalizedProperty.imageUrls)) {
+            normalizedProperty.imageUrls.forEach(url => {
+                if (url) {
+                    normalizedProperty.propertyImages.push({
+                        imageUrl: url
+                    });
+                }
+            });
+        }
+    }
+
+    // Ensure mainImage exists
+    if (!normalizedProperty.mainImage && normalizedProperty.propertyImages && normalizedProperty.propertyImages.length > 0) {
+        normalizedProperty.mainImage = normalizedProperty.propertyImages[0]?.imageUrl;
+    }
+
+    return normalizedProperty;
+};
+
 const PropertySearchPage = () => {
     const { properties, loading, error, refreshProperties } = usePropertyData();
 
@@ -41,13 +79,14 @@ const PropertySearchPage = () => {
     const [pageSize, setPageSize] = useState(8);
     const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
 
+    // FIXED: Increased square feet range to handle larger properties
     const [filters, setFilters] = useState({
         priceRange: [0, 10000000],
         bedrooms: null,
         bathrooms: null,
         propertyType: [],
         amenities: [],
-        squareFeet: [0, 100000]
+        squareFeet: [0, 500000]
     });
 
     // DEBUG: Comprehensive logging
@@ -63,10 +102,14 @@ const PropertySearchPage = () => {
 
         if (properties && properties.length > 0) {
             console.log('📋 Sample Property Data:', properties[0]);
+            console.log('🔧 Sample Property Amenities:', {
+                rawAmenities: properties[0].amenities,
+                type: typeof properties[0].amenities
+            });
         }
     }, [properties, loading, error, searchTerm, filters, currentPage]);
 
-    // Filter properties with all filters enabled
+    // FIXED: Enhanced property filtering with better amenities handling
     const filteredProperties = useMemo(() => {
         if (!properties || !Array.isArray(properties)) {
             console.log('❌ No properties array found');
@@ -77,6 +120,7 @@ const PropertySearchPage = () => {
 
         let filtered = properties.filter(property => {
             if (!property || !property.id) {
+                console.log('❌ Filtering out invalid property:', property);
                 return false;
             }
 
@@ -95,45 +139,88 @@ const PropertySearchPage = () => {
                 const matchesSearch = searchFields.some(field =>
                     field.toLowerCase().includes(query)
                 );
-                if (!matchesSearch) return false;
+                if (!matchesSearch) {
+                    return false;
+                }
             }
 
             // Price range filter
             const [minPrice, maxPrice] = filters.priceRange;
-            if (property.price < minPrice || property.price > maxPrice) {
+            const propertyPrice = property.price || 0;
+            if (propertyPrice < minPrice || propertyPrice > maxPrice) {
                 return false;
             }
 
-            // Bedrooms filter
-            if (filters.bedrooms !== null && property.bedrooms !== filters.bedrooms) {
-                return false;
+            // Bedrooms filter - use "minimum" logic
+            if (filters.bedrooms !== null) {
+                const propertyBedrooms = property.bedrooms || 0;
+                if (propertyBedrooms < filters.bedrooms) {
+                    return false;
+                }
             }
 
-            // Bathrooms filter
-            if (filters.bathrooms !== null && property.bathrooms !== filters.bathrooms) {
-                return false;
+            // Bathrooms filter - use "minimum" logic
+            if (filters.bathrooms !== null) {
+                const propertyBathrooms = property.bathrooms || 0;
+                if (propertyBathrooms < filters.bathrooms) {
+                    return false;
+                }
             }
 
             // Property type filter
-            if (filters.propertyType.length > 0 &&
-                !filters.propertyType.includes(property.propertyType)) {
-                return false;
+            if (filters.propertyType.length > 0) {
+                const propertyType = property.propertyType || property.type;
+                if (!filters.propertyType.includes(propertyType)) {
+                    return false;
+                }
             }
 
             // Square footage filter
             const [minSqFt, maxSqFt] = filters.squareFeet;
-            const propertySqFt = property.areaSqm ? property.areaSqm * 10.764 : 0; // Convert sqm to sqft
-            if (propertySqFt < minSqFt || propertySqFt > maxSqFt) {
+            const propertyArea = property.areaSqm || 0;
+
+            // If no area filter is set (using full range), don't filter by area
+            const isDefaultAreaRange = minSqFt === 0 && maxSqFt === 500000;
+
+            if (!isDefaultAreaRange && (propertyArea < minSqFt || propertyArea > maxSqFt)) {
                 return false;
             }
 
-            // Amenities filter
+            // FIXED: Enhanced amenities filter with better parsing
             if (filters.amenities.length > 0) {
-                const propertyAmenities = property.amenities || [];
-                const hasAllAmenities = filters.amenities.every(amenity =>
+                let propertyAmenities = property.amenities || [];
+
+                // Handle different amenity formats
+                if (typeof propertyAmenities === 'string') {
+                    try {
+                        const parsed = JSON.parse(propertyAmenities);
+                        if (Array.isArray(parsed)) {
+                            propertyAmenities = parsed;
+                        } else if (typeof parsed === 'string') {
+                            propertyAmenities = parsed.split(',').map(item => item.trim()).filter(item => item);
+                        } else if (parsed && typeof parsed === 'object') {
+                            propertyAmenities = Object.values(parsed).filter(item => item && typeof item === 'string');
+                        }
+                    } catch (e) {
+                        propertyAmenities = propertyAmenities.split(',').map(item => item.trim()).filter(item => item);
+                    }
+                } else if (propertyAmenities && typeof propertyAmenities === 'object' && !Array.isArray(propertyAmenities)) {
+                    propertyAmenities = Object.values(propertyAmenities).filter(item => item && typeof item === 'string');
+                }
+
+                // Ensure it's an array
+                if (!Array.isArray(propertyAmenities)) {
+                    propertyAmenities = [];
+                }
+
+                // Check if property has ANY of the selected amenities
+                const hasAnyAmenities = filters.amenities.some(amenity =>
                     propertyAmenities.includes(amenity)
                 );
-                if (!hasAllAmenities) return false;
+
+                if (!hasAnyAmenities) {
+                    return false;
+                }
             }
 
             return true;
@@ -165,11 +252,16 @@ const PropertySearchPage = () => {
         }
     }, [filteredProperties, sortBy]);
 
+    // Normalize properties for PropertyCard
+    const normalizedProperties = useMemo(() => {
+        return sortedProperties.map(property => normalizePropertyForCard(property));
+    }, [sortedProperties]);
+
     // Paginate properties
     const paginatedProperties = useMemo(() => {
         const startIndex = (currentPage - 1) * pageSize;
-        return sortedProperties.slice(startIndex, startIndex + pageSize);
-    }, [sortedProperties, currentPage, pageSize]);
+        return normalizedProperties.slice(startIndex, startIndex + pageSize);
+    }, [normalizedProperties, currentPage, pageSize]);
 
     // Handle filter changes
     const handleFilterChange = useCallback((newFilters) => {
@@ -214,7 +306,7 @@ const PropertySearchPage = () => {
             bathrooms: null,
             propertyType: [],
             amenities: [],
-            squareFeet: [0, 100000]
+            squareFeet: [0, 500000]
         });
         setSearchTerm('');
         setCurrentPage(1);
@@ -237,7 +329,7 @@ const PropertySearchPage = () => {
         if (filters.bathrooms !== null) count++;
         if (filters.propertyType.length > 0) count++;
         if (filters.amenities.length > 0) count++;
-        if (filters.squareFeet[0] > 0 || filters.squareFeet[1] < 100000) count++;
+        if (filters.squareFeet[0] > 0 || filters.squareFeet[1] < 500000) count++;
         return count;
     }, [filters, searchTerm]);
 
@@ -363,10 +455,10 @@ const PropertySearchPage = () => {
                                         Reset Filters
                                     </Button>
 
-                                    <Button.Group
+                                    <Space.Compact
                                         size="large"
                                         style={{
-                                            display: window.innerWidth < 768 ? 'none' : 'inline-block'
+                                            display: window.innerWidth < 768 ? 'none' : 'inline-flex'
                                         }}
                                     >
                                         <Button
@@ -379,7 +471,7 @@ const PropertySearchPage = () => {
                                             icon={<PicLeftOutlined />}
                                             onClick={() => setViewMode('landscape')}
                                         />
-                                    </Button.Group>
+                                    </Space.Compact>
                                 </div>
                             </div>
                         </Col>
@@ -403,7 +495,11 @@ const PropertySearchPage = () => {
                             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                             border: '1px solid #f1f5f9'
                         }}
-                        bodyStyle={{ padding: '16px' }}
+                        styles={{
+                            body: {
+                                padding: '16px'
+                            }
+                        }}
                     >
                         {loading ? (
                             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -417,7 +513,7 @@ const PropertySearchPage = () => {
                         ) : error ? (
                             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                                 <Text type="danger" style={{ display: 'block', marginBottom: '16px' }}>
-                                    Error loading properties: {error}
+                                    Error loading properties: ${error}
                                 </Text>
                                 <Button onClick={refreshProperties} type="primary">
                                     Retry
@@ -434,9 +530,11 @@ const PropertySearchPage = () => {
                                                 : 'No properties match your search criteria'
                                             }
                                         </Text>
-                                        <Button onClick={handleResetFilters}>
-                                            Reset All Filters
-                                        </Button>
+                                        {properties?.length > 0 && (
+                                            <Button onClick={handleResetFilters}>
+                                                Reset All Filters
+                                            </Button>
+                                        )}
                                     </div>
                                 }
                                 style={{ padding: '60px 20px' }}
@@ -456,7 +554,7 @@ const PropertySearchPage = () => {
                                             <Text strong>Active Filters:</Text>
                                             {searchTerm && (
                                                 <Tag closable onClose={() => setSearchTerm('')}>
-                                                    Search: "{searchTerm}"
+                                                    Search: "${searchTerm}"
                                                 </Tag>
                                             )}
                                             {(filters.priceRange[0] > 0 || filters.priceRange[1] < 10000000) && (
@@ -464,7 +562,7 @@ const PropertySearchPage = () => {
                                                     ...filters,
                                                     priceRange: [0, 10000000]
                                                 })}>
-                                                    Price: ${filters.priceRange[0].toLocaleString()} - ${filters.priceRange[1].toLocaleString()}
+                                                    Price: ₱{filters.priceRange[0].toLocaleString()} - ₱{filters.priceRange[1].toLocaleString()}
                                                 </Tag>
                                             )}
                                             {filters.bedrooms !== null && (
@@ -472,7 +570,7 @@ const PropertySearchPage = () => {
                                                     ...filters,
                                                     bedrooms: null
                                                 })}>
-                                                    Bedrooms: {filters.bedrooms}
+                                                    Bedrooms: {filters.bedrooms}+
                                                 </Tag>
                                             )}
                                             {filters.bathrooms !== null && (
@@ -480,7 +578,7 @@ const PropertySearchPage = () => {
                                                     ...filters,
                                                     bathrooms: null
                                                 })}>
-                                                    Bathrooms: {filters.bathrooms}
+                                                    Bathrooms: {filters.bathrooms}+
                                                 </Tag>
                                             )}
                                             {filters.propertyType.length > 0 && (
@@ -489,6 +587,22 @@ const PropertySearchPage = () => {
                                                     propertyType: []
                                                 })}>
                                                     Type: {filters.propertyType.join(', ')}
+                                                </Tag>
+                                            )}
+                                            {filters.amenities.length > 0 && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    amenities: []
+                                                })}>
+                                                    Amenities: {filters.amenities.join(', ')}
+                                                </Tag>
+                                            )}
+                                            {(filters.squareFeet[0] > 0 || filters.squareFeet[1] < 500000) && (
+                                                <Tag closable onClose={() => handleFilterChange({
+                                                    ...filters,
+                                                    squareFeet: [0, 500000]
+                                                })}>
+                                                    Area: {filters.squareFeet[0]} - {filters.squareFeet[1]} sqm
                                                 </Tag>
                                             )}
                                         </Space>
@@ -509,33 +623,41 @@ const PropertySearchPage = () => {
                                         justifyItems: 'center'
                                     }}
                                 >
-                                    {paginatedProperties.map((property) => (
-                                        <div
-                                            key={property.id}
-                                            style={{
-                                                display: 'flex',
-                                                width: '100%',
-                                                height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '320px' : 'auto',
-                                                minHeight: 'auto',
-                                                justifyContent: 'center'
-                                            }}
-                                        >
-                                            <PropertyCard
-                                                property={property}
-                                                showActions={false}
-                                                viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
-                                                landscapeHeight="320px"
+                                    {paginatedProperties.map((property) => {
+                                        console.log('🖼️ Rendering PropertyCard with:', {
+                                            id: property.id,
+                                            title: property.title,
+                                            amenities: property.amenities
+                                        });
+
+                                        return (
+                                            <div
+                                                key={property.id}
                                                 style={{
+                                                    display: 'flex',
                                                     width: '100%',
-                                                    height: '100%'
+                                                    height: (viewMode === 'landscape' && window.innerWidth >= 768) ? '320px' : 'auto',
+                                                    minHeight: 'auto',
+                                                    justifyContent: 'center'
                                                 }}
-                                            />
-                                        </div>
-                                    ))}
+                                            >
+                                                <PropertyCard
+                                                    property={property}
+                                                    showActions={true}
+                                                    viewMode={window.innerWidth < 768 ? 'grid' : viewMode}
+                                                    landscapeHeight="320px"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%'
+                                                    }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 {/* Pagination */}
-                                {sortedProperties.length > pageSize && (
+                                {normalizedProperties.length > pageSize && (
                                     <div style={{
                                         marginTop: '32px',
                                         display: 'flex',
@@ -544,7 +666,7 @@ const PropertySearchPage = () => {
                                         <Pagination
                                             current={currentPage}
                                             pageSize={pageSize}
-                                            total={sortedProperties.length}
+                                            total={normalizedProperties.length}
                                             onChange={handlePageChange}
                                             showSizeChanger
                                             showQuickJumper
@@ -561,7 +683,7 @@ const PropertySearchPage = () => {
                 </Content>
             </Layout>
 
-            {/* Filter Drawer - Optimized Width */}
+            {/* Filter Drawer */}
             <Drawer
                 title={
                     <Space>
@@ -575,16 +697,17 @@ const PropertySearchPage = () => {
                 placement="right"
                 onClose={closeFilterDrawer}
                 open={filterDrawerVisible}
-                width={320} 
+                width={320}
                 style={{
                     zIndex: 1001
                 }}
-                bodyStyle={{
-                    padding: '0',
-                    display: 'flex',
-                    flexDirection: 'column'
+                styles={{
+                    body: {
+                        padding: '0',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }
                 }}
-           
             >
                 <div style={{
                     flex: 1,

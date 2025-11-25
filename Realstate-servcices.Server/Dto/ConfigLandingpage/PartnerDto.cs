@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// PartnerDto.cs
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace Realstate_servcices.Server.Dto.ConfigLandingpage
 {
@@ -60,5 +62,41 @@ namespace Realstate_servcices.Server.Dto.ConfigLandingpage
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    // Add the missing DTOs here
+    public class CreatePartnerWithLogoDto
+    {
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        public IFormFile LogoFile { get; set; }
+
+        [Required]
+        [StringLength(100)]
+        public string Category { get; set; } = string.Empty;
+
+        public int DisplayOrder { get; set; } = 0;
+    }
+
+    public class UpdatePartnerWithLogoDto
+    {
+        [StringLength(100)]
+        public string? Name { get; set; }
+
+        public IFormFile? LogoFile { get; set; }
+
+        [StringLength(100)]
+        public string? Category { get; set; }
+
+        public int? DisplayOrder { get; set; }
+        public bool? IsActive { get; set; }
+    }
+
+    public class StatusUpdateDto
+    {
+        public bool IsActive { get; set; }
     }
 }

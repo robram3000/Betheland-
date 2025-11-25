@@ -32,6 +32,37 @@ export const schedulePropertiesMapper = {
                     `${backendData.agent.firstName || ''} ${backendData.agent.lastName || ''}`.trim() :
                     'Unknown Agent');
 
+            // Determine available actions based on status
+            const getAvailableActions = (status) => {
+                const actions = [];
+                switch (status) {
+                    case 'Pending':
+                        actions.push('accept', 'cancel', 'edit', 'delete');
+                        break;
+                    case 'Scheduled':
+                        actions.push('complete', 'cancel', 'reschedule', 'edit');
+                        break;
+                    case 'Rescheduled':
+                        actions.push('complete', 'cancel', 'edit');
+                        break;
+                    case 'Completed':
+                        actions.push('view');
+                        break;
+                    case 'Cancelled':
+                        actions.push('reopen', 'view');
+                        break;
+                    default:
+                        actions.push('view');
+                }
+                return actions;
+            };
+
+            // Check if schedule can be edited
+            const canEdit = backendData.status !== 'Completed' && backendData.status !== 'Cancelled';
+
+            // Check if schedule can be deleted
+            const canDelete = backendData.status !== 'Completed' && backendData.status !== 'Cancelled';
+
             return {
                 id: backendData.id || 0,
                 scheduleNo: backendData.scheduleNo || '',
@@ -40,13 +71,17 @@ export const schedulePropertiesMapper = {
                 propertyId: backendData.propertyId || 0,
                 scheduleTime: backendData.scheduleTime ? new Date(backendData.scheduleTime) : null,
                 scheduleEndTime: backendData.scheduleEndTime ? new Date(backendData.scheduleEndTime) : null,
-                status: backendData.status || 'Scheduled',
+                status: backendData.status || 'Pending',
                 notes: backendData.notes || '',
                 meetingType: backendData.meetingType || 'InPerson',
                 meetingLocation: backendData.meetingLocation || '',
                 virtualMeetingLink: backendData.virtualMeetingLink || '',
+                cancellationReason: backendData.cancellationReason || '',
+                rescheduleReason: backendData.rescheduleReason || '',
                 createdAt: backendData.createdAt ? new Date(backendData.createdAt) : new Date(),
                 updatedAt: backendData.updatedAt ? new Date(backendData.updatedAt) : null,
+                cancelledAt: backendData.cancelledAt ? new Date(backendData.cancelledAt) : null,
+                completedAt: backendData.completedAt ? new Date(backendData.completedAt) : null,
 
                 client: {
                     name: clientName,
@@ -73,7 +108,17 @@ export const schedulePropertiesMapper = {
                 clientPhone: clientPhone,
                 propertyTitle: propertyTitle,
                 propertyAddress: propertyAddress,
-                agentName: agentName
+                agentName: agentName,
+
+                // Status management
+                availableActions: getAvailableActions(backendData.status),
+                canEdit: canEdit,
+                canDelete: canDelete,
+                isCompleted: backendData.status === 'Completed',
+                isCancelled: backendData.status === 'Cancelled',
+                isPending: backendData.status === 'Pending',
+                isScheduled: backendData.status === 'Scheduled',
+                isRescheduled: backendData.status === 'Rescheduled'
             };
         } catch (error) {
             console.error('Error mapping schedule to frontend:', error);
@@ -114,11 +159,13 @@ export const schedulePropertiesMapper = {
                 propertyId: frontendData.propertyId || 0,
                 scheduleTime: scheduleTime,
                 scheduleEndTime: scheduleEndTime,
-                status: frontendData.status || 'Scheduled',
+                status: frontendData.status || 'Pending',
                 notes: frontendData.notes || '',
                 meetingType: frontendData.meetingType || 'InPerson',
                 meetingLocation: frontendData.meetingLocation || '',
-                virtualMeetingLink: frontendData.virtualMeetingLink || ''
+                virtualMeetingLink: frontendData.virtualMeetingLink || '',
+                cancellationReason: frontendData.cancellationReason || '',
+                rescheduleReason: frontendData.rescheduleReason || ''
             };
         } catch (error) {
             console.error('Error mapping schedule to backend:', error);
@@ -182,7 +229,7 @@ export const schedulePropertiesMapper = {
                 scheduleTime: scheduleTime,
                 scheduleEndTime: scheduleEndTime,
                 notes: formData.notes || '',
-                status: formData.status || 'Scheduled',
+                status: formData.status || 'Pending',
                 meetingType: formData.meetingType || 'InPerson',
                 meetingLocation: formData.meetingLocation || '',
                 virtualMeetingLink: formData.virtualMeetingLink || '',
@@ -234,11 +281,13 @@ export const schedulePropertiesMapper = {
                 clientId: parseInt(formData.clientId) || 0,
                 scheduleTime: scheduleTime,
                 scheduleEndTime: scheduleEndTime,
-                status: formData.status || 'Scheduled',
+                status: formData.status || 'Pending',
                 notes: formData.notes || '',
                 meetingType: formData.meetingType || 'InPerson',
                 meetingLocation: formData.meetingLocation || '',
-                virtualMeetingLink: formData.virtualMeetingLink || ''
+                virtualMeetingLink: formData.virtualMeetingLink || '',
+                cancellationReason: formData.cancellationReason || '',
+                rescheduleReason: formData.rescheduleReason || ''
             };
         } catch (error) {
             console.error('Error mapping schedule update request:', error);
@@ -261,11 +310,24 @@ export const schedulePropertiesMapper = {
             scheduleTime: scheduleTimeDate.toISOString(),
             scheduleEndTime: scheduleEndTime.toISOString(),
             notes: notes,
-            status: "Scheduled",
+            status: "Pending",
             meetingType: "InPerson",
             meetingLocation: meetingLocation,
             virtualMeetingLink: ""
         };
+    },
+
+    // Helper to get status display information
+    getStatusInfo: (status) => {
+        const statusInfo = {
+            Pending: { label: 'Pending', color: 'warning', icon: 'clock' },
+            Scheduled: { label: 'Scheduled', color: 'info', icon: 'calendar' },
+            Rescheduled: { label: 'Rescheduled', color: 'primary', icon: 'calendar-sync' },
+            Completed: { label: 'Completed', color: 'success', icon: 'check-circle' },
+            Cancelled: { label: 'Cancelled', color: 'danger', icon: 'cancel' }
+        };
+
+        return statusInfo[status] || { label: status, color: 'secondary', icon: 'help-circle' };
     }
 };
 

@@ -6,7 +6,6 @@ import propertyService from '../Employeesportal/AdminPortal/Creation_Property/se
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
 import PropertyImageInfo from './PropertyImageInfo';
 import PropertyLocation from './PropertyLocation';
-import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl'; 
 
 const { Content } = Layout;
 
@@ -16,6 +15,44 @@ const theme = {
         borderRadius: 8,
         colorBgContainer: '#ffffff',
     },
+};
+
+// Enhanced image URL processing function
+const processImageUrl = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+        return '/default-partner-logo.png';
+    }
+
+    // Already full URL (http, https, blob, data, etc.)
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        return url;
+    }
+
+    // Server path - prepend appropriate base URL
+    if (url.startsWith('/uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net'; // Use HTTPS for production
+        return `${baseUrl}${url}`;
+    }
+
+    // Relative path without leading slash
+    if (url.includes('.') && !url.startsWith('/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net'; // Use HTTPS for production
+        return `${baseUrl}/uploads/partners/${url}`;
+    }
+
+    // uploads/ path
+    if (url.startsWith('uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/${url}`;
+    }
+
+    return '/default-partner-logo.png';
 };
 
 const BaseSeePropertySimple = () => {

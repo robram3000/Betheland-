@@ -1920,6 +1920,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
+                       
                         <Col span={8}>
                             <Form.Item
                                 label="Zip Code"
@@ -1932,6 +1933,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 <Input
                                     placeholder="Zip code"
                                     suffix={loadingZipCode ? <Spin size="small" /> : null}
+                                    disabled={true} 
                                 />
                             </Form.Item>
                         </Col>

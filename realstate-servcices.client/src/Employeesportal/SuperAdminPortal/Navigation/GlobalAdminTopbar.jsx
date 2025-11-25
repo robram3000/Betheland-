@@ -43,8 +43,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
 
     const handleLogout = () => {
         logout();
-        message.success('Logged out successfully');
-        navigate('/login');
+        window.location.href = '/';
         setDropdownVisible(false);
     };
 
@@ -281,14 +280,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                     {/* Desktop Only - Notifications and Help */}
                     {!mobileView && (
                         <>
-                            <Badge count={5} size="small" className="notification-badge">
-                                <Button
-                                    type="text"
-                                    icon={<BellOutlined />}
-                                    onClick={handleNotifications}
-                                    className="notification-btn"
-                                />
-                            </Badge>
+                          
                             <Button
                                 type="text"
                                 icon={<QuestionCircleOutlined />}

@@ -1,3 +1,4 @@
+// ApiMapper.js
 export class ApiMapper {
     static mapChat(chatData) {
         if (!chatData) return null;
@@ -8,12 +9,47 @@ export class ApiMapper {
             name: chatData.name,
             chatType: chatData.chatType,
             propertyId: chatData.propertyId,
+            property: chatData.property ? this.mapProperty(chatData.property) : null,
             lastMessage: chatData.lastMessage,
             lastMessageAt: chatData.lastMessageAt ? new Date(chatData.lastMessageAt) : null,
             createdAt: new Date(chatData.createdAt),
             updatedAt: new Date(chatData.updatedAt),
             participants: chatData.participants?.map(p => this.mapChatParticipant(p)) || [],
             messages: chatData.messages?.map(m => this.mapMessage(m)) || []
+        };
+    }
+
+    static mapProperty(propertyData) {
+        if (!propertyData) return null;
+
+        return {
+            id: propertyData.id,
+            propertyNo: propertyData.propertyNo,
+            title: propertyData.title,
+            description: propertyData.description,
+            type: propertyData.type,
+            price: propertyData.price,
+            bedrooms: propertyData.bedrooms,
+            bathrooms: propertyData.bathrooms,
+            areaSqm: propertyData.areaSqm,
+            address: propertyData.address,
+            city: propertyData.city,
+            state: propertyData.state,
+            zipCode: propertyData.zipCode,
+            status: propertyData.status,
+            listedDate: propertyData.listedDate ? new Date(propertyData.listedDate) : null,
+            country: propertyData.country,
+            barangay: propertyData.barangay,
+            ownerId: propertyData.ownerId,
+            agentId: propertyData.agentId,
+            createdAt: propertyData.createdAt ? new Date(propertyData.createdAt) : null,
+            updatedAt: propertyData.updatedAt ? new Date(propertyData.updatedAt) : null,
+            mainImage: propertyData.propertyImages?.[0]?.imageUrl ||
+                propertyData.imageUrls?.[0] ||
+                '/default-property.jpg',
+            // Include full address for display
+            fullAddress: propertyData.fullAddress ||
+                `${propertyData.address || ''} ${propertyData.city || ''} ${propertyData.state || ''}`.trim()
         };
     }
 
@@ -24,13 +60,15 @@ export class ApiMapper {
             id: participantData.id,
             chatId: participantData.chatId,
             baseMemberId: participantData.baseMemberId,
+            recipientId: participantData.recipientId,
             role: participantData.role,
             participantType: participantData.participantType,
             unreadCount: participantData.unreadCount,
             lastReadAt: participantData.lastReadAt ? new Date(participantData.lastReadAt) : null,
             joinedAt: new Date(participantData.joinedAt),
             isActive: participantData.isActive,
-            member: participantData.member ? this.mapBaseMember(participantData.member) : null
+            member: participantData.member ? this.mapBaseMember(participantData.member) : null,
+            recipient: participantData.recipient ? this.mapBaseMember(participantData.recipient) : null
         };
     }
 
@@ -57,6 +95,7 @@ export class ApiMapper {
             messageNo: messageData.messageNo,
             chatId: messageData.chatId,
             senderId: messageData.senderId,
+            recipientId: messageData.recipientId,
             content: messageData.content,
             messageType: messageData.messageType,
             isEdited: messageData.isEdited,
@@ -65,6 +104,7 @@ export class ApiMapper {
             readAt: messageData.readAt ? new Date(messageData.readAt) : null,
             editedAt: messageData.editedAt ? new Date(messageData.editedAt) : null,
             sender: this.mapBaseMember(messageData.sender),
+            recipient: this.mapBaseMember(messageData.recipient),
             files: messageData.files?.map(f => this.mapMessageFile(f)) || [],
             reactions: messageData.reactions?.map(r => this.mapMessageReaction(r)) || []
         };

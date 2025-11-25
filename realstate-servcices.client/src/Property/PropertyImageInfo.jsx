@@ -4,11 +4,53 @@ import {
     FaBath,
     FaCar,
     FaRulerCombined,
-    FaHeart,
     FaUtensils
 } from 'react-icons/fa';
-import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
+import { Modal, Button } from 'antd';
+import {
+    CloseOutlined,
+    LeftOutlined,
+    RightOutlined,
+    EyeOutlined
+} from '@ant-design/icons';
 import './PropertyImageInfo.scss';
+
+const processImageUrl = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+        return '/default-property.jpg';
+    }
+
+    // Already full URL (http, https, blob, data, etc.)
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        return url;
+    }
+
+    // Server path - prepend appropriate base URL
+    if (url.startsWith('/uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}${url}`;
+    }
+
+    // Relative path without leading slash
+    if (url.includes('.') && !url.startsWith('/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/uploads/${url}`;
+    }
+
+    // uploads/ path
+    if (url.startsWith('uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/${url}`;
+    }
+
+    return '/default-property.jpg';
+};
 
 const PropertyImageInfo = ({ property, agent }) => {
     const [mainImage, setMainImage] = useState(property?.mainImage || '/default-property.jpg');
@@ -16,6 +58,9 @@ const PropertyImageInfo = ({ property, agent }) => {
     const [isMobile, setIsMobile] = useState(false);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
+    const [imageErrors, setImageErrors] = useState({});
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalCurrentSlide, setModalCurrentSlide] = useState(0);
     const sliderRef = useRef(null);
 
     if (!property) return null;
@@ -65,6 +110,18 @@ const PropertyImageInfo = ({ property, agent }) => {
     const availableImages = getAvailableImages();
     const images = availableImages.length > 0 ? availableImages : ['/default-property.jpg'];
 
+    // Handle image errors
+    const handleImageError = (imageUrl) => {
+        setImageErrors(prev => ({ ...prev, [imageUrl]: true }));
+    };
+
+    const getProcessedImageUrl = (imageUrl) => {
+        if (imageErrors[imageUrl]) {
+            return '/default-property.jpg';
+        }
+        return processImageUrl(imageUrl);
+    };
+
     // Touch handlers for swipe
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
@@ -104,14 +161,45 @@ const PropertyImageInfo = ({ property, agent }) => {
         setCurrentSlide(index);
     };
 
+    // Modal navigation functions
+    const nextModalSlide = () => {
+        setModalCurrentSlide((prev) => (prev + 1) % images.length);
+    };
+
+    const prevModalSlide = () => {
+        setModalCurrentSlide((prev) => (prev - 1 + images.length) % images.length);
+    };
+
+    const goToModalSlide = (index) => {
+        setModalCurrentSlide(index);
+    };
+
+    // Update main image when current slide changes
     useEffect(() => {
         if (images.length > 0 && currentSlide < images.length) {
             setMainImage(images[currentSlide]);
         }
     }, [currentSlide, images]);
 
+    // Handle thumbnail click
+    const handleThumbnailClick = (image, index) => {
+        setMainImage(image);
+        setCurrentSlide(index);
+    };
+
+    // Open modal
+    const openModal = (index = 0) => {
+        setModalCurrentSlide(index);
+        setIsModalOpen(true);
+    };
+
+    // Close modal
+    const closeModal = () => {
+        setIsModalOpen(false);
+    };
+
     const additionalImagesCount = Math.max(0, images.length - 4);
-    const displayThumbnails = images.slice(0, additionalImagesCount > 0 ? 3 : 4);
+    const displayThumbnails = images.slice(0, 4);
 
     return (
         <div className="property-image-info-container">
@@ -184,16 +272,16 @@ const PropertyImageInfo = ({ property, agent }) => {
                                     <div
                                         key={index}
                                         className="property-image-info-slide"
+                                        onClick={() => openModal(index)}
                                     >
                                         <img
-                                            src={processImageUrl(image)}
+                                            src={getProcessedImageUrl(image)}
                                             alt={`Property view ${index + 1}`}
                                             className="property-image-info-slider-image"
                                             onError={(e) => {
-                                                console.log('Image failed to load:', image);
+                                                handleImageError(image);
                                                 e.target.src = '/default-property.jpg';
                                             }}
-                                            onLoad={() => console.log('Image loaded successfully:', image)}
                                             loading="lazy"
                                         />
                                     </div>
@@ -227,16 +315,25 @@ const PropertyImageInfo = ({ property, agent }) => {
                 {/* Desktop Layout */}
                 {!isMobile && (
                     <>
-                        {/* Main Image */}
-                        <div className="property-image-info-main-image-container">
+                        {/* Main Image - Click to open modal */}
+                        <div
+                            className="property-image-info-main-image-container"
+                            onClick={() => openModal(currentSlide)}
+                        >
                             <img
-                                src={processImageUrl(mainImage)}
+                                src={getProcessedImageUrl(mainImage)}
                                 alt="Main property view"
                                 className="property-image-info-main-image"
                                 onError={(e) => {
+                                    handleImageError(mainImage);
                                     e.target.src = '/default-property.jpg';
                                 }}
                             />
+                            {/* View All Photos Button */}
+                            <div className="property-image-info-view-all-btn">
+                                <EyeOutlined style={{ marginRight: '8px' }} />
+                                View All Photos ({images.length})
+                            </div>
                         </div>
 
                         {/* Thumbnails */}
@@ -246,41 +343,117 @@ const PropertyImageInfo = ({ property, agent }) => {
                                     <div
                                         key={index}
                                         className={`property-image-info-thumbnail-with-overlay ${mainImage === image ? 'property-image-info-active-thumbnail' : ''}`}
+                                        onClick={() => handleThumbnailClick(image, index)}
                                     >
                                         <img
-                                            src={processImageUrl(image)}
+                                            src={getProcessedImageUrl(image)}
                                             alt={`Property view ${index + 1}`}
                                             className="property-image-info-thumbnail"
-                                            onClick={() => setMainImage(image)}
                                             onError={(e) => {
+                                                handleImageError(image);
                                                 e.target.src = '/default-property.jpg';
                                             }}
                                         />
+                                        {/* Show +X overlay only on the last thumbnail when there are more images */}
+                                        {index === 3 && additionalImagesCount > 0 && (
+                                            <div
+                                                className="property-image-info-overlay-counter"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openModal(3);
+                                                }}
+                                            >
+                                                +{additionalImagesCount}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
-                                {additionalImagesCount > 0 && (
-                                    <div
-                                        className="property-image-info-thumbnail-with-overlay"
-                                        onClick={() => setMainImage(images[3])}
-                                    >
-                                        <img
-                                            src={processImageUrl(images[3])}
-                                            alt="Property view"
-                                            className="property-image-info-thumbnail"
-                                            onError={(e) => {
-                                                e.target.src = '/default-property.jpg';
-                                            }}
-                                        />
-                                        <div className="property-image-info-overlay-counter">
-                                            +{additionalImagesCount}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </>
                 )}
             </div>
+
+            {/* Ant Design Modal */}
+            <Modal
+                open={isModalOpen}
+                onCancel={closeModal}
+                footer={null}
+                width="90vw"
+                style={{ maxWidth: '1200px' }}
+                closeIcon={<CloseOutlined style={{ color: '#fff', fontSize: '24px' }} />}
+                className="property-image-gallery-modal"
+                bodyStyle={{
+                    padding: 0,
+                    height: '80vh',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
+            >
+                <div className="property-image-gallery-content">
+                    {/* Main Image with Navigation */}
+                    <div className="property-image-gallery-main">
+                        <Button
+                            className="property-image-gallery-nav property-image-gallery-prev"
+                            onClick={prevModalSlide}
+                            icon={<LeftOutlined />}
+                            type="text"
+                            style={{
+                                color: '#fff',
+                                fontSize: '20px'
+                            }}
+                        />
+
+                        <div className="property-image-gallery-image-container">
+                            <img
+                                src={getProcessedImageUrl(images[modalCurrentSlide])}
+                                alt={`Property view ${modalCurrentSlide + 1}`}
+                                className="property-image-gallery-image"
+                                onError={(e) => {
+                                    handleImageError(images[modalCurrentSlide]);
+                                    e.target.src = '/default-property.jpg';
+                                }}
+                            />
+                        </div>
+
+                        <Button
+                            className="property-image-gallery-nav property-image-gallery-next"
+                            onClick={nextModalSlide}
+                            icon={<RightOutlined />}
+                            type="text"
+                            style={{
+                                color: '#fff',
+                                fontSize: '20px'
+                            }}
+                        />
+                    </div>
+
+                    {/* Image Counter */}
+                    <div className="property-image-gallery-counter">
+                        {modalCurrentSlide + 1} / {images.length}
+                    </div>
+
+                    {/* Thumbnail Strip */}
+                    <div className="property-image-gallery-thumbnails">
+                        {images.map((image, index) => (
+                            <div
+                                key={index}
+                                className={`property-image-gallery-thumbnail ${index === modalCurrentSlide ? 'property-image-gallery-thumbnail-active' : ''}`}
+                                onClick={() => goToModalSlide(index)}
+                            >
+                                <img
+                                    src={getProcessedImageUrl(image)}
+                                    alt={`Property view ${index + 1}`}
+                                    onError={(e) => {
+                                        handleImageError(image);
+                                        e.target.src = '/default-property.jpg';
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

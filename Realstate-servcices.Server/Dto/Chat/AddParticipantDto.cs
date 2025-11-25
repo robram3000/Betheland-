@@ -4,15 +4,9 @@ namespace Realstate_servcices.Server.Dto.Chat
 {
     public class AddParticipantDto
     {
-        [Required]
         public int BaseMemberId { get; set; }
-
-        [Required]
-        [MaxLength(20)]
+        public int? RecipientId { get; set; } 
         public string Role { get; set; } = "member";
-
-        [Required]
-        [MaxLength(20)]
         public string ParticipantType { get; set; } = "user";
     }
 }

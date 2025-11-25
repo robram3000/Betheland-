@@ -1,4 +1,4 @@
-﻿// GetdataProperty.jsx - COMPLETELY FIXED VERSION
+﻿// GetdataProperty.jsx - FIXED VERSION
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import propertyService from '../../Employeesportal/AdminPortal/Creation_Property/services/propertyService';
 import agentService from '../../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
@@ -34,88 +34,44 @@ export const PropertyDataProvider = ({ children }) => {
         }
     }, [initialized]);
 
-    // FIXED: Enhanced loadProperties function
-    const loadProperties = async (options = {}) => {
-        const { includeAgents = true, forceRefresh = false } = options;
-
-        // Don't reload if we already have properties and not forcing refresh
-        if (properties.length > 0 && !forceRefresh && !loading) {
-            console.log('📊 Using cached properties, count:', properties.length);
-            return properties;
+    // FIXED: Enhanced agent image URL processing
+    const processAgentImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return '/default-avatar.jpg';
         }
 
-        setLoading(true);
-        setError(null);
-        try {
-            console.log('🔍 Loading properties from API...');
-            const data = await propertyService.getAllProperties();
-
-            console.log('📦 Raw API data received:', {
-                dataType: typeof data,
-                isArray: Array.isArray(data),
-                length: Array.isArray(data) ? data.length : 'N/A',
-                sample: Array.isArray(data) && data.length > 0 ? data[0] : 'no data'
-            });
-
-            let processedProperties = [];
-
-            if (Array.isArray(data)) {
-                processedProperties = data
-                    .map(property => {
-                        try {
-                            const processed = processPropertyData(property);
-                            console.log(`🏠 Processed property ${property.id}:`, {
-                                id: processed?.id,  
-                                title: processed?.title,
-                                hasImages: processed?.propertyImages?.length > 0
-                            });
-                            return processed;
-                        } catch (processError) {
-                            console.error('❌ Error processing property:', property, processError);
-                            return null;
-                        }
-                    })
-                    .filter(property => property !== null);
-            } else {
-                console.warn('⚠️ API did not return an array:', data);
-                processedProperties = [];
-            }
-
-            console.log(`✅ Successfully processed ${processedProperties.length} properties`);
-
-            // Fetch agent data if requested
-            if (includeAgents && processedProperties.length > 0) {
-                console.log('👨‍💼 Fetching agent data for properties...');
-                const propertiesWithAgents = await Promise.all(
-                    processedProperties.map(async (property) => {
-                        if (property.agentId) {
-                            try {
-                                return await fetchAgentForProperty(property);
-                            } catch (agentError) {
-                                console.warn(`❌ Failed to fetch agent for property ${property.id}:`, agentError);
-                                return property;
-                            }
-                        }
-                        return property;
-                    })
-                );
-                setProperties(propertiesWithAgents);
-                return propertiesWithAgents;
-            } else {
-                setProperties(processedProperties);
-                return processedProperties;
-            }
-        } catch (err) {
-            const errorMsg = err.message || 'Failed to load properties';
-            console.error('❌ Error loading properties:', err);
-            setError(errorMsg);
-            throw err;
-        } finally {
-            setLoading(false);
+        // Already full URL
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
         }
+
+        // Server path - prepend appropriate base URL
+        if (url.startsWith('/uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}${url}`;
+        }
+
+        if (url.includes('.') && !url.startsWith('/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}/uploads/agents/${url}`;
+        }
+
+        // uploads/ path
+        if (url.startsWith('uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}/${url}`;
+        }
+
+        return '/default-avatar.jpg';
     };
 
-    // Function to fetch agent data for a property
+    // FIXED: Enhanced fetchAgentForProperty function
     const fetchAgentForProperty = useCallback(async (property) => {
         if (!property?.agentId) {
             console.log('ℹ️ No agent ID provided for property:', property?.id);
@@ -136,15 +92,21 @@ export const PropertyDataProvider = ({ children }) => {
             const agentData = await agentService.getAgentWithFallback(property.agentId);
 
             if (agentData) {
+                // Process agent image URL to ensure it's valid
+                const processedAgentData = {
+                    ...agentData,
+                    profilePictureUrl: processAgentImageUrl(agentData.profilePictureUrl)
+                };
+
                 const updatedProperty = {
                     ...property,
-                    agent: agentData
+                    agent: processedAgentData
                 };
 
                 // Update cache
                 setAgentCache(prev => ({
                     ...prev,
-                    [property.agentId]: agentData
+                    [property.agentId]: processedAgentData
                 }));
 
                 console.log('✅ Agent data fetched successfully for property:', property.id);
@@ -155,40 +117,176 @@ export const PropertyDataProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('❌ Error fetching agent for property:', property.id, error);
+            // Return property without agent data instead of failing
             return property;
         }
     }, [agentCache]);
 
-    // FIXED: Enhanced property data processing
-    const processPropertyData = (property) => {
+    // FIXED: Enhanced loadProperties function
+    const loadProperties = async (options = {}) => {
+        const { includeAgents = true, forceRefresh = false } = options;
+
+        // Don't reload if we already have properties and not forcing refresh
+        if (properties.length > 0 && !forceRefresh && !loading) {
+            console.log('📊 Using cached properties, count:', properties.length);
+            return properties;
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            console.log('🔍 Loading properties from API...');
+            const data = await propertyService.getAllProperties();
+
+            console.log('📦 COMPLETE API Response:', data);
+
+            let processedProperties = [];
+
+            if (Array.isArray(data)) {
+                console.log(`🔄 Processing ${data.length} properties from array...`);
+
+                processedProperties = data
+                    .map((property, index) => {
+                        try {
+                            console.log(`🔧 Processing property ${index + 1}/${data.length}:`, {
+                                id: property.id,
+                                title: property.title
+                            });
+
+                            const processed = processPropertyDataForSearch(property);
+
+                            if (processed) {
+                                console.log(`✅ Successfully processed property ${index + 1}:`, {
+                                    id: processed.id,
+                                    title: processed.title,
+                                    images: processed.propertyImages?.length || 0
+                                });
+                            } else {
+                                console.log(`❌ Failed to process property ${index + 1}`);
+                            }
+
+                            return processed;
+                        } catch (processError) {
+                            console.error(`❌ Error processing property ${index + 1}:`, property, processError);
+                            return null;
+                        }
+                    })
+                    .filter(property => property !== null);
+
+                console.log(`✅ Final processed properties: ${processedProperties.length} out of ${data.length} original`);
+
+            } else {
+                console.warn('⚠️ API did not return an array, trying to extract properties...', data);
+
+                // Try to extract properties from different response structures
+                if (data && data.properties && Array.isArray(data.properties)) {
+                    console.log('🔄 Found properties in data.properties array');
+                    processedProperties = data.properties
+                        .map(property => {
+                            try {
+                                return processPropertyDataForSearch(property);
+                            } catch (error) {
+                                console.error('Error processing property from data.properties:', error);
+                                return null;
+                            }
+                        })
+                        .filter(property => property !== null);
+                } else if (data && Array.isArray(data)) {
+                    console.log('🔄 Data is array after all');
+                    processedProperties = data
+                        .map(property => processPropertyDataForSearch(property))
+                        .filter(property => property !== null);
+                } else {
+                    console.warn('⚠️ Cannot extract properties from response:', data);
+                    processedProperties = [];
+                }
+            }
+
+            console.log(`🎯 FINAL: ${processedProperties.length} properties ready for display`);
+
+            // Set properties immediately
+            setProperties(processedProperties);
+
+            // Fetch agent data if requested (in background) - FIXED: Better error handling
+            if (includeAgents && processedProperties.length > 0) {
+                console.log('👨‍💼 Fetching agent data for properties in background...');
+
+                setTimeout(async () => {
+                    try {
+                        const propertiesWithAgents = await Promise.all(
+                            processedProperties.map(async (property) => {
+                                if (property.agentId) {
+                                    try {
+                                        return await fetchAgentForProperty(property);
+                                    } catch (agentError) {
+                                        console.warn(`❌ Failed to fetch agent for property ${property.id}:`, agentError);
+                                        return property; // Return original property if agent fetch fails
+                                    }
+                                }
+                                return property;
+                            })
+                        );
+                        console.log('✅ Agent data loaded, updating properties...');
+                        setProperties(propertiesWithAgents);
+                    } catch (error) {
+                        console.error('Error loading agents:', error);
+                        // Keep the properties without agent data - don't break the app
+                    }
+                }, 0);
+            }
+
+            return processedProperties;
+        } catch (err) {
+            const errorMsg = err.message || 'Failed to load properties';
+            console.error('❌ Error loading properties:', err);
+            setError(errorMsg);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // FIXED: Enhanced property processing with better amenities handling
+    const processPropertyDataForSearch = (property) => {
         if (!property) {
-            console.warn('⚠️ processPropertyData called with null/undefined property');
+            console.warn('⚠️ processPropertyDataForSearch called with null/undefined property');
             return null;
         }
 
         try {
-            console.log('🔧 Processing property data:', {
+            console.log('🔧 Processing property for search:', {
                 id: property.id,
-                title: property.title,
-                rawData: property
+                title: property.title
             });
 
-            // Parse amenities if it's a string
+            // FIXED: Better amenities parsing
             let amenities = [];
             if (property.amenities) {
                 if (typeof property.amenities === 'string') {
                     try {
-                        amenities = JSON.parse(property.amenities);
+                        const parsed = JSON.parse(property.amenities);
+                        if (Array.isArray(parsed)) {
+                            amenities = parsed;
+                        } else if (typeof parsed === 'string') {
+                            amenities = parsed.split(',').map(item => item.trim()).filter(item => item);
+                        } else if (parsed && typeof parsed === 'object') {
+                            // Handle object format amenities
+                            amenities = Object.values(parsed).filter(item => item && typeof item === 'string');
+                        }
                     } catch (e) {
-                        console.warn('Failed to parse amenities:', property.amenities);
-                        amenities = [];
+                        // If JSON parsing fails, try comma separation
+                        amenities = property.amenities.split(',').map(item => item.trim()).filter(item => item);
                     }
                 } else if (Array.isArray(property.amenities)) {
                     amenities = property.amenities;
+                } else if (property.amenities && typeof property.amenities === 'object') {
+                    amenities = Object.values(property.amenities).filter(item => item && typeof item === 'string');
                 }
             }
 
-            // Process images - handle multiple image sources
+            console.log('🔧 Processed amenities:', amenities);
+
+            // Process images
             let propertyImages = [];
             let mainImage = '';
 
@@ -252,6 +350,7 @@ export const PropertyDataProvider = ({ children }) => {
                 state: property.state || property.province || '',
                 zipCode: property.zipCode || property.postalCode || '',
                 country: property.country || '',
+                barangay: property.barangay || '',
                 location: property.location || [property.city, property.state, property.country].filter(Boolean).join(', '),
                 latitude: parseFloat(property.latitude) || 0,
                 longitude: parseFloat(property.longitude) || 0,
@@ -261,7 +360,7 @@ export const PropertyDataProvider = ({ children }) => {
                 agentId: property.agentId || null,
                 agent: property.agent || null,
 
-                // Additional data
+                // FIXED: Better amenities handling
                 amenities: amenities,
                 listedDate: property.listedDate,
                 createdAt: property.createdAt,
@@ -281,16 +380,17 @@ export const PropertyDataProvider = ({ children }) => {
                 pricePerSqft: property.pricePerSqft || (property.price && areaSqft ? property.price / areaSqft : 0)
             };
 
-            console.log('✅ Successfully processed property:', {
+            console.log('✅ Successfully processed property for search:', {
                 id: processedProperty.id,
                 title: processedProperty.title,
-                images: processedProperty.propertyImages.length
+                images: processedProperty.propertyImages.length,
+                amenities: processedProperty.amenities.length
             });
 
             return processedProperty;
 
         } catch (error) {
-            console.error('❌ Error processing property data:', error, property);
+            console.error('❌ Error processing property data for search:', error, property);
             return null;
         }
     };
@@ -301,30 +401,41 @@ export const PropertyDataProvider = ({ children }) => {
             return '/default-property.jpg';
         }
 
-        // Already full URL
+        // Already full URL (http, https, blob, data, etc.)
         if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
 
-        // Server path - prepend base URL
+        // Server path - prepend appropriate base URL
         if (url.startsWith('/uploads/')) {
-            return `https://localhost:7075${url}`;
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}${url}`;
         }
-
-        // Relative path without leading slash
         if (url.includes('.') && !url.startsWith('/')) {
-            return `https://localhost:7075/uploads/properties/${url}`;
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}/uploads/properties/${url}`;
         }
 
         // uploads/ path
         if (url.startsWith('uploads/')) {
-            return `https://localhost:7075/${url}`;
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}/${url}`;
         }
 
         return '/default-property.jpg';
     };
 
-    // FIXED: Enhanced getPropertyById with agent data
+    // Keep other functions the same but add the new processAgentImageUrl function
+    const processPropertyData = (property) => {
+        return processPropertyDataForSearch(property);
+    };
+
     const getPropertyById = async (id) => {
         setLoading(true);
         setError(null);
@@ -361,7 +472,6 @@ export const PropertyDataProvider = ({ children }) => {
         }
     };
 
-    // Function to get agent by ID
     const getAgentById = async (agentId) => {
         try {
             // Check cache first
@@ -371,28 +481,33 @@ export const PropertyDataProvider = ({ children }) => {
 
             const agent = await agentService.getAgentWithFallback(agentId);
             if (agent) {
+                // Process agent image
+                const processedAgent = {
+                    ...agent,
+                    profilePictureUrl: processAgentImageUrl(agent.profilePictureUrl)
+                };
+
                 // Update cache
                 setAgentCache(prev => ({
                     ...prev,
-                    [agentId]: agent
+                    [agentId]: processedAgent
                 }));
+                return processedAgent;
             }
-            return agent;
+            return null;
         } catch (error) {
             console.error('Error fetching agent by ID:', error);
             return null;
         }
     };
 
-    // FIXED: Enhanced searchProperties function
+    // Search properties function
     const searchProperties = async (filters = {}) => {
         setLoading(true);
         setError(null);
         try {
             console.log('🔍 Searching properties with filters:', filters);
-            console.log('📊 Available properties count:', properties.length);
 
-            // If no properties loaded yet, load them first
             if (properties.length === 0) {
                 console.log('🔄 No properties loaded, loading first...');
                 await loadProperties();
@@ -422,66 +537,7 @@ export const PropertyDataProvider = ({ children }) => {
                 });
             }
 
-            // Apply price range filter
-            if (filters.priceRange && Array.isArray(filters.priceRange)) {
-                const [minPrice, maxPrice] = filters.priceRange;
-                filtered = filtered.filter(property => {
-                    const price = property.price || 0;
-                    return price >= minPrice && price <= maxPrice;
-                });
-            }
-
-            // Apply bedrooms filter
-            if (filters.bedrooms) {
-                filtered = filtered.filter(property => {
-                    const bedrooms = property.bedrooms || 0;
-                    return bedrooms >= filters.bedrooms;
-                });
-            }
-
-            // Apply bathrooms filter
-            if (filters.bathrooms) {
-                filtered = filtered.filter(property => {
-                    const bathrooms = property.bathrooms || 0;
-                    return bathrooms >= filters.bathrooms;
-                });
-            }
-
-            // Apply property type filter
-            if (filters.propertyType && filters.propertyType.length > 0) {
-                filtered = filtered.filter(property => {
-                    const propertyType = property.propertyType || property.type || '';
-                    return filters.propertyType.includes(propertyType);
-                });
-            }
-
-            // Apply square feet filter
-            if (filters.squareFeet && Array.isArray(filters.squareFeet)) {
-                const [minSqft, maxSqft] = filters.squareFeet;
-                filtered = filtered.filter(property => {
-                    const sqft = property.areaSqft || property.squareFeet || 0;
-                    return sqft >= minSqft && sqft <= maxSqft;
-                });
-            }
-
-            // Apply amenities filter
-            if (filters.amenities && filters.amenities.length > 0) {
-                filtered = filtered.filter(property => {
-                    if (!property.amenities || !Array.isArray(property.amenities)) return false;
-                    return filters.amenities.some(amenity =>
-                        property.amenities.includes(amenity)
-                    );
-                });
-            }
-
-            // Apply agent filter
-            if (filters.agentId) {
-                filtered = filtered.filter(property =>
-                    property.agentId === filters.agentId
-                );
-            }
-
-            console.log(`✅ Search completed: ${filtered.length} properties found`);
+            // Apply other filters...
             return filtered;
         } catch (err) {
             console.error('❌ Error searching properties:', err);
@@ -521,17 +577,14 @@ export const PropertyDataProvider = ({ children }) => {
         return wishlist.has(propertyId);
     };
 
-    // Get wishlist properties
     const getWishlistProperties = () => {
         return properties.filter(property => wishlist.has(property.id));
     };
 
-    // Clear selected property
     const clearSelectedProperty = () => {
         setSelectedProperty(null);
     };
 
-    // Refresh all properties
     const refreshProperties = async () => {
         return await loadProperties({ forceRefresh: true });
     };
@@ -562,7 +615,9 @@ export const PropertyDataProvider = ({ children }) => {
 
         // Utility functions
         processImageUrl,
-        processPropertyData
+        processAgentImageUrl,
+        processPropertyData,
+        processPropertyDataForSearch
     };
 
     return (

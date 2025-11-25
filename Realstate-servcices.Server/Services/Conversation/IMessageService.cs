@@ -9,5 +9,8 @@ namespace Realstate_servcices.Server.Services.Conversation
         Task<bool> DeleteMessageAsync(int messageId, int userId);
         Task<MessageDto> AddReactionAsync(int messageId, string emoji, int userId);
         Task<bool> RemoveReactionAsync(int messageId, int userId);
+
+        // New method for recipient functionality
+        Task<List<MessageDto>> GetMessagesByRecipientAsync(int recipientId, int userId, int page = 1, int pageSize = 50);
     }
 }

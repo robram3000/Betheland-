@@ -153,7 +153,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                     MeetingType = request.MeetingType,
                     MeetingLocation = request.MeetingLocation,
                     VirtualMeetingLink = request.VirtualMeetingLink,
-                    Status = "Scheduled",
+                    Status = "Pending", // Default to Pending instead of Scheduled
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -178,6 +178,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 if (id != schedule.Id)
                     return BadRequest("ID mismatch");
 
+                // Check if schedule can be edited
+                var existingSchedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (existingSchedule == null)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                if (!_scheduleService.CanScheduleBeEdited(existingSchedule))
+                    return BadRequest("Cannot edit a schedule that is Completed or Cancelled.");
+
                 var updatedSchedule = await _scheduleService.UpdateScheduleAsync(schedule);
                 return Ok(updatedSchedule);
             }
@@ -195,16 +203,41 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
         }
 
-        [HttpPatch("{id}/cancel")]
-        public async Task<ActionResult> CancelSchedule(int id)
+        [HttpPatch("{id}/accept")]
+        public async Task<ActionResult> AcceptSchedule(int id)
         {
             try
             {
-                var result = await _scheduleService.CancelScheduleAsync(id);
+                var result = await _scheduleService.AcceptScheduleAsync(id);
+                if (!result)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                return Ok(new { message = "Schedule accepted successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPatch("{id}/cancel")]
+        public async Task<ActionResult> CancelSchedule(int id, [FromBody] CancelScheduleRequest request)
+        {
+            try
+            {
+                var result = await _scheduleService.CancelScheduleAsync(id, request.CancellationReason);
                 if (!result)
                     return NotFound($"Schedule with ID {id} not found.");
 
                 return Ok(new { message = "Schedule cancelled successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -213,11 +246,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         }
 
         [HttpPatch("{id}/reschedule")]
-        public async Task<ActionResult> Reschedule(int id, [FromBody] DateTime newScheduleTime)
+        public async Task<ActionResult> Reschedule(int id, [FromBody] RescheduleRequest request)
         {
             try
             {
-                var result = await _scheduleService.RescheduleAsync(id, newScheduleTime);
+                var result = await _scheduleService.RescheduleAsync(id, request.NewScheduleTime);
                 if (!result)
                     return NotFound($"Schedule with ID {id} not found.");
 
@@ -244,6 +277,31 @@ namespace Realstate_servcices.Server.Controllers.Schedule
 
                 return Ok(new { message = "Schedule marked as completed." });
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPatch("{id}/reopen")]
+        public async Task<ActionResult> ReopenSchedule(int id)
+        {
+            try
+            {
+                var result = await _scheduleService.ReopenScheduleAsync(id);
+                if (!result)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                return Ok(new { message = "Schedule reopened successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
@@ -255,6 +313,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         {
             try
             {
+                // Check if schedule can be deleted
+                var existingSchedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (existingSchedule == null)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                if (!_scheduleService.CanScheduleBeDeleted(existingSchedule))
+                    return BadRequest("Cannot delete a schedule that is Completed or Cancelled.");
+
                 var result = await _scheduleService.DeleteScheduleAsync(id);
                 if (!result)
                     return NotFound($"Schedule with ID {id} not found.");
@@ -275,6 +341,56 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 var isAvailable = await _scheduleService.IsTimeSlotAvailableAsync(agentId, scheduleTime);
                 return Ok(new { isAvailable });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("status-transitions/{id}")]
+        public async Task<ActionResult<IEnumerable<string>>> GetAvailableStatusTransitions(int id)
+        {
+            try
+            {
+                var transitions = await _scheduleService.GetAvailableStatusTransitionsAsync(id);
+                return Ok(transitions);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("can-edit/{id}")]
+        public async Task<ActionResult<bool>> CanScheduleBeEdited(int id)
+        {
+            try
+            {
+                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (schedule == null)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                var canEdit = _scheduleService.CanScheduleBeEdited(schedule);
+                return Ok(new { canEdit });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("can-delete/{id}")]
+        public async Task<ActionResult<bool>> CanScheduleBeDeleted(int id)
+        {
+            try
+            {
+                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (schedule == null)
+                    return NotFound($"Schedule with ID {id} not found.");
+
+                var canDelete = _scheduleService.CanScheduleBeDeleted(schedule);
+                return Ok(new { canDelete });
             }
             catch (Exception ex)
             {
@@ -332,5 +448,16 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+    }
+
+    public class RescheduleRequest
+    {
+        public DateTime NewScheduleTime { get; set; }
+    
+    }
+
+    public class CancelScheduleRequest
+    {
+        public string CancellationReason { get; set; } = string.Empty;
     }
 }

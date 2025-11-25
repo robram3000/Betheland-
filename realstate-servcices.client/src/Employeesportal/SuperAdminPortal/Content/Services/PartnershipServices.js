@@ -99,11 +99,19 @@ class PartnershipServices {
         }
     }
 
-    // Create new partner
+    // Create new partner - UPDATED FOR FORMDATA
     static async createPartner(partnerData) {
         try {
-            console.log('Creating partner:', partnerData);
-            const response = await api.post('/PartnershipContent/partners', partnerData);
+            console.log('Creating partner with FormData:', partnerData);
+
+            // Set proper headers for FormData
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            };
+
+            const response = await api.post('/PartnershipContent/partners', partnerData, config);
             console.log('Create Partner Response:', response);
             console.log('Create Partner Data:', response.data);
             return response.data;
@@ -114,11 +122,19 @@ class PartnershipServices {
         }
     }
 
-    // Update partner
+    // Update partner - UPDATED FOR FORMDATA
     static async updatePartner(id, partnerData) {
         try {
             console.log('Updating partner:', id, partnerData);
-            const response = await api.put(`/PartnershipContent/partners/${id}`, partnerData);
+
+            // Set proper headers for FormData
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            };
+
+            const response = await api.put(`/PartnershipContent/partners/${id}`, partnerData, config);
             console.log('Update Partner Response:', response);
             console.log('Update Partner Data:', response.data);
             return response.data;
@@ -144,17 +160,70 @@ class PartnershipServices {
         }
     }
 
-    // Toggle partner status (activate/deactivate)
+    // Toggle partner status (activate/deactivate) - FIXED VERSION
     static async togglePartnerStatus(id, isActive) {
         try {
-            console.log('Toggling partner status:', id, isActive);
-            const response = await api.patch(`/PartnershipContent/partners/${id}/status`, { isActive });
+            console.log('=== TOGGLE PARTNER STATUS DEBUG ===');
+            console.log('Partner ID:', id);
+            console.log('New Status:', isActive);
+            console.log('Endpoint:', `/PartnershipContent/partners/${id}/status`);
+
+            // Use the correct payload structure that matches the backend DTO
+            const payload = { IsActive: isActive };
+            console.log('Request Payload:', payload);
+
+            const response = await api.patch(`/PartnershipContent/partners/${id}/status`, payload);
+
             console.log('Toggle Partner Status Response:', response);
             console.log('Toggle Partner Status Data:', response.data);
+            console.log('=== END DEBUG ===');
+
             return response.data;
         } catch (error) {
+            console.error('=== TOGGLE STATUS ERROR DETAILS ===');
             console.error('Toggle Partner Status API Error:', error);
-            console.error('Error Response:', error.response);
+            console.error('Error Message:', error.message);
+
+            if (error.response) {
+                console.error('Error Response Status:', error.response.status);
+                console.error('Error Response Data:', error.response.data);
+                console.error('Error Response Headers:', error.response.headers);
+
+                // Try alternative approach if 400 error
+                if (error.response.status === 400) {
+                    console.log('Attempting alternative payload structure...');
+                    try {
+                        // Try with different property names
+                        const alternativePayload = {
+                            isActive: isActive,
+                            status: isActive,
+                            active: isActive
+                        };
+
+                        console.log('Trying alternative payload:', alternativePayload);
+                        const retryResponse = await api.patch(`/PartnershipContent/partners/${id}/status`, alternativePayload);
+                        console.log('Alternative payload success:', retryResponse.data);
+                        return retryResponse.data;
+                    } catch (retryError) {
+                        console.error('Alternative payload also failed:', retryError);
+                    }
+                }
+            }
+            console.error('=== END ERROR DETAILS ===');
+
+            throw new Error(`Failed to update partner status: ${error.message}`);
+        }
+    }
+
+    // Alternative method for updating status using PUT
+    static async updatePartnerStatus(id, statusData) {
+        try {
+            console.log('Updating partner status via PUT:', id, statusData);
+            const response = await api.put(`/PartnershipContent/partners/${id}/status`, statusData);
+            console.log('Update Partner Status Response:', response);
+            return response.data;
+        } catch (error) {
+            console.error('Update Partner Status API Error:', error);
             throw new Error(`Failed to update partner status: ${error.message}`);
         }
     }

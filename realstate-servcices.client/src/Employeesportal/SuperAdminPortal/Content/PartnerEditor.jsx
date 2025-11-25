@@ -20,7 +20,8 @@ import {
     Spin,
     Row,
     Col,
-    Select
+    Select,
+    Upload
 } from 'antd';
 import {
     EditOutlined,
@@ -29,13 +30,15 @@ import {
     PlusOutlined,
     CheckOutlined,
     CloseOutlined,
-    ReloadOutlined,
-    SearchOutlined
+    SearchOutlined,
+    UploadOutlined,
+    FileImageOutlined
 } from '@ant-design/icons';
 import PartnershipServices from './Services/PartnershipServices';
 import PartnershipMapper from './Services/PartnershipMapper';
 
 const { Option } = Select;
+const { Dragger } = Upload;
 
 const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refreshTrigger }) => {
     const [partners, setPartners] = useState([]);
@@ -45,6 +48,10 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
     const [form] = Form.useForm();
     const [searchText, setSearchText] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
+    const [updatingStatus, setUpdatingStatus] = useState({});
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     // Load partners on component mount and when refreshTrigger changes
     useEffect(() => {
@@ -73,7 +80,18 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                         logoUrl: partner.logoUrl || '',
                         category: partner.category || '',
                         displayOrder: partner.displayOrder || 0,
-                        isActive: partner.isActive || false,
+                        isActive: partner.isActive !== undefined ? partner.isActive : true,
+                        createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
+                        updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
+                    }));
+                } else if (response && response.data && Array.isArray(response.data)) {
+                    mappedPartners = response.data.map(partner => ({
+                        id: partner.id || 0,
+                        name: partner.name || '',
+                        logoUrl: partner.logoUrl || '',
+                        category: partner.category || '',
+                        displayOrder: partner.displayOrder || 0,
+                        isActive: partner.isActive !== undefined ? partner.isActive : true,
                         createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
                         updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
                     }));
@@ -93,7 +111,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         } catch (error) {
             console.error('Full partners error:', error);
             message.error(`Failed to load partners: ${error.message}`);
-            setPartners([]); // Set empty array on error
+            setPartners([]);
         } finally {
             setLoading(false);
         }
@@ -101,19 +119,41 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
     const handleCreate = () => {
         setEditingPartner(null);
+        setLogoFile(null);
+        setLogoPreview(null);
         form.resetFields();
         setModalVisible(true);
     };
 
     const handleEdit = (partner) => {
         setEditingPartner(partner);
-        form.setFieldsValue(PartnershipMapper.mapPartnerToForm(partner));
+        setLogoFile(null);
+        setLogoPreview(partner.logoUrl || null);
+        const formData = PartnershipMapper.mapPartnerToForm(partner);
+        form.setFieldsValue(formData);
         setModalVisible(true);
     };
 
     const handleView = (partner) => {
         if (onViewContent) {
             onViewContent(partner);
+        } else {
+            // Fallback view behavior
+            Modal.info({
+                title: partner.name || 'Partner Details',
+                content: (
+                    <div>
+                        <p><strong>Category:</strong> {partner.category || 'Uncategorized'}</p>
+                        <p><strong>Display Order:</strong> {partner.displayOrder}</p>
+                        <p><strong>Status:</strong> {partner.isActive ? 'Active' : 'Inactive'}</p>
+                        <p><strong>Logo URL:</strong> {partner.logoUrl}</p>
+                        {partner.createdAt && (
+                            <p><strong>Created:</strong> {new Date(partner.createdAt).toLocaleDateString()}</p>
+                        )}
+                    </div>
+                ),
+                width: 500,
+            });
         }
     };
 
@@ -130,48 +170,159 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         }
     };
 
-    const handleToggleStatus = async (partnerId, currentStatus) => {
+    const handleToggleStatus = async (partnerId, newStatus) => {
+        console.log('=== TOGGLE STATUS DEBUG START ===');
+        console.log('Partner ID:', partnerId);
+        console.log('New Status:', newStatus);
+        console.log('Current updatingStatus state:', updatingStatus);
+
+        // Set loading state for this specific partner
+        setUpdatingStatus(prev => {
+            const newState = { ...prev, [partnerId]: true };
+            console.log('Setting updatingStatus to:', newState);
+            return newState;
+        });
+
         try {
-            await PartnershipServices.togglePartnerStatus(partnerId, !currentStatus);
-            message.success(`Partner ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
-            loadPartners();
+            console.log('Calling PartnershipServices.togglePartnerStatus...');
+            const result = await PartnershipServices.togglePartnerStatus(partnerId, newStatus);
+            console.log('API call successful, response:', result);
+
+            // Update local state after successful API call
+            setPartners(prevPartners => {
+                const updatedPartners = prevPartners.map(partner =>
+                    partner.id === partnerId
+                        ? { ...partner, isActive: newStatus }
+                        : partner
+                );
+                console.log('Updated partners state:', updatedPartners);
+                return updatedPartners;
+            });
+
+            message.success(`Partner ${newStatus ? 'activated' : 'deactivated'} successfully`);
+
             if (onContentUpdated) {
                 onContentUpdated();
             }
         } catch (error) {
+            console.error('Toggle status error:', error);
+
+            // Show error message
             message.error(`Failed to update partner status: ${error.message}`);
+
+            // Revert the UI change on error
+            setPartners(prevPartners => {
+                const revertedPartners = prevPartners.map(partner =>
+                    partner.id === partnerId
+                        ? { ...partner, isActive: !newStatus } // Revert to previous state
+                        : partner
+                );
+                console.log('Reverted partners state due to error:', revertedPartners);
+                return revertedPartners;
+            });
+        } finally {
+            // Always clear loading state
+            setUpdatingStatus(prev => {
+                const newState = { ...prev, [partnerId]: false };
+                console.log('Clearing loading state, new state:', newState);
+                return newState;
+            });
+            console.log('=== TOGGLE STATUS DEBUG END ===');
         }
+    };
+
+    const handleFileUpload = (file) => {
+        const validationError = PartnershipMapper.getFileValidationError(file);
+        if (validationError) {
+            message.error(validationError);
+            return false;
+        }
+
+        setLogoFile(file);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setLogoPreview(e.target.result);
+        };
+        reader.readAsDataURL(file);
+
+        return false; // Prevent automatic upload
+    };
+
+    const handleRemoveFile = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        form.setFieldValue('logoFile', null);
     };
 
     const handleSubmit = async (values) => {
         try {
-            const validation = PartnershipMapper.validatePartner(values);
+            console.log('=== SUBMIT DEBUG START ===');
+            console.log('Form values:', values);
+            console.log('Editing partner:', editingPartner);
+            console.log('Logo file:', logoFile);
+
+            // Map form values to partner object
+            const partnerData = PartnershipMapper.mapFormToPartner(values, editingPartner);
+            partnerData.logoFile = logoFile;
+
+            console.log('Mapped partner data:', partnerData);
+
+            // Validate partner data
+            const validation = PartnershipMapper.validatePartner(partnerData, !editingPartner);
             if (!validation.isValid) {
                 const firstError = Object.values(validation.errors)[0];
                 message.error(firstError);
                 return;
             }
 
+            setUploading(true);
+
             if (editingPartner) {
                 // Update existing partner
-                const updateDto = PartnershipMapper.mapToUpdatePartnerDto(values);
+                console.log('Updating partner with ID:', editingPartner.id);
+                const updateDto = PartnershipMapper.mapToUpdatePartnerDto(partnerData);
+                console.log('Update DTO (FormData):', updateDto);
+
+                // Log FormData contents
+                for (let [key, value] of updateDto.entries()) {
+                    console.log(`FormData - ${key}:`, value);
+                }
+
                 await PartnershipServices.updatePartner(editingPartner.id, updateDto);
                 message.success('Partner updated successfully');
             } else {
                 // Create new partner
-                const createDto = PartnershipMapper.mapToCreatePartnerDto(values);
+                console.log('Creating new partner');
+                const createDto = PartnershipMapper.mapToCreatePartnerDto(partnerData);
+                console.log('Create DTO (FormData):', createDto);
+
+                // Log FormData contents
+                for (let [key, value] of createDto.entries()) {
+                    console.log(`FormData - ${key}:`, value);
+                }
+
                 await PartnershipServices.createPartner(createDto);
                 message.success('Partner created successfully');
             }
 
             setModalVisible(false);
             form.resetFields();
+            setLogoFile(null);
+            setLogoPreview(null);
             loadPartners();
+
             if (onContentUpdated) {
                 onContentUpdated();
             }
+
+            console.log('=== SUBMIT DEBUG END ===');
         } catch (error) {
+            console.error('Submit error:', error);
             message.error(`Failed to ${editingPartner ? 'update' : 'create'} partner: ${error.message}`);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -179,6 +330,8 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         setModalVisible(false);
         form.resetFields();
         setEditingPartner(null);
+        setLogoFile(null);
+        setLogoPreview(null);
     };
 
     // Filter partners based on search text and category
@@ -193,25 +346,36 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
     const categories = [...new Set(partners.map(partner => partner.category).filter(Boolean))];
 
     const columns = [
+        // In PartnerEditor.jsx, update the Image components to use the processed URLs:
+
+        // In the columns definition, update the logo renderer:
         {
             title: 'Logo',
             dataIndex: 'logoUrl',
             key: 'logo',
             width: 80,
-            render: (logoUrl) => (
-                <Image
-                    width={50}
-                    height={50}
-                    src={logoUrl}
-                    alt="Partner Logo"
-                    style={{
-                        objectFit: 'contain',
-                        borderRadius: '4px',
-                        backgroundColor: '#f5f5f5'
-                    }}
-                    fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yNSAzMEMyNy43NjE0IDMwIDMwIDI3Ljc2MTQgMzAgMjVDMzAgMjIuMjM4NiAyNy43NjE0IDIwIDI1IDIwQzIyLjIzODYgMjAgMjAgMjIuMjM4NiAyMCAyNUMyMCAyNy43NjE0IDIyLjIzODYgMzAgMjUgMzBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik0zNSAzNUwzMi41IDMyLjVMMzAuNSAzNC41TDMzIDM3TDM1IDM1WiIgZmlsbD0iI0NFQ0VDRSIvPgo8L3N2Zz4K"
-                />
-            ),
+            render: (logoUrl, record) => {
+                // Ensure the URL is processed for display
+                const processedUrl = PartnershipMapper.processImageUrl(logoUrl);
+
+                return (
+                    <Image
+                        width={50}
+                        height={50}
+                        src={processedUrl}
+                        alt={`${record.name || 'Partner'} logo`}
+                        style={{
+                            objectFit: 'contain',
+                            borderRadius: '4px',
+                            backgroundColor: '#f5f5f5'
+                        }}
+                        fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yNSAzMEMyNy43NjE0IDMwIDMwIDI3Ljc2MTQgMzAgMjVDMzAgMjIuMjM4NiAyNy43NjE0IDIwIDI1IDIwQzIyLjIzODYgMjAgMjAgMjIuMjM4NiAyMCAyNUMyMCAyNy43NjE0IDIyLjIzODYgMzAgMjUgMzBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik0zNSAzNUwzMi41IDMyLjVMMzAuNSAzNC41TDMzIDM3TDM1IDM1WiIgZmlsbD0iI0NFQ0VDRSIvPgo8L3N2Zz4K"
+                        onError={(e) => {
+                            e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yNSAzMEMyNy43NjE0IDMwIDMwIDI3Ljc2MTQgMzAgMjVDMzAgMjIuMjM4NiAyNy43NjE0IDIwIDI1IDIwQzIyLjIzODYgMjAgMjAgMjIuMjM4NiAyMCAyNUMyMCAyNy43NjE0IDIyLjIzODYgMzAgMjUgMzBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik0zNSAzNUwzMi41IDMyLjVMMzAuNSAzNC41TDMzIDM3TDM1IDM1WiIgZmlsbD0iI0NFQ0VDRSIvPgo8L3N2Zz4K";
+                        }}
+                    />
+                );
+            },
         },
         {
             title: 'Name',
@@ -221,7 +385,6 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             render: (text, record) => (
                 <div>
                     <div style={{ fontWeight: 500 }}>{text || 'Unnamed Partner'}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>ID: {record.id}</div>
                 </div>
             ),
         },
@@ -250,17 +413,39 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             title: 'Status',
             dataIndex: 'isActive',
             key: 'status',
-            width: 100,
-            render: (isActive, record) => (
-                <Tooltip title={isActive ? 'Click to deactivate' : 'Click to activate'}>
-                    <Switch
-                        checked={isActive}
-                        onChange={() => handleToggleStatus(record.id, isActive)}
-                        checkedChildren={<CheckOutlined />}
-                        unCheckedChildren={<CloseOutlined />}
-                    />
-                </Tooltip>
-            ),
+            width: 120,
+            render: (isActive, record) => {
+                const isLoading = updatingStatus[record.id];
+                console.log(`Rendering status column for partner ${record.id}:`, {
+                    isActive,
+                    isLoading,
+                    updatingStatus
+                });
+
+                return (
+                    <Tooltip title={isActive ? 'Click to deactivate' : 'Click to activate'}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {isLoading ? (
+                                <Spin size="small" />
+                            ) : (
+                                <Switch
+                                    checked={isActive}
+                                    onChange={(checked) => {
+                                        console.log('Switch changed:', checked, 'for partner:', record.id);
+                                        handleToggleStatus(record.id, checked);
+                                    }}
+                                    checkedChildren={<CheckOutlined />}
+                                    unCheckedChildren={<CloseOutlined />}
+                                    disabled={isLoading}
+                                />
+                            )}
+                            <span style={{ fontSize: '12px', color: '#666' }}>
+                                {isLoading ? 'Updating...' : (isActive ? 'Active' : 'Inactive')}
+                            </span>
+                        </div>
+                    </Tooltip>
+                );
+            },
         },
         {
             title: 'Created',
@@ -312,6 +497,13 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         },
     ];
 
+    const uploadProps = {
+        beforeUpload: handleFileUpload,
+        accept: '.jpg,.jpeg,.png,.gif,.webp,.bmp',
+        showUploadList: false,
+        multiple: false
+    };
+
     return (
         <div>
             {/* Header Section */}
@@ -319,7 +511,10 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                 style={{ marginBottom: 16 }}
                 bodyStyle={{ padding: '16px 24px' }}
             >
-                <Row justify="end" align="middle" gutter={[16, 16]}>
+                <Row justify="space-between" align="middle" gutter={[16, 16]}>
+                    <Col>
+
+                    </Col>
                     <Col>
                         <Button
                             type="primary"
@@ -364,16 +559,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                             ))}
                         </Select>
                     </Col>
-                    <Col xs={24} sm={12} md={4}>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadPartners}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
-                    </Col>
-                    <Col xs={24} sm={12} md={6}>
+                    <Col xs={24} sm={12} md={10}>
                         <div style={{ textAlign: 'right' }}>
                             <span style={{ color: '#666', fontSize: '14px' }}>
                                 Showing {filteredPartners.length} of {partners.length} partners
@@ -389,7 +575,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                     {filteredPartners.length > 0 ? (
                         <Table
                             columns={columns}
-                            dataSource={filteredPartners}
+                            dataSource={filteredPartners.map(partner => ({ ...partner, key: partner.id }))}
                             rowKey="id"
                             pagination={{
                                 pageSize: 10,
@@ -425,11 +611,6 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                 title={
                     <div>
                         {editingPartner ? 'Edit Partner' : 'Create New Partner'}
-                        {editingPartner && (
-                            <div style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
-                                ID: {editingPartner.id}
-                            </div>
-                        )}
                     </div>
                 }
                 open={modalVisible}
@@ -475,26 +656,58 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                     </Row>
 
                     <Form.Item
-                        label="Logo URL"
-                        name="logoUrl"
+                        label="Logo"
+                        name="logoFile"
                         rules={[
-                            { required: true, message: 'Please enter logo URL' },
                             {
                                 validator: (_, value) => {
-                                    if (!value) return Promise.resolve();
-                                    if (value.length > 500) {
-                                        return Promise.reject(new Error('Logo URL must be less than 500 characters'));
-                                    }
-                                    if (!PartnershipMapper.isValidUrl(value)) {
-                                        return Promise.reject(new Error('Please enter a valid URL'));
+                                    if (!logoFile && !logoPreview && !editingPartner) {
+                                        return Promise.reject(new Error('Logo file is required'));
                                     }
                                     return Promise.resolve();
                                 }
                             }
                         ]}
-                        extra="Enter a direct link to the partner's logo image"
+                        extra="Upload a logo image (JPEG, JPG, PNG, GIF, WEBP, BMP, max 10MB)"
                     >
-                        <Input placeholder="https://example.com/logo.png" />
+                        <Dragger {...uploadProps}>
+                            <div style={{ padding: '20px' }}>
+                                {logoPreview ? (
+                                    <div>
+                                        <Image
+                                            src={logoPreview}
+                                            alt="Logo preview"
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: '200px',
+                                                objectFit: 'contain'
+                                            }}
+                                        />
+                                        <div style={{ marginTop: '8px' }}>
+                                            <Button
+                                                type="link"
+                                                danger
+                                                onClick={handleRemoveFile}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="ant-upload-drag-icon">
+                                            <FileImageOutlined />
+                                        </p>
+                                        <p className="ant-upload-text">
+                                            Click or drag logo file to this area to upload
+                                        </p>
+                                        <p className="ant-upload-hint">
+                                            Supports: JPEG, JPG, PNG, GIF, WEBP, BMP (max 10MB)
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </Dragger>
                     </Form.Item>
 
                     <Row gutter={16}>
@@ -532,10 +745,15 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={handleCancel}>
+                            <Button onClick={handleCancel} disabled={uploading}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={uploading}
+                                disabled={uploading}
+                            >
                                 {editingPartner ? 'Update Partner' : 'Create Partner'}
                             </Button>
                         </Space>

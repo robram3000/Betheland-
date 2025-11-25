@@ -1,4 +1,5 @@
-﻿using Realstate_servcices.Server.Dto.Chat;
+﻿// NotificationService.cs - FIXED VERSION
+using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Entity.Chat;
 using Realstate_servcices.Server.Repository.Conversation;
 using Realstate_servcices.Server.Repository.UserDAO;
@@ -28,44 +29,100 @@ namespace Realstate_servcices.Server.Services.Conversation
 
         public async Task<List<NotificationDto>> GetUserNotificationsAsync(int userId, bool unreadOnly = false)
         {
-            var notifications = await _notificationRepository.GetUserNotificationsAsync(userId, unreadOnly);
-            return notifications.Select(CreateNotificationDto).ToList();
+            try
+            {
+                var notifications = await _notificationRepository.GetUserNotificationsAsync(userId, unreadOnly);
+                return notifications.Select(CreateNotificationDto).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting notifications for user {UserId}", userId);
+                throw;
+            }
         }
 
         public async Task<NotificationDto> CreateNotificationAsync(CreateNotificationDto createDto)
         {
-            var notification = new Notification
+            try
             {
-                BaseMemberId = createDto.BaseMemberId,
-                NotificationType = createDto.NotificationType,
-                Title = createDto.Title,
-                Content = createDto.Content,
-                Data = createDto.Data,
-                ChatId = createDto.ChatId,
-                MessageId = createDto.MessageId,
-                PropertyId = createDto.PropertyId,
-                Priority = createDto.Priority,
-                CreatedAt = DateTime.UtcNow
-            };
+                var notification = new Notification
+                {
+                    BaseMemberId = createDto.BaseMemberId,
+                    NotificationType = createDto.NotificationType,
+                    Title = createDto.Title,
+                    Content = createDto.Content,
+                    Data = createDto.Data,
+                    ChatId = createDto.ChatId,
+                    MessageId = createDto.MessageId,
+                    PropertyId = createDto.PropertyId,
+                    Priority = createDto.Priority,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            var createdNotification = await _notificationRepository.CreateAsync(notification);
-            await SendExternalNotificationsAsync(createdNotification);
+                var createdNotification = await _notificationRepository.CreateAsync(notification);
 
-            return CreateNotificationDto(createdNotification);
+                // Send external notifications (email, push, etc.)
+                await SendExternalNotificationsAsync(createdNotification);
+
+                return CreateNotificationDto(createdNotification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating notification for user {UserId}", createDto.BaseMemberId);
+                throw;
+            }
         }
 
         public async Task MarkNotificationAsReadAsync(int notificationId, int userId)
         {
-            var notification = await _notificationRepository.GetByIdAsync(notificationId);
-            if (notification == null || notification.BaseMemberId != userId)
-                throw new UnauthorizedAccessException("Notification not found or access denied");
+            try
+            {
+                var notification = await _notificationRepository.GetByIdAsync(notificationId);
+                if (notification == null || notification.BaseMemberId != userId)
+                    throw new UnauthorizedAccessException("Notification not found or access denied");
 
-            await _notificationRepository.MarkAsReadAsync(notificationId);
+                await _notificationRepository.MarkAsReadAsync(notificationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking notification {NotificationId} as read for user {UserId}", notificationId, userId);
+                throw;
+            }
         }
 
         public async Task MarkAllNotificationsAsReadAsync(int userId)
         {
-            await _notificationRepository.MarkAllAsReadAsync(userId);
+            try
+            {
+                await _notificationRepository.MarkAllAsReadAsync(userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all notifications as read for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteNotificationAsync(int notificationId, int userId)
+        {
+            try
+            {
+                var notification = await _notificationRepository.GetByIdAsync(notificationId);
+                if (notification == null || notification.BaseMemberId != userId)
+                    return false;
+
+                // In a real implementation, you might want to soft delete
+                // For now, we'll just mark as read and hide it
+                notification.IsRead = true;
+                await _notificationRepository.UpdateAsync(notification);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting notification {NotificationId} for user {UserId}", notificationId, userId);
+                return false;
+            }
         }
 
         public async Task NotifyNewMessageAsync(int chatId, int messageId, int senderId, List<int> recipientIds)
@@ -86,10 +143,17 @@ namespace Realstate_servcices.Server.Services.Conversation
                         BaseMemberId = recipientId,
                         NotificationType = "message",
                         Title = "New Message",
-                        Content = $"{sender?.Email ?? "User"}: {messagePreview}",
+                        Content = $"{sender?.Username ?? "User"}: {messagePreview}",
                         ChatId = chatId,
                         MessageId = messageId,
-                        Priority = "normal"
+                        Priority = "normal",
+                        Data = JsonSerializer.Serialize(new
+                        {
+                            senderId = senderId,
+                            senderName = sender?.Username,
+                            chatId = chatId,
+                            messagePreview = messagePreview
+                        })
                     };
 
                     await CreateNotificationAsync(notificationDto);
@@ -114,11 +178,17 @@ namespace Realstate_servcices.Server.Services.Conversation
                     var notificationDto = new CreateNotificationDto
                     {
                         BaseMemberId = recipientId,
-                        NotificationType = "property",
+                        NotificationType = "property_update",
                         Title = $"Property {updateType}",
                         Content = $"{propertyTitle} has been {updateType}",
                         PropertyId = propertyId,
-                        Priority = "normal"
+                        Priority = "normal",
+                        Data = JsonSerializer.Serialize(new
+                        {
+                            propertyId = propertyId,
+                            propertyTitle = propertyTitle,
+                            updateType = updateType
+                        })
                     };
 
                     await CreateNotificationAsync(notificationDto);
@@ -144,7 +214,12 @@ namespace Realstate_servcices.Server.Services.Conversation
                     NotificationType = "appointment",
                     Title = $"Appointment {appointmentType}",
                     Content = appointmentTitle,
-                    Data = $"{{\"appointmentId\": {appointmentId}}}",
+                    Data = JsonSerializer.Serialize(new
+                    {
+                        appointmentId = appointmentId,
+                        appointmentType = appointmentType,
+                        title = appointmentTitle
+                    }),
                     Priority = "high"
                 };
 
@@ -153,6 +228,36 @@ namespace Realstate_servcices.Server.Services.Conversation
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating appointment notification for user {UserId}", recipientId);
+            }
+        }
+
+        public async Task NotifySystemMessageAsync(int userId, string title, string content, string priority = "normal")
+        {
+            try
+            {
+                var preferences = await _preferenceRepository.GetByUserIdAsync(userId);
+                if (!preferences.SystemNotifications)
+                    return;
+
+                var notificationDto = new CreateNotificationDto
+                {
+                    BaseMemberId = userId,
+                    NotificationType = "system",
+                    Title = title,
+                    Content = content,
+                    Priority = priority,
+                    Data = JsonSerializer.Serialize(new
+                    {
+                        systemEvent = true,
+                        timestamp = DateTime.UtcNow
+                    })
+                };
+
+                await CreateNotificationAsync(notificationDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating system notification for user {UserId}", userId);
             }
         }
 
@@ -166,14 +271,65 @@ namespace Realstate_servcices.Server.Services.Conversation
                 if (member == null)
                     return;
 
-                // Push notifications have been removed - only internal notifications remain
-                // You can add other notification types here in the future (email, SMS, etc.)
+                // Email notifications
+                if (preferences.EmailNotifications && !string.IsNullOrEmpty(member.Email))
+                {
+                    await SendEmailNotificationAsync(notification, member.Email);
+                }
+
+                // Push notifications
+                if (preferences.PushNotifications)
+                {
+                    await SendPushNotificationAsync(notification);
+                }
+
+                // SMS notifications
+                if (preferences.SMSNotifications)
+                {
+                    // Implement SMS notification logic here
+                }
 
                 await MarkNotificationAsPushedAsync(notification.Id);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending external notifications for notification {NotificationId}", notification.Id);
+            }
+        }
+
+        private async Task SendEmailNotificationAsync(Notification notification, string email)
+        {
+            try
+            {
+                // Implement email sending logic here
+                // This could use SendGrid, SMTP, or other email services
+                _logger.LogInformation("Would send email to {Email} for notification {NotificationId}", email, notification.Id);
+
+                // Example implementation:
+                // var emailService = new EmailService();
+                // await emailService.SendNotificationEmail(email, notification.Title, notification.Content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending email notification for {NotificationId}", notification.Id);
+            }
+        }
+
+        private async Task SendPushNotificationAsync(Notification notification)
+        {
+            try
+            {
+                // Implement push notification logic here
+                // This could use Firebase Cloud Messaging, Apple Push Notification Service, etc.
+                _logger.LogInformation("Would send push notification for notification {NotificationId}", notification.Id);
+
+                // Example implementation:
+                // var pushService = new PushNotificationService();
+                // await pushService.SendPushAsync(notification.BaseMemberId, notification.Title, notification.Content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending push notification for {NotificationId}", notification.Id);
             }
         }
 
@@ -195,24 +351,19 @@ namespace Realstate_servcices.Server.Services.Conversation
             }
         }
 
-        private List<string> ParseDeviceTokens(string? deviceTokensJson)
-        {
-            if (string.IsNullOrEmpty(deviceTokensJson))
-                return new List<string>();
-
-            try
-            {
-                return JsonSerializer.Deserialize<List<string>>(deviceTokensJson) ?? new List<string>();
-            }
-            catch
-            {
-                return new List<string>();
-            }
-        }
-
         private async Task<string> GetMessagePreviewAsync(int messageId)
         {
-            return "New message";
+            try
+            {
+                // In a real implementation, you would fetch the actual message content
+                // For now, return a generic preview
+                return "New message received";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting message preview for message {MessageId}", messageId);
+                return "New message";
+            }
         }
 
         private NotificationDto CreateNotificationDto(Notification notification)

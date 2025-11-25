@@ -135,11 +135,9 @@ class AuthService {
         sessionStorage.removeItem('refreshToken');
         sessionStorage.removeItem('userData'); // Fixed: was 'currentUser'
 
-        // Clear any cookies if used
         document.cookie = 'authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 
-        console.log('🔐 AuthService - User logged out and all data cleared');
     };
 
     // Enhanced authentication check with auto-cleanup

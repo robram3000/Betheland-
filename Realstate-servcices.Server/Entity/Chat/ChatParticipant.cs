@@ -5,38 +5,20 @@ namespace Realstate_servcices.Server.Entity.Chat
 {
     public class ChatParticipant
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
-
-        [Required]
         public int ChatId { get; set; }
-
-        [Required]
         public int BaseMemberId { get; set; }
-
-        [Required]
-        [MaxLength(20)]
-        public string Role { get; set; } = "member";
-
-        [Required]
-        [MaxLength(20)]
-        public string ParticipantType { get; set; } 
-
-        public int UnreadCount { get; set; } = 0;
-
+        public int? RecipientId { get; set; }
+        public string Role { get; set; }
+        public string ParticipantType { get; set; }
+        public int UnreadCount { get; set; }
         public DateTime? LastReadAt { get; set; }
-
-        [Required]
-        public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
-
-        public bool IsActive { get; set; } = true;
+        public DateTime JoinedAt { get; set; }
+        public bool IsActive { get; set; }
 
         // Navigation properties
-        [ForeignKey("ChatId")]
-        public virtual Chat Chat { get; set; } = null!;
-
-        [ForeignKey("BaseMemberId")]
-        public virtual BaseMember BaseMember { get; set; } = null!;
+        public virtual Chat Chat { get; set; }
+        public virtual BaseMember BaseMember { get; set; }
+        public virtual BaseMember Recipient { get; set; }
     }
 }

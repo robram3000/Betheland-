@@ -14,3 +14,4 @@ namespace Realstate_servcices.Server.Utilities.Storage
         Task<bool> DeleteMemberImageAsync(string memberId, string imageName, string folderPath = "members");
     }
 }
+

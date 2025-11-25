@@ -12,8 +12,11 @@ namespace Realstate_servcices.Server.Services.Conversation
         Task<ChatParticipantDto> AddParticipantAsync(int chatId, AddParticipantDto addDto, int requesterId);
         Task<bool> RemoveParticipantAsync(int chatId, int participantId, int requesterId);
 
-        // New methods
+        // Existing methods
         Task<List<ChatDto>> GetByClientChatAsync(int clientId);
         Task<List<ChatDto>> GetByAgentChatAsync(int agentId);
+
+        // New method for recipient functionality
+        Task<List<ChatDto>> GetChatsByRecipientAsync(int recipientId, int userId);
     }
 }

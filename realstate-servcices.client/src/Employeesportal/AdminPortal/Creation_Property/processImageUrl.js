@@ -1,97 +1,58 @@
-﻿// utils/imageUtils.js
+﻿// utils/imageUtils.js - CORRECTED VERSION (7080 only)
 export const processImageUrl = (url) => {
-    if (!url || url.trim() === '') return '/default-property.jpg';
-
-    // If it's already a full URL, return as is
-    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-        return url;
-    }
-
-    // Determine base URL based on environment
-    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseUrl = isDevelopment ? 'https://localhost:7080' : 'http://betheland.runasp.net';
-
-    // Handle absolute paths starting with /uploads/
-    if (url.startsWith('/uploads/')) {
-        return `${baseUrl}${url}`;
-    }
-
-    // Handle relative paths starting with uploads/
-    if (url.startsWith('uploads/')) {
-        return `${baseUrl}/${url}`;
-    }
-
-    // Handle any path that contains a file extension (image file)
-    if (url.includes('.') && (url.includes('/') || url.startsWith('/'))) {
-        // If it already starts with /, use as is, otherwise add /uploads/properties/
-        if (url.startsWith('/')) {
-            return `${baseUrl}${url}`;
-        } else {
-            return `${baseUrl}/uploads/properties/${url}`;
-        }
-    }
-
-    // Final fallback for any unrecognized format that looks like a filename
-    if (url.includes('.')) {
-        return `${baseUrl}/uploads/properties/${url}`;
-    }
-
-    return '/default-property.jpg';
-};
-
-// Enhanced version with better debugging
-export const processImageUrlWithDebug = (url) => {
     console.log('🖼️ Processing image URL:', url);
 
-    if (!url || url.trim() === '') {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
         console.log('🖼️ URL is empty, using default');
         return '/default-property.jpg';
     }
 
+    const trimmedUrl = url.trim();
+
     // If it's already a full URL, return as is
-    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-        console.log('🖼️ Already full URL:', url);
-        return url;
+    if (trimmedUrl.startsWith('http') || trimmedUrl.startsWith('//') || trimmedUrl.startsWith('blob:') || trimmedUrl.startsWith('data:')) {
+        console.log('🖼️ Already full URL:', trimmedUrl);
+        return trimmedUrl;
     }
 
-    // Determine base URL based on environment
+    // Use port 7080 consistently for all images
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isDevelopment ? 'https://localhost:7080' : 'http://betheland.runasp.net';
     console.log('🖼️ Using base URL:', baseUrl);
 
     // Handle absolute paths starting with /uploads/
-    if (url.startsWith('/uploads/')) {
-        const fullUrl = `${baseUrl}${url}`;
+    if (trimmedUrl.startsWith('/uploads/')) {
+        const fullUrl = `${baseUrl}${trimmedUrl}`;
         console.log('🖼️ Absolute uploads path ->', fullUrl);
         return fullUrl;
     }
 
     // Handle relative paths starting with uploads/
-    if (url.startsWith('uploads/')) {
-        const fullUrl = `${baseUrl}/${url}`;
+    if (trimmedUrl.startsWith('uploads/')) {
+        const fullUrl = `${baseUrl}/${trimmedUrl}`;
         console.log('🖼️ Relative uploads path ->', fullUrl);
         return fullUrl;
     }
 
     // Handle paths that look like they're in the properties directory
-    if (url.includes('/') || url.includes('.')) {
+    if (trimmedUrl.includes('/') || trimmedUrl.includes('.')) {
         // If it starts with /, it's an absolute path
-        if (url.startsWith('/')) {
-            const fullUrl = `${baseUrl}${url}`;
+        if (trimmedUrl.startsWith('/')) {
+            const fullUrl = `${baseUrl}${trimmedUrl}`;
             console.log('🖼️ Absolute path ->', fullUrl);
             return fullUrl;
         }
         // If it contains properties/ or looks like a property image
-        else if (url.includes('properties/') || url.match(/[a-f0-9-]+\.(png|jpg|jpeg|gif|webp)/i)) {
-            const fullUrl = `${baseUrl}/uploads/properties/${url}`;
+        else if (trimmedUrl.includes('properties/') || trimmedUrl.match(/[a-f0-9-]+\.(png|jpg|jpeg|gif|webp)/i)) {
+            const fullUrl = `${baseUrl}/uploads/properties/${trimmedUrl}`;
             console.log('🖼️ Property image path ->', fullUrl);
             return fullUrl;
         }
     }
 
     // Final attempt - assume it's a property image
-    if (url.includes('.')) {
-        const fullUrl = `${baseUrl}/uploads/properties/${url}`;
+    if (trimmedUrl.includes('.')) {
+        const fullUrl = `${baseUrl}/uploads/properties/${trimmedUrl}`;
         console.log('🖼️ Fallback property path ->', fullUrl);
         return fullUrl;
     }
@@ -100,47 +61,55 @@ export const processImageUrlWithDebug = (url) => {
     return '/default-property.jpg';
 };
 
-// Alternative version using environment variables for more flexibility
-export const processImageUrlWithEnv = (url) => {
-    if (!url) return '/default-property.jpg';
-
-    // If it's already a full URL, return as is
-    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
-        return url;
-    }
-
-    // Use environment variable if available, otherwise detect automatically
-    const baseUrl = process.env.REACT_APP_API_BASE_URL ||
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'https://localhost:7080'
-            : 'http://betheland.runasp.net');
-
-    // Handle relative paths
-    if (url.startsWith('/uploads/')) {
-        return `${baseUrl}${url}`;
-    }
-
-    // Handle paths without leading slash
-    if (url.startsWith('uploads/')) {
-        return `${baseUrl}/${url}`;
-    }
-
-    // Handle specific property image paths
-    if (url.includes('.') && !url.startsWith('/')) {
-        return `${baseUrl}/uploads/properties/${url}`;
-    }
-
-    return '/default-property.jpg';
-};
-
 // Helper function to get property image with fallback
 export const getPropertyImage = (property) => {
+    if (!property) return '/default-property.jpg';
+
     return processImageUrl(
         property.mainImage ||
         (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
         (property.imageUrls && property.imageUrls[0]) ||
         '/default-property.jpg'
     );
+};
+
+// Helper function to get all property images
+export const getAllPropertyImages = (property) => {
+    if (!property) return ['/default-property.jpg'];
+
+    const images = new Set();
+
+    // Add main image
+    if (property.mainImage) {
+        images.add(processImageUrl(property.mainImage));
+    }
+
+    // Add property images array
+    if (property.propertyImages && Array.isArray(property.propertyImages)) {
+        property.propertyImages.forEach(img => {
+            if (img.imageUrl) {
+                images.add(processImageUrl(img.imageUrl));
+            }
+        });
+    }
+
+    // Add imageUrls array
+    if (property.imageUrls && Array.isArray(property.imageUrls)) {
+        property.imageUrls.forEach(url => {
+            if (url) {
+                images.add(processImageUrl(url));
+            }
+        });
+    }
+
+    // Add other possible image fields
+    if (property.image) images.add(processImageUrl(property.image));
+    if (property.thumbnail) images.add(processImageUrl(property.thumbnail));
+    if (property.coverImage) images.add(processImageUrl(property.coverImage));
+
+    // Convert Set to Array and ensure we have at least default image
+    const imageArray = Array.from(images);
+    return imageArray.length > 0 ? imageArray : ['/default-property.jpg'];
 };
 
 // Helper function to get all media for a property

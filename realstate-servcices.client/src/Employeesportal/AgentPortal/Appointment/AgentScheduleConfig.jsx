@@ -336,13 +336,7 @@ const AgentScheduleConfig = () => {
                     }
                     extra={
                         <Space>
-                            <Button
-                                icon={<ReloadOutlined />}
-                                onClick={handleFormReset}
-                                disabled={saving || loading}
-                            >
-                                Reset Form
-                            </Button>
+                        
                             <Button
                                 icon={<ClockCircleOutlined />}
                                 onClick={handleResetToDefaults}

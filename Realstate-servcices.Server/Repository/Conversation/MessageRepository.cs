@@ -16,6 +16,7 @@ namespace Realstate_servcices.Server.Repository.Conversation
         {
             return await _context.Messages
                 .Include(m => m.Sender)
+                .Include(m => m.Recipient)
                 .Include(m => m.MessageFiles)
                 .Include(m => m.Reactions)
                 .FirstOrDefaultAsync(m => m.Id == id);
@@ -26,6 +27,7 @@ namespace Realstate_servcices.Server.Repository.Conversation
             return await _context.Messages
                 .Where(m => m.ChatId == chatId && !m.IsDeleted)
                 .Include(m => m.Sender)
+                .Include(m => m.Recipient)
                 .Include(m => m.MessageFiles)
                 .Include(m => m.Reactions)
                 .ThenInclude(r => r.BaseMember)
@@ -38,6 +40,31 @@ namespace Realstate_servcices.Server.Repository.Conversation
 
         public async Task<Message> CreateAsync(Message message)
         {
+            // Auto-set RecipientId if not provided
+            if (!message.RecipientId.HasValue)
+            {
+                var participant = await _context.ChatParticipants
+                    .Where(p => p.ChatId == message.ChatId && p.BaseMemberId == message.SenderId && p.IsActive)
+                    .FirstOrDefaultAsync();
+
+                if (participant?.RecipientId != null)
+                {
+                    message.RecipientId = participant.RecipientId;
+                }
+                else
+                {
+                    // Fallback: get first other participant
+                    var otherParticipant = await _context.ChatParticipants
+                        .Where(p => p.ChatId == message.ChatId && p.BaseMemberId != message.SenderId && p.IsActive)
+                        .FirstOrDefaultAsync();
+
+                    if (otherParticipant != null)
+                    {
+                        message.RecipientId = otherParticipant.BaseMemberId;
+                    }
+                }
+            }
+
             _context.Messages.Add(message);
 
             var chat = await _context.Chats.FindAsync(message.ChatId);
@@ -83,6 +110,21 @@ namespace Realstate_servcices.Server.Repository.Conversation
                                m.SentAt > lastRead &&
                                m.SenderId != userId &&
                                !m.IsDeleted);
+        }
+
+        // New method to get messages by recipient
+        public async Task<List<Message>> GetMessagesByRecipientAsync(int recipientId, int page = 1, int pageSize = 50)
+        {
+            return await _context.Messages
+                .Where(m => m.RecipientId == recipientId && !m.IsDeleted)
+                .Include(m => m.Sender)
+                .Include(m => m.Recipient)
+                .Include(m => m.MessageFiles)
+                .Include(m => m.Reactions)
+                .OrderByDescending(m => m.SentAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
         }
     }
 }

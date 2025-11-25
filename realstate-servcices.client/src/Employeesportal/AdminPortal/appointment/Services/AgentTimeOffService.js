@@ -95,6 +95,7 @@ class AgentTimeOffService {
                 ...timeOffData,
                 id: id
             });
+            console.log('Updating time off with data:', backendData);
             const response = await this.client.put(`/AgentTimeOff/${id}`, backendData);
             return agentTimeOffMapper.toFrontend(response.data);
         } catch (error) {
@@ -119,6 +120,14 @@ class AgentTimeOffService {
             return agentTimeOffMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error rejecting time off:', error);
+            // If reject endpoint doesn't exist, try update
+            if (error.status === 404) {
+                console.log('Reject endpoint not found, trying update...');
+                return await this.updateTimeOff(id, {
+                    status: 'Rejected',
+                    isApproved: false
+                });
+            }
             throw error;
         }
     }

@@ -73,6 +73,14 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
+    // Debug effect to check amenities data
+    useEffect(() => {
+        if (properties.length > 0) {
+            console.log('Sample property amenities:', properties[0]?.amenities);
+            console.log('Properties loaded:', properties);
+        }
+    }, [properties]);
+
     // Notify parent component when filters change
     useEffect(() => {
         if (onFilterUpdate) {
@@ -241,6 +249,168 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             .map(property => property.city)
             .filter(city => city && city.trim() !== '');
         return [...new Set(cities)].sort();
+    };
+
+    // Fixed amenities rendering function
+    const renderAmenities = (amenities) => {
+        let amenitiesArray = [];
+
+        try {
+            if (Array.isArray(amenities)) {
+                amenitiesArray = amenities;
+            } else if (typeof amenities === 'string') {
+                try {
+                    // Try to parse as JSON first
+                    const parsed = JSON.parse(amenities);
+                    if (Array.isArray(parsed)) {
+                        amenitiesArray = parsed;
+                    } else if (typeof parsed === 'string') {
+                        // If it's a string inside JSON, try to split it
+                        amenitiesArray = parsed.split(',').map(item => item.trim()).filter(item => item);
+                    } else {
+                        amenitiesArray = [];
+                    }
+                } catch (e) {
+                    // If JSON parsing fails, try comma separation
+                    amenitiesArray = amenities.split(',').map(item => item.trim()).filter(item => item);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing amenities:', error);
+            amenitiesArray = [];
+        }
+
+        // Final safety check
+        if (!Array.isArray(amenitiesArray) || amenitiesArray.length === 0) {
+            return <span style={{ color: '#999', fontSize: '12px' }}>No amenities listed</span>;
+        }
+
+        const displayAmenities = amenitiesArray.slice(0, 3);
+        const remainingAmenities = amenitiesArray.slice(3);
+
+        const content = (
+            <Space size={[4, 4]} wrap>
+                {displayAmenities.map((amenity, index) => (
+                    <Tag key={index} size="small" color="#1e3a8a" style={{ color: 'white', border: 'none', fontSize: '10px' }}>
+                        {amenity}
+                    </Tag>
+                ))}
+                {remainingAmenities.length > 0 && (
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                {remainingAmenities.map((amenity, index) => (
+                                    <Menu.Item key={index}>
+                                        {amenity}
+                                    </Menu.Item>
+                                ))}
+                            </Menu>
+                        }
+                        trigger={['click']}
+                    >
+                        <Tag size="small" color="#1e3a8a" style={{ cursor: 'pointer', color: 'white', border: 'none', fontSize: '10px' }}>
+                            +{remainingAmenities.length} more
+                        </Tag>
+                    </Dropdown>
+                )}
+            </Space>
+        );
+
+        return content;
+    };
+
+    // Render media preview
+    const renderMediaPreview = (property) => {
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const { imageCount, videoCount } = getMediaCounts(property);
+
+        return (
+            <Space direction="vertical" size={8} align="center">
+                <Button
+                    type="primary"
+                    icon={<PictureOutlined />}
+                    size="small"
+                    onClick={() => handleOpenMedia(property)}
+                    style={{
+                        backgroundColor: '#1e3a8a',
+                        borderColor: '#1e3a8a',
+                        fontWeight: 500
+                    }}
+                >
+                    View Media
+                </Button>
+                {hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>
+                        <div>
+                            <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                            {imageCount} image{imageCount !== 1 ? 's' : ''}
+                        </div>
+                        {videoCount > 0 && (
+                            <div>
+                                <PlayCircleOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
+                                {videoCount} video{videoCount !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {!hasMedia && (
+                    <div style={{ fontSize: '11px', color: '#999', textAlign: 'center' }}>
+                        No media
+                    </div>
+                )}
+            </Space>
+        );
+    };
+
+    // Open media gallery - FIXED: Added this missing function
+    const handleOpenMedia = (property, index = 0) => {
+        setSelectedProperty(property);
+        setCurrentMediaIndex(index);
+        setMediaModalVisible(true);
+    };
+
+    // FIXED: Handle handler change success - preserves all property data
+    const handleHandlerChangeSuccess = async (property, newAgentId) => {
+        try {
+            const result = await propertyService.changePropertyHandler(property.id, newAgentId);
+
+            if (result && result.id) {
+                // If we got a full property object back from the API
+                const updatedProperty = result;
+
+                // Update the property with the full response data
+                setProperties(prev => prev.map(prop =>
+                    prop.id === property.id ? updatedProperty : prop
+                ));
+            } else {
+                // If we only got a success response, load the new agent data and update locally
+                const newAgentData = await loadAgentData(newAgentId);
+
+                // Update the property with new agent while preserving all other data
+                setProperties(prev => prev.map(prop =>
+                    prop.id === property.id
+                        ? {
+                            ...prop, // Preserve all existing property data
+                            agentId: newAgentId,
+                            agent: newAgentData
+                        }
+                        : prop
+                ));
+            }
+
+            message.success('Property handler changed successfully');
+            setChangeHandlerModalVisible(false);
+            setSelectedProperty(null);
+
+            // Notify parent of update
+            if (onPropertiesUpdate) {
+                onPropertiesUpdate();
+            }
+        } catch (error) {
+            console.error('Handler change error:', error);
+            message.error(error.message || 'Failed to change property handler');
+        }
     };
 
     const filteredProperties = properties.filter(property => {
@@ -498,29 +668,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
     };
 
-    const handleHandlerChangeSuccess = async (property, newAgentId) => {
-        try {
-            await propertyService.changePropertyHandler(property.id, newAgentId);
-
-            // Load the new agent data
-            const newAgentData = await loadAgentData(newAgentId);
-
-            // Update the property with new agent
-            setProperties(prev => prev.map(prop =>
-                prop.id === property.id
-                    ? { ...prop, agentId: newAgentId, agent: newAgentData }
-                    : prop
-            ));
-
-            message.success('Property handler changed successfully');
-            setChangeHandlerModalVisible(false);
-            setSelectedProperty(null);
-        } catch (error) {
-            console.error('Handler change error:', error);
-            message.error(error.message || 'Failed to change property handler');
-        }
-    };
-
     const getStatusColor = (status) => {
         switch (status) {
             case 'approved': return 'green';
@@ -574,120 +721,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     const isAgentLoading = (agentId) => {
         return agentLoading[agentId] || false;
-    };
-
-    // Render amenities with dropdown for more than 3 items
-    const renderAmenities = (amenities) => {
-        let amenitiesArray = [];
-
-        try {
-            if (typeof amenities === 'string') {
-                // Try to parse as JSON
-                amenitiesArray = JSON.parse(amenities);
-            } else if (Array.isArray(amenities)) {
-                // Already an array
-                amenitiesArray = amenities;
-            }
-        } catch (error) {
-            console.error('Error parsing amenities:', error);
-            // If JSON parsing fails, try comma separation
-            if (typeof amenities === 'string') {
-                amenitiesArray = amenities.split(',').map(item => item.trim()).filter(item => item);
-            }
-        }
-
-        // Final safety check
-        if (!Array.isArray(amenitiesArray)) {
-            amenitiesArray = [];
-        }
-
-        if (amenitiesArray.length === 0) {
-            return <span style={{ color: '#999' }}>No amenities</span>;
-        }
-
-        const displayAmenities = amenitiesArray.slice(0, 3);
-        const remainingAmenities = amenitiesArray.slice(3);
-
-        const content = (
-            <Space size={[4, 4]} wrap>
-                {displayAmenities.map((amenity, index) => (
-                    <Tag key={index} size="small" color="#1e3a8a" style={{ color: 'white', border: 'none' }}>
-                        {amenity}
-                    </Tag>
-                ))}
-                {remainingAmenities.length > 0 && (
-                    <Dropdown
-                        overlay={
-                            <Menu>
-                                {remainingAmenities.map((amenity, index) => (
-                                    <Menu.Item key={index}>
-                                        {amenity}
-                                    </Menu.Item>
-                                ))}
-                            </Menu>
-                        }
-                        trigger={['click']}
-                    >
-                        <Tag size="small" color="#1e3a8a" style={{ cursor: 'pointer', color: 'white', border: 'none' }}>
-                            +{remainingAmenities.length} more
-                        </Tag>
-                    </Dropdown>
-                )}
-            </Space>
-        );
-
-        return content;
-    };
-
-    // Render media preview
-    const renderMediaPreview = (property) => {
-        const allMedia = getAllMedia(property);
-        const hasMedia = allMedia.length > 0;
-        const { imageCount, videoCount } = getMediaCounts(property);
-
-        return (
-            <Space direction="vertical" size={8} align="center">
-                <Button
-                    type="primary"
-                    icon={<PictureOutlined />}
-                    size="small"
-                    onClick={() => handleOpenMedia(property)}
-                    style={{
-                        backgroundColor: '#1e3a8a',
-                        borderColor: '#1e3a8a',
-                        fontWeight: 500
-                    }}
-                >
-                    View Media
-                </Button>
-                {hasMedia && (
-                    <div style={{ fontSize: '11px', color: '#666', textAlign: 'center' }}>
-                        <div>
-                            <PictureOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
-                            {imageCount} image{imageCount !== 1 ? 's' : ''}
-                        </div>
-                        {videoCount > 0 && (
-                            <div>
-                                <PlayCircleOutlined style={{ marginRight: 4, color: '#1e3a8a' }} />
-                                {videoCount} video{videoCount !== 1 ? 's' : ''}
-                            </div>
-                        )}
-                    </div>
-                )}
-                {!hasMedia && (
-                    <div style={{ fontSize: '11px', color: '#999', textAlign: 'center' }}>
-                        No media
-                    </div>
-                )}
-            </Space>
-        );
-    };
-
-    // Open media gallery
-    const handleOpenMedia = (property, index = 0) => {
-        setSelectedProperty(property);
-        setCurrentMediaIndex(index);
-        setMediaModalVisible(true);
     };
 
     const actionMenu = (record) => (
@@ -779,8 +812,8 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 </div>
                             </div>
                         </Space>
-                        {/* Amenities row */}
-                        <div style={{ marginLeft: 40 }}>
+                        {/* Amenities row - FIXED */}
+                        <div style={{ marginLeft: 40, marginTop: 8 }}>
                             {renderAmenities(record.amenities)}
                         </div>
                     </Space>
@@ -837,7 +870,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             key: 'media',
             render: (_, record) => renderMediaPreview(record),
         },
-
         {
             title: 'Agent',
             dataIndex: 'agent',
@@ -853,11 +885,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <div style={{ fontWeight: 500 }}>
                                     {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
                                 </div>
-                                {agent?.licenseNumber && agent.licenseNumber !== '' && (
-                                    <div style={{ fontSize: '10px', color: '#666' }}>
-                                        License: {agent.licenseNumber}
-                                    </div>
-                                )}
+
                             </div>
                         </Space>
                         {getAgentContactInfo(agent) && (
@@ -899,7 +927,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 </Tag>
             ),
         },
-
         {
             title: 'Actions',
             key: 'actions',

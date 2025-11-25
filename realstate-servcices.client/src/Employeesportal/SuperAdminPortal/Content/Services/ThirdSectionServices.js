@@ -1,7 +1,11 @@
-﻿// ThirdSectionServices.js - FIXED VERSION
+﻿// ThirdSectionServices.js - COMPLETE FIXED VERSION
 import api from '../../../../Authpage/Services/Api';
 
 class ThirdSectionServices {
+    // Constants for limits
+    static MAX_PROCESS_STEPS = 5;
+    static MAX_FEATURE_ITEMS = 5;
+
     // Get third section data - PROPERLY FIXED VERSION
     async getThirdSection() {
         try {
@@ -64,7 +68,6 @@ class ThirdSectionServices {
         }
     }
 
-    // ... rest of the methods remain the same
     async updateThirdSection(thirdSectionData) {
         try {
             console.log('🔍 ThirdSectionServices: Making PUT request to /ThirdSection with data:', {
@@ -73,6 +76,12 @@ class ThirdSectionServices {
                 processStepsCount: thirdSectionData.processSteps?.length || 0,
                 featureItemsCount: thirdSectionData.featureItems?.length || 0
             });
+
+            // Validate limits before sending
+            const validation = this.validateThirdSection(thirdSectionData);
+            if (!validation.isValid) {
+                throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`);
+            }
 
             const response = await api.put('/ThirdSection', thirdSectionData);
 
@@ -166,7 +175,17 @@ class ThirdSectionServices {
             errors.description = 'Description is required';
         }
 
-        // Validate process steps
+        // Validate process steps limits
+        if (data.processSteps && data.processSteps.length > ThirdSectionServices.MAX_PROCESS_STEPS) {
+            errors.processSteps = `Cannot have more than ${ThirdSectionServices.MAX_PROCESS_STEPS} process steps`;
+        }
+
+        // Validate feature items limits
+        if (data.featureItems && data.featureItems.length > ThirdSectionServices.MAX_FEATURE_ITEMS) {
+            errors.featureItems = `Cannot have more than ${ThirdSectionServices.MAX_FEATURE_ITEMS} feature items`;
+        }
+
+        // Validate process steps content
         if (data.processSteps && data.processSteps.length > 0) {
             data.processSteps.forEach((step, index) => {
                 if (!step.title || step.title.trim() === '') {
@@ -181,7 +200,7 @@ class ThirdSectionServices {
             });
         }
 
-        // Validate feature items
+        // Validate feature items content
         if (data.featureItems && data.featureItems.length > 0) {
             data.featureItems.forEach((item, index) => {
                 if (!item.title || item.title.trim() === '') {
@@ -200,6 +219,24 @@ class ThirdSectionServices {
             isValid,
             errors
         };
+    }
+
+    // Check if can add more items
+    canAddProcessStep(currentSteps) {
+        return (currentSteps?.length || 0) < ThirdSectionServices.MAX_PROCESS_STEPS;
+    }
+
+    canAddFeatureItem(currentItems) {
+        return (currentItems?.length || 0) < ThirdSectionServices.MAX_FEATURE_ITEMS;
+    }
+
+    // Get remaining slots
+    getRemainingProcessSlots(currentSteps) {
+        return Math.max(0, ThirdSectionServices.MAX_PROCESS_STEPS - (currentSteps?.length || 0));
+    }
+
+    getRemainingFeatureSlots(currentItems) {
+        return Math.max(0, ThirdSectionServices.MAX_FEATURE_ITEMS - (currentItems?.length || 0));
     }
 
     sortProcessSteps(processSteps) {

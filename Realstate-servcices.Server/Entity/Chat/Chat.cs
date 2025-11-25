@@ -1,5 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// Chat.cs
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Realstate_servcices.Server.Entity.Properties;
 
 namespace Realstate_servcices.Server.Entity.Chat
 {
@@ -17,10 +19,9 @@ namespace Realstate_servcices.Server.Entity.Chat
 
         [Required]
         [MaxLength(20)]
-        public string ChatType { get; set; } = "direct"; 
+        public string ChatType { get; set; } = "direct";
 
-        [MaxLength(50)]
-        public string? PropertyId { get; set; }
+        public int? PropertyId { get; set; } // Changed from string to int
 
         [MaxLength(500)]
         public string? LastMessage { get; set; }
@@ -33,6 +34,9 @@ namespace Realstate_servcices.Server.Entity.Chat
         [Required]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        // Navigation properties
+        [ForeignKey("PropertyId")]
+        public virtual PropertyHouse? Property { get; set; }
 
         public virtual ICollection<ChatParticipant> Participants { get; set; } = new List<ChatParticipant>();
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
@@ -40,4 +44,3 @@ namespace Realstate_servcices.Server.Entity.Chat
         public virtual ICollection<Rating> Ratings { get; set; } = new List<Rating>();
     }
 }
-

@@ -18,12 +18,17 @@ namespace Realstate_servcices.Server.Services.Scheduling
         Task<IEnumerable<ScheduleProperties>> GetSchedulesByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<ScheduleProperties> CreateScheduleAsync(ScheduleProperties schedule);
         Task<ScheduleProperties> UpdateScheduleAsync(ScheduleProperties schedule);
-        Task<bool> CancelScheduleAsync(int id);
-        Task<bool> RescheduleAsync(int id, DateTime newScheduleTime);
+        Task<bool> AcceptScheduleAsync(int id);
+        Task<bool> CancelScheduleAsync(int id, string cancellationReason = "");
+        Task<bool> RescheduleAsync(int id, DateTime newScheduleTime, string reason = "");
         Task<bool> CompleteScheduleAsync(int id);
+        Task<bool> ReopenScheduleAsync(int id);
         Task<bool> DeleteScheduleAsync(int id);
         Task<bool> IsTimeSlotAvailableAsync(int agentId, DateTime scheduleTime);
         Task<object> DebugTimeSlotAvailabilityAsync(int agentId, DateTime scheduleTime);
+        Task<IEnumerable<string>> GetAvailableStatusTransitionsAsync(int id);
+        bool CanScheduleBeEdited(ScheduleProperties schedule);
+        bool CanScheduleBeDeleted(ScheduleProperties schedule);
 
         // New DTO methods
         Task<ScheduleResponseDto> GetScheduleByIdDtoAsync(int id);
@@ -159,7 +164,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
                     throw new InvalidOperationException($"Agent with ID {schedule.AgentId} does not exist.");
                 }
 
-                // Check if Client exists - THIS IS THE KEY FIX
+                // Check if Client exists
                 var clientExists = await _context.Clients.AnyAsync(c => c.BaseMemberId == schedule.ClientId);
                 if (!clientExists)
                 {
@@ -179,13 +184,13 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
                 // Ensure all required fields are set
                 schedule.ScheduleNo = Guid.NewGuid();
-                schedule.Status = "Scheduled";
+                schedule.Status = schedule.Status ?? "Pending";
                 schedule.CreatedAt = DateTime.UtcNow;
 
                 // Make sure ScheduleEndTime is set
                 if (schedule.ScheduleEndTime == default)
                 {
-                    schedule.ScheduleEndTime = schedule.ScheduleTime.AddHours(1); // Default 1-hour duration
+                    schedule.ScheduleEndTime = schedule.ScheduleTime.AddHours(1);
                 }
 
                 // Clear navigation properties to avoid EF tracking issues
@@ -215,6 +220,10 @@ namespace Realstate_servcices.Server.Services.Scheduling
             if (existingSchedule == null)
                 throw new KeyNotFoundException($"Schedule with ID {schedule.Id} not found.");
 
+            // Check if schedule can be edited
+            if (!CanScheduleBeEdited(existingSchedule))
+                throw new InvalidOperationException("Cannot edit a schedule that is Completed or Cancelled.");
+
             // If schedule time changed, validate availability
             if (existingSchedule.ScheduleTime != schedule.ScheduleTime &&
                 !await IsTimeSlotAvailableAsync(schedule.AgentId, schedule.ScheduleTime))
@@ -226,24 +235,49 @@ namespace Realstate_servcices.Server.Services.Scheduling
             return await _scheduleRepository.UpdateAsync(schedule);
         }
 
-        public async Task<bool> CancelScheduleAsync(int id)
+        public async Task<bool> AcceptScheduleAsync(int id)
         {
             var schedule = await _scheduleRepository.GetByIdAsync(id);
             if (schedule == null)
                 return false;
 
+            // Validate status transition
+            if (schedule.Status != "Pending")
+                throw new InvalidOperationException($"Cannot accept schedule with status: {schedule.Status}");
+
+            schedule.Status = "Scheduled";
+            schedule.UpdatedAt = DateTime.UtcNow;
+            await _scheduleRepository.UpdateAsync(schedule);
+            return true;
+        }
+
+        public async Task<bool> CancelScheduleAsync(int id, string cancellationReason = "")
+        {
+            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            if (schedule == null)
+                return false;
+
+            // Validate status transition
+            if (schedule.Status == "Completed" || schedule.Status == "Cancelled")
+                throw new InvalidOperationException($"Cannot cancel schedule with status: {schedule.Status}");
+
             schedule.Status = "Cancelled";
+            schedule.CancellationReason = cancellationReason;
             schedule.UpdatedAt = DateTime.UtcNow;
             schedule.CancelledAt = DateTime.UtcNow;
             await _scheduleRepository.UpdateAsync(schedule);
             return true;
         }
 
-        public async Task<bool> RescheduleAsync(int id, DateTime newScheduleTime)
+        public async Task<bool> RescheduleAsync(int id, DateTime newScheduleTime, string reason = "")
         {
             var schedule = await _scheduleRepository.GetByIdAsync(id);
             if (schedule == null)
                 return false;
+
+            // Validate status transition
+            if (schedule.Status == "Completed" || schedule.Status == "Cancelled")
+                throw new InvalidOperationException($"Cannot reschedule schedule with status: {schedule.Status}");
 
             // Validate new time slot availability
             if (!await IsTimeSlotAvailableAsync(schedule.AgentId, newScheduleTime))
@@ -254,6 +288,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
             schedule.ScheduleTime = newScheduleTime;
             schedule.ScheduleEndTime = newScheduleTime.AddHours(1);
             schedule.Status = "Rescheduled";
+        
             schedule.UpdatedAt = DateTime.UtcNow;
             await _scheduleRepository.UpdateAsync(schedule);
             return true;
@@ -265,6 +300,10 @@ namespace Realstate_servcices.Server.Services.Scheduling
             if (schedule == null)
                 return false;
 
+            // Validate status transition
+            if (schedule.Status != "Scheduled" && schedule.Status != "Rescheduled")
+                throw new InvalidOperationException($"Cannot complete schedule with status: {schedule.Status}");
+
             schedule.Status = "Completed";
             schedule.UpdatedAt = DateTime.UtcNow;
             schedule.CompletedAt = DateTime.UtcNow;
@@ -272,9 +311,76 @@ namespace Realstate_servcices.Server.Services.Scheduling
             return true;
         }
 
+        public async Task<bool> ReopenScheduleAsync(int id)
+        {
+            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            if (schedule == null)
+                return false;
+
+            // Validate status transition - only allow reopening from Cancelled
+            if (schedule.Status != "Cancelled")
+                throw new InvalidOperationException($"Cannot reopen schedule with status: {schedule.Status}");
+
+            schedule.Status = "Pending";
+            schedule.CancellationReason = null;
+            schedule.CancelledAt = null;
+            schedule.UpdatedAt = DateTime.UtcNow;
+            await _scheduleRepository.UpdateAsync(schedule);
+            return true;
+        }
+
         public async Task<bool> DeleteScheduleAsync(int id)
         {
+            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            if (schedule == null)
+                return false;
+
+            // Check if schedule can be deleted
+            if (!CanScheduleBeDeleted(schedule))
+                throw new InvalidOperationException("Cannot delete a schedule that is Completed or Cancelled.");
+
             return await _scheduleRepository.DeleteAsync(id);
+        }
+
+        public bool CanScheduleBeEdited(ScheduleProperties schedule)
+        {
+            return schedule.Status != "Completed" && schedule.Status != "Cancelled";
+        }
+
+        public bool CanScheduleBeDeleted(ScheduleProperties schedule)
+        {
+            return schedule.Status != "Completed" && schedule.Status != "Cancelled";
+        }
+
+        public async Task<IEnumerable<string>> GetAvailableStatusTransitionsAsync(int id)
+        {
+            var schedule = await _scheduleRepository.GetByIdAsync(id);
+            if (schedule == null)
+                return Enumerable.Empty<string>();
+
+            var currentStatus = schedule.Status;
+            var availableTransitions = new List<string>();
+
+            switch (currentStatus)
+            {
+                case "Pending":
+                    availableTransitions.AddRange(new[] { "Scheduled", "Cancelled" });
+                    break;
+                case "Scheduled":
+                    availableTransitions.AddRange(new[] { "Completed", "Cancelled", "Rescheduled" });
+                    break;
+                case "Rescheduled":
+                    availableTransitions.AddRange(new[] { "Completed", "Cancelled" });
+                    break;
+                case "Cancelled":
+                    availableTransitions.Add("Pending"); // Reopen
+                    break;
+                case "Completed":
+                    // No transitions from Completed
+                    break;
+            }
+
+            return availableTransitions;
         }
 
         public async Task<bool> IsTimeSlotAvailableAsync(int agentId, DateTime scheduleTime)
@@ -491,6 +597,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 CancelledAt = schedule.CancelledAt,
                 CompletedAt = schedule.CompletedAt,
                 CancellationReason = schedule.CancellationReason,
+           
                 CreatedAt = schedule.CreatedAt,
                 UpdatedAt = schedule.UpdatedAt,
                 PropertyTitle = schedule.Property?.Title ?? string.Empty,

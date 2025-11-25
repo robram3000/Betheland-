@@ -1,4 +1,4 @@
-﻿// PropertyFilterSidebar.jsx (compact version)
+﻿// PropertyFilterSidebar.jsx (FIXED - Area Range)
 import React from 'react';
 import {
     Card,
@@ -43,7 +43,7 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
             bathrooms: null,
             propertyType: [],
             amenities: [],
-            squareFeet: [0, 10000]
+            squareFeet: [0, 500000] // Updated to match the new range
         });
     };
 
@@ -62,8 +62,6 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
 
     return (
         <div style={{ width: '280px', padding: '0' }}>
-         
-
             {/* Filter Content */}
             <div style={{
                 padding: '16px 20px',
@@ -230,7 +228,7 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
 
                     <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />
 
-                    {/* Square Feet */}
+                    {/* Square Feet - UPDATED RANGE */}
                     <div>
                         <Text strong style={{
                             color: '#1B3C53',
@@ -243,11 +241,11 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                         <Slider
                             range
                             min={0}
-                            max={10000}
-                            step={100}
+                            max={500000} // Increased from 10000 to 500000
+                            step={1000}
                             value={filters.squareFeet}
                             onChange={(value) => updateFilter('squareFeet', value)}
-                            tooltip={{ formatter: value => `${value} sqm` }}
+                            tooltip={{ formatter: value => `${value.toLocaleString()} sqm` }}
                             trackStyle={{ background: '#1B3C53', height: '4px' }}
                             handleStyle={{
                                 borderColor: '#1B3C53',
@@ -257,6 +255,14 @@ const PropertyFilterSidebar = ({ filters, onFilterChange, isCollapsed }) => {
                             }}
                             railStyle={{ background: '#e2e8f0', height: '4px' }}
                         />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                {filters.squareFeet[0].toLocaleString()} sqm
+                            </Text>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                {filters.squareFeet[1].toLocaleString()} sqm
+                            </Text>
+                        </div>
                     </div>
 
                     <Divider style={{ margin: '12px 0', background: '#f1f5f9' }} />

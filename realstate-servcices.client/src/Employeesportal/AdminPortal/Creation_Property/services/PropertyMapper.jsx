@@ -1,5 +1,34 @@
 import moment from 'moment';
 
+// Image processing algorithm similar to ClientMapper
+const processImageUrl = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+        return '/default-property.jpg';
+    }
+
+    // Already full URL
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        return url;
+    }
+
+    // Server path - prepend base URL
+    if (url.startsWith('/uploads/')) {
+        return `https://localhost:7080${url}`;
+    }
+
+    // Relative path without leading slash
+    if (url.includes('.') && !url.startsWith('/')) {
+        return `https://localhost:7080/uploads/properties/${url}`;
+    }
+
+    // uploads/ path
+    if (url.startsWith('uploads/')) {
+        return `https://localhost:7080/${url}`;
+    }
+
+    return '/default-property.jpg';
+};
+
 export const propertyMapper = {
     toCreateRequest: (formData) => {
         try {
@@ -65,7 +94,7 @@ export const propertyMapper = {
                     agentId: formData.agentId ? parseInt(formData.agentId) : null,
                     listedDate: listedDateValue,
                 },
-                imageUrls: Array.isArray(formData.imageUrls) ? formData.imageUrls : [],
+                imageUrls: Array.isArray(formData.imageUrls) ? formData.imageUrls.map(url => processImageUrl(url)) : [],
                 videoUrls: Array.isArray(formData.videoUrls) ? formData.videoUrls : []
             };
 
@@ -144,7 +173,7 @@ export const propertyMapper = {
             };
 
             if (formData.imageUrls && Array.isArray(formData.imageUrls)) {
-                updateData.imageUrls = formData.imageUrls;
+                updateData.imageUrls = formData.imageUrls.map(url => processImageUrl(url));
             }
 
             if (formData.videoUrls && Array.isArray(formData.videoUrls)) {
@@ -236,7 +265,7 @@ export const propertyMapper = {
                     firstName: backendData.agent.firstName || '',
                     lastName: backendData.agent.lastName || '',
                     email: backendData.agent.email || '',
-                    profilePictureUrl: backendData.agent.profilePictureUrl || '',
+                    profilePictureUrl: processImageUrl(backendData.agent.profilePictureUrl || ''),
                     cellPhoneNo: backendData.agent.cellPhoneNo || '',
                     licenseNumber: backendData.agent.licenseNumber || ''
                 };
@@ -246,7 +275,7 @@ export const propertyMapper = {
                     firstName: 'Unknown',
                     lastName: 'Agent',
                     email: '',
-                    profilePictureUrl: ''
+                    profilePictureUrl: processImageUrl('')
                 };
             }
 
@@ -258,7 +287,7 @@ export const propertyMapper = {
                 property.propertyImages = images.map(img => ({
                     id: img.id || 0,
                     propertyId: img.propertyId || property.id,
-                    imageUrl: img.imageUrl || '',
+                    imageUrl: processImageUrl(img.imageUrl || ''),
                     createdAt: img.createdAt ? moment(img.createdAt) : null
                 })).filter(img => img.imageUrl);
 
@@ -275,7 +304,7 @@ export const propertyMapper = {
                     id: video.id || 0,
                     propertyId: video.propertyId || property.id,
                     videoUrl: video.videoUrl || '',
-                    thumbnailUrl: video.thumbnailUrl || '',
+                    thumbnailUrl: processImageUrl(video.thumbnailUrl || ''),
                     duration: video.duration || '0',
                     fileSize: parseFloat(video.fileSize) || 0,
                     videoName: video.videoName || '',
@@ -379,7 +408,7 @@ export const propertyMapper = {
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
                 },
-                imageUrls: Array.isArray(propertyData.imageUrls) ? propertyData.imageUrls : [],
+                imageUrls: Array.isArray(propertyData.imageUrls) ? propertyData.imageUrls.map(url => processImageUrl(url)) : [],
                 videoUrls: Array.isArray(propertyData.videoUrls) ? propertyData.videoUrls : []
             };
 
@@ -472,7 +501,7 @@ export const propertyMapper = {
                     agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
                     listedDate: listedDateValue,
                 },
-                imageUrls: Array.isArray(propertyData.imageUrls) ? propertyData.imageUrls : [],
+                imageUrls: Array.isArray(propertyData.imageUrls) ? propertyData.imageUrls.map(url => processImageUrl(url)) : [],
                 videoUrls: Array.isArray(propertyData.videoUrls) ? propertyData.videoUrls : []
             };
 

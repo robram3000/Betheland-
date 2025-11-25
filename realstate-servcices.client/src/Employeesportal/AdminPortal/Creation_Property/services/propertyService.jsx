@@ -42,62 +42,92 @@ class PropertyService {
         }
     }
 
-    // Create property with media
     async createPropertyWithMedia(propertyData, images = [], videos = []) {
         try {
             console.log('Creating property with media:', { propertyData, images, videos });
 
             const formData = new FormData();
+
+            // Create a clean property DTO object
             const propertyDto = {
-                title: propertyData.title?.trim(),
-                type: propertyData.type,
-                description: propertyData.description, // No trim to preserve formatting
-                price: propertyData.price,
-                status: propertyData.status,
-                listedDate: propertyData.listedDate,
-                address: propertyData.address,
-                city: propertyData.city,
-                state: propertyData.state,
-                zipCode: propertyData.zipCode,
-                country: propertyData.country,
-                latitude: propertyData.latitude,
-                longitude: propertyData.longitude,
-                bedrooms: propertyData.bedrooms,
-                bathrooms: propertyData.bathrooms,
-                kitchen: propertyData.kitchen,
-                garage: propertyData.garage,
-                areaSqm: propertyData.areaSqm,
-                propertyAge: propertyData.propertyAge,
-                propertyFloor: propertyData.propertyFloor,
+                title: propertyData.title?.trim() || '',
+                type: propertyData.type || '',
+                description: propertyData.description || '',
+                price: parseFloat(propertyData.price) || 0,
+                status: propertyData.status || 'available',
+                listedDate: propertyData.listedDate || new Date().toISOString(),
+                address: propertyData.address || '',
+                city: propertyData.city || '',
+                state: propertyData.state || '',
+                zipCode: propertyData.zipCode || '',
+                country: propertyData.country || 'Philippines',
+                latitude: parseFloat(propertyData.latitude) || 0,
+                longitude: parseFloat(propertyData.longitude) || 0,
+                bedrooms: parseInt(propertyData.bedrooms) || 0,
+                bathrooms: parseFloat(propertyData.bathrooms) || 0,
+                kitchen: parseInt(propertyData.kitchen) || 0,
+                garage: parseInt(propertyData.garage) || 0,
+                areaSqm: parseInt(propertyData.areaSqm) || 0,
+                propertyAge: parseInt(propertyData.propertyAge) || 0,
+                propertyFloor: parseInt(propertyData.propertyFloor) || 1,
                 amenities: propertyData.amenities || [],
-                ownerId: propertyData.ownerId,
-                agentId: propertyData.agentId
+                ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
+                agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
+                barangay: propertyData.barangay || '',
+                regionCode: propertyData.regionCode || null,
+                provinceCode: propertyData.provinceCode || null,
+                cityCode: propertyData.cityCode || null,
+                barangayCode: propertyData.barangayCode || null
+            };
+
+            console.log('Property DTO to be serialized:', propertyDto);
+
+            // Create the complete request object that matches backend expectation
+            const requestData = {
+                property: propertyDto,
+                imageUrls: [],
+                videoUrls: []
             };
 
             let serializedPropertyData;
             try {
-                serializedPropertyData = JSON.stringify(propertyDto);
+                serializedPropertyData = JSON.stringify(requestData);
+                console.log('Serialized property data:', serializedPropertyData);
+
+                // Test if it can be parsed back
+                JSON.parse(serializedPropertyData);
+                console.log('JSON validation passed');
             } catch (serializeError) {
                 console.error('Error serializing property data:', serializeError);
-                throw new Error('Invalid property data format');
+                throw new Error('Invalid property data format: ' + serializeError.message);
             }
 
             formData.append('propertyData', serializedPropertyData);
 
+            // Add images
             if (images && images.length > 0) {
-                images.forEach((image) => {
+                console.log(`Adding ${images.length} images to formData`);
+                images.forEach((image, index) => {
                     if (image instanceof File) {
-                        formData.append('images', image);
+                        formData.append('images', image, image.name);
                     }
                 });
             }
 
+            // Add videos
             if (videos && videos.length > 0) {
-                videos.forEach((video) => {
+                console.log(`Adding ${videos.length} videos to formData`);
+                videos.forEach((video, index) => {
                     if (video instanceof File) {
-                        formData.append('videos', video);
+                        formData.append('videos', video, video.name);
                     }
                 });
+            }
+
+            // Log formData contents for debugging
+            console.log('FormData entries:');
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ': ', pair[1]);
             }
 
             const response = await this.client.post('/CreationProperty/with-media', formData, {
@@ -120,7 +150,6 @@ class PropertyService {
         }
     }
 
-    // Update property
     async updateProperty(id, propertyData) {
         try {
             console.log('Updating property:', id, propertyData);
@@ -142,13 +171,78 @@ class PropertyService {
         }
     }
 
-    // Update property with media
     async updatePropertyWithMedia(id, propertyData, images = [], videos = []) {
         try {
-            const formData = propertyMapper.toUpdateFormData({
-                ...propertyData,
-                id: id
-            }, images, videos);
+            const formData = new FormData();
+
+            // Create a clean property DTO object
+            const propertyDto = {
+                id: parseInt(id),
+                title: propertyData.title?.trim() || '',
+                type: propertyData.type || '',
+                description: propertyData.description || '',
+                price: parseFloat(propertyData.price) || 0,
+                status: propertyData.status || 'available',
+                listedDate: propertyData.listedDate || new Date().toISOString(),
+                address: propertyData.address || '',
+                city: propertyData.city || '',
+                state: propertyData.state || '',
+                zipCode: propertyData.zipCode || '',
+                country: propertyData.country || 'Philippines',
+                latitude: parseFloat(propertyData.latitude) || 0,
+                longitude: parseFloat(propertyData.longitude) || 0,
+                bedrooms: parseInt(propertyData.bedrooms) || 0,
+                bathrooms: parseFloat(propertyData.bathrooms) || 0,
+                kitchen: parseInt(propertyData.kitchen) || 0,
+                garage: parseInt(propertyData.garage) || 0,
+                areaSqm: parseInt(propertyData.areaSqm) || 0,
+                propertyAge: parseInt(propertyData.propertyAge) || 0,
+                propertyFloor: parseInt(propertyData.propertyFloor) || 1,
+                amenities: propertyData.amenities || [],
+                ownerId: propertyData.ownerId ? parseInt(propertyData.ownerId) : null,
+                agentId: propertyData.agentId ? parseInt(propertyData.agentId) : null,
+                barangay: propertyData.barangay || '',
+                regionCode: propertyData.regionCode || null,
+                provinceCode: propertyData.provinceCode || null,
+                cityCode: propertyData.cityCode || null,
+                barangayCode: propertyData.barangayCode || null
+            };
+
+            // Create the complete request object
+            const requestData = {
+                property: propertyDto,
+                imageUrls: [],
+                videoUrls: []
+            };
+
+            let serializedPropertyData;
+            try {
+                serializedPropertyData = JSON.stringify(requestData);
+                console.log('Serialized update property data:', serializedPropertyData);
+            } catch (serializeError) {
+                console.error('Error serializing update property data:', serializeError);
+                throw new Error('Invalid property data format for update');
+            }
+
+            formData.append('propertyData', serializedPropertyData);
+
+            // Add images
+            if (images && images.length > 0) {
+                images.forEach((image) => {
+                    if (image instanceof File) {
+                        formData.append('images', image, image.name);
+                    }
+                });
+            }
+
+            // Add videos
+            if (videos && videos.length > 0) {
+                videos.forEach((video) => {
+                    if (video instanceof File) {
+                        formData.append('videos', video, video.name);
+                    }
+                });
+            }
 
             const response = await this.client.put(`/CreationProperty/with-media/${id}`, formData, {
                 headers: {
@@ -347,13 +441,13 @@ class PropertyService {
         }
     }
 
-    // Change property handler (agent)
+    // Change property handler (agent) - FIXED VERSION
     async changePropertyHandler(propertyId, agentId) {
         try {
             console.log('Changing property handler:', propertyId, agentId);
 
             const updateData = {
-                agentId: agentId
+                agentId: parseInt(agentId)
             };
 
             const response = await this.client.put(`/CreationProperty/${propertyId}`, {
@@ -361,7 +455,11 @@ class PropertyService {
             });
 
             if (response.data && response.data.success) {
-                return response.data.property || response.data;
+                // Return the full updated property if available, otherwise just success
+                if (response.data.property) {
+                    return propertyMapper.toFrontend(response.data.property);
+                }
+                return { success: true, propertyId, agentId };
             } else {
                 throw new Error(response.data.message || 'Failed to change property handler');
             }

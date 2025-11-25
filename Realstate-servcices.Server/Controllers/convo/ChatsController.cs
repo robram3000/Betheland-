@@ -40,7 +40,6 @@ namespace Realstate_servcices.Server.Controllers
         {
             try
             {
-              
                 var chats = await _chatService.GetByClientChatAsync(clientId);
                 return Ok(new { success = true, data = chats });
             }
@@ -56,13 +55,6 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
-
-                // Authorization: Users can only access their own agent chats unless they're admin
-                if (userId != agentId && !User.IsInRole("Admin"))
-                {
-                    return Forbid();
-                }
-
                 var chats = await _chatService.GetByAgentChatAsync(agentId);
                 return Ok(new { success = true, data = chats });
             }
@@ -189,6 +181,24 @@ namespace Realstate_servcices.Server.Controllers
             }
         }
 
+        // NEW ENDPOINTS FOR RECIPIENT FUNCTIONALITY
+
+        [HttpGet("recipient/{recipientId}")]
+        public async Task<ActionResult<List<ChatDto>>> GetChatsByRecipient(int recipientId)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var chats = await _chatService.GetChatsByRecipientAsync(recipientId, userId);
+                return Ok(new { success = true, data = chats });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+       
         private int GetCurrentUserId()
         {
             return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");

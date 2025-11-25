@@ -1,4 +1,5 @@
 ﻿using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Entity.Member;
 
 namespace Realstate_servcices.Server.Repository.Conversation
 {
@@ -11,7 +12,11 @@ namespace Realstate_servcices.Server.Repository.Conversation
         Task UpdateLastReadAsync(int chatId, int userId);
 
         // Add these missing methods
+        Task<BaseMember?> GetRecipientAsync(int chatId, int senderId);
+        Task<ChatParticipant?> GetParticipantByRecipientAsync(int chatId, int recipientId);
         Task UpdateParticipantAsync(ChatParticipant participant);
+
+
         Task IncrementUnreadCountForOthersAsync(int chatId, int excludedUserId);
     }
 }

@@ -1787,32 +1787,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         </div>
                     </Card>
 
-                    {(selectedRegionCode || selectedProvinceCode || selectedCityCode || selectedBarangayCode) && (
-                        <Card title="PSGC Information" size="small" style={{ marginTop: 16 }}>
-                            <Descriptions size="small" column={2}>
-                                {selectedRegionCode && (
-                                    <Descriptions.Item label="Region Code">
-                                        <Text code>{selectedRegionCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                                {selectedProvinceCode && (
-                                    <Descriptions.Item label="Province Code">
-                                        <Text code>{selectedProvinceCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                                {selectedCityCode && (
-                                    <Descriptions.Item label="City/Municipality Code">
-                                        <Text code>{selectedCityCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                                {selectedBarangayCode && (
-                                    <Descriptions.Item label="Barangay Code">
-                                        <Text code>{selectedBarangayCode}</Text>
-                                    </Descriptions.Item>
-                                )}
-                            </Descriptions>
-                        </Card>
-                    )}
+                  
                 </Card>
             )
         },

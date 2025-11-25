@@ -1,5 +1,10 @@
-﻿using Realstate_servcices.Server.Dto.Chat;
+﻿// ChatService.cs
+using Microsoft.EntityFrameworkCore;
+using Realstate_servcices.Server.Data;
+using Realstate_servcices.Server.Dto.Chat;
+using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Entity.Properties;
 using Realstate_servcices.Server.Repository.Conversation;
 
 namespace Realstate_servcices.Server.Services.Conversation
@@ -8,11 +13,15 @@ namespace Realstate_servcices.Server.Services.Conversation
     {
         private readonly IChatRepository _chatRepository;
         private readonly IChatParticipantRepository _participantRepository;
+        private readonly ApplicationDbContext _context;
 
-        public ChatService(IChatRepository chatRepository, IChatParticipantRepository participantRepository)
+        public ChatService(IChatRepository chatRepository,
+            IChatParticipantRepository participantRepository,
+            ApplicationDbContext context)
         {
             _chatRepository = chatRepository;
             _participantRepository = participantRepository;
+            _context = context;
         }
 
         public async Task<ChatDto> CreateChatAsync(CreateChatDto createDto, int creatorId)
@@ -28,6 +37,7 @@ namespace Realstate_servcices.Server.Services.Conversation
 
             var createdChat = await _chatRepository.CreateAsync(chat);
 
+            // Add creator as participant
             var creatorParticipant = new ChatParticipant
             {
                 ChatId = createdChat.Id,
@@ -54,27 +64,48 @@ namespace Realstate_servcices.Server.Services.Conversation
                 await _participantRepository.AddParticipantAsync(participant);
             }
 
-            // Reload chat with participants
-            var fullChat = await _chatRepository.GetByIdAsync(createdChat.Id);
-            return MapToChatDto(fullChat);
+            // Reload chat with participants and property
+            var fullChat = await _chatRepository.GetByIdWithPropertyAsync(createdChat.Id);
+            return await MapToChatDtoAsync(fullChat);
         }
 
         public async Task<List<ChatDto>> GetUserChatsAsync(int userId)
         {
-            var chats = await _chatRepository.GetUserChatsAsync(userId);
-            return chats.Select(MapToChatDto).ToList();
+            var chats = await _chatRepository.GetUserChatsWithPropertiesAsync(userId);
+            var chatDtos = new List<ChatDto>();
+
+            foreach (var chat in chats)
+            {
+                chatDtos.Add(await MapToChatDtoAsync(chat));
+            }
+
+            return chatDtos;
         }
 
         public async Task<List<ChatDto>> GetByClientChatAsync(int clientId)
         {
-            var chats = await _chatRepository.GetByClientChatAsync(clientId);
-            return chats.Select(MapToChatDto).ToList();
+            var chats = await _chatRepository.GetByClientChatWithPropertiesAsync(clientId);
+            var chatDtos = new List<ChatDto>();
+
+            foreach (var chat in chats)
+            {
+                chatDtos.Add(await MapToChatDtoAsync(chat));
+            }
+
+            return chatDtos;
         }
 
         public async Task<List<ChatDto>> GetByAgentChatAsync(int agentId)
         {
-            var chats = await _chatRepository.GetByAgentChatAsync(agentId);
-            return chats.Select(MapToChatDto).ToList();
+            var chats = await _chatRepository.GetByAgentChatWithPropertiesAsync(agentId);
+            var chatDtos = new List<ChatDto>();
+
+            foreach (var chat in chats)
+            {
+                chatDtos.Add(await MapToChatDtoAsync(chat));
+            }
+
+            return chatDtos;
         }
 
         public async Task<ChatDto?> GetChatAsync(int chatId, int userId)
@@ -82,8 +113,8 @@ namespace Realstate_servcices.Server.Services.Conversation
             if (!await _chatRepository.UserHasAccessToChatAsync(userId, chatId))
                 return null;
 
-            var chat = await _chatRepository.GetByIdAsync(chatId);
-            return chat != null ? MapToChatDto(chat) : null;
+            var chat = await _chatRepository.GetByIdWithPropertyAsync(chatId);
+            return chat != null ? await MapToChatDtoAsync(chat) : null;
         }
 
         public async Task<ChatDto> UpdateChatAsync(int chatId, UpdateChatDto updateDto, int userId)
@@ -100,7 +131,8 @@ namespace Realstate_servcices.Server.Services.Conversation
             chat.UpdatedAt = DateTime.UtcNow;
 
             var updatedChat = await _chatRepository.UpdateAsync(chat);
-            return MapToChatDto(updatedChat);
+            var fullChat = await _chatRepository.GetByIdWithPropertyAsync(updatedChat.Id);
+            return await MapToChatDtoAsync(fullChat);
         }
 
         public async Task<bool> DeleteChatAsync(int chatId, int userId)
@@ -124,6 +156,7 @@ namespace Realstate_servcices.Server.Services.Conversation
 
                 existingParticipant.IsActive = true;
                 existingParticipant.Role = addDto.Role;
+                existingParticipant.RecipientId = addDto.RecipientId;
                 await _participantRepository.UpdateParticipantAsync(existingParticipant);
                 return MapToChatParticipantDto(existingParticipant);
             }
@@ -132,6 +165,7 @@ namespace Realstate_servcices.Server.Services.Conversation
             {
                 ChatId = chatId,
                 BaseMemberId = addDto.BaseMemberId,
+                RecipientId = addDto.RecipientId,
                 Role = addDto.Role,
                 ParticipantType = addDto.ParticipantType,
                 JoinedAt = DateTime.UtcNow,
@@ -150,14 +184,75 @@ namespace Realstate_servcices.Server.Services.Conversation
             return await _participantRepository.RemoveParticipantAsync(chatId, participantId);
         }
 
+        public async Task<List<ChatDto>> GetChatsByRecipientAsync(int recipientId, int userId)
+        {
+            // Security check: user can only see chats where they are involved
+            if (recipientId != userId)
+            {
+                var hasCommonChats = await _context.ChatParticipants
+                    .AnyAsync(p => p.BaseMemberId == userId && p.IsActive &&
+                                 _context.ChatParticipants
+                                     .Any(op => op.ChatId == p.ChatId && op.BaseMemberId == recipientId && op.IsActive));
+
+                if (!hasCommonChats)
+                {
+                    throw new UnauthorizedAccessException("No access to view these chats");
+                }
+            }
+
+            var chats = await _chatRepository.GetChatsByRecipientWithPropertiesAsync(recipientId);
+
+            // Additional security: filter chats to ensure user has access
+            var accessibleChats = new List<ChatDto>();
+            foreach (var chat in chats)
+            {
+                if (await _chatRepository.UserHasAccessToChatAsync(userId, chat.Id))
+                {
+                    accessibleChats.Add(await MapToChatDtoAsync(chat));
+                }
+            }
+
+            return accessibleChats;
+        }
+
         private async Task<bool> HasAdminAccess(int chatId, int userId)
         {
             var participant = await _participantRepository.GetParticipantAsync(chatId, userId);
             return participant?.Role == "admin";
         }
 
-        private ChatDto MapToChatDto(Chat chat)
+        private async Task<ChatDto> MapToChatDtoAsync(Chat chat)
         {
+            // Get property details if exists
+            PropertyDto? propertyDto = null;
+            if (chat.PropertyId.HasValue)
+            {
+                if (chat.Property == null)
+                {
+                    // If property wasn't included in the query, load it separately
+                    var property = await _context.Properties
+                        .FirstOrDefaultAsync(p => p.Id == chat.PropertyId.Value);
+
+                    if (property != null)
+                    {
+                        propertyDto = MapToPropertyDto(property);
+                    }
+                }
+                else
+                {
+                    propertyDto = MapToPropertyDto(chat.Property);
+                }
+            }
+
+            // Calculate unread count for the current user
+            var currentUserId = await GetCurrentUserIdFromContext();
+            var unreadCount = 0;
+            if (currentUserId > 0)
+            {
+                var participant = await _participantRepository.GetParticipantAsync(chat.Id, currentUserId);
+                unreadCount = participant?.UnreadCount ?? 0;
+            }
+
             return new ChatDto
             {
                 Id = chat.Id,
@@ -165,10 +260,12 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Name = chat.Name,
                 ChatType = chat.ChatType,
                 PropertyId = chat.PropertyId,
+                Property = propertyDto,
                 LastMessage = chat.LastMessage,
                 LastMessageAt = chat.LastMessageAt,
                 CreatedAt = chat.CreatedAt,
                 UpdatedAt = chat.UpdatedAt,
+                UnreadCount = unreadCount,
                 Participants = chat.Participants?
                     .Where(p => p.IsActive)
                     .Select(MapToChatParticipantDto)
@@ -182,6 +279,33 @@ namespace Realstate_servcices.Server.Services.Conversation
             };
         }
 
+        private PropertyDto MapToPropertyDto(PropertyHouse property)
+        {
+            return new PropertyDto
+            {
+                Id = property.Id,
+                PropertyNo = property.PropertyNo,
+                Title = property.Title,
+                Description = property.Description,
+                Type = property.Type,
+                Price = property.Price,
+                Bedrooms = property.Bedrooms,
+                Bathrooms = property.Bathrooms,
+                AreaSqm = property.AreaSqm,
+                Address = property.Address,
+                City = property.City,
+                State = property.State,
+                ZipCode = property.ZipCode,
+                Status = property.Status,
+                ListedDate = property.ListedDate,
+                Country = property.Country,
+                Barangay = property.Barangay,
+                OwnerId = property.OwnerId,
+                AgentId = property.AgentId,
+         
+            };
+        }
+
         private ChatParticipantDto MapToChatParticipantDto(ChatParticipant participant)
         {
             string? firstName = null;
@@ -189,6 +313,12 @@ namespace Realstate_servcices.Server.Services.Conversation
             string? fullName = null;
             string? profileImage = null;
             string? memberType = null;
+
+            string? recipientFirstName = null;
+            string? recipientLastName = null;
+            string? recipientFullName = null;
+            string? recipientProfileImage = null;
+            string? recipientMemberType = null;
 
             // Get user details from Client if available
             if (participant.BaseMember?.Client != null)
@@ -218,11 +348,38 @@ namespace Realstate_servcices.Server.Services.Conversation
                 memberType = participant.BaseMember.Role ?? "User";
             }
 
+            // Get recipient details
+            if (participant.Recipient?.Client != null)
+            {
+                recipientFirstName = participant.Recipient.Client.FirstName;
+                recipientLastName = participant.Recipient.Client.LastName;
+                recipientFullName = $"{participant.Recipient.Client.FirstName} {participant.Recipient.Client.LastName}";
+                recipientProfileImage = participant.Recipient.ProfilePictureUrl;
+                recipientMemberType = "Client";
+            }
+            else if (participant.Recipient?.Agent != null)
+            {
+                recipientFirstName = participant.Recipient.Agent.FirstName;
+                recipientLastName = participant.Recipient.Agent.LastName;
+                recipientFullName = $"{participant.Recipient.Agent.FirstName} {participant.Recipient.Agent.LastName}";
+                recipientProfileImage = participant.Recipient.ProfilePictureUrl;
+                recipientMemberType = "Agent";
+            }
+            else if (participant.Recipient != null)
+            {
+                recipientFirstName = participant.Recipient.Username;
+                recipientLastName = string.Empty;
+                recipientFullName = participant.Recipient.Username;
+                recipientProfileImage = participant.Recipient.ProfilePictureUrl;
+                recipientMemberType = participant.Recipient.Role ?? "User";
+            }
+
             return new ChatParticipantDto
             {
                 Id = participant.Id,
                 ChatId = participant.ChatId,
                 BaseMemberId = participant.BaseMemberId,
+                RecipientId = participant.RecipientId,
                 Role = participant.Role,
                 ParticipantType = participant.ParticipantType,
                 UnreadCount = participant.UnreadCount,
@@ -239,44 +396,87 @@ namespace Realstate_servcices.Server.Services.Conversation
                     MemberType = memberType,
                     Email = participant.BaseMember.Email,
                     Username = participant.BaseMember.Username
+                } : null,
+                Recipient = participant.Recipient != null ? new BaseMemberDto
+                {
+                    Id = participant.Recipient.Id,
+                    FirstName = recipientFirstName,
+                    LastName = recipientLastName,
+                    FullName = recipientFullName,
+                    ProfileImage = recipientProfileImage,
+                    MemberType = recipientMemberType,
+                    Email = participant.Recipient.Email,
+                    Username = participant.Recipient.Username
                 } : null
             };
         }
 
         private MessageDto MapToMessageDto(Message message)
         {
-            string? firstName = null;
-            string? lastName = null;
-            string? fullName = null;
-            string? profileImage = null;
-            string? memberType = null;
+            string? senderFirstName = null;
+            string? senderLastName = null;
+            string? senderFullName = null;
+            string? senderProfileImage = null;
+            string? senderMemberType = null;
+
+            string? recipientFirstName = null;
+            string? recipientLastName = null;
+            string? recipientFullName = null;
+            string? recipientProfileImage = null;
+            string? recipientMemberType = null;
 
             // Get sender details from Client if available
             if (message.Sender?.Client != null)
             {
-                firstName = message.Sender.Client.FirstName;
-                lastName = message.Sender.Client.LastName;
-                fullName = $"{message.Sender.Client.FirstName} {message.Sender.Client.LastName}";
-                profileImage = message.Sender.ProfilePictureUrl;
-                memberType = "Client";
+                senderFirstName = message.Sender.Client.FirstName;
+                senderLastName = message.Sender.Client.LastName;
+                senderFullName = $"{message.Sender.Client.FirstName} {message.Sender.Client.LastName}";
+                senderProfileImage = message.Sender.ProfilePictureUrl;
+                senderMemberType = "Client";
             }
             // Get sender details from Agent if available
             else if (message.Sender?.Agent != null)
             {
-                firstName = message.Sender.Agent.FirstName;
-                lastName = message.Sender.Agent.LastName;
-                fullName = $"{message.Sender.Agent.FirstName} {message.Sender.Agent.LastName}";
-                profileImage = message.Sender.ProfilePictureUrl;
-                memberType = "Agent";
+                senderFirstName = message.Sender.Agent.FirstName;
+                senderLastName = message.Sender.Agent.LastName;
+                senderFullName = $"{message.Sender.Agent.FirstName} {message.Sender.Agent.LastName}";
+                senderProfileImage = message.Sender.ProfilePictureUrl;
+                senderMemberType = "Agent";
             }
             // Fallback to BaseMember properties
             else if (message.Sender != null)
             {
-                firstName = message.Sender.Username;
-                lastName = string.Empty;
-                fullName = message.Sender.Username;
-                profileImage = message.Sender.ProfilePictureUrl;
-                memberType = message.Sender.Role ?? "User";
+                senderFirstName = message.Sender.Username;
+                senderLastName = string.Empty;
+                senderFullName = message.Sender.Username;
+                senderProfileImage = message.Sender.ProfilePictureUrl;
+                senderMemberType = message.Sender.Role ?? "User";
+            }
+
+            // Get recipient details
+            if (message.Recipient?.Client != null)
+            {
+                recipientFirstName = message.Recipient.Client.FirstName;
+                recipientLastName = message.Recipient.Client.LastName;
+                recipientFullName = $"{message.Recipient.Client.FirstName} {message.Recipient.Client.LastName}";
+                recipientProfileImage = message.Recipient.ProfilePictureUrl;
+                recipientMemberType = "Client";
+            }
+            else if (message.Recipient?.Agent != null)
+            {
+                recipientFirstName = message.Recipient.Agent.FirstName;
+                recipientLastName = message.Recipient.Agent.LastName;
+                recipientFullName = $"{message.Recipient.Agent.FirstName} {message.Recipient.Agent.LastName}";
+                recipientProfileImage = message.Recipient.ProfilePictureUrl;
+                recipientMemberType = "Agent";
+            }
+            else if (message.Recipient != null)
+            {
+                recipientFirstName = message.Recipient.Username;
+                recipientLastName = string.Empty;
+                recipientFullName = message.Recipient.Username;
+                recipientProfileImage = message.Recipient.ProfilePictureUrl;
+                recipientMemberType = message.Recipient.Role ?? "User";
             }
 
             return new MessageDto
@@ -285,6 +485,7 @@ namespace Realstate_servcices.Server.Services.Conversation
                 MessageNo = message.MessageNo,
                 ChatId = message.ChatId,
                 SenderId = message.SenderId,
+                RecipientId = message.RecipientId,
                 Content = message.Content,
                 MessageType = message.MessageType,
                 IsEdited = message.IsEdited,
@@ -295,13 +496,24 @@ namespace Realstate_servcices.Server.Services.Conversation
                 Sender = message.Sender != null ? new BaseMemberDto
                 {
                     Id = message.Sender.Id,
-                    FirstName = firstName,
-                    LastName = lastName,
-                    FullName = fullName,
-                    ProfileImage = profileImage,
-                    MemberType = memberType,
+                    FirstName = senderFirstName,
+                    LastName = senderLastName,
+                    FullName = senderFullName,
+                    ProfileImage = senderProfileImage,
+                    MemberType = senderMemberType,
                     Email = message.Sender.Email,
                     Username = message.Sender.Username
+                } : null,
+                Recipient = message.Recipient != null ? new BaseMemberDto
+                {
+                    Id = message.Recipient.Id,
+                    FirstName = recipientFirstName,
+                    LastName = recipientLastName,
+                    FullName = recipientFullName,
+                    ProfileImage = recipientProfileImage,
+                    MemberType = recipientMemberType,
+                    Email = message.Recipient.Email,
+                    Username = message.Recipient.Username
                 } : null,
                 Files = message.MessageFiles.Select(f => new MessageFileDto
                 {
@@ -337,6 +549,14 @@ namespace Realstate_servcices.Server.Services.Conversation
                     } : null
                 }).ToList()
             };
+        }
+
+        private async Task<int> GetCurrentUserIdFromContext()
+        {
+            // This would typically get the current user ID from HttpContext
+            // You'll need to implement this based on your authentication system
+            // For now, return 0 as a placeholder
+            return 0;
         }
     }
 }

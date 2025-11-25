@@ -391,11 +391,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                                 @{record.username || 'No username'}
                             </div>
                             <Divider style={{ margin: '8px 0' }} />
-                            <div style={{ fontSize: '11px', color: '#888' }}>
-                                <Tag color="#1e3a8a" style={{ color: 'white', border: 'none' }} size="small">
-                                    ID: {record.id}
-                                </Tag>
-                            </div>
+                          
                         </div>
                     </Space>
                 </Space>
@@ -406,10 +402,8 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
             key: 'contact',
             render: (_, record) => (
                 <Space direction="vertical" size={8}>
-                    <div style={{ fontWeight: 500, color: 'black' }}>
-                        {getContactInfo(record)}
-                    </div>
-                    <Divider style={{ margin: '8px 0' }} />
+                  
+               
                     <Space direction="vertical" size={4}>
                         {record.email && (
                             <Space size={4}>

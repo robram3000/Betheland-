@@ -1,20 +1,23 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿// LocalStorageImage.cs
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Realstate_servcices.Server.Utilities.Storage
 {
-    public class LocalStorageImage : ILocalstorageImage
+    public class LocalStorageImage : ILocalstorageImage, ILogoStorage
     {
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<LocalStorageImage> _logger;
         private const string BaseUploadPath = "uploads";
+        private const string PartnersFolder = "partners";
 
         public LocalStorageImage(IWebHostEnvironment environment, ILogger<LocalStorageImage> logger)
         {
             _environment = environment;
             _logger = logger;
             EnsureDirectoriesExist();
+            EnsurePartnersDirectoryExists();
         }
 
         private void EnsureDirectoriesExist()
@@ -24,6 +27,7 @@ namespace Realstate_servcices.Server.Utilities.Storage
                 var uploadsPath = Path.Combine(_environment.WebRootPath, BaseUploadPath);
                 var propertiesPath = Path.Combine(uploadsPath, "properties");
                 var membersPath = Path.Combine(uploadsPath, "members");
+                var partnersPath = Path.Combine(uploadsPath, PartnersFolder);
 
                 if (!Directory.Exists(uploadsPath))
                     Directory.CreateDirectory(uploadsPath);
@@ -34,6 +38,9 @@ namespace Realstate_servcices.Server.Utilities.Storage
                 if (!Directory.Exists(membersPath))
                     Directory.CreateDirectory(membersPath);
 
+                if (!Directory.Exists(partnersPath))
+                    Directory.CreateDirectory(partnersPath);
+
                 _logger.LogInformation("Upload directories created successfully");
             }
             catch (Exception ex)
@@ -43,6 +50,138 @@ namespace Realstate_servcices.Server.Utilities.Storage
             }
         }
 
+        private void EnsurePartnersDirectoryExists()
+        {
+            try
+            {
+                var partnersPath = Path.Combine(_environment.WebRootPath, BaseUploadPath, PartnersFolder);
+                if (!Directory.Exists(partnersPath))
+                    Directory.CreateDirectory(partnersPath);
+
+                _logger.LogInformation("Partners directory created successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create partners directory");
+                throw;
+            }
+        }
+
+        // Logo Storage Implementation
+        public async Task<string> UploadPartnerLogoAsync(IFormFile logoFile, string partnerName = "")
+        {
+            if (logoFile == null || logoFile.Length == 0)
+                throw new ArgumentException("Logo file is empty");
+
+            ValidateFile(logoFile);
+
+            try
+            {
+                // Create safe file name
+                var originalFileName = Path.GetFileNameWithoutExtension(logoFile.FileName);
+                var fileExtension = Path.GetExtension(logoFile.FileName);
+                var safePartnerName = string.IsNullOrEmpty(partnerName)
+                    ? "partner"
+                    : SanitizeFileName(partnerName);
+
+                var fileName = $"{safePartnerName}_{Guid.NewGuid():N}{fileExtension}";
+                var relativePath = Path.Combine(BaseUploadPath, PartnersFolder, fileName);
+                var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
+
+                // Ensure directory exists
+                var directory = Path.GetDirectoryName(fullPath);
+                if (!Directory.Exists(directory))
+                    Directory.CreateDirectory(directory!);
+
+                // Save the file
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await logoFile.CopyToAsync(stream);
+                }
+
+                _logger.LogInformation($"Partner logo uploaded successfully: {relativePath}");
+                return $"/{relativePath.Replace('\\', '/')}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error uploading partner logo: {logoFile.FileName}");
+                throw new Exception($"Failed to upload partner logo: {ex.Message}");
+            }
+        }
+
+        public async Task<bool> DeletePartnerLogoAsync(string logoUrl)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(logoUrl))
+                    return true; // Nothing to delete
+
+                // Handle both full URLs and relative paths
+                var relativePath = logoUrl.StartsWith("http")
+                    ? new Uri(logoUrl).AbsolutePath.TrimStart('/')
+                    : logoUrl.TrimStart('/');
+
+                var fullPath = Path.Combine(_environment.WebRootPath, relativePath);
+
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                    _logger.LogInformation($"Partner logo deleted successfully: {fullPath}");
+                    return true;
+                }
+
+                _logger.LogWarning($"Partner logo not found for deletion: {fullPath}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting partner logo: {logoUrl}");
+                return false;
+            }
+        }
+
+        public async Task<string> UpdatePartnerLogoAsync(IFormFile newLogoFile, string existingLogoUrl, string partnerName = "")
+        {
+            try
+            {
+                // Delete existing logo if it exists
+                if (!string.IsNullOrEmpty(existingLogoUrl))
+                {
+                    await DeletePartnerLogoAsync(existingLogoUrl);
+                }
+
+                // Upload new logo
+                return await UploadPartnerLogoAsync(newLogoFile, partnerName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating partner logo");
+                throw;
+            }
+        }
+
+        public string GetLogoUrl(string storedFileName)
+        {
+            if (string.IsNullOrEmpty(storedFileName))
+                return string.Empty;
+
+            var relativePath = Path.Combine(BaseUploadPath, PartnersFolder, storedFileName);
+            return $"/{relativePath.Replace('\\', '/')}";
+        }
+
+        private string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = new string(fileName
+                .Where(ch => !invalidChars.Contains(ch))
+                .ToArray())
+                .Replace(" ", "_")
+                .ToLowerInvariant();
+
+            return sanitized.Length > 50 ? sanitized.Substring(0, 50) : sanitized;
+        }
+
+        // Existing ILocalstorageImage implementation (keep all existing methods)
         public async Task<string> UploadImageAsync(IFormFile file, string folderPath = "properties")
         {
             if (file == null || file.Length == 0)
@@ -213,32 +352,6 @@ namespace Realstate_servcices.Server.Utilities.Storage
 
             var relativePath = imageUrl.TrimStart('/');
             return Path.Combine(_environment.WebRootPath, relativePath);
-        }
-
-        public List<string> GetImagesInFolder(string folderPath = "properties")
-        {
-            try
-            {
-                var folderFullPath = Path.Combine(_environment.WebRootPath, BaseUploadPath, folderPath);
-
-                if (!Directory.Exists(folderFullPath))
-                    return new List<string>();
-
-                var files = Directory.GetFiles(folderFullPath)
-                    .Where(f => IsImageFile(f))
-                    .Select(f => {
-                        var relativePath = Path.GetRelativePath(_environment.WebRootPath, f);
-                        return $"/{relativePath.Replace('\\', '/')}";
-                    })
-                    .ToList();
-
-                return files;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error getting images from folder: {folderPath}");
-                return new List<string>();
-            }
         }
 
         public List<string> GetMemberImages(string memberId, string folderPath = "members")

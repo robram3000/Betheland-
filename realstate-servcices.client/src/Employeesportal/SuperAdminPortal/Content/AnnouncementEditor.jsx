@@ -194,7 +194,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     <div style={{ fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {text}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>ID: {record.id}</div>
+                  
                 </div>
             ),
         },
@@ -360,13 +360,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         </Select>
                     </Col>
                     <Col xs={24} sm={12} md={3}>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadAnnouncements}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
+                   
                     </Col>
                     <Col xs={24} sm={12} md={3}>
                         <div style={{ textAlign: 'right' }}>
@@ -422,11 +416,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     <div>
                         <NotificationOutlined style={{ marginRight: 8 }} />
                         {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
-                        {editingAnnouncement && (
-                            <div style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
-                                ID: {editingAnnouncement.id}
-                            </div>
-                        )}
+                    
                     </div>
                 }
                 open={modalVisible}

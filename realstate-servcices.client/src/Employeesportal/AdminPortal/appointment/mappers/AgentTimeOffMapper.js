@@ -3,15 +3,15 @@ export const agentTimeOffMapper = {
         try {
             if (!backendData) return null;
 
-            // Determine status based on isApproved and other possible fields
+            // Enhanced status determination
             let status = 'Pending';
-            if (backendData.isApproved === true) {
-                status = 'Approved';
-            } else if (backendData.isApproved === false && backendData.status === 'Rejected') {
-                status = 'Rejected';
-            } else if (backendData.status) {
+            if (backendData.status) {
                 // Use status field if provided
                 status = backendData.status;
+            } else if (backendData.isApproved === true) {
+                status = 'Approved';
+            } else if (backendData.isApproved === false) {
+                status = 'Rejected';
             }
 
             return {
@@ -21,12 +21,11 @@ export const agentTimeOffMapper = {
                 endDate: backendData.endDate ? new Date(backendData.endDate) : null,
                 type: backendData.type || 'Vacation',
                 reason: backendData.reason || '',
-                status: status, // Changed from isApproved to status string
-                isApproved: backendData.isApproved || false, // Keep for backward compatibility
+                status: status,
+                isApproved: backendData.isApproved || false,
                 isAllDay: backendData.isAllDay !== undefined ? backendData.isAllDay : true,
                 createdAt: backendData.createdAt ? new Date(backendData.createdAt) : new Date(),
                 updatedAt: backendData.updatedAt ? new Date(backendData.updatedAt) : null,
-                // Include agent data if available
                 agentName: backendData.agentName || '',
                 agent: backendData.agent || null
             };
@@ -38,27 +37,31 @@ export const agentTimeOffMapper = {
 
     toBackend: (frontendData) => {
         try {
-            // Convert status string back to isApproved boolean for backend
-            let isApproved = false;
-            if (frontendData.status === 'Approved') {
-                isApproved = true;
-            } else if (frontendData.status === 'Rejected') {
-                isApproved = false;
-            } else {
-                // Fallback to existing isApproved field
-                isApproved = frontendData.isApproved || false;
+            // Convert status to isApproved for backend
+            let isApproved = frontendData.isApproved || false;
+
+            // If status is provided, use it to determine isApproved
+            if (frontendData.status) {
+                isApproved = frontendData.status === 'Approved';
             }
 
-            return {
+            const backendData = {
                 id: frontendData.id || 0,
                 agentId: frontendData.agentId || 0,
                 startDate: frontendData.startDate,
                 endDate: frontendData.endDate,
                 type: frontendData.type || 'Vacation',
                 reason: frontendData.reason || '',
-                isApproved: isApproved, // Convert status back to boolean
+                isApproved: isApproved,
                 isAllDay: frontendData.isAllDay !== undefined ? frontendData.isAllDay : true
             };
+
+            // Include status field if it exists
+            if (frontendData.status) {
+                backendData.status = frontendData.status;
+            }
+
+            return backendData;
         } catch (error) {
             console.error('Error mapping time off to backend:', error);
             throw new Error('Failed to map time off data for backend');
@@ -86,7 +89,7 @@ export const agentTimeOffMapper = {
             type: type,
             reason: reason,
             isApproved: false,
-            status: 'Pending', // Add status field
+            status: 'Pending',
             isAllDay: true
         };
     }

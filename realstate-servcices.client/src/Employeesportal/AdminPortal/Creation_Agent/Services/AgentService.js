@@ -41,14 +41,38 @@ const baseAgentService = {
 
     async getAgentByBaseMemberId(baseMemberId) {
         console.log('Fetching agent by base member ID:', baseMemberId);
-        const response = await api.get(`/agent/member/${baseMemberId}`);
-        console.log('Agent by member response:', response);
+        try {
+            const response = await api.get(`/agent/member/${baseMemberId}`);
+            console.log('Agent by member response:', response);
 
-        if (response && response.success && response.data) {
-            return agentMapper.toFrontend(response.data);
+            // FIXED: Properly handle the response structure
+            if (response && response.success && response.data) {
+                return agentMapper.toFrontend(response.data);
+            }
+
+            // FIXED: Also handle case where data is directly in response
+            if (response && response.data) {
+                return agentMapper.toFrontend(response.data);
+            }
+
+            // FIXED: Handle case where response itself is the data
+            if (response && response.id) {
+                return agentMapper.toFrontend(response);
+            }
+
+            // FIXED: Only throw error if we truly have no agent data
+            console.warn('No agent data found for base member:', baseMemberId);
+            throw new Error('Agent not found for the specified base member');
+
+        } catch (error) {
+            console.error('Error in AgentService.getAgentByBaseMemberId:', error);
+
+            // FIXED: Don't throw duplicate errors, re-throw the original
+            if (error.message && error.message.includes('Agent not found')) {
+                throw error;
+            }
+            throw new Error(error.message || 'Agent not found for the specified base member');
         }
-
-        throw new Error('Agent not found for the specified base member');
     },
 
     async createAgent(agentData) {

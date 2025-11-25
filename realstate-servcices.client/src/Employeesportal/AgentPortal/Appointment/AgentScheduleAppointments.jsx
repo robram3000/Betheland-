@@ -566,19 +566,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
     );
 
     const columns = [
-        {
-            title: 'Schedule No',
-            dataIndex: 'formattedScheduleNo',
-            key: 'scheduleNo',
-            width: 100,
-            render: (formattedText, record) => (
-                <Tooltip title={record.scheduleNo}>
-                    <Tag color="blue" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {formattedText}
-                    </Tag>
-                </Tooltip>
-            )
-        },
+       
         {
             title: 'Client',
             dataIndex: 'client',
@@ -591,13 +579,9 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                         <div style={{ fontWeight: 500 }}>
                             {record.clientName || client?.name || 'Unknown Client'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                            {record.clientPhone || client?.phone || 'N/A'}
-                        </div>
+                     
                     </div>
-                    {record.unreadMessages > 0 && (
-                        <Badge count={record.unreadMessages} size="small" />
-                    )}
+              
                 </Space>
             )
         },
@@ -686,16 +670,16 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                             onClick={() => handleEdit(record)}
                         />
                     </Tooltip>
-                    <Tooltip title="Chat with Client">
-                        <Badge dot={record.unreadMessages > 0}>
-                            <Button
-                                icon={<MessageOutlined />}
-                                size="small"
-                                type="default"
-                                onClick={() => handleChat(record)}
-                            />
-                        </Badge>
-                    </Tooltip>
+                    {/*<Tooltip title="Chat with Client">*/}
+                    {/*    <Badge dot={record.unreadMessages > 0}>*/}
+                    {/*        <Button*/}
+                    {/*            icon={<MessageOutlined />}*/}
+                    {/*            size="small"*/}
+                    {/*            type="default"*/}
+                    {/*            onClick={() => handleChat(record)}*/}
+                    {/*        />*/}
+                    {/*    </Badge>*/}
+                    {/*</Tooltip>*/}
                     {record.status === 'Scheduled' && (
                         <>
                             <Tooltip title="Mark Complete">
@@ -763,22 +747,7 @@ const AgentScheduleAppointments = ({ onScheduleUpdate }) => {
                         </Select>
                     </Space>
 
-                    <Space>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={refreshData}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
-                        {/* Debug button - remove in production */}
-                        <Button
-                            type="dashed"
-                            onClick={debugAgentInfo}
-                        >
-                            Debug Agent Info
-                        </Button>
-                    </Space>
+                 
                 </div>
 
                 {(loadingClients || loadingProperties) && (

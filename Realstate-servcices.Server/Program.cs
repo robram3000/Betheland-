@@ -134,6 +134,13 @@ builder.Services.AddScoped<IPartnershipContentRepository, PartnershipContentRepo
 builder.Services.AddScoped<IPartnershipContentService, PartnershipContentService>();
 builder.Services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
 builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddScoped<ILocalstorageImage, LocalStorageImage>();
+builder.Services.AddScoped<ILogoStorage, LocalStorageImage>();
+builder.Services.AddScoped<IPartnerLogoService, PartnerLogoService>();
+builder.Services.AddScoped<IPartnershipContentService, PartnershipContentService>();
+
+
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

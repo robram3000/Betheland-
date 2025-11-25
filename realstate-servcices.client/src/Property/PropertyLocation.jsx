@@ -40,6 +40,7 @@ import './PropertyLocation.scss';
 import authService from '../Authpage/Services/LoginAuth';
 import { SchedulePropertiesService } from '../Employeesportal/AdminPortal/appointment/Services/index.js';
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
+import { useWishlistData } from './Services/WishlistAdded'; 
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -77,7 +78,6 @@ const PropertyLocation = ({ property }) => {
     const location = useLocation();
     const [showFullDescription, setShowFullDescription] = useState(false);
     const [showAllAmenities, setShowAllAmenities] = useState(false);
-    const [isFavorited, setIsFavorited] = useState(false);
     const [scheduleDate, setScheduleDate] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
     const [scheduleNotes, setScheduleNotes] = useState('');
@@ -110,12 +110,38 @@ const PropertyLocation = ({ property }) => {
     const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [availabilityError, setAvailabilityError] = useState('');
 
+    // Wishlist/Favorite states
+    const {
+        isPropertyInWishlist,
+        toggleWishlist,
+        loading: wishlistLoading
+    } = useWishlistData();
+    const [isFavorited, setIsFavorited] = useState(false);
+    const [favoriteLoading, setFavoriteLoading] = useState(false);
+
     // Initialize schedule service and check authentication status
     useEffect(() => {
         checkAuthStatus();
         initializeScheduleService();
         handleAgentData();
-    }, [location.state]);
+        checkFavoriteStatus();
+    }, [location.state, property?.id]);
+
+    // Check favorite status when property loads
+    const checkFavoriteStatus = async () => {
+        if (!property?.id) return;
+
+        try {
+            setFavoriteLoading(true);
+            const favoriteStatus = await isPropertyInWishlist(property.id);
+            setIsFavorited(favoriteStatus);
+        } catch (error) {
+            console.error('Error checking favorite status:', error);
+            setIsFavorited(false);
+        } finally {
+            setFavoriteLoading(false);
+        }
+    };
 
     // UPDATED: Handle agent data from location state or fetch it
     const handleAgentData = async () => {
@@ -187,6 +213,37 @@ const PropertyLocation = ({ property }) => {
     const shortDescription = description.length > 200 ? description.substring(0, 200) + '...' : description;
     const amenities = property?.amenities || [];
     const displayedAmenities = showAllAmenities ? amenities : amenities.slice(0, 6);
+
+    // FIXED FAVORITE FUNCTION
+    const handleFavoriteClick = async () => {
+        if (!isLoggedIn) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('add to favorites')}`);
+            return;
+        }
+
+        if (!property?.id) {
+            console.error('No property ID available');
+            return;
+        }
+
+        setFavoriteLoading(true);
+        try {
+            // Toggle the favorite status
+            await toggleWishlist(property.id, !isFavorited, `Favorite: ${property.title || 'Property'}`);
+
+            // Update local state
+            setIsFavorited(!isFavorited);
+            console.log('Favorite status updated:', !isFavorited);
+
+        } catch (error) {
+            console.error('Error updating favorite:', error);
+            // Show error message to user
+            setScheduleError('Failed to update favorites. Please try again.');
+        } finally {
+            setFavoriteLoading(false);
+        }
+    };
 
     // Fixed Time Slot Availability Functions with proper timezone handling
     const generateTimeSlots = () => {
@@ -309,22 +366,15 @@ const PropertyLocation = ({ property }) => {
         });
     };
 
-    const handleFavoriteClick = () => {
-        if (!isLoggedIn) {
-            const returnUrl = window.location.pathname + window.location.search;
-            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('add to favorites')}`);
-            return;
-        }
-        setIsFavorited(!isFavorited);
-        console.log('Favorite clicked:', !isFavorited);
-    };
-
+    // FIXED: Enhanced Chat Handler with proper agent data
     const handleChatClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
             navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('chat with agent')}`);
             return;
         }
+
+        // Enhanced chat data with proper agent ID handling
         const chatData = {
             property: {
                 id: property?.id,
@@ -340,18 +390,39 @@ const PropertyLocation = ({ property }) => {
                 propertyType: property?.propertyType || 'Property'
             },
             agent: {
-                id: agent?.id || 'agent-1',
+                // Try multiple possible ID fields
+                id: agent?.id || agent?.agentId || agent?.userId || agent?.baseMemberId || 'agent-1',
+                baseMemberId: agent?.baseMemberId || agent?.id,
                 name: agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent',
+                firstName: agent?.firstName || 'Agent',
+                lastName: agent?.lastName || '',
                 profilePicture: processImageUrl(agent?.profilePictureUrl, 'profile'),
                 title: agent?.title || 'Real Estate Agent',
                 phone: agent?.cellPhoneNo,
-                email: agent?.email
-
-            }
+                email: agent?.email,
+                brokerageName: agent?.brokerageName || 'Real Estate Company'
+            },
+            chatType: 'property_chat',
+            timestamp: new Date().toISOString()
         };
 
-        console.log('Navigating to chat with property data:', chatData);
-        navigate('/messages', { state: { propertyChat: chatData } });
+        console.log('🔍 Debug - Chat data being sent:', chatData);
+        console.log('🔍 Debug - Agent ID:', chatData.agent.id);
+        console.log('🔍 Debug - Agent baseMemberId:', chatData.agent.baseMemberId);
+
+        navigate('/messages', {
+            state: {
+                propertyChat: chatData,
+                // Add additional context for debugging
+                _debug: {
+                    source: 'PropertyLocation',
+                    propertyId: property?.id,
+                    agentId: agent?.id,
+                    agentBaseMemberId: agent?.baseMemberId,
+                    timestamp: new Date().toISOString()
+                }
+            }
+        });
     };
 
     const handleAgentCardScheduleClick = () => {
@@ -1287,12 +1358,16 @@ const PropertyLocation = ({ property }) => {
                             <button
                                 className="property-location-action-btn property-location-favorite-btn"
                                 onClick={handleFavoriteClick}
+                                disabled={favoriteLoading || !property?.id}
                             >
-                                {isFavorited ?
-                                    <FaHeart className="property-location-action-icon" /> :
+                                {favoriteLoading ? (
+                                    <FaSpinner className="property-location-action-icon spinner" />
+                                ) : isFavorited ? (
+                                    <FaHeart className="property-location-action-icon" />
+                                ) : (
                                     <FaRegHeart className="property-location-action-icon" />
-                                }
-                                Favorite
+                                )}
+                                {favoriteLoading ? 'Loading...' : (isFavorited ? 'Favorited' : 'Favorite')}
                             </button>
                             <button
                                 className="property-location-action-btn property-location-schedule-btn"
@@ -1316,7 +1391,7 @@ const PropertyLocation = ({ property }) => {
                                     <span>{agent.email}</span>
                                 </div>
                             )}
-                           
+
                         </div>
                     </div>
                 </div>

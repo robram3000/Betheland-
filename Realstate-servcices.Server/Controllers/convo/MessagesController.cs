@@ -118,6 +118,55 @@ namespace Realstate_servcices.Server.Controllers
             }
         }
 
+        // NEW ENDPOINTS FOR RECIPIENT FUNCTIONALITY
+
+        [HttpGet("recipient/{recipientId}")]
+        public async Task<ActionResult<List<MessageDto>>> GetMessagesByRecipient(int recipientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var messages = await _messageService.GetMessagesByRecipientAsync(recipientId, userId, page, pageSize);
+                return Ok(new { success = true, data = messages });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("my-messages")]
+        public async Task<ActionResult<List<MessageDto>>> GetMyMessages([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                // Get messages where current user is the recipient
+                var messages = await _messageService.GetMessagesByRecipientAsync(userId, userId, page, pageSize);
+                return Ok(new { success = true, data = messages });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("sent-to-me")]
+        public async Task<ActionResult<List<MessageDto>>> GetMessagesSentToMe([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                // Get messages where current user is the recipient
+                var messages = await _messageService.GetMessagesByRecipientAsync(userId, userId, page, pageSize);
+                return Ok(new { success = true, data = messages });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         private int GetCurrentUserId()
         {
             return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");

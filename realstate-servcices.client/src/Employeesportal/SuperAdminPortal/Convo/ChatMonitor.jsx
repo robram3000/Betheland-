@@ -15,7 +15,11 @@ import {
     message,
     Tooltip,
     Spin,
-    Alert
+    Alert,
+    Tag,
+    Image,
+    Collapse,
+    Empty
 } from 'antd';
 import {
     SearchOutlined,
@@ -26,15 +30,19 @@ import {
     ClockCircleOutlined,
     ReloadOutlined,
     CheckOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    HomeOutlined,
+    FileTextOutlined,
+    PictureOutlined
 } from '@ant-design/icons';
 import chatService from '../../AdminPortal/Convo/chatService';
 import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 
 const { Content, Sider } = Layout;
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Search } = Input;
+const { Panel } = Collapse;
 
 const ChatMonitor = () => {
     const [chats, setChats] = useState([]);
@@ -42,6 +50,8 @@ const ChatMonitor = () => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedChat, setSelectedChat] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [messagesLoading, setMessagesLoading] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const [error, setError] = useState(null);
@@ -55,9 +65,6 @@ const ChatMonitor = () => {
             console.log('🔄 Loading chats...');
             const chatData = await chatService.getUserChats();
             console.log('📦 Raw chat data from service:', chatData);
-            console.log('📊 Data type:', typeof chatData);
-            console.log('🔢 Is array:', Array.isArray(chatData));
-            console.log('📏 Data length:', chatData?.length);
 
             if (chatData && Array.isArray(chatData)) {
                 console.log('✅ Received array of chats, processing...');
@@ -72,23 +79,18 @@ const ChatMonitor = () => {
                         name: chat.name || 'Unnamed Chat',
                         chatType: chat.chatType || 'direct',
                         propertyId: chat.propertyId,
+                        property: chat.property || null,
                         lastMessage: chat.lastMessage,
                         lastMessageAt: chat.lastMessageAt,
                         createdAt: chat.createdAt,
                         updatedAt: chat.updatedAt,
                         participants: chat.participants || [],
-                        messages: chat.messages || []
+                        messages: chat.messages || [],
+                        unreadCount: chat.unreadCount || 0
                     };
                 }).filter(chat => chat !== null);
 
                 console.log('🎉 Processed chats:', processedChats);
-                console.log('📊 Processed chats count:', processedChats.length);
-
-                if (processedChats.length === 0) {
-                    console.warn('⚠️ No chats found after processing');
-                    setError('No chats found. The API returned an empty array.');
-                }
-
                 setChats(processedChats);
                 setFilteredChats(processedChats);
             } else {
@@ -109,6 +111,31 @@ const ChatMonitor = () => {
         }
     };
 
+    // Load messages for selected chat
+    const loadChatMessages = async (chatId) => {
+        if (!chatId) return;
+
+        setMessagesLoading(true);
+        try {
+            console.log(`🔄 Loading messages for chat ${chatId}...`);
+            const messages = await chatService.getChatMessages(chatId, 1, 1000); // Load all messages
+            console.log(`📦 Loaded ${messages.length} messages for chat ${chatId}`);
+            setChatMessages(messages);
+        } catch (error) {
+            console.error('💥 Error loading messages:', error);
+            message.error('Failed to load messages');
+            setChatMessages([]);
+        } finally {
+            setMessagesLoading(false);
+        }
+    };
+
+    // Handle chat selection
+    const handleChatSelect = async (chat) => {
+        setSelectedChat(chat);
+        await loadChatMessages(chat.id);
+    };
+
     // Filter chats based on search term
     const filterChats = (term) => {
         if (!term.trim()) {
@@ -123,7 +150,8 @@ const ChatMonitor = () => {
                 participant.member?.firstName?.toLowerCase().includes(term.toLowerCase()) ||
                 participant.member?.lastName?.toLowerCase().includes(term.toLowerCase())
             ) ||
-            chat.lastMessage?.toLowerCase().includes(term.toLowerCase())
+            chat.lastMessage?.toLowerCase().includes(term.toLowerCase()) ||
+            chat.property?.title?.toLowerCase().includes(term.toLowerCase())
         );
         setFilteredChats(filtered);
     };
@@ -132,11 +160,6 @@ const ChatMonitor = () => {
     const handleSearch = (value) => {
         setSearchTerm(value);
         filterChats(value);
-    };
-
-    // Handle chat selection
-    const handleChatSelect = (chat) => {
-        setSelectedChat(chat);
     };
 
     // Get participant names
@@ -159,9 +182,7 @@ const ChatMonitor = () => {
 
     // Get unread count for chat
     const getUnreadCount = (chat) => {
-        const currentUserId = chatService.getCurrentUserId();
-        const participant = chat.participants?.find(p => p.baseMemberId === currentUserId);
-        return participant?.unreadCount || 0;
+        return chat.unreadCount || 0;
     };
 
     // Format last message time
@@ -187,6 +208,100 @@ const ChatMonitor = () => {
         }
     };
 
+    // Format message time for display
+    const formatMessageTime = (timestamp) => {
+        if (!timestamp) return '';
+        try {
+            return new Date(timestamp).toLocaleString();
+        } catch (error) {
+            return 'Invalid date';
+        }
+    };
+
+    // Render message content based on type
+    const renderMessageContent = (message) => {
+        if (message.isDeleted) {
+            return <Text type="secondary" italic>[This message was deleted]</Text>;
+        }
+
+        if (message.messageType === 'file' && message.files && message.files.length > 0) {
+            return (
+                <Space direction="vertical" size="small">
+                    <Text>{message.content}</Text>
+                    {message.files.map(file => (
+                        <div key={file.id} style={{ marginTop: 4 }}>
+                            {file.fileType?.startsWith('image/') ? (
+                                <Space>
+                                    <PictureOutlined />
+                                    <Text strong>Image:</Text>
+                                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                        {file.fileName}
+                                    </a>
+                                </Space>
+                            ) : (
+                                <Space>
+                                    <FileTextOutlined />
+                                    <Text strong>File:</Text>
+                                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                        {file.fileName}
+                                    </a>
+                                    <Text type="secondary">({(file.fileSize / 1024).toFixed(1)} KB)</Text>
+                                </Space>
+                            )}
+                        </div>
+                    ))}
+                </Space>
+            );
+        }
+
+        return <Text>{message.content}</Text>;
+    };
+
+    // Render property information
+    const renderPropertyInfo = (property) => {
+        if (!property) return null;
+
+        return (
+            <Card size="small" style={{ marginTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    {property.mainImage && (
+                        <Image
+                            width={80}
+                            height={60}
+                            src={property.mainImage}
+                            alt={property.title}
+                            fallback="/default-property.jpg"
+                            style={{ borderRadius: 6, objectFit: 'cover' }}
+                        />
+                    )}
+                    <div style={{ flex: 1 }}>
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                            <div>
+                                <Text strong>{property.title}</Text>
+                            </div>
+                            <div>
+                                <Text type="secondary">{property.type}</Text>
+                            </div>
+                            <div>
+                                <Text strong>₱{property.price?.toLocaleString()}</Text>
+                            </div>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                    {property.address}, {property.city}, {property.state}
+                                </Text>
+                            </div>
+                            <div>
+                                <Tag color={property.status === 'available' ? 'green' : 'orange'}>
+                                    {property.status}
+                                </Tag>
+                            </div>
+                        </Space>
+                    </div>
+                </div>
+            </Card>
+        );
+    };
+
     // Chat actions dropdown menu
     const getChatActionsMenu = (chat) => (
         <Menu
@@ -198,12 +313,6 @@ const ChatMonitor = () => {
                     onClick: () => handleChatSelect(chat)
                 },
                 {
-                    key: 'mark-read',
-                    icon: <CheckOutlined />,
-                    label: 'Mark as Read',
-                    onClick: () => handleMarkAsRead(chat.id)
-                },
-                {
                     key: 'refresh',
                     icon: <ReloadOutlined />,
                     label: 'Refresh Chat',
@@ -213,23 +322,15 @@ const ChatMonitor = () => {
         />
     );
 
-    // Mark chat as read
-    const handleMarkAsRead = async (chatId) => {
-        try {
-            // Implementation depends on your API
-            message.success('Chat marked as read');
-            loadChats(); // Refresh the list
-        } catch (error) {
-            console.error('Error marking chat as read:', error);
-            message.error('Failed to mark chat as read');
-        }
-    };
-
     // Refresh single chat
     const handleRefreshChat = async (chatId) => {
         try {
             const chat = await chatService.getChat(chatId);
             setChats(prev => prev.map(c => c.id === chatId ? chat : c));
+            if (selectedChat?.id === chatId) {
+                setSelectedChat(chat);
+                await loadChatMessages(chatId);
+            }
             message.success('Chat refreshed');
         } catch (error) {
             console.error('Error refreshing chat:', error);
@@ -301,18 +402,37 @@ const ChatMonitor = () => {
                                         Monitor and manage active conversations
                                     </Text>
                                 </div>
-                              
+                                <Space>
+                                    <Button
+                                        icon={<ReloadOutlined />}
+                                        onClick={loadChats}
+                                        loading={loading}
+                                    >
+                                        Refresh
+                                    </Button>
+                                </Space>
                             </div>
                         </div>
 
                         <Divider style={{ margin: '16px 0' }} />
 
-                      
+                        {/* Error Alert */}
+                        {error && (
+                            <Alert
+                                message="Error"
+                                description={error}
+                                type="error"
+                                showIcon
+                                closable
+                                onClose={() => setError(null)}
+                                style={{ marginBottom: 16 }}
+                            />
+                        )}
 
                         {/* Search and Controls */}
                         <div style={{ marginBottom: 16 }}>
                             <Search
-                                placeholder="Search chats, participants, or messages..."
+                                placeholder="Search chats, participants, messages, or properties..."
                                 allowClear
                                 enterButton={<SearchOutlined />}
                                 size="large"
@@ -336,204 +456,287 @@ const ChatMonitor = () => {
                             </div>
                         </div>
 
-                        {/* Chats List */}
-                        <Card
-                            bodyStyle={{ padding: 0 }}
-                            style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}
-                        >
-                            <Spin spinning={loading} tip="Loading chats...">
-                                <List
-                                    dataSource={filteredChats}
-                                    renderItem={(chat) => (
-                                        <List.Item
-                                            style={{
-                                                padding: '12px 16px',
-                                                borderBottom: '1px solid #f0f0f0',
-                                                cursor: 'pointer',
-                                                background: selectedChat?.id === chat.id ? '#f0f8ff' : 'transparent',
-                                                transition: 'background-color 0.2s'
-                                            }}
-                                            onClick={() => handleChatSelect(chat)}
-                                            actions={[
-                                                <Dropdown
-                                                    overlay={getChatActionsMenu(chat)}
-                                                    trigger={['click']}
-                                                    placement="bottomRight"
-                                                    key="actions"
-                                                >
-                                                    <Button
-                                                        type="text"
-                                                        icon={<MoreOutlined />}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </Dropdown>
-                                            ]}
-                                        >
-                                            <List.Item.Meta
-                                                avatar={
-                                                    <Badge
-                                                        count={getUnreadCount(chat)}
-                                                        size="small"
-                                                        offset={[-5, 5]}
-                                                    >
-                                                        <Avatar
-                                                            icon={<MessageOutlined />}
-                                                            style={{
-                                                                backgroundColor: getUnreadCount(chat) > 0 ? '#1890ff' : '#d9d9d9'
-                                                            }}
-                                                        />
-                                                    </Badge>
-                                                }
-                                                title={
-                                                    <Space>
-                                                        <Text strong>{chat.name || 'Unnamed Chat'}</Text>
-                                                        <Badge
-                                                            status={
-                                                                chat.chatType === 'group' ? 'processing' :
-                                                                    chat.chatType === 'direct' ? 'success' : 'default'
-                                                            }
-                                                            text={chat.chatType || 'direct'}
-                                                        />
-                                                    </Space>
-                                                }
-                                                description={
-                                                    <div>
-                                                        <div style={{ marginBottom: 4 }}>
-                                                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                                                                Participants: {getParticipantNames(chat)}
-                                                            </Text>
-                                                        </div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Text
-                                                                ellipsis={{ tooltip: chat.lastMessage || 'No messages' }}
-                                                                style={{
-                                                                    maxWidth: '200px',
-                                                                    fontWeight: getUnreadCount(chat) > 0 ? '600' : '400',
-                                                                    color: getUnreadCount(chat) > 0 ? '#1890ff' : 'inherit'
-                                                                }}
-                                                            >
-                                                                {chat.lastMessage || 'No messages yet'}
-                                                            </Text>
-                                                            <Space size="small">
-                                                                <ClockCircleOutlined style={{ fontSize: '12px', color: '#999' }} />
-                                                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                                                    {formatLastMessageTime(chat.lastMessageAt)}
-                                                                </Text>
-                                                            </Space>
-                                                        </div>
-                                                    </div>
-                                                }
-                                            />
-                                        </List.Item>
-                                    )}
-                                    locale={{
-                                        emptyText: loading ? 'Loading chats...' : 'No chats found'
-                                    }}
-                                />
-                            </Spin>
-                        </Card>
-
-                        {/* Selected Chat Details Panel */}
-                        {selectedChat && (
+                        <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 200px)' }}>
+                            {/* Chats List */}
                             <Card
-                                title={`Chat Details: ${selectedChat.name}`}
-                                style={{
-                                    position: 'fixed',
-                                    right: 20,
-                                    top: 100,
-                                    width: 400,
-                                    height: 'calc(100vh - 140px)',
-                                    zIndex: 1000
-                                }}
-                                extra={
-                                    <Button
-                                        type="text"
-                                        onClick={() => setSelectedChat(null)}
-                                    >
-                                        Close
-                                    </Button>
-                                }
+                                title="Chats"
+                                style={{ flex: 1, overflow: 'hidden' }}
+                                bodyStyle={{ padding: 0, height: 'calc(100% - 57px)', overflow: 'auto' }}
                             >
-                                <div style={{ overflowY: 'auto', height: 'calc(100% - 60px)' }}>
-                                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                                        <div>
-                                            <Text strong>Chat ID:</Text>
-                                            <br />
-                                            <Text type="secondary" code style={{ fontSize: '12px', wordBreak: 'break-all' }}>
-                                                {selectedChat.id}
-                                            </Text>
-                                        </div>
-
-                                        <div>
-                                            <Text strong>Type:</Text>
-                                            <br />
-                                            <Badge
-                                                status={
-                                                    selectedChat.chatType === 'group' ? 'processing' :
-                                                        selectedChat.chatType === 'direct' ? 'success' : 'default'
-                                                }
-                                                text={selectedChat.chatType || 'direct'}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Text strong>Participants ({selectedChat.participants?.length || 0}):</Text>
-                                            <List
-                                                size="small"
-                                                dataSource={selectedChat.participants || []}
-                                                renderItem={(participant) => (
-                                                    <List.Item>
-                                                        <List.Item.Meta
-                                                            avatar={<Avatar icon={<UserOutlined />} size="small" />}
-                                                            title={
-                                                                participant.member?.fullName ||
-                                                                `${participant.member?.firstName || ''} ${participant.member?.lastName || ''}`.trim() ||
-                                                                participant.member?.username ||
-                                                                'Unknown User'
-                                                            }
-                                                            description={participant.role}
-                                                        />
-                                                        <Badge
-                                                            count={participant.unreadCount}
-                                                            size="small"
-                                                            style={{ backgroundColor: '#52c41a' }}
-                                                        />
-                                                    </List.Item>
-                                                )}
-                                                locale={{
-                                                    emptyText: 'No participants'
+                                <Spin spinning={loading} tip="Loading chats...">
+                                    <List
+                                        dataSource={filteredChats}
+                                        renderItem={(chat) => (
+                                            <List.Item
+                                                style={{
+                                                    padding: '12px 16px',
+                                                    borderBottom: '1px solid #f0f0f0',
+                                                    cursor: 'pointer',
+                                                    background: selectedChat?.id === chat.id ? '#f0f8ff' : 'transparent',
+                                                    transition: 'background-color 0.2s'
                                                 }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Text strong>Last Activity:</Text>
-                                            <br />
-                                            <Text type="secondary">
-                                                {formatLastMessageTime(selectedChat.lastMessageAt)}
-                                            </Text>
-                                        </div>
-
-                                        <div>
-                                            <Text strong>Created:</Text>
-                                            <br />
-                                            <Text type="secondary">
-                                                {selectedChat.createdAt ? new Date(selectedChat.createdAt).toLocaleString() : 'Unknown'}
-                                            </Text>
-                                        </div>
-
-                                        {selectedChat.lastMessage && (
-                                            <div>
-                                                <Text strong>Last Message:</Text>
-                                                <Card size="small" style={{ marginTop: 8 }}>
-                                                    <Text>{selectedChat.lastMessage}</Text>
-                                                </Card>
-                                            </div>
+                                                onClick={() => handleChatSelect(chat)}
+                                                actions={[
+                                                    <Dropdown
+                                                        overlay={getChatActionsMenu(chat)}
+                                                        trigger={['click']}
+                                                        placement="bottomRight"
+                                                        key="actions"
+                                                    >
+                                                        <Button
+                                                            type="text"
+                                                            icon={<MoreOutlined />}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </Dropdown>
+                                                ]}
+                                            >
+                                                <List.Item.Meta
+                                                    avatar={
+                                                        <Badge
+                                                            count={getUnreadCount(chat)}
+                                                            size="small"
+                                                            offset={[-5, 5]}
+                                                        >
+                                                            <Avatar
+                                                                icon={<MessageOutlined />}
+                                                                style={{
+                                                                    backgroundColor: getUnreadCount(chat) > 0 ? '#1890ff' : '#d9d9d9'
+                                                                }}
+                                                            />
+                                                        </Badge>
+                                                    }
+                                                    title={
+                                                        <Space>
+                                                            <Text strong>{chat.name || 'Unnamed Chat'}</Text>
+                                                            <Badge
+                                                                status={
+                                                                    chat.chatType === 'group' ? 'processing' :
+                                                                        chat.chatType === 'direct' ? 'success' : 'default'
+                                                                }
+                                                                text={chat.chatType || 'direct'}
+                                                            />
+                                                        </Space>
+                                                    }
+                                                    description={
+                                                        <div>
+                                                            <div style={{ marginBottom: 4 }}>
+                                                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                    Participants: {getParticipantNames(chat)}
+                                                                </Text>
+                                                            </div>
+                                                            {chat.property && (
+                                                                <div style={{ marginBottom: 4 }}>
+                                                                    <Space size="small">
+                                                                        <HomeOutlined style={{ fontSize: '12px', color: '#52c41a' }} />
+                                                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                            {chat.property.title}
+                                                                        </Text>
+                                                                    </Space>
+                                                                </div>
+                                                            )}
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <Text
+                                                                    ellipsis={{ tooltip: chat.lastMessage || 'No messages' }}
+                                                                    style={{
+                                                                        maxWidth: '200px',
+                                                                        fontWeight: getUnreadCount(chat) > 0 ? '600' : '400',
+                                                                        color: getUnreadCount(chat) > 0 ? '#1890ff' : 'inherit'
+                                                                    }}
+                                                                >
+                                                                    {chat.lastMessage || 'No messages yet'}
+                                                                </Text>
+                                                                <Space size="small">
+                                                                    <ClockCircleOutlined style={{ fontSize: '12px', color: '#999' }} />
+                                                                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                        {formatLastMessageTime(chat.lastMessageAt)}
+                                                                    </Text>
+                                                                </Space>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                />
+                                            </List.Item>
                                         )}
-                                    </Space>
-                                </div>
+                                        locale={{
+                                            emptyText: loading ? 'Loading chats...' : 'No chats found'
+                                        }}
+                                    />
+                                </Spin>
                             </Card>
-                        )}
+
+                            {/* Selected Chat Details */}
+                            {selectedChat ? (
+                                <Card
+                                    title={
+                                        <Space>
+                                            <Text>Chat Details: {selectedChat.name}</Text>
+                                            {selectedChat.property && (
+                                                <Tag icon={<HomeOutlined />} color="green">
+                                                    Property Chat
+                                                </Tag>
+                                            )}
+                                        </Space>
+                                    }
+                                    style={{ flex: 2, display: 'flex', flexDirection: 'column' }}
+                                    bodyStyle={{ flex: 1, overflow: 'auto', padding: 0 }}
+                                    extra={
+                                        <Button
+                                            type="text"
+                                            onClick={() => {
+                                                setSelectedChat(null);
+                                                setChatMessages([]);
+                                            }}
+                                        >
+                                            Close
+                                        </Button>
+                                    }
+                                >
+                                    <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
+                                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                                            <div>
+                                                <Text strong>Chat ID:</Text>
+                                                <br />
+                                                <Text type="secondary" code style={{ fontSize: '12px', wordBreak: 'break-all' }}>
+                                                    {selectedChat.id}
+                                                </Text>
+                                            </div>
+
+                                            <div>
+                                                <Text strong>Type:</Text>
+                                                <br />
+                                                <Badge
+                                                    status={
+                                                        selectedChat.chatType === 'group' ? 'processing' :
+                                                            selectedChat.chatType === 'direct' ? 'success' : 'default'
+                                                    }
+                                                    text={selectedChat.chatType || 'direct'}
+                                                />
+                                            </div>
+
+                                            {selectedChat.property && (
+                                                <div>
+                                                    <Text strong>Related Property:</Text>
+                                                    {renderPropertyInfo(selectedChat.property)}
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <Text strong>Participants ({selectedChat.participants?.length || 0}):</Text>
+                                                <List
+                                                    size="small"
+                                                    dataSource={selectedChat.participants || []}
+                                                    renderItem={(participant) => (
+                                                        <List.Item>
+                                                            <List.Item.Meta
+                                                                avatar={<Avatar icon={<UserOutlined />} size="small" />}
+                                                                title={
+                                                                    participant.member?.fullName ||
+                                                                    `${participant.member?.firstName || ''} ${participant.member?.lastName || ''}`.trim() ||
+                                                                    participant.member?.username ||
+                                                                    'Unknown User'
+                                                                }
+                                                                description={participant.role}
+                                                            />
+                                                            <Badge
+                                                                count={participant.unreadCount}
+                                                                size="small"
+                                                                style={{ backgroundColor: '#52c41a' }}
+                                                            />
+                                                        </List.Item>
+                                                    )}
+                                                    locale={{
+                                                        emptyText: 'No participants'
+                                                    }}
+                                                />
+                                            </div>
+                                        </Space>
+                                    </div>
+
+                                    {/* Messages Section */}
+                                    <div style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
+                                        <div style={{ marginBottom: 16 }}>
+                                            <Text strong>Messages ({chatMessages.length}):</Text>
+                                            <Button
+                                                icon={<ReloadOutlined />}
+                                                size="small"
+                                                onClick={() => loadChatMessages(selectedChat.id)}
+                                                loading={messagesLoading}
+                                                style={{ marginLeft: 8 }}
+                                            >
+                                                Refresh
+                                            </Button>
+                                        </div>
+
+                                        <Spin spinning={messagesLoading}>
+                                            {chatMessages.length > 0 ? (
+                                                <List
+                                                    dataSource={chatMessages.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))}
+                                                    renderItem={(message) => (
+                                                        <List.Item style={{ border: 'none', padding: '8px 0' }}>
+                                                            <Card size="small" style={{ width: '100%' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                <Space>
+                                                                                    <Avatar
+                                                                                        size="small"
+                                                                                        src={message.sender?.profileImage}
+                                                                                        icon={<UserOutlined />}
+                                                                                    />
+                                                                                    <Text strong>{message.sender?.fullName || 'Unknown User'}</Text>
+                                                                                    {message.isEdited && (
+                                                                                        <Text type="secondary" italic style={{ fontSize: '12px' }}>
+                                                                                            (edited)
+                                                                                        </Text>
+                                                                                    )}
+                                                                                </Space>
+                                                                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                                    {formatMessageTime(message.sentAt)}
+                                                                                </Text>
+                                                                            </div>
+                                                                            <div>
+                                                                                {renderMessageContent(message)}
+                                                                            </div>
+                                                                            {message.reactions && message.reactions.length > 0 && (
+                                                                                <div>
+                                                                                    <Space size="small">
+                                                                                        {message.reactions.map(reaction => (
+                                                                                            <Tooltip key={reaction.id} title={reaction.member?.fullName}>
+                                                                                                <span>{reaction.emoji}</span>
+                                                                                            </Tooltip>
+                                                                                        ))}
+                                                                                    </Space>
+                                                                                </div>
+                                                                            )}
+                                                                        </Space>
+                                                                    </div>
+                                                                </div>
+                                                            </Card>
+                                                        </List.Item>
+                                                    )}
+                                                    locale={{
+                                                        emptyText: 'No messages'
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Empty description="No messages in this chat" />
+                                            )}
+                                        </Spin>
+                                    </div>
+                                </Card>
+                            ) : (
+                                <Card
+                                    style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Empty
+                                        description="Select a chat to view details and messages"
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                    />
+                                </Card>
+                            )}
+                        </div>
                     </Content>
                 </Layout>
             </Layout>

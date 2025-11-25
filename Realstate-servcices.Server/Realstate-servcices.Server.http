@@ -15,11 +15,11 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "roberto.ramirez@gmail.com",
-  "username": "roberto_ramirez",
+  "email": "acecentsandoval10@gmail.com",
+  "username": "Acecent@2k13",
   "password": "Ramirez@2k13",
-  "firstName": "Roberto",
-  "lastName": "Ramirez",
+  "firstName": "Acecent",
+  "lastName": "Sandoval",
   "cellPhoneNo": "09666627948",
   "licenseNumber": "LIC-123458"
 }
@@ -28,11 +28,11 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "acecentsandoval10@gmail.com",
-  "username": "Acecent@2k13",
-  "password": "Acecent@2k13",
-  "firstName": "Acecent",
-  "lastName": "Sandobal",
+  "email": "aarontimanel@gmail.com",
+  "username": "Aaron@2k13",
+  "password": "Aaron@2k13",
+  "firstName": "Aaron",
+  "lastName": "Timanel",
   "cellPhoneNo": "09123456789",
   "licenseNumber": "LIC-98434123"
 }

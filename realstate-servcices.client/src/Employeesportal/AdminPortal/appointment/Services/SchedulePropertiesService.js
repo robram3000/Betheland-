@@ -153,12 +153,20 @@ class SchedulePropertiesService {
         }
     }
 
+    async acceptSchedule(id) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/accept`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error accepting schedule:', error);
+            throw error;
+        }
+    }
+
     async cancelSchedule(id, cancellationReason = '') {
         try {
             const requestData = {
-                status: 'Cancelled',
-                cancellationReason: cancellationReason,
-                updatedAt: new Date().toISOString()
+                cancellationReason: cancellationReason
             };
 
             const response = await this.client.patch(`/ScheduleProperties/${id}/cancel`, requestData);
@@ -169,26 +177,89 @@ class SchedulePropertiesService {
         }
     }
 
-    async reschedule(id, newScheduleTime, newScheduleEndTime = null, rescheduleReason = '') {
+    async reschedule(id, newScheduleTime, reason = '') {
         try {
-            let scheduleEndTime = newScheduleEndTime;
-            if (!scheduleEndTime && newScheduleTime) {
-                const baseTime = new Date(newScheduleTime);
-                scheduleEndTime = new Date(baseTime.getTime() + 60 * 60 * 1000).toISOString();
-            }
-
             const requestData = {
-                scheduleTime: newScheduleTime,
-                scheduleEndTime: scheduleEndTime,
-                status: 'Rescheduled',
-                rescheduleReason: rescheduleReason,
-                updatedAt: new Date().toISOString()
+                newScheduleTime: newScheduleTime,
+                reason: reason
             };
 
             const response = await this.client.patch(`/ScheduleProperties/${id}/reschedule`, requestData);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error rescheduling:', error);
+            throw error;
+        }
+    }
+
+    async completeSchedule(id) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/complete`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error completing schedule:', error);
+            throw error;
+        }
+    }
+
+    async reopenSchedule(id) {
+        try {
+            const response = await this.client.patch(`/ScheduleProperties/${id}/reopen`);
+            return schedulePropertiesMapper.toFrontend(response.data);
+        } catch (error) {
+            console.error('Error reopening schedule:', error);
+            throw error;
+        }
+    }
+
+    async deleteSchedule(id) {
+        try {
+            const response = await this.client.delete(`/ScheduleProperties/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+            throw error;
+        }
+    }
+
+    async getAvailableStatusTransitions(id) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/status-transitions/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching status transitions:', error);
+            throw error;
+        }
+    }
+
+    async canScheduleBeEdited(id) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/can-edit/${id}`);
+            return response.data.canEdit;
+        } catch (error) {
+            console.error('Error checking if schedule can be edited:', error);
+            return false;
+        }
+    }
+
+    async canScheduleBeDeleted(id) {
+        try {
+            const response = await this.client.get(`/ScheduleProperties/can-delete/${id}`);
+            return response.data.canDelete;
+        } catch (error) {
+            console.error('Error checking if schedule can be deleted:', error);
+            return false;
+        }
+    }
+
+    async checkTimeSlotAvailability(agentId, scheduleTime) {
+        try {
+            const response = await this.client.get('/ScheduleProperties/check-availability', {
+                params: { agentId, scheduleTime }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error checking time slot availability:', error);
             throw error;
         }
     }
@@ -204,21 +275,6 @@ class SchedulePropertiesService {
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error updating notes:', error);
-            throw error;
-        }
-    }
-
-    async completeSchedule(id) {
-        try {
-            const requestData = {
-                status: 'Completed',
-                updatedAt: new Date().toISOString()
-            };
-
-            const response = await this.client.patch(`/ScheduleProperties/${id}/complete`, requestData);
-            return schedulePropertiesMapper.toFrontend(response.data);
-        } catch (error) {
-            console.error('Error completing schedule:', error);
             throw error;
         }
     }
@@ -260,18 +316,6 @@ class SchedulePropertiesService {
         }
     }
 
-    async checkTimeSlotAvailability(agentId, scheduleTime) {
-        try {
-            const response = await this.client.get('/ScheduleProperties/check-availability', {
-                params: { agentId, scheduleTime }
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error checking time slot availability:', error);
-            throw error;
-        }
-    }
-
     async debugBackendValidation(testData) {
         try {
             const response = await this.client.post('/ScheduleProperties/debug/test-creation', testData);
@@ -280,6 +324,44 @@ class SchedulePropertiesService {
             console.error('Error in debug validation:', error);
             throw this.handleError(error);
         }
+    }
+
+    // Helper method to get all available actions for a schedule
+    async getAvailableActions(schedule) {
+        const actions = [];
+        const status = schedule.status;
+
+        switch (status) {
+            case 'Pending':
+                actions.push('accept', 'cancel', 'edit', 'delete');
+                break;
+            case 'Scheduled':
+                actions.push('complete', 'cancel', 'reschedule', 'edit');
+                break;
+            case 'Rescheduled':
+                actions.push('complete', 'cancel', 'edit');
+                break;
+            case 'Completed':
+                actions.push('view'); // Read-only
+                break;
+            case 'Cancelled':
+                actions.push('reopen', 'view');
+                break;
+            default:
+                actions.push('view');
+        }
+
+        return actions;
+    }
+
+    // Helper method to check if schedule can be edited
+    async canEdit(schedule) {
+        return schedule.status !== 'Completed' && schedule.status !== 'Cancelled';
+    }
+
+    // Helper method to check if schedule can be deleted
+    async canDelete(schedule) {
+        return schedule.status !== 'Completed' && schedule.status !== 'Cancelled';
     }
 
     handleError(error) {

@@ -2,165 +2,145 @@
 class PartnershipMapper {
     // Map API response to frontend partner object
     static mapToPartner(apiResponse) {
-        console.log('Mapping single partner from API response:', apiResponse);
-
         // Handle different response structures
         let partnerData = {};
 
         if (apiResponse && apiResponse.success && apiResponse.data) {
-            // Structure: { success: true, data: { ... } }
             partnerData = apiResponse.data;
         } else if (apiResponse && apiResponse.data) {
-            // Structure: { data: { ... } }
             partnerData = apiResponse.data;
         } else if (apiResponse && typeof apiResponse === 'object') {
-            // Structure: direct object
             partnerData = apiResponse;
         }
 
         if (!partnerData || Object.keys(partnerData).length === 0) {
-            console.warn('No partner data found in API response');
             return null;
         }
 
+        // Process logo URL for frontend using enhanced logic
+        const processedLogoUrl = this.processImageUrl(partnerData.logoUrl);
+
         return {
-            id: partnerData.id || partnerData.Id || 0,
-            name: partnerData.name || partnerData.Name || '',
-            logoUrl: partnerData.logoUrl || partnerData.LogoUrl || partnerData.logo || '',
-            category: partnerData.category || partnerData.Category || '',
-            displayOrder: partnerData.displayOrder || partnerData.DisplayOrder || 0,
-            isActive: partnerData.isActive !== undefined ? partnerData.isActive :
-                partnerData.IsActive !== undefined ? partnerData.IsActive : false,
-            createdAt: partnerData.createdAt ? new Date(partnerData.createdAt) :
-                partnerData.CreatedAt ? new Date(partnerData.CreatedAt) : null,
-            updatedAt: partnerData.updatedAt ? new Date(partnerData.updatedAt) :
-                partnerData.UpdatedAt ? new Date(partnerData.UpdatedAt) : null
+            id: partnerData.id || 0,
+            name: partnerData.name || '',
+            logoUrl: processedLogoUrl,
+            category: partnerData.category || '',
+            displayOrder: partnerData.displayOrder || 0,
+            isActive: partnerData.isActive !== undefined ? partnerData.isActive : false,
+            createdAt: partnerData.createdAt ? new Date(partnerData.createdAt) : null,
+            updatedAt: partnerData.updatedAt ? new Date(partnerData.updatedAt) : null
         };
     }
 
     // Map multiple partners from API response
     static mapToPartnersList(apiResponse) {
-        console.log('Mapping partners list from API response:', apiResponse);
-
-        // Handle different response structures
         let partnersArray = [];
 
         if (apiResponse && apiResponse.success && Array.isArray(apiResponse.data)) {
-            // Structure: { success: true, data: [...] }
-            console.log('Using success.data structure');
             partnersArray = apiResponse.data;
         } else if (Array.isArray(apiResponse)) {
-            // Structure: direct array
-            console.log('Using direct array structure');
             partnersArray = apiResponse;
         } else if (apiResponse && Array.isArray(apiResponse.data)) {
-            // Structure: { data: [...] }
-            console.log('Using data array structure');
             partnersArray = apiResponse.data;
         } else if (apiResponse && apiResponse.success && apiResponse.data && typeof apiResponse.data === 'object') {
-            // Structure: { success: true, data: { partners: [...] } }
-            console.log('Using nested data structure');
             partnersArray = apiResponse.data.partners || [];
         } else {
-            console.warn('Unknown API response structure:', apiResponse);
-            // Return empty array to prevent UI breakage
             return [];
         }
-
-        console.log('Partners array to map:', partnersArray);
 
         if (!Array.isArray(partnersArray)) {
-            console.error('Expected array but got:', typeof partnersArray, partnersArray);
             return [];
         }
 
-        return partnersArray.map(partner => ({
-            id: partner.id || partner.Id || 0,
-            name: partner.name || partner.Name || '',
-            logoUrl: partner.logoUrl || partner.LogoUrl || partner.logo || '',
-            category: partner.category || partner.Category || '',
-            displayOrder: partner.displayOrder || partner.DisplayOrder || 0,
-            isActive: partner.isActive !== undefined ? partner.isActive :
-                partner.IsActive !== undefined ? partner.IsActive : false,
-            createdAt: partner.createdAt ? new Date(partner.createdAt) :
-                partner.CreatedAt ? new Date(partner.CreatedAt) : null,
-            updatedAt: partner.updatedAt ? new Date(partner.updatedAt) :
-                partner.UpdatedAt ? new Date(partner.UpdatedAt) : null
-        }));
+        return partnersArray.map(partner => {
+            // Process logo URL for frontend using enhanced logic
+            const processedLogoUrl = this.processImageUrl(partner.logoUrl);
+
+            return {
+                id: partner.id || 0,
+                name: partner.name || '',
+                logoUrl: processedLogoUrl,
+                category: partner.category || '',
+                displayOrder: partner.displayOrder || 0,
+                isActive: partner.isActive !== undefined ? partner.isActive : false,
+                createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
+                updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
+            };
+        });
     }
 
     // Map partnership content from API response
     static mapToPartnershipContent(apiResponse) {
-        console.log('Mapping partnership content from API response:', apiResponse);
-
         let contentData = apiResponse;
 
-        // Handle different response structures
         if (apiResponse && apiResponse.success && apiResponse.data) {
             contentData = apiResponse.data;
         }
 
+        // Process partner logos in content using enhanced logic
+        const processedPartners = (contentData.partners || []).map(partner => ({
+            name: partner.name || '',
+            logo: this.processImageUrl(partner.logo || partner.logoUrl || ''),
+            category: partner.category || ''
+        }));
+
         return {
-            title: contentData.title || contentData.Title || 'Our Trusted Partners',
-            description: contentData.description || contentData.Description || 'Collaborating with the Philippines\' leading real estate developers and brokers to bring you the best properties.',
-            partners: (contentData.partners || []).map(partner => ({
-                name: partner.name || partner.Name || '',
-                logo: partner.logo || partner.logoUrl || partner.LogoUrl || '',
-                category: partner.category || partner.Category || ''
-            }))
+            title: contentData.title || 'Our Trusted Partners',
+            description: contentData.description || 'Collaborating with the Philippines\' leading real estate developers and brokers to bring you the best properties.',
+            partners: processedPartners
+        };
+    }
+
+    // Map form values to partner object
+    static mapFormToPartner(formValues, existingPartner = null) {
+        return {
+            id: existingPartner?.id || 0,
+            name: formValues.name || '',
+            category: formValues.category || '',
+            displayOrder: formValues.displayOrder || 0,
+            isActive: formValues.isActive !== undefined ? formValues.isActive : true,
+            logoUrl: existingPartner?.logoUrl || '',
+            // logoFile will be set separately
         };
     }
 
     // Map frontend partner object to create DTO
     static mapToCreatePartnerDto(partner) {
-        console.log('Mapping to create partner DTO:', partner);
+        const formData = new FormData();
 
-        return {
-            name: partner.name || '',
-            logoUrl: partner.logoUrl || '',
-            category: partner.category || '',
-            displayOrder: partner.displayOrder || 0
-        };
+        formData.append('Name', partner.name || '');
+        formData.append('Category', partner.category || '');
+        formData.append('DisplayOrder', partner.displayOrder?.toString() || '0');
+
+        // Only append logoFile if it exists
+        if (partner.logoFile) {
+            formData.append('LogoFile', partner.logoFile);
+        }
+
+        return formData;
     }
 
     // Map frontend partner object to update DTO
     static mapToUpdatePartnerDto(partner) {
-        console.log('Mapping to update partner DTO:', partner);
+        const formData = new FormData();
 
-        const dto = {};
+        if (partner.name !== undefined) formData.append('Name', partner.name);
+        if (partner.category !== undefined) formData.append('Category', partner.category);
+        if (partner.displayOrder !== undefined) formData.append('DisplayOrder', partner.displayOrder.toString());
+        if (partner.isActive !== undefined) formData.append('IsActive', partner.isActive.toString());
 
-        if (partner.name !== undefined) dto.name = partner.name;
-        if (partner.logoUrl !== undefined) dto.logoUrl = partner.logoUrl;
-        if (partner.category !== undefined) dto.category = partner.category;
-        if (partner.displayOrder !== undefined) dto.displayOrder = partner.displayOrder;
-        if (partner.isActive !== undefined) dto.isActive = partner.isActive;
+        // Only append logoFile if it exists
+        if (partner.logoFile) {
+            formData.append('LogoFile', partner.logoFile);
+        }
 
-        return dto;
-    }
-
-    // Map form data to partner object
-    static mapFormToPartner(formData, existingPartner = null) {
-        console.log('Mapping form to partner:', formData, existingPartner);
-
-        return {
-            id: existingPartner?.id || 0,
-            name: formData.name || '',
-            logoUrl: formData.logoUrl || '',
-            category: formData.category || '',
-            displayOrder: formData.displayOrder || 0,
-            isActive: formData.isActive !== undefined ? formData.isActive : true,
-            createdAt: existingPartner?.createdAt || null,
-            updatedAt: existingPartner?.updatedAt || null
-        };
+        return formData;
     }
 
     // Map partner to form data
     static mapPartnerToForm(partner) {
-        console.log('Mapping partner to form:', partner);
-
         return {
             name: partner.name || '',
-            logoUrl: partner.logoUrl || '',
             category: partner.category || '',
             displayOrder: partner.displayOrder || 0,
             isActive: partner.isActive !== undefined ? partner.isActive : true
@@ -168,9 +148,7 @@ class PartnershipMapper {
     }
 
     // Validate partner data before submission
-    static validatePartner(partner) {
-        console.log('Validating partner:', partner);
-
+    static validatePartner(partner, isFileUpload = false) {
         const errors = {};
 
         if (!partner.name || partner.name.trim() === '') {
@@ -179,12 +157,15 @@ class PartnershipMapper {
             errors.name = 'Partner name must be less than 100 characters';
         }
 
-        if (!partner.logoUrl || partner.logoUrl.trim() === '') {
-            errors.logoUrl = 'Logo URL is required';
-        } else if (partner.logoUrl.length > 500) {
-            errors.logoUrl = 'Logo URL must be less than 500 characters';
-        } else if (!this.isValidUrl(partner.logoUrl)) {
-            errors.logoUrl = 'Please enter a valid URL';
+        if (isFileUpload) {
+            if (!partner.logoFile && !partner.logoUrl) {
+                errors.logoFile = 'Logo file is required';
+            } else if (partner.logoFile) {
+                const fileError = this.getFileValidationError(partner.logoFile);
+                if (fileError) {
+                    errors.logoFile = fileError;
+                }
+            }
         }
 
         if (!partner.category || partner.category.trim() === '') {
@@ -197,83 +178,120 @@ class PartnershipMapper {
             errors.displayOrder = 'Display order cannot be negative';
         }
 
-        console.log('Validation result:', { isValid: Object.keys(errors).length === 0, errors });
         return {
             isValid: Object.keys(errors).length === 0,
             errors
         };
     }
 
-    // Helper method to validate URL
-    static isValidUrl(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
+    // Helper method to validate file
+    static getFileValidationError(file) {
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+        const maxSize = 10 * 1024 * 1024; // 10MB
+
+        if (!allowedTypes.includes(file.type)) {
+            return 'Invalid file type. Allowed types: JPEG, JPG, PNG, GIF, WEBP, BMP';
         }
+
+        if (file.size > maxSize) {
+            return 'File size too large. Maximum size is 10MB';
+        }
+
+        return null;
     }
 
     // Sort partners by display order and name
     static sortPartners(partners) {
-        console.log('Sorting partners:', partners);
-
         return [...partners].sort((a, b) => {
             if (a.displayOrder !== b.displayOrder) {
                 return a.displayOrder - b.displayOrder;
             }
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         });
     }
 
     // Filter active partners
     static filterActivePartners(partners) {
-        console.log('Filtering active partners:', partners);
-
         return partners.filter(partner => partner.isActive);
     }
 
-    // Group partners by category
-    static groupPartnersByCategory(partners) {
-        console.log('Grouping partners by category:', partners);
+    // FIXED: Enhanced image URL processing
+    static processImageUrl(url) {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            return '/default-partner-logo.png';
+        }
 
-        return partners.reduce((groups, partner) => {
-            const category = partner.category || 'Uncategorized';
-            if (!groups[category]) {
-                groups[category] = [];
-            }
-            groups[category].push(partner);
-            return groups;
-        }, {});
+        // Already full URL (http, https, blob, data, etc.)
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+
+        // Server path - prepend appropriate base URL
+        if (url.startsWith('/uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net'; // Use HTTPS for production
+            return `${baseUrl}${url}`;
+        }
+
+        // Relative path without leading slash
+        if (url.includes('.') && !url.startsWith('/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net'; // Use HTTPS for production
+            return `${baseUrl}/uploads/partners/${url}`;
+        }
+
+        // uploads/ path
+        if (url.startsWith('uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost'
+                ? 'https://localhost:7080'
+                : 'https://betheland.runasp.net';
+            return `${baseUrl}/${url}`;
+        }
+
+        return '/default-partner-logo.png';
     }
 
-    // Debug method to log API response structure
-    static debugApiResponse(apiResponse, endpoint = 'Unknown') {
-        console.log(`=== API Response Debug for ${endpoint} ===`);
-        console.log('Full Response:', apiResponse);
-        console.log('Type:', typeof apiResponse);
+    // Get base URL for images (useful for other components)
+    static getBaseUrl() {
+        return window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+    }
 
-        if (apiResponse) {
-            console.log('Keys:', Object.keys(apiResponse));
-            console.log('Has success:', 'success' in apiResponse);
-            console.log('Has data:', 'data' in apiResponse);
-            console.log('Is Array:', Array.isArray(apiResponse));
+    // Check if URL needs processing
+    static needsUrlProcessing(url) {
+        if (!url || typeof url !== 'string') return false;
 
-            if (apiResponse.success !== undefined) {
-                console.log('Success:', apiResponse.success);
-            }
-            if (apiResponse.data !== undefined) {
-                console.log('Data Type:', typeof apiResponse.data);
-                console.log('Is Data Array:', Array.isArray(apiResponse.data));
-                if (Array.isArray(apiResponse.data)) {
-                    console.log('Data Length:', apiResponse.data.length);
-                    if (apiResponse.data.length > 0) {
-                        console.log('First Item:', apiResponse.data[0]);
-                    }
-                }
-            }
+        const baseUrl = this.getBaseUrl();
+        return !(
+            url.startsWith('http') ||
+            url.startsWith('//') ||
+            url.startsWith('blob:') ||
+            url.startsWith('data:') ||
+            url.startsWith(baseUrl)
+        );
+    }
+
+    // Extract filename from URL
+    static getFilenameFromUrl(url) {
+        if (!url) return '';
+
+        if (url.includes('/')) {
+            return url.split('/').pop();
         }
-        console.log(`=== End Debug for ${endpoint} ===`);
+        return url;
+    }
+
+    // Check if image exists (for error handling)
+    static async checkImageExists(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
     }
 }
 
