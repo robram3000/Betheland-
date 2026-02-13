@@ -1,10 +1,9 @@
-// PartnerEditor.jsx
+// PartnerEditor.jsx - Card Version
 import React, { useState, useEffect } from 'react';
 import {
-    Table,
+    Card,
     Button,
     Space,
-    Card,
     Tag,
     Modal,
     Form,
@@ -21,7 +20,9 @@ import {
     Row,
     Col,
     Select,
-    Upload
+    Upload,
+    Grid,
+    Typography
 } from 'antd';
 import {
     EditOutlined,
@@ -32,13 +33,16 @@ import {
     CloseOutlined,
     SearchOutlined,
     UploadOutlined,
-    FileImageOutlined
+    FileImageOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
 import PartnershipServices from './Services/PartnershipServices';
 import PartnershipMapper from './Services/PartnershipMapper';
 
 const { Option } = Select;
 const { Dragger } = Upload;
+const { useBreakpoint } = Grid;
+const { Title, Text } = Typography;
 
 const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refreshTrigger }) => {
     const [partners, setPartners] = useState([]);
@@ -52,27 +56,22 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
     const [logoFile, setLogoFile] = useState(null);
     const [logoPreview, setLogoPreview] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
-    // Load partners on component mount and when refreshTrigger changes
     useEffect(() => {
-        console.log('PartnerEditor mounted or refreshTrigger changed:', refreshTrigger);
         loadPartners();
     }, [refreshTrigger]);
 
     const loadPartners = async () => {
         setLoading(true);
         try {
-            console.log('Starting to load partners...');
             const response = await PartnershipServices.getAllPartners();
-            console.log('Raw partners response:', response);
-
             let mappedPartners;
+
             try {
                 mappedPartners = PartnershipMapper.mapToPartnersList(response);
-                console.log('Mapped partners after mapper:', mappedPartners);
             } catch (mapperError) {
-                console.error('Mapper error, trying direct mapping:', mapperError);
-                // Fallback: if mapper fails, try direct mapping
                 if (Array.isArray(response)) {
                     mappedPartners = response.map(partner => ({
                         id: partner.id || 0,
@@ -84,32 +83,14 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                         createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
                         updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
                     }));
-                } else if (response && response.data && Array.isArray(response.data)) {
-                    mappedPartners = response.data.map(partner => ({
-                        id: partner.id || 0,
-                        name: partner.name || '',
-                        logoUrl: partner.logoUrl || '',
-                        category: partner.category || '',
-                        displayOrder: partner.displayOrder || 0,
-                        isActive: partner.isActive !== undefined ? partner.isActive : true,
-                        createdAt: partner.createdAt ? new Date(partner.createdAt) : null,
-                        updatedAt: partner.updatedAt ? new Date(partner.updatedAt) : null
-                    }));
                 } else {
-                    console.warn('Response is not an array, setting empty array');
                     mappedPartners = [];
                 }
             }
 
             const sortedPartners = PartnershipMapper.sortPartners(mappedPartners);
-            console.log('Final sorted partners:', sortedPartners);
             setPartners(sortedPartners);
-
-            if (sortedPartners.length === 0) {
-                console.warn('No partners found after processing');
-            }
         } catch (error) {
-            console.error('Full partners error:', error);
             message.error(`Failed to load partners: ${error.message}`);
             setPartners([]);
         } finally {
@@ -137,23 +118,6 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
     const handleView = (partner) => {
         if (onViewContent) {
             onViewContent(partner);
-        } else {
-            // Fallback view behavior
-            Modal.info({
-                title: partner.name || 'Partner Details',
-                content: (
-                    <div>
-                        <p><strong>Category:</strong> {partner.category || 'Uncategorized'}</p>
-                        <p><strong>Display Order:</strong> {partner.displayOrder}</p>
-                        <p><strong>Status:</strong> {partner.isActive ? 'Active' : 'Inactive'}</p>
-                        <p><strong>Logo URL:</strong> {partner.logoUrl}</p>
-                        {partner.createdAt && (
-                            <p><strong>Created:</strong> {new Date(partner.createdAt).toLocaleDateString()}</p>
-                        )}
-                    </div>
-                ),
-                width: 500,
-            });
         }
     };
 
@@ -171,63 +135,28 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
     };
 
     const handleToggleStatus = async (partnerId, newStatus) => {
-        console.log('=== TOGGLE STATUS DEBUG START ===');
-        console.log('Partner ID:', partnerId);
-        console.log('New Status:', newStatus);
-        console.log('Current updatingStatus state:', updatingStatus);
-
-        // Set loading state for this specific partner
-        setUpdatingStatus(prev => {
-            const newState = { ...prev, [partnerId]: true };
-            console.log('Setting updatingStatus to:', newState);
-            return newState;
-        });
+        setUpdatingStatus(prev => ({ ...prev, [partnerId]: true }));
 
         try {
-            console.log('Calling PartnershipServices.togglePartnerStatus...');
-            const result = await PartnershipServices.togglePartnerStatus(partnerId, newStatus);
-            console.log('API call successful, response:', result);
-
-            // Update local state after successful API call
-            setPartners(prevPartners => {
-                const updatedPartners = prevPartners.map(partner =>
-                    partner.id === partnerId
-                        ? { ...partner, isActive: newStatus }
-                        : partner
-                );
-                console.log('Updated partners state:', updatedPartners);
-                return updatedPartners;
-            });
-
+            await PartnershipServices.togglePartnerStatus(partnerId, newStatus);
+            setPartners(prevPartners =>
+                prevPartners.map(partner =>
+                    partner.id === partnerId ? { ...partner, isActive: newStatus } : partner
+                )
+            );
             message.success(`Partner ${newStatus ? 'activated' : 'deactivated'} successfully`);
-
             if (onContentUpdated) {
                 onContentUpdated();
             }
         } catch (error) {
-            console.error('Toggle status error:', error);
-
-            // Show error message
             message.error(`Failed to update partner status: ${error.message}`);
-
-            // Revert the UI change on error
-            setPartners(prevPartners => {
-                const revertedPartners = prevPartners.map(partner =>
-                    partner.id === partnerId
-                        ? { ...partner, isActive: !newStatus } // Revert to previous state
-                        : partner
-                );
-                console.log('Reverted partners state due to error:', revertedPartners);
-                return revertedPartners;
-            });
+            setPartners(prevPartners =>
+                prevPartners.map(partner =>
+                    partner.id === partnerId ? { ...partner, isActive: !newStatus } : partner
+                )
+            );
         } finally {
-            // Always clear loading state
-            setUpdatingStatus(prev => {
-                const newState = { ...prev, [partnerId]: false };
-                console.log('Clearing loading state, new state:', newState);
-                return newState;
-            });
-            console.log('=== TOGGLE STATUS DEBUG END ===');
+            setUpdatingStatus(prev => ({ ...prev, [partnerId]: false }));
         }
     };
 
@@ -239,15 +168,13 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         }
 
         setLogoFile(file);
-
-        // Create preview
         const reader = new FileReader();
         reader.onload = (e) => {
             setLogoPreview(e.target.result);
         };
         reader.readAsDataURL(file);
 
-        return false; // Prevent automatic upload
+        return false;
     };
 
     const handleRemoveFile = () => {
@@ -258,18 +185,9 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
     const handleSubmit = async (values) => {
         try {
-            console.log('=== SUBMIT DEBUG START ===');
-            console.log('Form values:', values);
-            console.log('Editing partner:', editingPartner);
-            console.log('Logo file:', logoFile);
-
-            // Map form values to partner object
             const partnerData = PartnershipMapper.mapFormToPartner(values, editingPartner);
             partnerData.logoFile = logoFile;
 
-            console.log('Mapped partner data:', partnerData);
-
-            // Validate partner data
             const validation = PartnershipMapper.validatePartner(partnerData, !editingPartner);
             if (!validation.isValid) {
                 const firstError = Object.values(validation.errors)[0];
@@ -280,29 +198,11 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             setUploading(true);
 
             if (editingPartner) {
-                // Update existing partner
-                console.log('Updating partner with ID:', editingPartner.id);
                 const updateDto = PartnershipMapper.mapToUpdatePartnerDto(partnerData);
-                console.log('Update DTO (FormData):', updateDto);
-
-                // Log FormData contents
-                for (let [key, value] of updateDto.entries()) {
-                    console.log(`FormData - ${key}:`, value);
-                }
-
                 await PartnershipServices.updatePartner(editingPartner.id, updateDto);
                 message.success('Partner updated successfully');
             } else {
-                // Create new partner
-                console.log('Creating new partner');
                 const createDto = PartnershipMapper.mapToCreatePartnerDto(partnerData);
-                console.log('Create DTO (FormData):', createDto);
-
-                // Log FormData contents
-                for (let [key, value] of createDto.entries()) {
-                    console.log(`FormData - ${key}:`, value);
-                }
-
                 await PartnershipServices.createPartner(createDto);
                 message.success('Partner created successfully');
             }
@@ -316,10 +216,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             if (onContentUpdated) {
                 onContentUpdated();
             }
-
-            console.log('=== SUBMIT DEBUG END ===');
         } catch (error) {
-            console.error('Submit error:', error);
             message.error(`Failed to ${editingPartner ? 'update' : 'create'} partner: ${error.message}`);
         } finally {
             setUploading(false);
@@ -334,7 +231,6 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         setLogoPreview(null);
     };
 
-    // Filter partners based on search text and category
     const filteredPartners = partners.filter(partner => {
         const matchesSearch = partner.name?.toLowerCase().includes(searchText.toLowerCase()) ||
             partner.category?.toLowerCase().includes(searchText.toLowerCase());
@@ -342,160 +238,101 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
         return matchesSearch && matchesCategory;
     });
 
-    // Get unique categories for filter
     const categories = [...new Set(partners.map(partner => partner.category).filter(Boolean))];
 
-    const columns = [
-        // In PartnerEditor.jsx, update the Image components to use the processed URLs:
+    const renderPartnerCard = (partner) => {
+        const processedUrl = PartnershipMapper.processImageUrl(partner.logoUrl);
+        const isLoading = updatingStatus[partner.id];
 
-        // In the columns definition, update the logo renderer:
-        {
-            title: 'Logo',
-            dataIndex: 'logoUrl',
-            key: 'logo',
-            width: 80,
-            render: (logoUrl, record) => {
-                // Ensure the URL is processed for display
-                const processedUrl = PartnershipMapper.processImageUrl(logoUrl);
-
-                return (
-                    <Image
-                        width={50}
-                        height={50}
-                        src={processedUrl}
-                        alt={`${record.name || 'Partner'} logo`}
-                        style={{
-                            objectFit: 'contain',
-                            borderRadius: '4px',
-                            backgroundColor: '#f5f5f5'
-                        }}
-                        fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yNSAzMEMyNy43NjE0IDMwIDMwIDI3Ljc2MTQgMzAgMjVDMzAgMjIuMjM4NiAyNy43NjE0IDIwIDI1IDIwQzIyLjIzODYgMjAgMjAgMjIuMjM4NiAyMCAyNUMyMCAyNy43NjE0IDIyLjIzODYgMzAgMjUgMzBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik0zNSAzNUwzMi41IDMyLjVMMzAuNSAzNC41TDMzIDM3TDM1IDM1WiIgZmlsbD0iI0NFQ0VDRSIvPgo8L3N2Zz4K"
-                        onError={(e) => {
-                            e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0yNSAzMEMyNy43NjE0IDMwIDMwIDI3Ljc2MTQgMzAgMjVDMzAgMjIuMjM4NiAyNy43NjE0IDIwIDI1IDIwQzIyLjIzODYgMjAgMjAgMjIuMjM4NiAyMCAyNUMyMCAyNy43NjE0IDIyLjIzODYgMzAgMjUgMzBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik0zNSAzNUwzMi41IDMyLjVMMzAuNSAzNC41TDMzIDM3TDM1IDM1WiIgZmlsbD0iI0NFQ0VDRSIvPgo8L3N2Zz4K";
-                        }}
-                    />
-                );
-            },
-        },
-        {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
-            render: (text, record) => (
-                <div>
-                    <div style={{ fontWeight: 500 }}>{text || 'Unnamed Partner'}</div>
-                </div>
-            ),
-        },
-        {
-            title: 'Category',
-            dataIndex: 'category',
-            key: 'category',
-            width: 150,
-            render: (category) => (
-                <Tag color="blue" style={{ margin: 0 }}>
-                    {category || 'Uncategorized'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Display Order',
-            dataIndex: 'displayOrder',
-            key: 'displayOrder',
-            width: 120,
-            sorter: (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0),
-            render: (order) => (
-                <Tag color="green">{order}</Tag>
-            ),
-        },
-        {
-            title: 'Status',
-            dataIndex: 'isActive',
-            key: 'status',
-            width: 120,
-            render: (isActive, record) => {
-                const isLoading = updatingStatus[record.id];
-                console.log(`Rendering status column for partner ${record.id}:`, {
-                    isActive,
-                    isLoading,
-                    updatingStatus
-                });
-
-                return (
-                    <Tooltip title={isActive ? 'Click to deactivate' : 'Click to activate'}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {isLoading ? (
-                                <Spin size="small" />
-                            ) : (
-                                <Switch
-                                    checked={isActive}
-                                    onChange={(checked) => {
-                                        console.log('Switch changed:', checked, 'for partner:', record.id);
-                                        handleToggleStatus(record.id, checked);
-                                    }}
-                                    checkedChildren={<CheckOutlined />}
-                                    unCheckedChildren={<CloseOutlined />}
-                                    disabled={isLoading}
-                                />
-                            )}
-                            <span style={{ fontSize: '12px', color: '#666' }}>
-                                {isLoading ? 'Updating...' : (isActive ? 'Active' : 'Inactive')}
-                            </span>
-                        </div>
-                    </Tooltip>
-                );
-            },
-        },
-        {
-            title: 'Created',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            width: 120,
-            render: (date) => date ? new Date(date).toLocaleDateString() : '-',
-        },
-        {
-            title: 'Actions',
-            key: 'actions',
-            width: 150,
-            render: (_, record) => (
-                <Space size="small">
-                    <Tooltip title="View Details">
-                        <Button
-                            type="text"
-                            icon={<EyeOutlined />}
-                            onClick={() => handleView(record)}
-                            style={{ color: '#1890ff' }}
-                        />
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                        <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            onClick={() => handleEdit(record)}
-                            style={{ color: '#52c41a' }}
-                        />
-                    </Tooltip>
-                    <Popconfirm
-                        title="Delete Partner"
-                        description="Are you sure you want to delete this partner?"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Yes"
-                        cancelText="No"
-                        okType="danger"
-                    >
-                        <Tooltip title="Delete">
-                            <Button
-                                type="text"
-                                icon={<DeleteOutlined />}
-                                style={{ color: '#ff4d4f' }}
+        return (
+            <Col xs={24} sm={12} lg={8} xl={6} key={partner.id}>
+                <Card
+                    style={{
+                        height: '100%',
+                        border: `1px solid ${partner.isActive ? '#d6e4ff' : '#f0f0f0'}`,
+                        background: partner.isActive ? '#f6ffed' : '#fafafa'
+                    }}
+                    cover={
+                        <div style={{
+                            padding: '20px',
+                            textAlign: 'center',
+                            background: '#fafafa',
+                            borderBottom: '1px solid #f0f0f0'
+                        }}>
+                            <Image
+                                width={80}
+                                height={80}
+                                src={processedUrl}
+                                alt={`${partner.name || 'Partner'} logo`}
+                                style={{
+                                    objectFit: 'contain',
+                                    borderRadius: '8px'
+                                }}
+                                fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik00MCA0MEM0Ni4wMTgzIDQwIDUxIDM1LjAxODMgNTEgMjlDNTEgMjIuOTgxNyA0Ni4wMTgzIDE4IDQwIDE4QzMzLjk4MTcgMTggMjkgMjIuOTgxNyAyOSAyOUMyOSAzNS4wMTgzIDMzLjk4MTcgNDAgNDAgNDBaIiBmaWxsPSIjQ0VDRUNFIi8+CjxwYXRoIGQ9Ik01NiA1Nkw1MiA1Mkw0OCA1Mkw1Mi44IDU5LjJINTUuMkw1NiA1NloiIGZpbGw9IiNDRUNFQ0UiLz4KPC9zdmc+Cg=="
                             />
-                        </Tooltip>
-                    </Popconfirm>
-                </Space>
-            ),
-        },
-    ];
+                        </div>
+                    }
+                    actions={[
+                        <Tooltip title="View">
+                            <EyeOutlined
+                                onClick={() => handleView(partner)}
+                                style={{ color: '#1890ff' }}
+                            />
+                        </Tooltip>,
+                        <Tooltip title="Edit">
+                            <EditOutlined
+                                onClick={() => handleEdit(partner)}
+                                style={{ color: '#52c41a' }}
+                            />
+                        </Tooltip>,
+                        <Popconfirm
+                            title="Delete Partner"
+                            description="Are you sure you want to delete this partner?"
+                            onConfirm={() => handleDelete(partner.id)}
+                            okText="Yes"
+                            cancelText="No"
+                            okType="danger"
+                        >
+                            <Tooltip title="Delete">
+                                <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                            </Tooltip>
+                        </Popconfirm>
+                    ]}
+                >
+                    <Card.Meta
+                        title={
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                <Text strong style={{ fontSize: '16px' }}>
+                                    {partner.name || 'Unnamed Partner'}
+                                </Text>
+                                <Tag color={partner.isActive ? 'green' : 'red'} style={{ margin: 0 }}>
+                                    {partner.isActive ? 'Active' : 'Inactive'}
+                                </Tag>
+                            </div>
+                        }
+                        description={
+                            <div style={{ marginTop: '12px' }}>
+                                <div style={{ marginBottom: '8px' }}>
+                                    <Tag color="blue">{partner.category || 'Uncategorized'}</Tag>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text type="secondary">Order: {partner.displayOrder}</Text>
+                                    <Tooltip title={partner.isActive ? 'Deactivate' : 'Activate'}>
+                                        <Switch
+                                            size="small"
+                                            checked={partner.isActive}
+                                            loading={isLoading}
+                                            onChange={(checked) => handleToggleStatus(partner.id, checked)}
+                                        />
+                                    </Tooltip>
+                                </div>
+                            </div>
+                        }
+                    />
+                </Card>
+            </Col>
+        );
+    };
 
     const uploadProps = {
         beforeUpload: handleFileUpload,
@@ -509,20 +346,28 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             {/* Header Section */}
             <Card
                 style={{ marginBottom: 16 }}
-                bodyStyle={{ padding: '16px 24px' }}
+                bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
             >
                 <Row justify="space-between" align="middle" gutter={[16, 16]}>
-                    <Col>
-
+                    <Col flex="auto">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <TeamOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
+                            <div>
+                                <Title level={4} style={{ margin: 0 }}>Partner Management</Title>
+                                <Text type="secondary">
+                                    Manage your partner organizations and their display settings
+                                </Text>
+                            </div>
+                        </div>
                     </Col>
                     <Col>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleCreate}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            Add New Partner
+                            {isMobile ? 'Add Partner' : 'Add New Partner'}
                         </Button>
                     </Col>
                 </Row>
@@ -531,25 +376,27 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             {/* Filters Section */}
             <Card
                 style={{ marginBottom: 16 }}
-                bodyStyle={{ padding: '16px 24px' }}
+                bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
             >
                 <Row gutter={[16, 16]} align="middle">
-                    <Col xs={24} sm={12} md={8}>
+                    <Col xs={24} sm={12} md={10}>
                         <Input
                             placeholder="Search partners by name or category..."
                             prefix={<SearchOutlined />}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             allowClear
+                            size={isMobile ? "middle" : "large"}
                         />
                     </Col>
-                    <Col xs={24} sm={12} md={6}>
+                    <Col xs={24} sm={12} md={8}>
                         <Select
                             style={{ width: '100%' }}
                             placeholder="Filter by category"
                             value={categoryFilter}
                             onChange={setCategoryFilter}
                             allowClear
+                            size={isMobile ? "middle" : "large"}
                         >
                             <Option value="all">All Categories</Option>
                             {categories.map(category => (
@@ -559,33 +406,25 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                             ))}
                         </Select>
                     </Col>
-                    <Col xs={24} sm={12} md={10}>
-                        <div style={{ textAlign: 'right' }}>
-                            <span style={{ color: '#666', fontSize: '14px' }}>
+                    <Col xs={24} md={6}>
+                        <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                            <Text type="secondary">
                                 Showing {filteredPartners.length} of {partners.length} partners
-                            </span>
+                            </Text>
                         </div>
                     </Col>
                 </Row>
             </Card>
 
-            {/* Partners Table */}
-            <Card>
+            {/* Partners Grid */}
+            <Card
+                bodyStyle={{ padding: isMobile ? '16px' : '24px' }}
+            >
                 <Spin spinning={loading}>
                     {filteredPartners.length > 0 ? (
-                        <Table
-                            columns={columns}
-                            dataSource={filteredPartners.map(partner => ({ ...partner, key: partner.id }))}
-                            rowKey="id"
-                            pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                showQuickJumper: true,
-                                showTotal: (total, range) =>
-                                    `${range[0]}-${range[1]} of ${total} partners`,
-                            }}
-                            scroll={{ x: 800 }}
-                        />
+                        <Row gutter={[16, 16]}>
+                            {filteredPartners.map(renderPartnerCard)}
+                        </Row>
                     ) : (
                         <Empty
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -609,14 +448,15 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
             {/* Create/Edit Modal */}
             <Modal
                 title={
-                    <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TeamOutlined />
                         {editingPartner ? 'Edit Partner' : 'Create New Partner'}
                     </div>
                 }
                 open={modalVisible}
                 onCancel={handleCancel}
                 footer={null}
-                width={600}
+                width={isMobile ? '90vw' : 600}
                 destroyOnClose
             >
                 <Form
@@ -629,7 +469,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                     }}
                 >
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Partner Name"
                                 name="name"
@@ -638,10 +478,10 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                                     { max: 100, message: 'Name must be less than 100 characters' }
                                 ]}
                             >
-                                <Input placeholder="Enter partner name" />
+                                <Input placeholder="Enter partner name" size="large" />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Category"
                                 name="category"
@@ -650,7 +490,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                                     { max: 100, message: 'Category must be less than 100 characters' }
                                 ]}
                             >
-                                <Input placeholder="Enter category (e.g., Developer, Broker)" />
+                                <Input placeholder="Enter category (e.g., Developer, Broker)" size="large" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -711,7 +551,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                     </Form.Item>
 
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Display Order"
                                 name="displayOrder"
@@ -724,10 +564,11 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                                     style={{ width: '100%' }}
                                     min={0}
                                     placeholder="0"
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Status"
                                 name="isActive"
@@ -736,6 +577,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                                 <Switch
                                     checkedChildren="Active"
                                     unCheckedChildren="Inactive"
+                                    size={isMobile ? "default" : "small"}
                                 />
                             </Form.Item>
                         </Col>
@@ -745,7 +587,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={handleCancel} disabled={uploading}>
+                            <Button onClick={handleCancel} disabled={uploading} size={isMobile ? "middle" : "large"}>
                                 Cancel
                             </Button>
                             <Button
@@ -753,6 +595,7 @@ const PartnerEditor = ({ onEditContent, onViewContent, onContentUpdated, refresh
                                 htmlType="submit"
                                 loading={uploading}
                                 disabled={uploading}
+                                size={isMobile ? "middle" : "large"}
                             >
                                 {editingPartner ? 'Update Partner' : 'Create Partner'}
                             </Button>

@@ -15,8 +15,8 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "acecentsandoval10@gmail.com",
-  "username": "Acecent@2k13",
+  "email": "robertoramirez1231@gmail.com",
+  "username": "robertoramirez2k13",
   "password": "Ramirez@2k13",
   "firstName": "Acecent",
   "lastName": "Sandoval",
@@ -28,9 +28,9 @@ POST {{Realstate_servcices.Server_HostAddress_HTTPS}}/api/agent/register
 Content-Type: {{ContentType}}
 
 {
-  "email": "aarontimanel@gmail.com",
-  "username": "Aaron@2k13",
-  "password": "Aaron@2k13",
+  "email": "aaron2k13@gmail.com",
+  "username": "Aaron@2k14",
+  "password": "Aaron@2k14",
   "firstName": "Aaron",
   "lastName": "Timanel",
   "cellPhoneNo": "09123456789",

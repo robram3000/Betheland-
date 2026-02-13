@@ -1,5 +1,4 @@
-﻿// BaseWishlist.jsx
-import React from 'react';
+﻿import React from 'react';
 import { Layout, ConfigProvider } from 'antd';
 import { GlobalNavigation, Footer } from '../Navigation/index';
 import { WishlistDataProvider } from '../Property/Services/WishlistAdded';

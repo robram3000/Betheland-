@@ -17,7 +17,9 @@ import {
     Menu,
     Row,
     Col,
-    Divider
+    Divider,
+    Grid,
+    Collapse
 } from 'antd';
 import {
     SearchOutlined,
@@ -36,7 +38,8 @@ import {
     DownloadOutlined,
     PrinterOutlined,
     FilePdfOutlined,
-    FileExcelOutlined
+    FileExcelOutlined,
+    FilterOutlined
 } from '@ant-design/icons';
 import {
     FaBed,
@@ -52,6 +55,8 @@ import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '
 
 const { Search } = Input;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
+const { Panel } = Collapse;
 
 const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) => {
     const [properties, setProperties] = useState([]);
@@ -72,6 +77,10 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const [agentLoading, setAgentLoading] = useState({});
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [filtersVisible, setFiltersVisible] = useState(false);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     // Debug effect to check amenities data
     useEffect(() => {
@@ -363,7 +372,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         );
     };
 
-    // Open media gallery - FIXED: Added this missing function
+    // Open media gallery
     const handleOpenMedia = (property, index = 0) => {
         setSelectedProperty(property);
         setCurrentMediaIndex(index);
@@ -371,6 +380,11 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     };
 
     const filteredProperties = properties.filter(property => {
+        // Filter out pending, rejected, and draft properties completely
+        if (property.status === 'pending' || property.status === 'rejected' || property.status === 'draft') {
+            return false;
+        }
+
         const matchesSearch = property.title?.toLowerCase().includes(searchText.toLowerCase()) ||
             property.address?.toLowerCase().includes(searchText.toLowerCase()) ||
             property.city?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -477,13 +491,10 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
     const handleExportPDF = () => {
         message.info('PDF export functionality would be implemented here');
-        // In a real implementation, you would use a library like jsPDF or html2pdf
-        // This is a placeholder for the PDF export functionality
     };
 
     const handleExportExcel = () => {
         try {
-            // Create CSV content
             const headers = ['Title', 'Type', 'Price', 'Bedrooms', 'Bathrooms', 'City', 'Status', 'Agent', 'Address'];
             const csvContent = [
                 headers.join(','),
@@ -500,7 +511,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 ].join(','))
             ].join('\n');
 
-            // Create and download file
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
@@ -540,11 +550,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 try {
                     await propertyService.deleteProperty(propertyId);
                     message.success('Property deleted successfully');
-
-                    // Remove from state immediately
                     setProperties(prev => prev.filter(prop => prop.id !== propertyId));
-
-                    // Notify parent of update
                     if (onPropertiesUpdate) {
                         onPropertiesUpdate();
                     }
@@ -560,13 +566,9 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         try {
             await propertyService.approveProperty(propertyId);
             message.success('Property approved successfully');
-
-            // Update status in state
             setProperties(prev => prev.map(prop =>
                 prop.id === propertyId ? { ...prop, status: 'approved' } : prop
             ));
-
-            // Notify parent of update
             if (onPropertiesUpdate) {
                 onPropertiesUpdate();
             }
@@ -582,13 +584,9 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             message.success('Property rejected successfully');
             setRejectModalVisible(false);
             setRejectReason('');
-
-            // Update status in state
             setProperties(prev => prev.map(prop =>
                 prop.id === propertyId ? { ...prop, status: 'rejected' } : prop
             ));
-
-            // Notify parent of update
             if (onPropertiesUpdate) {
                 onPropertiesUpdate();
             }
@@ -607,8 +605,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         try {
             await propertyService.changePropertyStatus(propertyId, newStatus);
             message.success(`Property status changed to ${newStatus}`);
-
-            // Update status in state
             setProperties(prev => prev.map(prop =>
                 prop.id === propertyId ? { ...prop, status: newStatus } : prop
             ));
@@ -628,17 +624,12 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const handleHandlerChangeSuccess = async (property, newAgentId) => {
         try {
             await propertyService.changePropertyHandler(property.id, newAgentId);
-
-            // Load the new agent data
             const newAgentData = await loadAgentData(newAgentId);
-
-            // Update the property with new agent
             setProperties(prev => prev.map(prop =>
                 prop.id === property.id
                     ? { ...prop, agentId: newAgentId, agent: newAgentData }
                     : prop
             ));
-
             message.success('Property handler changed successfully');
             setChangeHandlerModalVisible(false);
             setSelectedProperty(null);
@@ -664,12 +655,12 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const getStatusText = (status) => {
         switch (status) {
             case 'approved': return 'APPROVED';
-            case 'pending': return 'PENDING APPROVAL';
-            case 'rejected': return 'REJECTED';
+            case 'pending': return 'APPROVED'; // Map pending to approved for display
+            case 'rejected': return 'APPROVED'; // Map rejected to approved for display
             case 'sold': return 'SOLD';
             case 'rented': return 'RENTED';
             case 'available': return 'AVAILABLE';
-            case 'draft': return 'DRAFT';
+            case 'draft': return 'APPROVED'; // Map draft to approved for display
             default: return status?.toUpperCase() || 'UNKNOWN';
         }
     };
@@ -703,54 +694,401 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         return agentLoading[agentId] || false;
     };
 
-    const actionMenu = (record) => (
-        <Menu>
-            <Menu.Item key="view" icon={<EyeOutlined />} onClick={() => handleView(record)}>
-                View Details
+const actionMenu = (record) => (
+    <Menu>
+        <Menu.Item key="view" icon={<EyeOutlined />} onClick={() => handleView(record)}>
+            View Details
+        </Menu.Item>
+        <Menu.Item key="edit" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+            Edit Property
+        </Menu.Item>
+        <Menu.Item key="changeHandler" icon={<UserSwitchOutlined />} onClick={() => handleChangeHandler(record)}>
+            Change Handler
+        </Menu.Item>
+        <Menu.SubMenu key="status" title="Change Status" icon={<CheckOutlined />}>
+            <Menu.Item key="draft" onClick={() => handleStatusChange(record.id, 'draft')}>
+                Mark as Draft
             </Menu.Item>
-            <Menu.Item key="edit" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-                Edit Property
+            <Menu.Item key="available" onClick={() => handleStatusChange(record.id, 'available')}>
+                Mark as Available
             </Menu.Item>
-            <Menu.Item key="changeHandler" icon={<UserSwitchOutlined />} onClick={() => handleChangeHandler(record)}>
-                Change Handler
+            <Menu.Item key="sold" onClick={() => handleStatusChange(record.id, 'sold')}>
+                Mark as Sold
             </Menu.Item>
-            <Menu.SubMenu key="status" title="Change Status" icon={<CheckOutlined />}>
-                <Menu.Item key="available" onClick={() => handleStatusChange(record.id, 'available')}>
-                    Mark as Available
-                </Menu.Item>
-                <Menu.Item key="sold" onClick={() => handleStatusChange(record.id, 'sold')}>
-                    Mark as Sold
-                </Menu.Item>
-                <Menu.Item key="rented" onClick={() => handleStatusChange(record.id, 'rented')}>
-                    Mark as Rented
-                </Menu.Item>
-                <Menu.Item key="pending" onClick={() => handleStatusChange(record.id, 'pending')}>
-                    Mark as Pending
-                </Menu.Item>
-                <Menu.Item key="draft" onClick={() => handleStatusChange(record.id, 'draft')}>
-                    Mark as Draft
-                </Menu.Item>
-            </Menu.SubMenu>
-            {record.status === 'pending' && (
-                <>
-                    <Menu.Item key="approve" icon={<CheckOutlined />} onClick={() => handleApprove(record.id)}>
-                        Approve Property
-                    </Menu.Item>
-                    <Menu.Item key="reject" icon={<CloseOutlined />} onClick={() => {
-                        setSelectedProperty(record);
-                        setRejectModalVisible(true);
-                    }}>
-                        Reject Property
-                    </Menu.Item>
-                </>
-            )}
-            <Menu.Divider />
-            <Menu.Item key="delete" icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)}>
-                Delete Property
+            <Menu.Item key="rented" onClick={() => handleStatusChange(record.id, 'rented')}>
+                Mark as Rented
             </Menu.Item>
-        </Menu>
-    );
+        </Menu.SubMenu>
+        <Menu.Divider />
+        <Menu.Item key="delete" icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)}>
+            Delete Property
+        </Menu.Item>
+    </Menu>
+);
+    // Mobile Card View
+    const renderMobileCard = (property) => {
+        const imageUrl = getPropertyImage(property);
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const { imageCount, videoCount } = getMediaCounts(property);
 
+        return (
+            <Card
+                key={property.id}
+                style={{ marginBottom: 16 }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    <Badge dot={property.status === 'pending'} color="orange" offset={[-5, 5]}>
+                        <Avatar
+                            src={imageUrl}
+                            shape="square"
+                            style={{
+                                backgroundColor: '#1a365d',
+                                width: 80,
+                                height: 80,
+                                objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                                e.target.src = processImageUrl('/default-property.jpg');
+                            }}
+                        >
+                            {property.title?.[0]?.toUpperCase()}
+                        </Avatar>
+                    </Badge>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                            {property.title || 'Untitled Property'}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                            {property.address}, {property.city}
+                        </div>
+                        <Tag color="#1e3a8a" style={{ color: 'white', border: 'none' }} size="small">
+                            {property.type || 'N/A'}
+                        </Tag>
+                        <div style={{ marginTop: '8px' }}>
+                            <Tag color={getStatusColor(property.status)}>
+                                {getStatusText(property.status)}
+                            </Tag>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Amenities */}
+                <div style={{ marginBottom: '12px' }}>
+                    {renderAmenities(property.amenities)}
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                {/* Property Details */}
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a365d' }}>
+                            ₱{property.price ? property.price.toLocaleString() : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Price</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            <Space size={12}>
+                                <Space size={4}>
+                                    <FaBed style={{ color: '#666' }} />
+                                    <span>{property.bedrooms || 0}</span>
+                                </Space>
+                                <Space size={4}>
+                                    <FaBath style={{ color: '#666' }} />
+                                    <span>{property.bathrooms || 0}</span>
+                                </Space>
+                            </Space>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Rooms</div>
+                    </Col>
+                </Row>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {property.areaSqm ? `${property.areaSqm} sqm` : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Area</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {imageCount} img, {videoCount} vid
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Media</div>
+                    </Col>
+                </Row>
+
+                {/* Agent Info */}
+                {property.agent && (
+                    <>
+                        <Divider style={{ margin: '12px 0' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            {getAgentAvatar(property.agent)}
+                            <div>
+                                <div style={{ fontWeight: 500, fontSize: '14px' }}>
+                                    {getAgentDisplayName(property.agent)}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>
+                                    {getAgentContactInfo(property.agent)}
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <Button
+                        icon={<EyeOutlined />}
+                        size="small"
+                        onClick={() => handleView(property)}
+                        style={{ flex: 1 }}
+                    >
+                        View
+                    </Button>
+                    <Button
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => handleEdit(property)}
+                        style={{ flex: 1 }}
+                    >
+                        Edit
+                    </Button>
+                    <Button
+                        type="primary"
+                        icon={<PictureOutlined />}
+                        size="small"
+                        onClick={() => handleOpenMedia(property)}
+                        style={{ flex: 1 }}
+                    >
+                        Media
+                    </Button>
+                    <Dropdown overlay={actionMenu(property)} trigger={['click']}>
+                        <Button
+                            icon={<MoreOutlined />}
+                            size="small"
+                        >
+                            More
+                        </Button>
+                    </Dropdown>
+                </div>
+            </Card>
+        );
+    };
+
+    // Render filters based on device
+    const renderFilters = () => {
+        if (isMobile) {
+            return (
+                <div style={{ width: '100%' }}>
+                    {/* Search Bar - Full width on mobile */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <Search
+                            placeholder="Search properties, agents, addresses..."
+                            allowClear
+                            onSearch={handleSearch}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            style={{ width: '100%' }}
+                            size="large"
+                        />
+                    </div>
+
+                    {/* Filter Toggle Button */}
+                    <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+                        <Button
+                            type={filtersVisible ? "primary" : "default"}
+                            icon={<FilterOutlined />}
+                            onClick={() => setFiltersVisible(!filtersVisible)}
+                            size="large"
+                            style={{ width: '100%' }}
+                        >
+                            {filtersVisible ? 'Hide Filters' : 'Show Filters'}
+                        </Button>
+                    </div>
+
+                    {/* Collapsible Filters */}
+                    {filtersVisible && (
+                        <div style={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px'
+                        }}>
+                            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                                <Select
+                                    value={statusFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handleStatusFilter}
+                                    placeholder="Filter by status"
+                                    size="large"
+                                >
+                                    <Option value="all">All Status</Option>
+                                    <Option value="approved">Approved</Option>
+                                    <Option value="available">Available</Option>
+                                    <Option value="sold">Sold</Option>
+                                    <Option value="rented">Rented</Option>
+                                </Select>
+
+                                <Select
+                                    value={typeFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handleTypeFilter}
+                                    placeholder="Filter by type"
+                                    size="large"
+                                >
+                                    <Option value="all">All Types</Option>
+                                    <Option value="House">House</Option>
+                                    <Option value="Apartment">Apartment</Option>
+                                    <Option value="Condo">Condo</Option>
+                                    <Option value="Townhouse">Townhouse</Option>
+                                    <Option value="Land">Land</Option>
+                                    <Option value="Commercial">Commercial</Option>
+                                </Select>
+
+                                <Select
+                                    value={priceRangeFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handlePriceRangeFilter}
+                                    placeholder="Filter by price range"
+                                    size="large"
+                                >
+                                    <Option value="all">All Prices</Option>
+                                    <Option value="0-500k">₱0 - ₱500K</Option>
+                                    <Option value="500k-1M">₱500K - ₱1M</Option>
+                                    <Option value="1M-5M">₱1M - ₱5M</Option>
+                                    <Option value="5M+">₱5M+</Option>
+                                </Select>
+
+                                <Select
+                                    value={bedroomsFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handleBedroomsFilter}
+                                    placeholder="Filter by bedrooms"
+                                    size="large"
+                                >
+                                    <Option value="all">All Bedrooms</Option>
+                                    <Option value="1">1 Bedroom</Option>
+                                    <Option value="2">2 Bedrooms</Option>
+                                    <Option value="3">3 Bedrooms</Option>
+                                    <Option value="4+">4+ Bedrooms</Option>
+                                </Select>
+
+                                <Select
+                                    value={bathroomsFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handleBathroomsFilter}
+                                    placeholder="Filter by bathrooms"
+                                    size="large"
+                                >
+                                    <Option value="all">All Bathrooms</Option>
+                                    <Option value="1">1 Bathroom</Option>
+                                    <Option value="2">2 Bathrooms</Option>
+                                    <Option value="3+">3+ Bathrooms</Option>
+                                </Select>
+
+                                <Select
+                                    value={cityFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={handleCityFilter}
+                                    placeholder="Filter by city"
+                                    size="large"
+                                >
+                                    <Option value="all">All Cities</Option>
+                                    {getUniqueCities().map(city => (
+                                        <Option key={city} value={city}>{city}</Option>
+                                    ))}
+                                </Select>
+                            </Space>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Desktop filters
+        return (
+            <Space wrap>
+                <Search
+                    placeholder="Search properties, agents, addresses..."
+                    allowClear
+                    onSearch={handleSearch}
+                    style={{ width: 300 }}
+                />
+                <Select
+                    value={statusFilter}
+                    style={{ width: 180 }}
+                    onChange={handleStatusFilter}
+                >
+                    <Option value="all">All Status</Option>
+                    <Option value="approved">Approved</Option>
+                    <Option value="available">Available</Option>
+                    <Option value="sold">Sold</Option>
+                    <Option value="rented">Rented</Option>
+                </Select>
+                <Select
+                    value={typeFilter}
+                    style={{ width: 150 }}
+                    onChange={handleTypeFilter}
+                >
+                    <Option value="all">All Types</Option>
+                    <Option value="House">House</Option>
+                    <Option value="Apartment">Apartment</Option>
+                    <Option value="Condo">Condo</Option>
+                    <Option value="Townhouse">Townhouse</Option>
+                    <Option value="Land">Land</Option>
+                    <Option value="Commercial">Commercial</Option>
+                </Select>
+                <Select
+                    value={priceRangeFilter}
+                    style={{ width: 150 }}
+                    onChange={handlePriceRangeFilter}
+                >
+                    <Option value="all">All Prices</Option>
+                    <Option value="0-500k">₱0 - ₱500K</Option>
+                    <Option value="500k-1M">₱500K - ₱1M</Option>
+                    <Option value="1M-5M">₱1M - ₱5M</Option>
+                    <Option value="5M+">₱5M+</Option>
+                </Select>
+                <Select
+                    value={bedroomsFilter}
+                    style={{ width: 130 }}
+                    onChange={handleBedroomsFilter}
+                >
+                    <Option value="all">All Bedrooms</Option>
+                    <Option value="1">1 Bedroom</Option>
+                    <Option value="2">2 Bedrooms</Option>
+                    <Option value="3">3 Bedrooms</Option>
+                    <Option value="4+">4+ Bedrooms</Option>
+                </Select>
+                <Select
+                    value={bathroomsFilter}
+                    style={{ width: 130 }}
+                    onChange={handleBathroomsFilter}
+                >
+                    <Option value="all">All Bathrooms</Option>
+                    <Option value="1">1 Bathroom</Option>
+                    <Option value="2">2 Bathrooms</Option>
+                    <Option value="3+">3+ Bathrooms</Option>
+                </Select>
+                <Select
+                    value={cityFilter}
+                    style={{ width: 150 }}
+                    onChange={handleCityFilter}
+                >
+                    <Option value="all">All Cities</Option>
+                    {getUniqueCities().map(city => (
+                        <Option key={city} value={city}>{city}</Option>
+                    ))}
+                </Select>
+            </Space>
+        );
+    };
+
+    // Table columns for desktop view
     const columns = [
         {
             title: 'Property',
@@ -792,7 +1130,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 </div>
                             </div>
                         </Space>
-                        {/* Amenities row - FIXED */}
+                        {/* Amenities row */}
                         <div style={{ marginLeft: 40, marginTop: 8 }}>
                             {renderAmenities(record.amenities)}
                         </div>
@@ -865,7 +1203,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <div style={{ fontWeight: 500 }}>
                                     {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
                                 </div>
-                             
                             </div>
                         </Space>
                         {getAgentContactInfo(agent) && (
@@ -933,31 +1270,6 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             onClick={() => handleChangeHandler(record)}
                         />
                     </Tooltip>
-                    {record.status === 'pending' && (
-                        <>
-                            <Tooltip title="Approve">
-                                <Button
-                                    icon={<CheckOutlined />}
-                                    size="small"
-                                    type="primary"
-                                    ghost
-                                    onClick={() => handleApprove(record.id)}
-                                />
-                            </Tooltip>
-                            <Tooltip title="Reject">
-                                <Button
-                                    icon={<CloseOutlined />}
-                                    size="small"
-                                    danger
-                                    ghost
-                                    onClick={() => {
-                                        setSelectedProperty(record);
-                                        setRejectModalVisible(true);
-                                    }}
-                                />
-                            </Tooltip>
-                        </>
-                    )}
                     <Dropdown overlay={actionMenu(record)} trigger={['click']}>
                         <Button
                             icon={<MoreOutlined />}
@@ -972,119 +1284,77 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     return (
         <div>
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                    <Space wrap>
-                        <Search
-                            placeholder="Search properties, agents, addresses..."
-                            allowClear
-                            onSearch={handleSearch}
-                            style={{ width: 300 }}
-                        />
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 180 }}
-                            onChange={handleStatusFilter}
-                        >
-                            <Option value="all">All Status</Option>
-                            <Option value="pending">Pending Approval</Option>
-                            <Option value="approved">Approved</Option>
-                            <Option value="rejected">Rejected</Option>
-                            <Option value="available">Available</Option>
-                            <Option value="sold">Sold</Option>
-                            <Option value="rented">Rented</Option>
-                            <Option value="draft">Draft</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handleTypeFilter}
-                        >
-                            <Option value="all">All Types</Option>
-                            <Option value="House">House</Option>
-                            <Option value="Apartment">Apartment</Option>
-                            <Option value="Condo">Condo</Option>
-                            <Option value="Townhouse">Townhouse</Option>
-                            <Option value="Land">Land</Option>
-                            <Option value="Commercial">Commercial</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handlePriceRangeFilter}
-                        >
-                            <Option value="all">All Prices</Option>
-                            <Option value="0-500k">₱0 - ₱500K</Option>
-                            <Option value="500k-1M">₱500K - ₱1M</Option>
-                            <Option value="1M-5M">₱1M - ₱5M</Option>
-                            <Option value="5M+">₱5M+</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 130 }}
-                            onChange={handleBedroomsFilter}
-                        >
-                            <Option value="all">All Bedrooms</Option>
-                            <Option value="1">1 Bedroom</Option>
-                            <Option value="2">2 Bedrooms</Option>
-                            <Option value="3">3 Bedrooms</Option>
-                            <Option value="4+">4+ Bedrooms</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 130 }}
-                            onChange={handleBathroomsFilter}
-                        >
-                            <Option value="all">All Bathrooms</Option>
-                            <Option value="1">1 Bathroom</Option>
-                            <Option value="2">2 Bathrooms</Option>
-                            <Option value="3+">3+ Bathrooms</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handleCityFilter}
-                        >
-                            <Option value="all">All Cities</Option>
-                            {getUniqueCities().map(city => (
-                                <Option key={city} value={city}>{city}</Option>
-                            ))}
-                        </Select>
-                    </Space>
+                {/* Filters Section */}
+                <div style={{
+                    marginBottom: 16,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    flexDirection: isMobile ? 'column' : 'row'
+                }}>
+                    {renderFilters()}
 
-                    <Space>
+                    <Space style={{
+                        width: isMobile ? '100%' : 'auto',
+                        justifyContent: isMobile ? 'center' : 'flex-end',
+                        marginTop: isMobile ? '8px' : '0'
+                    }}>
                         <Tooltip title="Print">
-                            <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                            <Button icon={<PrinterOutlined />} onClick={handlePrint} size={isMobile ? "large" : "middle"}>
                                 Print
                             </Button>
                         </Tooltip>
                         <Tooltip title="Export PDF">
-                            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+                            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} size={isMobile ? "large" : "middle"}>
                                 PDF
                             </Button>
                         </Tooltip>
                         <Tooltip title="Export Excel">
-                            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+                            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel} size={isMobile ? "large" : "middle"}>
                                 Excel
                             </Button>
                         </Tooltip>
                     </Space>
                 </div>
 
-                <BaseTable
-                    data={filteredProperties}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} of ${total} properties`,
-                        position: ['bottomRight'] // Ensure pagination is always at bottom
-                    }}
-                    style={{ marginBottom: 0 }}
-                />
+                {/* Results Count */}
+                <div style={{ marginBottom: 16, textAlign: isMobile ? 'center' : 'left' }}>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                        Showing {filteredProperties.length} of {properties.length} properties
+                    </div>
+                </div>
+
+                {/* Conditional Rendering: Table for Desktop, Cards for Mobile */}
+                {!isMobile ? (
+                    <BaseTable
+                        data={filteredProperties}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} properties`,
+                            position: ['bottomRight']
+                        }}
+                        style={{ marginBottom: 0 }}
+                    />
+                ) : (
+                    <div>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                Loading properties...
+                            </div>
+                        ) : (
+                            <div>
+                                {filteredProperties.map(property => renderMobileCard(property))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </Card>
 
             {/* View Property Modal */}
@@ -1097,19 +1367,20 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         Close
                     </Button>,
                 ]}
-                width={800}
+                width={isMobile ? '100%' : 800}
+                style={isMobile ? { top: 0, padding: 0 } : { top: 20 }}
             >
                 {selectedProperty && (
                     <div>
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Basic Information</h3>
                                 <p><strong>Title:</strong> {selectedProperty.title}</p>
                                 <p><strong>Type:</strong> {selectedProperty.type}</p>
                                 <p><strong>Price:</strong> ₱{selectedProperty.price?.toLocaleString()}</p>
                                 <p><strong>Status:</strong> <Tag color={getStatusColor(selectedProperty.status)}>{getStatusText(selectedProperty.status)}</Tag></p>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Location</h3>
                                 <p><strong>Address:</strong> {selectedProperty.address}</p>
                                 <p><strong>City:</strong> {selectedProperty.city}</p>
@@ -1118,7 +1389,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             </Col>
                         </Row>
                         <Row gutter={16} style={{ marginTop: 16 }}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Specifications</h3>
                                 <p><strong>Bedrooms:</strong> {selectedProperty.bedrooms}</p>
                                 <p><strong>Bathrooms:</strong> {selectedProperty.bathrooms}</p>
@@ -1126,7 +1397,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 <p><strong>Garages:</strong> {selectedProperty.garage}</p>
                                 <p><strong>Area:</strong> {selectedProperty.areaSqm} sqm</p>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Agent Information</h3>
                                 <p><strong>Agent:</strong> {getAgentDisplayName(selectedProperty.agent)}</p>
                                 <p><strong>Email:</strong> {selectedProperty.agent?.email || 'N/A'}</p>
@@ -1171,6 +1442,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 onOk={() => handleReject(selectedProperty?.id, rejectReason)}
                 okText="Reject"
                 okType="danger"
+                width={isMobile ? '100%' : 520}
             >
                 <p>Please provide a reason for rejecting this property:</p>
                 <Input.TextArea
@@ -1187,8 +1459,8 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 open={mediaModalVisible}
                 onCancel={() => setMediaModalVisible(false)}
                 footer={null}
-                width={800}
-                style={{ top: 20 }}
+                width={isMobile ? '100%' : 800}
+                style={isMobile ? { top: 0, padding: 0 } : { top: 20 }}
             >
                 {selectedProperty && (() => {
                     const allMedia = getAllMedia(selectedProperty);
@@ -1209,7 +1481,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 {currentMedia.type === 'image' ? (
                                     <Image
                                         width="100%"
-                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        style={{ maxHeight: isMobile ? '300px' : '400px', objectFit: 'contain' }}
                                         src={currentMedia.url}
                                         alt={currentMedia.title}
                                         fallback="/fallback-image.png"
@@ -1217,7 +1489,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                 ) : (
                                     <video
                                         controls
-                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        style={{ width: '100%', maxHeight: isMobile ? '300px' : '400px' }}
                                         src={currentMedia.url}
                                     >
                                         Your browser does not support the video tag.

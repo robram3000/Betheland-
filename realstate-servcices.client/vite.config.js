@@ -118,7 +118,7 @@ export default defineConfig(({ mode }) => {
         define: {
             'process.env.VITE_APP_NAME': JSON.stringify('Betheland Real Estate'),
             'process.env.VITE_API_BASE_URL': JSON.stringify(
-                isProduction ? 'https://betheland.com' : '/api' 
+                isProduction ? 'https://betheland.runasp.net' : '/api' 
             ),
         },
 

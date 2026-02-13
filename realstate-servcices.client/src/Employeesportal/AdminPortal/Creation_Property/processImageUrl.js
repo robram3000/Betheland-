@@ -1,64 +1,38 @@
 ﻿// utils/imageUtils.js - CORRECTED VERSION (7080 only)
 export const processImageUrl = (url) => {
-    console.log('🖼️ Processing image URL:', url);
-
     if (!url || typeof url !== 'string' || url.trim() === '') {
-        console.log('🖼️ URL is empty, using default');
-        return '/default-property.jpg';
+        return '/default-avatar.jpg';
     }
 
-    const trimmedUrl = url.trim();
-
-    // If it's already a full URL, return as is
-    if (trimmedUrl.startsWith('http') || trimmedUrl.startsWith('//') || trimmedUrl.startsWith('blob:') || trimmedUrl.startsWith('data:')) {
-        console.log('🖼️ Already full URL:', trimmedUrl);
-        return trimmedUrl;
+    // Already full URL
+    if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+        return url;
     }
 
-    // Use port 7080 consistently for all images
-    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseUrl = isDevelopment ? 'https://localhost:7080' : 'http://betheland.runasp.net';
-    console.log('🖼️ Using base URL:', baseUrl);
-
-    // Handle absolute paths starting with /uploads/
-    if (trimmedUrl.startsWith('/uploads/')) {
-        const fullUrl = `${baseUrl}${trimmedUrl}`;
-        console.log('🖼️ Absolute uploads path ->', fullUrl);
-        return fullUrl;
+    // Server path - prepend appropriate base URL
+    if (url.startsWith('/uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}${url}`;
     }
 
-    // Handle relative paths starting with uploads/
-    if (trimmedUrl.startsWith('uploads/')) {
-        const fullUrl = `${baseUrl}/${trimmedUrl}`;
-        console.log('🖼️ Relative uploads path ->', fullUrl);
-        return fullUrl;
+    if (url.includes('.') && !url.startsWith('/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/uploads/agents/${url}`;
     }
 
-    // Handle paths that look like they're in the properties directory
-    if (trimmedUrl.includes('/') || trimmedUrl.includes('.')) {
-        // If it starts with /, it's an absolute path
-        if (trimmedUrl.startsWith('/')) {
-            const fullUrl = `${baseUrl}${trimmedUrl}`;
-            console.log('🖼️ Absolute path ->', fullUrl);
-            return fullUrl;
-        }
-        // If it contains properties/ or looks like a property image
-        else if (trimmedUrl.includes('properties/') || trimmedUrl.match(/[a-f0-9-]+\.(png|jpg|jpeg|gif|webp)/i)) {
-            const fullUrl = `${baseUrl}/uploads/properties/${trimmedUrl}`;
-            console.log('🖼️ Property image path ->', fullUrl);
-            return fullUrl;
-        }
+    // uploads/ path
+    if (url.startsWith('uploads/')) {
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/${url}`;
     }
 
-    // Final attempt - assume it's a property image
-    if (trimmedUrl.includes('.')) {
-        const fullUrl = `${baseUrl}/uploads/properties/${trimmedUrl}`;
-        console.log('🖼️ Fallback property path ->', fullUrl);
-        return fullUrl;
-    }
-
-    console.log('🖼️ No match, using default image');
-    return '/default-property.jpg';
+    return '/default-avatar.jpg';
 };
 
 // Helper function to get property image with fallback
@@ -124,6 +98,7 @@ export const getAllMedia = (property) => {
             title: 'Main Image'
         });
     }
+
 
     // Add property images
     if (property.propertyImages && property.propertyImages.length > 0) {

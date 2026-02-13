@@ -29,6 +29,27 @@ export const processImageUrl = (url) => {
     return '/default-property.jpg';
 };
 
+// Add this to your processImageUrl.js file
+export const getVideoThumbnail = (videoUrl) => {
+    if (!videoUrl) return '/default-video-thumb.jpg';
+
+    // If it's a video file, return default thumbnail
+    if (videoUrl.startsWith('blob:') || videoUrl.startsWith('data:')) {
+        return '/default-video-thumb.jpg';
+    }
+
+    // For existing videos, try to get thumbnail
+    const processedUrl = processImageUrl(videoUrl);
+
+    // You might want to implement actual video thumbnail extraction here
+    // For now, return default thumbnail for videos
+    return '/default-video-thumb.jpg';
+};
+
+export const isVideoFile = (file) => {
+    return file.type?.startsWith('video/') ||
+        file.name?.match(/\.(mp4|avi|mov|wmv|flv|webm|mkv)$/i);
+};
 // Alternative version using environment variables for more flexibility
 export const processImageUrlWithEnv = (url) => {
     if (!url) return '/default-property.jpg';

@@ -1,8 +1,9 @@
-﻿// ChatPage.jsx - UPDATED CODE (Removed automated chat)
-import React, { useState, useRef, useEffect } from 'react';
+﻿// ChatPage.jsx - FIXED VERSION - Continuous typing + Property images
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Row, Col, Card, Input, Avatar, Typography, List, Badge, Button, Space,
-    Tabs, message, Drawer, Popover, Upload, Modal, Segmented, Spin
+    Tabs, message, Drawer, Popover, Upload, Modal, Tag,
+    Tooltip, Alert, Dropdown, Descriptions, Rate, Divider, Spin
 } from 'antd';
 import {
     SearchOutlined, MoreOutlined, WechatOutlined,
@@ -10,12 +11,19 @@ import {
     LeftOutlined, SmileOutlined, EyeOutlined,
     PaperClipOutlined, FileImageOutlined, FileOutlined,
     PlayCircleOutlined, DeleteOutlined, UserOutlined,
-    TeamOutlined, MessageOutlined
+    TeamOutlined, MessageOutlined, VideoCameraOutlined,
+    PhoneOutlined, EllipsisOutlined, LikeOutlined,
+    HomeOutlined, StarOutlined, MailOutlined,
+    CalendarOutlined, EnvironmentOutlined, LoadingOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import chatService from '../Employeesportal/AdminPortal/Convo/chatService';
 import authService from '../Authpage/Services/LoginAuth';
 import propertyService from '../Employeesportal/AdminPortal/Creation_Property/services/propertyService';
+import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
+import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingScheduleServices';
+import './ChatPage.scss'; // Import SCSS file
 
 const { Search } = Input;
 const { TextArea } = Input;
@@ -24,6 +32,13 @@ const { Title, Text } = Typography;
 const ChatPage = ({ propertyChatData }) => {
     const navigate = useNavigate();
     const location = useLocation();
+
+    // State management
+    const [typingUsers, setTypingUsers] = useState({});
+    const [isOnline, setIsOnline] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState('disconnected');
+
+    // Chat states
     const [searchQuery, setSearchQuery] = useState('');
     const [activeChat, setActiveChat] = useState(null);
     const [newMessage, setNewMessage] = useState('');
@@ -33,10 +48,22 @@ const ChatPage = ({ propertyChatData }) => {
     const [fileList, setFileList] = useState([]);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewImage, setPreviewImage] = useState('');
-    const [loadingChats, setLoadingChats] = useState(false);
-    const [loadingMessages, setLoadingMessages] = useState(false);
-    const [sendingMessage, setSendingMessage] = useState(false);
-    const [userRole, setUserRole] = useState('client');
+    const [isLoading, setIsLoading] = useState(false);
+    const [lastUpdate, setLastUpdate] = useState(Date.now());
+    const [refreshInterval, setRefreshInterval] = useState(15000);
+    const [isSending, setIsSending] = useState(false);
+    const [currentAgent, setCurrentAgent] = useState(null);
+    const [propertyInfo, setPropertyInfo] = useState(null);
+    const [loadingAgent, setLoadingAgent] = useState(false);
+    const [agentRatingSummary, setAgentRatingSummary] = useState(null);
+    const [chats, setChats] = useState([]);
+    const [hasInitialized, setHasInitialized] = useState(false);
+    const [isCreatingChat, setIsCreatingChat] = useState(false);
+
+    // NEW: Track pending chat creation
+    const [isPendingChat, setIsPendingChat] = useState(false);
+
+    // FIXED: Use a simple ref for the textarea instead of state for typing
     const textAreaRef = useRef(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -71,9 +98,1186 @@ const ChatPage = ({ propertyChatData }) => {
     console.log('👤 Current User:', currentUser);
     console.log('🆔 ClientID:', ClientID);
 
-    const [chats, setChats] = useState([]);
-    const [hasInitialized, setHasInitialized] = useState(false);
+    // FIXED: Enhanced time formatting
+    const formatMessageTime = (date) => {
+        if (!date) return 'Just now';
+        try {
+            const messageDate = new Date(date);
+            const now = new Date();
+            if (isNaN(messageDate.getTime())) return 'Just now';
 
+            const diffMs = now - messageDate;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays}d ago`;
+
+            return messageDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: diffDays > 365 ? 'numeric' : undefined
+            });
+        } catch (error) {
+            console.error('Error formatting time:', error);
+            return 'Just now';
+        }
+    };
+
+    // FIXED: Chat time formatting
+    const formatChatTime = (date) => {
+        if (!date) return 'Now';
+        try {
+            const messageDate = new Date(date);
+            const now = new Date();
+            if (isNaN(messageDate.getTime())) return 'Now';
+
+            const diffMs = now - messageDate;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Now';
+            if (diffMins < 60) return `${diffMins}m`;
+            if (diffHours < 24) return `${diffHours}h`;
+            if (diffDays < 7) return `${diffDays}d`;
+
+            return messageDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            console.error('Error formatting chat time:', error);
+            return 'Now';
+        }
+    };
+
+    // FIXED: Enhanced loadExistingChats with property image handling
+    const loadExistingChats = async () => {
+        if (!ClientID || ClientID === 0) {
+            console.error('❌ ClientID not available');
+            message.error('Please log in to access chats');
+            return;
+        }
+
+        try {
+            console.log(`🔍 Loading chats for ClientID:`, ClientID);
+            setIsLoading(true);
+
+            let existingChats = [];
+
+            try {
+                const response = await chatService.getUserChats();
+                if (Array.isArray(response)) {
+                    existingChats = response;
+                    console.log(`✅ Found ${existingChats.length} chats via API`);
+                } else if (response?.data && Array.isArray(response.data)) {
+                    existingChats = response.data;
+                    console.log(`✅ Found ${existingChats.length} chats via API response.data`);
+                } else {
+                    console.warn('⚠️ Unexpected response format from service:', response);
+                    existingChats = [];
+                }
+            } catch (error) {
+                console.error('❌ Error loading chats from API:', error);
+                existingChats = [];
+            }
+
+            // Process chats with enhanced property image handling
+            const processedChats = await Promise.all(
+                existingChats.map(async (chat) => {
+                    try {
+                        const lastMessage = chat.lastMessage ||
+                            (chat.messages && chat.messages.length > 0
+                                ? chat.messages[chat.messages.length - 1]?.content
+                                : 'No messages yet');
+
+                        const lastMessageTime = chat.lastMessageAt ||
+                            (chat.messages && chat.messages.length > 0
+                                ? chat.messages[chat.messages.length - 1]?.sentAt
+                                : chat.updatedAt || chat.createdAt);
+
+                        // If chat already has property data from backend, use it
+                        let propertyData = chat.property || null;
+
+                        // If propertyId exists but no property data, fetch it
+                        if (chat.propertyId && !propertyData) {
+                            try {
+                                propertyData = await fetchPropertyData(chat.propertyId);
+                            } catch (propertyError) {
+                                console.error('❌ Error fetching property data:', propertyError);
+                            }
+                        }
+
+                        return {
+                            ...chat,
+                            lastMessage: lastMessage,
+                            lastMessageTime: lastMessageTime,
+                            property: propertyData
+                        };
+                    } catch (chatError) {
+                        console.error('❌ Error processing individual chat:', chatError);
+                        return chat;
+                    }
+                })
+            );
+
+            // Transform chats for UI
+            const transformedChats = processedChats.map(chat => {
+                try {
+                    // Find other participant (not current user)
+                    const otherParticipant = chat.participants?.find(p => {
+                        const participantId = p.baseMemberId || p.userId || p.id;
+                        return participantId && parseInt(participantId) !== parseInt(ClientID);
+                    });
+
+                    const lastMessage = chat.lastMessage || 'No messages yet';
+                    const lastMessageTime = chat.lastMessageTime || chat.updatedAt || chat.createdAt;
+
+                    // Sort messages chronologically - OLDEST FIRST
+                    const rawMessages = chat.messages || [];
+                    const sortedMessages = [...rawMessages].sort((a, b) => {
+                        const timeA = new Date(a.sentAt || a.createdAt || a.time);
+                        const timeB = new Date(b.sentAt || b.createdAt || b.time);
+                        return timeA - timeB; // Ascending order (oldest first)
+                    });
+
+                    // Transform messages for UI
+                    const transformedMessages = sortedMessages.map(msg => ({
+                        id: msg.id || msg.messageId || Date.now(),
+                        text: msg.content || msg.text || '',
+                        sender: (msg.senderId === parseInt(ClientID) || msg.sender === 'me') ? 'me' : 'other',
+                        time: formatMessageTime(new Date(msg.sentAt || msg.createdAt || msg.time)),
+                        files: msg.files || [],
+                        senderId: msg.senderId || parseInt(ClientID),
+                        isCurrentUser: msg.senderId === parseInt(ClientID) || msg.sender === 'me',
+                        sentAt: msg.sentAt || msg.createdAt || new Date().toISOString(),
+                        timestamp: new Date(msg.sentAt || msg.createdAt || msg.time).getTime()
+                    }));
+
+                    // Create display name
+                    let displayName = chat.name;
+                    if (!displayName) {
+                        displayName = otherParticipant?.member?.fullName ||
+                            otherParticipant?.name ||
+                            otherParticipant?.userName ||
+                            'Unknown Chat';
+                    }
+
+                    // Add property title to display name if available
+                    if (chat.property?.title && !displayName?.includes(chat.property.title)) {
+                        displayName = `${displayName} - ${chat.property.title}`;
+                    }
+
+                    // Get property image - prioritize property image over agent avatar
+                    const propertyImage = chat.property?.mainImage ||
+                        chat.property?.imageUrl ||
+                        '/default-property.jpg';
+
+                    // Agent avatar as fallback
+                    const agentAvatar = otherParticipant?.member?.profileImage ||
+                        otherParticipant?.profileImage ||
+                        otherParticipant?.avatar ||
+                        '/default-avatar.png';
+
+                    // Calculate unread count
+                    const unreadCount = chat.participants?.find(p => {
+                        const participantId = p.baseMemberId || p.userId || p.id;
+                        return participantId && parseInt(participantId) === parseInt(ClientID);
+                    })?.unreadCount || 0;
+
+                    return {
+                        id: chat.id?.toString() || `chat-${Date.now()}`,
+                        backendChatId: chat.id,
+                        name: displayName,
+                        lastMessage: lastMessage,
+                        time: formatChatTime(new Date(lastMessageTime)),
+                        unread: unreadCount,
+                        type: chat.chatType || 'direct',
+                        avatar: agentAvatar,
+                        propertyImage: propertyImage, // Store property image separately
+                        isAgentChat: chat.chatType === 'property_chat' || chat.isAgentChat || false,
+                        agentData: otherParticipant?.member || otherParticipant || null,
+                        propertyData: chat.property || null,
+                        propertyId: chat.propertyId,
+                        messages: transformedMessages,
+                        participants: chat.participants || [],
+                        otherParticipant: otherParticipant,
+                        createdAt: chat.createdAt,
+                        updatedAt: chat.updatedAt,
+                        lastMessageAt: lastMessageTime,
+                        isPending: false
+                    };
+                } catch (transformError) {
+                    console.error('❌ Error transforming chat:', transformError, chat);
+                    return {
+                        id: chat.id?.toString() || `error-chat-${Date.now()}`,
+                        backendChatId: chat.id,
+                        name: 'Error Loading Chat',
+                        lastMessage: 'Unable to load messages',
+                        time: 'Now',
+                        unread: 0,
+                        type: 'direct',
+                        avatar: '/default-avatar.png',
+                        propertyImage: '/default-property.jpg',
+                        isAgentChat: false,
+                        propertyData: null,
+                        messages: [],
+                        participants: [],
+                        isPending: false
+                    };
+                }
+            });
+
+            console.log('🎉 Successfully transformed chats:', transformedChats.length);
+            setChats(transformedChats);
+            return transformedChats;
+
+        } catch (error) {
+            console.error('💥 Critical error in loadExistingChats:', error);
+            message.error('Failed to load chats. Please try refreshing the page.');
+            setChats([]);
+            return [];
+        } finally {
+            setIsLoading(false);
+            setHasInitialized(true);
+        }
+    };
+
+    // FIXED: Handle chat selection
+    const handleChatSelect = async (chatId) => {
+
+        setActiveChat(chatId);
+
+        const selectedChat = chats.find(chat => chat.id === chatId);
+        if (!selectedChat) return;
+
+        // Reset current data
+        setCurrentAgent(null);
+        setPropertyInfo(null);
+        setAgentRatingSummary(null);
+        setIsPendingChat(selectedChat.isPending || false);
+
+        if (selectedChat.isPending) {
+            // For pending chats, use the pending data
+            if (selectedChat.propertyData) {
+                setPropertyInfo(selectedChat.propertyData);
+            }
+            if (selectedChat.agentData) {
+                setCurrentAgent(selectedChat.agentData);
+
+                // Try to fetch agent rating
+                try {
+                    const ratingSummary = await ratingScheduleService.getRatingSummary(selectedChat.agentData.baseMemberId);
+                    setAgentRatingSummary(ratingSummary);
+                } catch (ratingError) {
+                    console.error('Error fetching agent rating:', ratingError);
+                }
+            }
+        } else {
+            // For existing chats, fetch data as before
+            if (selectedChat.participants) {
+                await fetchAgentData(selectedChat.participants, ClientID);
+            }
+
+            // Fetch property data
+            if (selectedChat.propertyId) {
+                await fetchPropertyData(selectedChat.propertyId);
+            } else if (selectedChat.propertyData) {
+                setPropertyInfo(selectedChat.propertyData);
+            }
+        }
+
+        setSidebarVisible(false);
+
+        // Scroll to bottom after chat selection
+        setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+
+        // Focus the input after selecting chat
+        setTimeout(() => {
+            if (textAreaRef.current) {
+                textAreaRef.current.focus();
+            }
+        }, 200);
+    };
+
+    // FIXED: Enhanced agent data fetching
+    const fetchAgentData = async (participants, currentUserId) => {
+        if (!participants || !Array.isArray(participants)) {
+            console.warn('❌ No participants provided');
+            return null;
+        }
+
+        // Find agent participant (not current user)
+        const agentParticipant = participants.find(p => {
+            const participantId = p.baseMemberId || p.userId || p.id;
+            return participantId && parseInt(participantId) !== parseInt(currentUserId);
+        });
+
+        if (!agentParticipant) {
+            console.warn('❌ No agent participant found');
+            return null;
+        }
+
+        const agentId = agentParticipant.baseMemberId || agentParticipant.userId || agentParticipant.id;
+
+        if (!agentId) {
+            console.warn('❌ No agent ID found in participant');
+            return null;
+        }
+
+        try {
+            setLoadingAgent(true);
+            console.log('🔍 Fetching agent data for ID:', agentId);
+
+            let agentData;
+
+            // Try multiple methods to get agent data
+            try {
+                agentData = await agentService.getAgent(agentId);
+            } catch (error) {
+                console.warn('🔄 First method failed, trying getAgentByBaseMemberId:', error);
+                try {
+                    agentData = await agentService.getAgentByBaseMemberId(agentId);
+                } catch (secondError) {
+                    console.warn('🔄 Second method failed, trying fallback:', secondError);
+                    agentData = await agentService.getAgentWithFallback(agentId);
+                }
+            }
+
+            if (agentData) {
+                const processedAgent = {
+                    id: agentData.id || agentId,
+                    baseMemberId: agentData.baseMemberId || agentData.id,
+                    firstName: agentData.firstName || 'Unknown',
+                    lastName: agentData.lastName || 'Agent',
+                    fullName: agentData.firstName && agentData.lastName
+                        ? `${agentData.firstName} ${agentData.lastName}`
+                        : agentData.fullName || 'Unknown Agent',
+                    email: agentData.email || '',
+                    profilePictureUrl: agentData.profilePictureUrl || agentData.profileImage || agentParticipant.member?.profileImage || agentParticipant.profileImage || '',
+                    cellPhoneNo: agentData.cellPhoneNo || agentData.phone || '',
+                    licenseNumber: agentData.licenseNumber || '',
+                    isVerified: agentData.isVerified || false,
+                    brokerageName: agentData.brokerageName || agentData.company || 'Real Estate Company',
+                    specialization: agentData.specialization || [],
+                    yearsOfExperience: agentData.yearsOfExperience || 0,
+                    languages: agentData.languages || ['English'],
+                    rating: agentData.rating || 4.5,
+                    reviewCount: agentData.reviewCount || 24
+                };
+
+                console.log('✅ Processed agent data:', processedAgent);
+                setCurrentAgent(processedAgent);
+
+                // Fetch agent rating summary
+                try {
+                    const ratingSummary = await ratingScheduleService.getRatingSummary(agentId);
+                    setAgentRatingSummary(ratingSummary);
+                    console.log('✅ Agent rating summary:', ratingSummary);
+                } catch (ratingError) {
+                    console.error('❌ Error fetching agent rating summary:', ratingError);
+                    setAgentRatingSummary({
+                        averageRating: processedAgent.rating || 4.5,
+                        totalRatings: processedAgent.reviewCount || 24
+                    });
+                }
+
+                return processedAgent;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('❌ Error fetching agent data:', error);
+            // Create fallback agent from participant data
+            const fallbackAgent = {
+                id: agentId,
+                baseMemberId: agentId,
+                firstName: agentParticipant.member?.firstName || 'Unknown',
+                lastName: agentParticipant.member?.lastName || 'Agent',
+                fullName: agentParticipant.member?.fullName || 'Unknown Agent',
+                email: agentParticipant.member?.email || '',
+                profilePictureUrl: agentParticipant.member?.profileImage || agentParticipant.member?.profilePicture || agentParticipant.profileImage || agentParticipant.avatar || '/default-avatar.png',
+                cellPhoneNo: agentParticipant.member?.cellPhoneNo || '',
+                licenseNumber: agentParticipant.member?.licenseNumber || '',
+                isVerified: agentParticipant.member?.isVerified || false,
+                brokerageName: agentParticipant.member?.brokerageName || 'Real Estate Company',
+                specialization: agentParticipant.member?.specialization || [],
+                yearsOfExperience: agentParticipant.member?.yearsOfExperience || 0,
+                languages: agentParticipant.member?.languages || ['English'],
+                rating: 4.5,
+                reviewCount: 24
+            };
+            setCurrentAgent(fallbackAgent);
+            setAgentRatingSummary({
+                averageRating: 4.5,
+                totalRatings: 24
+            });
+            return fallbackAgent;
+        } finally {
+            setLoadingAgent(false);
+        }
+    };
+
+    // FIXED: Enhanced property data fetching
+    const fetchPropertyData = async (propertyId) => {
+        if (!propertyId) {
+            console.warn('❌ No property ID provided');
+            return null;
+        }
+
+        try {
+            console.log('🔍 Fetching property data for ID:', propertyId);
+
+            let propertyData;
+
+            try {
+                propertyData = await propertyService.getProperty(propertyId);
+            } catch (error) {
+                console.warn('🔄 First method failed, trying getAllProperties fallback:', error);
+                const allProperties = await propertyService.getAllProperties();
+                propertyData = allProperties.find(p => p.id === parseInt(propertyId));
+            }
+
+            if (propertyData) {
+                const processedProperty = {
+                    id: propertyData.id || propertyId,
+                    title: propertyData.title || propertyData.propertyName || 'Untitled Property',
+                    description: propertyData.description || '',
+                    type: propertyData.type || propertyData.propertyType || 'residential',
+                    price: parseFloat(propertyData.price) || 0,
+                    bedrooms: parseInt(propertyData.bedrooms) || 0,
+                    bathrooms: parseFloat(propertyData.bathrooms) || 0,
+                    areaSqm: parseInt(propertyData.areaSqm) || 0,
+                    areaSqft: propertyData.areaSqft || propertyData.squareFeet || 0,
+                    address: propertyData.address || '',
+                    city: propertyData.city || '',
+                    state: propertyData.state || '',
+                    zipCode: propertyData.zipCode || '',
+                    mainImage: propertyData.mainImage || propertyData.imageUrl || '/default-property.jpg',
+                    status: propertyData.status || 'available',
+                    amenities: propertyData.amenities || []
+                };
+
+                console.log('✅ Processed property data:', processedProperty);
+                setPropertyInfo(processedProperty);
+                return processedProperty;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('❌ Error fetching property data:', error);
+            return null;
+        }
+    };
+
+    // Create chat on first message only
+    const createNewChat = async (propertyChatData) => {
+        if (!propertyChatData || !ClientID) {
+            console.error('❌ Missing data for chat creation');
+            return null;
+        }
+
+        try {
+            setIsCreatingChat(true);
+            console.log('🆕 Creating new property chat:', propertyChatData);
+
+            const { property, agent } = propertyChatData;
+
+            // Prepare chat creation data
+            const chatCreationData = {
+                name: `${property.title} - ${agent.firstName} ${agent.lastName}`,
+                chatType: 'property_chat',
+                propertyId: property.id,
+                participantIds: [
+                    parseInt(ClientID), // Current user
+                    parseInt(agent.baseMemberId) // Agent
+                ]
+            };
+
+            console.log('📤 Creating chat with data:', chatCreationData);
+
+            // Create the chat via API
+            const newChat = await chatService.createChat(chatCreationData);
+            console.log('✅ New chat created:', newChat);
+
+            return newChat;
+        } catch (error) {
+            console.error('❌ Error creating new chat:', error);
+            throw error;
+        } finally {
+            setIsCreatingChat(false);
+        }
+    };
+
+    // FIXED: Enhanced send message function with chat creation on first message only
+    const handleSendMessage = async () => {
+        if ((!newMessage || newMessage.trim() === '') && fileList.length === 0) {
+            message.warning('Please enter a message or attach a file');
+            return;
+        }
+
+        const activeChatData = chats.find(chat => chat.id === activeChat);
+        if (!activeChatData) {
+            message.error('No active chat selected');
+            return;
+        }
+
+        try {
+            setIsSending(true);
+
+            // Check if this is a pending chat (needs to be created)
+            if (activeChatData.isPending) {
+                console.log('💬 First message in pending chat - creating chat first');
+
+                try {
+                    // Create the chat first
+                    const newChat = await createNewChat({
+                        property: activeChatData.propertyData,
+                        agent: activeChatData.agentData
+                    });
+
+                    if (!newChat) {
+                        throw new Error('Failed to create chat');
+                    }
+
+                    console.log('✅ Chat created successfully:', newChat);
+
+                    // Update the pending chat with the real backend ID
+                    const updatedChats = chats.map(chat =>
+                        chat.id === activeChat
+                            ? {
+                                ...chat,
+                                backendChatId: newChat.id,
+                                id: newChat.id.toString(),
+                                isPending: false,
+                                name: newChat.name || chat.name
+                            }
+                            : chat
+                    );
+
+                    setChats(updatedChats);
+
+                    // Update active chat ID
+                    setActiveChat(newChat.id.toString());
+
+                    // Now send the message
+                    await sendMessageToChat(newChat.id);
+
+                } catch (createError) {
+                    console.error('❌ Failed to create chat:', createError);
+                    message.error('Failed to create chat. Please try again.');
+                    return;
+                }
+            } else {
+                // For existing chats, just send the message
+                await sendMessageToChat(activeChatData.backendChatId);
+            }
+
+            // After sending, focus back on the input
+            setTimeout(() => {
+                if (textAreaRef.current) {
+                    textAreaRef.current.focus();
+                }
+            }, 100);
+
+        } catch (error) {
+            console.error('💥 Error sending message:', error);
+            message.error('Failed to send message: ' + (error.message || 'Unknown error'));
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    // Helper function to send message to an existing chat
+    const sendMessageToChat = async (backendChatId) => {
+        let uploadedFiles = [];
+
+        // Upload files if any
+        if (fileList.length > 0) {
+            message.info(`Uploading ${fileList.length} file(s)...`);
+            for (const file of fileList) {
+                try {
+                    // Simulate file upload
+                    const mockUploadResult = {
+                        success: true,
+                        fileUrl: URL.createObjectURL(file),
+                        fileName: file.name,
+                        fileType: file.type.startsWith('image/') ? 'image' :
+                            file.type.startsWith('video/') ? 'video' : 'file',
+                        fileSize: file.size,
+                        mimeType: file.type
+                    };
+
+                    if (mockUploadResult.success && mockUploadResult.fileUrl) {
+                        uploadedFiles.push({
+                            fileName: mockUploadResult.fileName,
+                            fileUrl: mockUploadResult.fileUrl,
+                            fileType: mockUploadResult.fileType,
+                            fileSize: mockUploadResult.fileSize,
+                            mimeType: mockUploadResult.mimeType
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ File upload failed:', error);
+                    message.error(`Failed to upload ${file.name}`);
+                }
+            }
+        }
+
+        // Get recipient ID from participants
+        const activeChatData = chats.find(chat => chat.id === activeChat);
+        const recipientId = activeChatData.participants?.find(p =>
+            p.baseMemberId !== parseInt(ClientID)
+        )?.baseMemberId;
+
+        // Use the correct payload structure
+        const messagePayload = {
+            content: newMessage.trim(),
+            messageType: uploadedFiles.length > 0 ? 'file' : 'text',
+            recipientId: recipientId || null,
+            files: uploadedFiles
+        };
+
+        console.log('📤 Sending message payload:', messagePayload);
+
+        // Call sendMessage with correct parameters
+        await chatService.sendMessage(backendChatId, messagePayload);
+
+        // Update UI immediately for better UX
+        const newMessageObj = {
+            id: Date.now(),
+            text: newMessage.trim(),
+            sender: 'me',
+            time: 'Just now',
+            files: uploadedFiles,
+            senderId: parseInt(ClientID),
+            isCurrentUser: true,
+            sentAt: new Date().toISOString(),
+            timestamp: Date.now()
+        };
+
+        setChats(prev => prev.map(chat =>
+            chat.id === activeChat
+                ? {
+                    ...chat,
+                    messages: [...(chat.messages || []), newMessageObj],
+                    lastMessage: newMessage.trim() || `${uploadedFiles.length} file(s)`,
+                    time: 'Now',
+                    unread: 0
+                }
+                : chat
+        ));
+
+        message.success('Message sent! 🎉');
+        setNewMessage('');
+        setFileList([]);
+        setEmojiPickerVisible(false);
+
+        // Scroll to bottom
+        setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    };
+
+    // Create a pending chat (not saved to backend yet)
+    const createPendingChat = (propertyChatData) => {
+        console.log('🔄 Creating pending chat for display');
+
+        const pendingChatId = `pending-chat-${Date.now()}`;
+
+        // Create pending chat object
+        const pendingChat = {
+            id: pendingChatId,
+            backendChatId: null,
+            name: `${propertyChatData.property.title} - ${propertyChatData.agent.firstName} ${propertyChatData.agent.lastName}`,
+            lastMessage: 'Start a conversation about this property...',
+            time: 'Now',
+            unread: 0,
+            type: 'property_chat',
+            avatar: propertyChatData.agent.profileImage || '/default-avatar.png',
+            propertyImage: propertyChatData.property.mainImage || '/default-property.jpg',
+            isAgentChat: true,
+            agentData: propertyChatData.agent,
+            propertyData: propertyChatData.property,
+            propertyId: propertyChatData.property.id,
+            messages: [], // Empty messages for new chat
+            participants: [
+                {
+                    baseMemberId: parseInt(ClientID),
+                    member: {
+                        id: parseInt(ClientID),
+                        fullName: currentUser?.fullName || 'You',
+                        profileImage: currentUser?.profileImage
+                    }
+                },
+                {
+                    baseMemberId: parseInt(propertyChatData.agent.baseMemberId),
+                    member: propertyChatData.agent
+                }
+            ],
+            isPending: true,
+            pendingChatData: propertyChatData
+        };
+
+        return pendingChat;
+    };
+
+    // Handle incoming chat data from PropertyLocation
+    const handleIncomingChatData = async (propertyChatData) => {
+        if (!propertyChatData) return;
+
+        console.log('📍 Handling incoming chat data:', propertyChatData);
+
+        // Set property and agent info immediately for display
+        if (propertyChatData.property) {
+            setPropertyInfo(propertyChatData.property);
+        }
+        if (propertyChatData.agent) {
+            setCurrentAgent(propertyChatData.agent);
+
+            // Fetch agent rating
+            try {
+                const ratingSummary = await ratingScheduleService.getRatingSummary(propertyChatData.agent.baseMemberId);
+                setAgentRatingSummary(ratingSummary);
+            } catch (ratingError) {
+                console.error('Error fetching agent rating:', ratingError);
+            }
+        }
+
+        // Wait for chats to load first
+        if (!hasInitialized) {
+            console.log('🔄 Initializing chats first...');
+            await loadExistingChats();
+        }
+
+        // Check if a chat already exists for this property and agent
+        const existingChat = chats.find(chat =>
+            chat.propertyId === propertyChatData.property.id &&
+            chat.participants?.some(p =>
+                p.baseMemberId === parseInt(propertyChatData.agent.baseMemberId)
+            ) &&
+            !chat.isPending
+        );
+
+        if (existingChat) {
+            console.log('✅ Found existing chat:', existingChat.id);
+            await handleChatSelect(existingChat.id);
+        } else {
+            console.log('🆕 No existing chat found, creating pending chat');
+
+            // Create a pending chat (not saved to backend yet)
+            const pendingChat = createPendingChat(propertyChatData);
+
+            // Add to chats list
+            setChats(prev => [...prev, pendingChat]);
+
+            // Select the pending chat
+            setActiveChat(pendingChat.id);
+            setIsPendingChat(true);
+
+            // Show info message
+            message.info('New chat started. Send your first message to save this conversation!');
+
+            // Focus the input for new chat
+            setTimeout(() => {
+                if (textAreaRef.current) {
+                    textAreaRef.current.focus();
+                }
+            }, 300);
+        }
+    };
+
+    const handleInputChange = useCallback((e) => {
+        setNewMessage(e.target.value);
+    }, []);
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
+    // Handle property chat data from navigation
+    useEffect(() => {
+        if (location.state?.propertyChat) {
+            console.log('📍 Property chat data from navigation:', location.state.propertyChat);
+            handleIncomingChatData(location.state.propertyChat);
+        }
+    }, [location.state]);
+
+    // Initial load
+    useEffect(() => {
+        if (ClientID && !hasInitialized) {
+            loadExistingChats();
+        }
+    }, [ClientID]);
+
+    // Auto-select first chat when chats are loaded
+    useEffect(() => {
+        if (chats.length > 0 && !activeChat && hasInitialized && !location.state?.propertyChat) {
+            console.log('🔄 Auto-selecting first chat:', chats[0].id);
+            handleChatSelect(chats[0].id);
+        }
+    }, [chats, activeChat, hasInitialized, location.state]);
+
+    // Focus the input when active chat changes
+    useEffect(() => {
+        if (activeChat && textAreaRef.current) {
+            setTimeout(() => {
+                textAreaRef.current?.focus();
+            }, 200);
+        }
+    }, [activeChat]);
+
+    // Auto-reload for new messages
+    useEffect(() => {
+        if (!ClientID) return;
+
+        const intervalId = setInterval(() => {
+            if (!isSending && !isCreatingChat && !isPendingChat) {
+                loadExistingChats();
+            }
+        }, refreshInterval);
+
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [ClientID, refreshInterval, isSending, isCreatingChat, isPendingChat]);
+
+    // WebSocket initialization
+    useEffect(() => {
+        const webSocketService = chatService.getWebSocketService();
+
+        // Set up WebSocket event handlers
+        const handleNewMessage = (messageData) => {
+            console.log('🆕 Real-time message received:', messageData);
+            // Handle new messages via WebSocket
+            loadExistingChats(); // Reload chats to get updated messages
+        };
+
+        const handleConnectionStatus = (data) => {
+            console.log('WebSocket connection status:', data.status);
+            setIsOnline(data.status === 'connected');
+            setConnectionStatus(data.status);
+        };
+
+        // Register event handlers
+        webSocketService.on('new_message', handleNewMessage);
+        webSocketService.on('connection', handleConnectionStatus);
+
+        // Connect to WebSocket if authenticated
+        if (ClientID && chatService.isAuthenticated()) {
+            console.log('🔌 Initializing WebSocket connection...');
+            setTimeout(() => {
+                webSocketService.connect();
+            }, 2000);
+        }
+
+        // Cleanup
+        return () => {
+            webSocketService.off('new_message', handleNewMessage);
+            webSocketService.off('connection', handleConnectionStatus);
+        };
+    }, [ClientID]);
+
+    // Get active chat data
+    const activeChatData = chats.find(chat => chat.id === activeChat);
+
+    // Filter chats based on search and tab
+    const filteredChats = chats.filter(chat => {
+        if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false;
+        }
+        if (activeTab === 'unread' && chat.unread === 0) {
+            return false;
+        }
+        return true;
+    });
+
+    // FIXED: Chat list item with PROPERTY IMAGE display
+    const ChatListItem = ({ chat }) => {
+        const propertyImage = chat.propertyImage || '/default-property.jpg';
+        const isPending = chat.isPending;
+
+        return (
+            <List.Item
+                className={`chat-page-list-item ${activeChat === chat.id ? 'chat-page-list-item-active' : ''} ${isPending ? 'chat-page-list-item-pending' : ''}`}
+                onClick={() => handleChatSelect(chat.id)}
+            >
+                <div className="chat-page-list-item-content">
+                    {/* Property Image - Always show property image for property chats */}
+                    <div className="chat-page-list-item-image-container">
+                        <div className="chat-page-list-item-image-wrapper">
+                            <img
+                                src={propertyImage}
+                                alt={chat.propertyData?.title || 'Property'}
+                                className="chat-page-list-item-property-image"
+                                onError={(e) => {
+                                    e.target.src = '/default-property.jpg';
+                                }}
+                            />
+                            {/* Agent avatar overlay for property chats */}
+                            {chat.isAgentChat && (
+                                <div className="chat-page-list-item-agent-avatar-overlay">
+                                    <img
+                                        src={chat.avatar}
+                                        alt="Agent"
+                                        className="chat-page-list-item-agent-avatar"
+                                        onError={(e) => {
+                                            e.target.src = '/default-avatar.png';
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pending indicator */}
+                        {isPending && (
+                            <div className="chat-page-list-item-pending-indicator">
+                                +
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="chat-page-list-item-text-container">
+                        <div className="chat-page-list-item-header">
+                            {/* Property Title */}
+                            <Text strong className="chat-page-list-item-property-title">
+                                {chat.propertyData?.title || 'Property Chat'}
+                                {isPending && (
+                                    <Tag color="orange" size="small" className="chat-page-list-item-new-tag">
+                                        New
+                                    </Tag>
+                                )}
+                            </Text>
+
+                            {/* Time */}
+                            <Text type="secondary" className="chat-page-list-item-time">
+                                {chat.time}
+                            </Text>
+                        </div>
+
+                        {/* Property Address */}
+                        {chat.propertyData?.address && (
+                            <Text className="chat-page-list-item-property-address">
+                                {chat.propertyData.address}
+                            </Text>
+                        )}
+
+                        {/* Agent Name */}
+                        {chat.agentData?.fullName && (
+                            <Text className="chat-page-list-item-agent-name">
+                                with {chat.agentData.fullName}
+                            </Text>
+                        )}
+
+                        {/* Last Message Preview */}
+                        <Text className="chat-page-list-item-last-message">
+                            {isPending ? 'Start conversation...' : chat.lastMessage}
+                        </Text>
+                    </div>
+                </div>
+            </List.Item>
+        );
+    };
+
+    // FIXED: Message bubble component
+    const MessageBubble = ({ message }) => {
+        const hasFiles = message.files && message.files.length > 0;
+
+        return (
+            <div className={`chat-page-message-bubble-container ${message.sender === 'me' ? 'chat-page-message-bubble-container-me' : 'chat-page-message-bubble-container-other'}`}>
+                <div className={`chat-page-message-bubble ${message.sender === 'me' ? 'chat-page-message-bubble-me' : 'chat-page-message-bubble-other'}`}>
+                    {/* File attachments */}
+                    {hasFiles && (
+                        <div className="chat-page-message-files-container">
+                            {message.files.map((file, index) => (
+                                <div key={index} className="chat-page-message-file-item">
+                                    <div className="chat-page-message-file-header">
+                                        {file.fileType === 'image' ? (
+                                            <FileImageOutlined className="chat-page-message-file-icon chat-page-message-file-icon-image" />
+                                        ) : file.fileType === 'video' ? (
+                                            <PlayCircleOutlined className="chat-page-message-file-icon chat-page-message-file-icon-video" />
+                                        ) : (
+                                            <FileOutlined className="chat-page-message-file-icon chat-page-message-file-icon-document" />
+                                        )}
+                                        <div className="chat-page-message-file-info">
+                                            <div className="chat-page-message-file-name">
+                                                {file.fileName}
+                                            </div>
+                                            <div className="chat-page-message-file-size">
+                                                {file.fileSize ? formatFileSize(file.fileSize) : 'Unknown size'}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<EyeOutlined />}
+                                            onClick={() => window.open(file.fileUrl, '_blank')}
+                                            className="chat-page-message-file-view-button"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Message text */}
+                    {message.text && (
+                        <div className="chat-page-message-text">
+                            {message.text}
+                        </div>
+                    )}
+
+                    {/* Message time */}
+                    <div className="chat-page-message-time">
+                        {message.time}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Helper function to format file size
+    const formatFileSize = (bytes) => {
+        if (!bytes) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Property Info Display Component
+    const PropertyInfoCard = () => {
+        if (!propertyInfo) return null;
+
+        return (
+            <div className="chat-page-property-info-container">
+                <Card className="chat-page-property-info-card">
+                    <div className="chat-page-property-info-content">
+                        <img
+                            src={propertyInfo.mainImage}
+                            alt={propertyInfo.title}
+                            className="chat-page-property-info-image"
+                            onError={(e) => {
+                                e.target.src = '/default-property.jpg';
+                            }}
+                        />
+                        <div className="chat-page-property-info-details">
+                            <Text strong className="chat-page-property-info-title">
+                                {propertyInfo.title}
+                            </Text>
+                            <div className="chat-page-property-info-address">
+                                <EnvironmentOutlined className="chat-page-property-info-address-icon" />
+                                <Text type="secondary" className="chat-page-property-info-address-text">
+                                    {propertyInfo.address}
+                                </Text>
+                            </div>
+                            <div className="chat-page-property-info-features">
+                                {propertyInfo.bedrooms > 0 && (
+                                    <div className="chat-page-property-info-feature">
+                                        <HomeOutlined className="chat-page-property-info-feature-icon" />
+                                        <Text className="chat-page-property-info-feature-text">{propertyInfo.bedrooms} bed</Text>
+                                    </div>
+                                )}
+                                {propertyInfo.bathrooms > 0 && (
+                                    <div className="chat-page-property-info-feature">
+                                        <UserOutlined className="chat-page-property-info-feature-icon" />
+                                        <Text className="chat-page-property-info-feature-text">{propertyInfo.bathrooms} bath</Text>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="chat-page-property-info-price-container">
+                                <Text strong className="chat-page-property-info-price">
+                                    {propertyInfo.price ? `₱${propertyInfo.price.toLocaleString()}` : 'Price not set'}
+                                </Text>
+                                <Tag color={propertyInfo.status === 'available' ? 'green' : 'orange'} className="chat-page-property-info-status-tag">
+                                    {propertyInfo.status || 'Available'}
+                                </Tag>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        );
+    };
+
+    // Chat header component
+    const ChatHeader = () => {
+        if (!activeChatData) return null;
+
+        return (
+            <div className="chat-page-header">
+                <div className="chat-page-header-content">
+                    <Space size="small" className="chat-page-header-left">
+                        <Button
+                            type="text"
+                            icon={<LeftOutlined />}
+                            onClick={() => setSidebarVisible(true)}
+                            className="chat-page-header-back-button"
+                        />
+                        <Avatar
+                            src={currentAgent?.profilePictureUrl || activeChatData?.avatar}
+                            size={48}
+                            className="chat-page-header-avatar"
+                        >
+                            {currentAgent?.firstName?.charAt(0) || 'U'}
+                        </Avatar>
+                        <div className="chat-page-header-info">
+                            <Title level={4} className="chat-page-header-title">
+                                {currentAgent?.fullName || activeChatData?.name}
+                                {isPendingChat && (
+                                    <Tag color="orange" size="small" className="chat-page-header-new-tag">
+                                        New Chat
+                                    </Tag>
+                                )}
+                            </Title>
+
+                            {propertyInfo && (
+                                <Text className="chat-page-header-property-info">
+                                    {propertyInfo.title} • {propertyInfo.address}
+                                </Text>
+                            )}
+
+                            {currentAgent && (
+                                <div className="chat-page-header-rating">
+                                    <Rate
+                                        disabled
+                                        value={agentRatingSummary?.averageRating || currentAgent.rating}
+                                        className="chat-page-header-rating-stars"
+                                    />
+                                    <Text type="secondary" className="chat-page-header-rating-text">
+                                        {(agentRatingSummary?.averageRating || currentAgent.rating)?.toFixed(1) || '5.0'}
+                                        ({agentRatingSummary?.totalRatings || currentAgent.reviewCount || 0} reviews)
+                                    </Text>
+                                </div>
+                            )}
+                        </div>
+                    </Space>
+
+                    <Space>
+                        {isPendingChat && (
+                            <Tooltip title="This chat will be saved when you send your first message">
+                                <Tag color="orange" icon={<InfoCircleOutlined />} className="chat-page-header-unsaved-tag">
+                                    Unsaved Chat
+                                </Tag>
+                            </Tooltip>
+                        )}
+                    </Space>
+                </div>
+            </div>
+        );
+    };
+
+    // Common emojis
     const commonEmojis = [
         '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
         '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
@@ -86,936 +1290,220 @@ const ChatPage = ({ propertyChatData }) => {
         '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈',
         '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾',
         '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿',
-        '😾'
+        '😾', '❤️', '👍', '👎', '🔥', '⭐', '🎉'
     ];
 
-    // Get user role
-    const getUserRole = () => {
-        try {
-            const role = currentUser?.userType || currentUser?.role || 'client';
-            setUserRole(role);
-            return role;
-        } catch (error) {
-            console.warn('Could not get user role:', error);
-            return 'client';
-        }
-    };
-
-    // Format message time
-    const formatMessageTime = (date) => {
-        if (!date) return 'Just now';
-        const messageDate = new Date(date);
-        const now = new Date();
-        const diffMs = now - messageDate;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return messageDate.toLocaleDateString();
-    };
-
-    // FIXED: Enhanced getPropertyData function
-    const getPropertyData = async (propertyId) => {
-        if (!propertyId) {
-            console.log('❌ No propertyId provided');
-            return null;
-        }
-
-        try {
-            console.log('🏠 Fetching property data for ID:', propertyId);
-
-            // Convert to number if it's a string
-            const id = parseInt(propertyId);
-            if (isNaN(id)) {
-                console.error('❌ Invalid property ID:', propertyId);
-                return null;
-            }
-
-            let property;
-
-            // Try different service methods
-            try {
-                property = await propertyService.getProperty(id);
-                console.log('✅ Property data from getProperty:', property);
-            } catch (error) {
-                console.log('🔄 Trying getPropertyById...');
-                try {
-                    property = await propertyService.getPropertyById(id);
-                    console.log('✅ Property data from getPropertyById:', property);
-                } catch (secondError) {
-                    console.log('🔄 Trying getAllProperties as fallback...');
-                    try {
-                        const allProperties = await propertyService.getAllProperties();
-                        property = allProperties.find(p => p.id === id);
-                        console.log('✅ Property data from getAllProperties:', property);
-                    } catch (thirdError) {
-                        console.error('❌ All property fetch methods failed:', thirdError);
-                        return null;
-                    }
-                }
-            }
-
-            if (property) {
-                // Process property data with multiple fallbacks
-                const processedProperty = {
-                    id: property.id || propertyId,
-                    title: property.title || property.name || 'Property',
-                    description: property.description || '',
-                    type: property.type || property.propertyType || 'residential',
-                    price: property.price || property.listPrice || 0,
-                    bedrooms: property.bedrooms || 0,
-                    bathrooms: property.bathrooms || 0,
-                    areaSqm: property.areaSqm || property.squareFeet || 0,
-                    address: property.address || property.street || '',
-                    city: property.city || '',
-                    state: property.state || '',
-                    zipCode: property.zipCode || '',
-                    country: property.country || '',
-                    barangay: property.barangay || '',
-                    status: property.status || 'available',
-                    mainImage: property.mainImage ||
-                        property.imageUrl ||
-                        (property.propertyImages && property.propertyImages[0]?.imageUrl) ||
-                        (property.imageUrls && property.imageUrls[0]) ||
-                        '/default-property.jpg',
-                    fullAddress: property.fullAddress ||
-                        `${property.address || ''} ${property.city || ''} ${property.state || ''}`.trim(),
-                    listedDate: property.listedDate || property.createdAt,
-                    ownerId: property.ownerId,
-                    agentId: property.agentId
-                };
-
-                console.log('✅ Processed property data:', processedProperty);
-                return processedProperty;
-            }
-
-            console.warn('⚠️ No property data found for ID:', propertyId);
-            return null;
-        } catch (error) {
-            console.error('❌ Error fetching property data:', error);
-            return null;
-        }
-    };
-
-    // FIXED: Enhanced loadExistingChats with proper property data handling
-    const loadExistingChats = async () => {
-        if (!ClientID || ClientID === 0) {
-            console.error('❌ ClientID not available');
-            message.error('Please log in to access chats');
-            return;
-        }
-
-        try {
-            setLoadingChats(true);
-            console.log(`🔍 Loading chats for ClientID:`, ClientID);
-
-            let existingChats = [];
-            const role = getUserRole();
-
-            // Load chats based on user role
-            try {
-                existingChats = await chatService.getUserChats();
-            } catch (error) {
-                console.log('🔄 Fallback to user chats:', error);
-                existingChats = await chatService.getUserChats();
-            }
-
-            if (existingChats && existingChats.length > 0) {
-                console.log(`✅ Found ${existingChats.length} chats`);
-
-                // Process chats with property data
-                const processedChats = await Promise.all(
-                    existingChats.map(async (chat) => {
-                        console.log('🔍 Processing chat:', chat);
-
-                        // Check if chat already has property data from backend
-                        if (chat.property) {
-                            console.log('✅ Chat already has property data from backend:', chat.property);
-                            return chat;
-                        }
-
-                        // If chat has propertyId but no property data, fetch it
-                        if (chat.propertyId && !chat.property) {
-                            try {
-                                console.log('🏠 Fetching property data for chat propertyId:', chat.propertyId);
-                                const propertyData = await getPropertyData(chat.propertyId);
-                                if (propertyData) {
-                                    console.log('✅ Property data fetched successfully');
-                                    return {
-                                        ...chat,
-                                        property: propertyData
-                                    };
-                                }
-                            } catch (error) {
-                                console.error('❌ Error fetching property data:', error);
+    const EmojiPickerContent = () => (
+        <div className="chat-page-emoji-picker">
+            {commonEmojis.map((emoji, index) => (
+                <Button
+                    key={index}
+                    type="text"
+                    onClick={() => {
+                        setNewMessage(prev => prev + emoji);
+                        setEmojiPickerVisible(false);
+                        // Focus back on textarea after adding emoji
+                        setTimeout(() => {
+                            if (textAreaRef.current) {
+                                textAreaRef.current.focus();
                             }
-                        }
+                        }, 100);
+                    }}
+                    className="chat-page-emoji-button"
+                >
+                    {emoji}
+                </Button>
+            ))}
+        </div>
+    );
 
-                        return chat;
-                    })
-                );
-
-                console.log('✅ All chats processed with property data');
-
-                // Transform to frontend format
-                const transformedChats = processedChats.map(chat => {
-                    const otherParticipant = chat.participants?.find(p =>
-                        p.baseMemberId !== parseInt(ClientID)
-                    );
-
-                    const lastMessage = chat.messages && chat.messages.length > 0
-                        ? chat.messages[chat.messages.length - 1]
-                        : null;
-
-                    // Transform messages
-                    const transformedMessages = (chat.messages || []).map(msg => ({
-                        id: msg.id,
-                        text: msg.content,
-                        sender: msg.senderId === parseInt(ClientID) ? 'me' : 'other',
-                        time: formatMessageTime(new Date(msg.sentAt)),
-                        files: msg.files || [],
-                        senderId: msg.senderId,
-                        isCurrentUser: msg.senderId === parseInt(ClientID)
-                    }));
-
-                    // Determine chat display name with property title
-                    let displayName = chat.name;
-                    if (chat.property?.title && !displayName?.includes(chat.property.title)) {
-                        displayName = `${otherParticipant?.member?.fullName || 'Unknown'} - ${chat.property.title}`;
-                    } else if (!displayName) {
-                        displayName = otherParticipant?.member?.fullName || 'Unknown Chat';
-                    }
-
-                    return {
-                        id: chat.id.toString(),
-                        backendChatId: chat.id,
-                        name: displayName,
-                        lastMessage: lastMessage?.content || 'No messages yet',
-                        time: lastMessage ? formatMessageTime(new Date(lastMessage.sentAt)) : 'Just now',
-                        unread: chat.participants?.find(p => p.baseMemberId === parseInt(ClientID))?.unreadCount || 0,
-                        type: chat.chatType || 'direct',
-                        avatar: otherParticipant?.member?.profileImage || '/default-avatar.png',
-                        online: true,
-                        isAgentChat: chat.chatType === 'property_chat',
-                        agentData: otherParticipant?.member || null,
-                        propertyData: chat.property,
-                        propertyId: chat.propertyId,
-                        messages: transformedMessages,
-                        participants: chat.participants || []
-                    };
-                });
-
-                console.log('🎉 Transformed chats:', transformedChats);
-                setChats(transformedChats);
-            } else {
-                console.log('📭 No chats found');
-                setChats([]);
-            }
-        } catch (error) {
-            console.error('💥 Error loading chats:', error);
-            message.error('Failed to load chats: ' + (error.message || 'Unknown error'));
-        } finally {
-            setLoadingChats(false);
-            setHasInitialized(true);
-        }
-    };
-
-    const loadChatMessages = async (chatId) => {
-        if (!chatId) return;
-        try {
-            setLoadingMessages(true);
-            const chat = chats.find(c => c.id === chatId);
-            if (!chat?.backendChatId) {
-                console.log('📝 No backend chat ID, using local messages');
-                return;
-            }
-
-            const messages = await chatService.getChatMessages(chat.backendChatId);
-            if (messages && messages.length > 0) {
-                const transformedMessages = messages.map(msg => ({
-                    id: msg.id,
-                    text: msg.content,
-                    sender: msg.senderId === parseInt(ClientID) ? 'me' : 'other',
-                    time: formatMessageTime(new Date(msg.sentAt)),
-                    files: msg.files || [],
-                    senderId: msg.senderId,
-                    isCurrentUser: msg.senderId === parseInt(ClientID)
-                }));
-
-                setChats(prev => prev.map(chat =>
-                    chat.id === chatId
-                        ? { ...chat, messages: transformedMessages }
-                        : chat
-                ));
-            }
-        } catch (error) {
-            console.error('❌ Error loading messages:', error);
-        } finally {
-            setLoadingMessages(false);
-        }
-    };
-
-    // Initialize on mount
-    useEffect(() => {
-        console.log('🚀 ChatPage mounted');
-        console.log('👤 Current User:', currentUser);
-        console.log('🆔 ClientID:', ClientID);
-
-        if (ClientID && ClientID !== 0) {
-            loadExistingChats();
-        } else {
-            console.error('❌ User not authenticated');
-            message.warning('Please log in to access chats');
-        }
-    }, []);
-
-    // Handle property chat data
-    useEffect(() => {
-        if (propertyChatData && hasInitialized) {
-            console.log('🎯 Property chat data received:', propertyChatData);
-            handlePropertyChat(propertyChatData);
-        }
-    }, [propertyChatData, hasInitialized]);
-
-    // FIX 2: IMPROVED CHAT HANDLING - FIND EXISTING CHATS FIRST
-    const handlePropertyChat = async (propertyChatData) => {
-        console.log('🔍 Starting property chat handling...');
-
-        if (!propertyChatData?.agent || !propertyChatData?.property) {
-            console.error('❌ Invalid property chat data:', propertyChatData);
-            message.error('Unable to start chat: Missing agent or property information');
-            return;
-        }
-
-        const agent = propertyChatData.agent;
-        const property = propertyChatData.property;
-
-        const agentId = agent.id || agent.agentId || agent.userId || agent.baseMemberId;
-        const propertyId = property.id;
-
-        if (!agentId || !propertyId) {
-            console.error('❌ Missing agentId or propertyId');
-            message.error('Unable to start chat: Missing required information');
-            return;
-        }
-
-        console.log('👨‍💼 Looking for chat with Agent ID:', agentId);
-        console.log('🏠 For Property ID:', propertyId);
-
-        // FIX 2: CHECK FOR EXISTING CHATS MORE THOROUGHLY
-        const existingChat = chats.find(chat => {
-            // Check if chat has the same agent and property
-            const hasSameAgent = chat.agentData?.id === agentId ||
-                chat.agentData?.baseMemberId === agentId;
-            const hasSameProperty = chat.propertyData?.id === propertyId ||
-                chat.propertyId === propertyId;
-
-            return hasSameAgent && hasSameProperty;
-        });
-
-        if (existingChat) {
-            console.log('✅ Found existing chat:', existingChat);
-            setActiveChat(existingChat.id);
-            message.info('Continuing existing conversation');
-            return;
-        }
-
-        // Check if we have backend chats that match
-        const checkBackendChats = async () => {
-            try {
-                // Try to find existing backend chat
-                const userChats = await chatService.getUserChats();
-                const existingBackendChat = userChats.find(chat => {
-                    const hasAgent = chat.participants?.some(p =>
-                        p.baseMemberId === parseInt(agentId) ||
-                        p.member?.id === parseInt(agentId)
-                    );
-                    const hasProperty = chat.propertyId === propertyId;
-                    return hasAgent && hasProperty;
-                });
-
-                if (existingBackendChat) {
-                    console.log('✅ Found existing backend chat:', existingBackendChat);
-                    // Reload chats to include this one
-                    await loadExistingChats();
-
-                    // Find the chat in the updated list and set as active
-                    setTimeout(() => {
-                        const updatedChat = chats.find(c => c.backendChatId === existingBackendChat.id);
-                        if (updatedChat) {
-                            setActiveChat(updatedChat.id);
-                            message.info('Continuing existing conversation');
-                        }
-                    }, 500);
-                    return;
-                }
-            } catch (error) {
-                console.error('Error checking backend chats:', error);
-            }
-
-            // Only create new chat if no existing one found
-            console.log('🆕 Creating new agent chat');
-            createNewChat(agent, property, agentId, propertyId);
-        };
-
-        checkBackendChats();
-    };
-
-    const createNewChat = async (agent, property, agentId, propertyId) => {
-        // Process property data
-        const processedPropertyData = {
-            id: property.id,
-            title: property.title || 'Property',
-            address: property.fullAddress || property.address || 'Address not available',
-            mainImage: property.mainImage || '/default-property.jpg',
-            price: property.price || 0,
-            propertyType: property.propertyType || property.type || 'residential',
-            bedrooms: property.bedrooms || 0,
-            bathrooms: property.bathrooms || 0,
-            areaSqm: property.areaSqm || 0,
-            areaSqft: property.areaSqm ? `${property.areaSqm} sqm` : 'N/A'
-        };
-
-        // Process agent data
-        const processedAgentData = {
-            id: agentId,
-            baseMemberId: agent.baseMemberId || agentId,
-            name: agent.name || agent.fullName ||
-                (agent.firstName && agent.lastName ? `${agent.firstName} ${agent.lastName}` : 'Unknown Agent'),
-            firstName: agent.firstName || 'Agent',
-            lastName: agent.lastName || '',
-            profilePicture: agent.profilePicture || agent.profileImage || agent.avatar || '/default-avatar.png',
-            email: agent.email || '',
-            phone: agent.phone || agent.phoneNumber || agent.cellPhoneNo || '',
-            agency: agent.agency || agent.company || agent.brokerageName || '',
-            licenseNumber: agent.licenseNumber || '',
-            specialization: agent.specialization || agent.expertise || agent.title || 'Real Estate Agent'
-        };
-
-        // REMOVED: Automated chat message
-        const newAgentChat = {
-            id: `temp-${agentId}-${propertyId}-${Date.now()}`,
-            backendChatId: null,
-            name: `${processedAgentData.name} - ${processedPropertyData.title}`,
-            lastMessage: 'No messages yet', // Changed from 'Property enquiry'
-            time: 'Now',
-            unread: 0,
-            type: 'property_chat',
-            avatar: processedAgentData.profilePicture || '/default-avatar.png',
-            online: true,
-            isAgentChat: true,
-            agentData: processedAgentData,
-            propertyData: processedPropertyData,
-            propertyId: propertyId,
-            messages: [], // REMOVED: Automated initial message
-            participants: [
-                {
-                    baseMemberId: parseInt(ClientID),
-                    role: 'client'
-                },
-                {
-                    baseMemberId: parseInt(processedAgentData.baseMemberId),
-                    role: 'agent',
-                    member: processedAgentData
-                }
-            ]
-        };
-
-        setChats(prev => [newAgentChat, ...prev]);
-        setActiveChat(newAgentChat.id);
-        message.success(`Chat started with ${processedAgentData.name} 🎉`);
-    };
-
-    // Load messages when active chat changes
-    useEffect(() => {
-        if (activeChat) {
-            loadChatMessages(activeChat);
-        }
-    }, [activeChat]);
-
-    // Scroll to bottom when messages change
-    useEffect(() => {
-        scrollToBottom();
-    }, [activeChat, chats.find(chat => chat.id === activeChat)?.messages]);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    // FIX 4: SIMPLIFIED CHAT FILTERING - REMOVED UNNECESSARY TABS
-    const filteredChats = chats.filter(chat => {
-        if (searchQuery && !chat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-            return false;
-        }
-        if (activeTab === 'unread' && chat.unread === 0) {
-            return false;
-        }
-        return true;
-    });
-
-    const activeChatData = chats.find(chat => chat.id === activeChat);
-
-    // Helper function to get recipient ID
-    const getRecipientId = (chatData) => {
-        if (!chatData || !chatData.participants) return null;
-        const otherParticipant = chatData.participants.find(p =>
-            p.baseMemberId !== parseInt(ClientID)
-        );
-        return otherParticipant?.baseMemberId || null;
-    };
-
-    const handleSendMessage = async () => {
-        if ((!newMessage || newMessage.trim() === '') && fileList.length === 0) {
-            message.warning('Please enter a message or attach a file');
-            return;
-        }
-
-        if (!activeChatData) {
-            message.error('No active chat selected');
-            return;
-        }
-
-        setSendingMessage(true);
-
-        try {
-            let uploadedFiles = [];
-
-            // Upload files if any
-            if (fileList.length > 0) {
-                for (const file of fileList) {
-                    try {
-                        const uploadResult = await chatService.uploadFile(file);
-                        if (uploadResult.success && uploadResult.fileUrl) {
-                            uploadedFiles.push({
-                                fileName: file.name,
-                                fileUrl: uploadResult.fileUrl,
-                                fileType: file.type.startsWith('image/') ? 'image' : 'file',
-                                fileSize: file.size,
-                                mimeType: file.type
-                            });
-                        }
-                    } catch (error) {
-                        console.error('❌ File upload failed:', error);
-                        message.error(`Failed to upload ${file.name}`);
-                    }
-                }
-            }
-
-            let backendChatId = activeChatData.backendChatId;
-
-            // Create backend chat if doesn't exist (for new property chats)
-            if (!backendChatId && activeChatData.isAgentChat && activeChatData.agentData) {
-                try {
-                    const agentId = activeChatData.agentData.baseMemberId || activeChatData.agentData.id;
-
-                    if (!agentId) {
-                        throw new Error('Agent ID is required to create chat');
-                    }
-
-                    const chatData = {
-                        name: `${activeChatData.agentData.name} - ${activeChatData.propertyData?.title || 'Property'}`,
-                        chatType: 'direct',
-                        propertyId: activeChatData.propertyData?.id?.toString() || activeChatData.propertyId?.toString(),
-                        participantIds: [parseInt(agentId)]
-                    };
-
-                    const createdChat = await chatService.createChat(chatData);
-
-                    if (createdChat && createdChat.id) {
-                        backendChatId = createdChat.id;
-                        // Update the chat with backend ID
-                        setChats(prev => prev.map(chat =>
-                            chat.id === activeChatData.id
-                                ? { ...chat, backendChatId: createdChat.id }
-                                : chat
-                        ));
-                    }
-                } catch (error) {
-                    console.error('❌ Failed to create backend chat:', error);
-                    message.error('Failed to create chat session. Please try again.');
-                }
-            }
-
-            // Get recipient ID
-            const recipientId = getRecipientId(activeChatData);
-
-            // Send message to backend if we have a chat ID
-            if (backendChatId) {
-                try {
-                    const messagePayload = {
-                        chatId: backendChatId,
-                        content: newMessage.trim(),
-                        messageType: uploadedFiles.length > 0 ? 'file' : 'text',
-                        files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
-                        recipientId: recipientId
-                    };
-
-                    await chatService.sendMessage(messagePayload);
-                } catch (error) {
-                    console.error('❌ Failed to send message to backend:', error);
-                }
-            }
-
-            // Update UI immediately
-            const newMessageObj = {
-                id: Date.now(),
-                text: newMessage.trim(),
-                sender: 'me',
-                time: 'Just now',
-                files: uploadedFiles,
-                senderId: parseInt(ClientID),
-                isCurrentUser: true
-            };
-
-            setChats(prev => prev.map(chat =>
-                chat.id === activeChat
-                    ? {
-                        ...chat,
-                        messages: [...(chat.messages || []), newMessageObj],
-                        lastMessage: newMessage.trim(),
-                        time: 'Now',
-                        unread: 0
-                    }
-                    : chat
-            ));
-
-            message.success('Message sent! 🎉');
-            setNewMessage('');
-            setFileList([]);
-            setEmojiPickerVisible(false);
-
-        } catch (error) {
-            console.error('💥 Error sending message:', error);
-            message.error('Failed to send message: ' + (error.message || 'Unknown error'));
-        } finally {
-            setSendingMessage(false);
-        }
-    };
-
-    const handleEmojiClick = (emoji) => {
-        setNewMessage(prev => prev + emoji);
-        setEmojiPickerVisible(false);
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
-    };
-
+    // File upload handling
     const beforeUpload = (file) => {
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
+        const isDocument = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain'
+        ].includes(file.type);
 
-        if (!isImage && !isVideo) {
-            message.error('You can only upload image or video files!');
+        if (!isImage && !isVideo && !isDocument) {
+            message.error('You can only upload image, video, or document files!');
             return false;
         }
 
-        const isLt10M = file.size / 1024 / 1024 < 10;
-        if (!isLt10M) {
-            message.error('File must be smaller than 10MB!');
+        const isLt20M = file.size / 1024 / 1024 < 20;
+        if (!isLt20M) {
+            message.error('File must be smaller than 20MB!');
             return false;
         }
 
-        setFileList(prev => [...prev, { ...file, uid: file.uid || Date.now() }]);
+        setFileList(prev => [...prev, {
+            ...file,
+            uid: file.uid || Date.now(),
+            type: isImage ? 'image' : isVideo ? 'video' : 'document'
+        }]);
+
+        message.success(`${file.name} added to attachments`);
+
+        // Focus back on textarea after file selection
+        setTimeout(() => {
+            if (textAreaRef.current) {
+                textAreaRef.current.focus();
+            }
+        }, 100);
+
         return false;
     };
 
     const handleFileRemove = (file) => {
         setFileList(prev => prev.filter(f => f.uid !== file.uid));
+        message.info(`${file.name} removed`);
     };
 
-    const handlePreview = (file) => {
-        if (file.type.startsWith('image/')) {
-            setPreviewImage(file.url || URL.createObjectURL(file));
-            setPreviewVisible(true);
-        } else if (file.type.startsWith('video/')) {
-            const videoUrl = file.url || URL.createObjectURL(file);
-            window.open(videoUrl, '_blank');
-        }
-    };
-
-    const getFileIcon = (file) => {
-        if (file.type.startsWith('image/')) {
-            return <FileImageOutlined style={{ color: '#52c41a' }} />;
-        } else if (file.type.startsWith('video/')) {
-            return <PlayCircleOutlined style={{ color: '#1890ff' }} />;
-        }
-        return <FileOutlined />;
-    };
-
-    const formatFileSize = (bytes) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
-    const formatPrice = (price) => {
-        if (typeof price === 'number') {
-            return `₱${price.toLocaleString('en-PH')}`;
-        }
-        return price || '₱0';
-    };
-
-    // FIX 3: PROPERTY CARD WITH PROPER DATA DISPLAY
-    const PropertyCard = () => {
-        if (!activeChatData?.propertyData) {
-            return null;
-        }
-
-        const property = activeChatData.propertyData;
-
+    // FIXED: Message Input Area with proper focus handling
+    const MessageInputArea = () => {
         return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'flex-start',
-                marginBottom: '16px',
-                padding: '0 8px'
-            }}>
-                <div style={{
-                    background: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    maxWidth: '100%',
-                    width: '100%',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start'
-                    }}>
-                        <img
-                            src={property.mainImage}
-                            alt={property.title}
-                            style={{
-                                width: '70px',
-                                height: '70px',
-                                objectFit: 'cover',
-                                borderRadius: '6px',
-                                border: '1px solid #e2e8f0',
-                                flexShrink: 0
-                            }}
-                            onError={(e) => {
-                                e.target.src = '/default-property.jpg';
+            <div className="chat-page-message-input-container">
+                {isPendingChat && (
+                    <Alert
+                        message="New Chat"
+                        description="Send your first message to save this conversation"
+                        type="info"
+                        showIcon
+                        className="chat-page-new-chat-alert"
+                    />
+                )}
+
+                {/* Simplified layout without Space.Compact */}
+                <div className="chat-page-message-input-wrapper">
+                    {/* Emoji Button */}
+                    <Popover
+                        content={<EmojiPickerContent />}
+                        trigger="click"
+                        open={emojiPickerVisible}
+                        onOpenChange={setEmojiPickerVisible}
+                        placement="topLeft"
+                    >
+                        <Button
+                            type="text"
+                            icon={<SmileOutlined />}
+                            className="chat-page-emoji-toggle-button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
                             }}
                         />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <Text strong style={{
-                                color: '#1B3C53',
-                                fontSize: '14px',
-                                display: 'block',
-                                marginBottom: '4px',
-                                lineHeight: '1.2'
-                            }}>
-                                {property.title}
-                            </Text>
-                            <div style={{
-                                color: '#64748b',
-                                fontSize: '11px',
-                                marginBottom: '6px',
-                                lineHeight: '1.2'
-                            }}>
-                                {property.address}
-                            </div>
-                            <div style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                                alignItems: 'center',
-                                fontSize: '10px',
-                                color: '#64748b',
-                                marginBottom: '6px'
-                            }}>
-                                <span>🏠 {property.propertyType}</span>
-                                <span>🛏️ {property.bedrooms}</span>
-                                <span>🚿 {property.bathrooms}</span>
-                                <span>📏 {property.areaSqm} sqm</span>
-                            </div>
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                            }}>
-                                <Text strong style={{
-                                    color: '#1B3C53',
-                                    fontSize: '13px'
-                                }}>
-                                    {formatPrice(property.price)}
-                                </Text>
-                                <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<EyeOutlined />}
-                                    onClick={() => {
-                                        navigate('/property', { state: { propertyId: property.id } });
-                                    }}
-                                    style={{
-                                        background: '#1B3C53',
-                                        borderColor: '#1B3C53',
-                                        borderRadius: '4px',
-                                        fontSize: '10px',
-                                        padding: '2px 6px',
-                                        height: '22px'
-                                    }}
-                                >
-                                    View
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+                    </Popover>
+
+                    {/* File Upload Button */}
+                    <Upload
+                        beforeUpload={beforeUpload}
+                        fileList={fileList}
+                        multiple
+                        showUploadList={false}
+                        accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+                    >
+                        <Button
+                            type="text"
+                            icon={<PaperClipOutlined />}
+                            className="chat-page-file-upload-button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                            }}
+                        />
+                    </Upload>
+                    <TextArea
+                        ref={textAreaRef}
+                        value={newMessage}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyPress}
+                        placeholder={`Message ${currentAgent?.firstName || activeChatData?.name || '...'}...`}
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        bordered={false}
+                        className="chat-page-message-textarea"
+                        disabled={isSending}
+                        onFocus={(e) => {
+                       
+                            e.target.focus();
+                        }}
+                        onClick={(e) => {
+                       
+                            e.stopPropagation();
+                        }}
+                        autoFocus={!!activeChatData}
+                    />
+
+                    {/* Send Button */}
+                    <Button
+                        type="primary"
+                        icon={isSending ? <LoadingOutlined /> : <SendOutlined />}
+                        onClick={handleSendMessage}
+                        disabled={
+                            (!newMessage.trim() && fileList.length === 0) ||
+                            !activeChatData ||
+                            isSending
+                        }
+                        loading={isSending}
+                        className="chat-page-send-button"
+                    />
                 </div>
             </div>
         );
     };
 
-    const AgentInfoCard = () => {
-        if (!activeChatData?.isAgentChat || !activeChatData?.agentData) {
-            return null;
-        }
-
-        const agent = activeChatData.agentData;
-
-        return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'flex-start',
-                marginBottom: '16px',
-                padding: '0 8px'
-            }}>
-                <div style={{
-                    background: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    maxWidth: '100%',
-                    width: '100%',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start'
-                    }}>
-                        <Avatar
-                            size={50}
-                            src={agent.profilePicture}
-                            style={{
-                                border: '2px solid #e2e8f0',
-                                flexShrink: 0
-                            }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <Text strong style={{
-                                color: '#1B3C53',
-                                fontSize: '14px',
-                                display: 'block',
-                                marginBottom: '4px',
-                                lineHeight: '1.2'
-                            }}>
-                                {agent.name}
-                            </Text>
-                            <div style={{
-                                color: '#64748b',
-                                fontSize: '11px',
-                                marginBottom: '6px',
-                                lineHeight: '1.2'
-                            }}>
-                                {agent.specialization || 'Real Estate Agent'}
-                            </div>
-                            {activeChatData.propertyData?.title && (
-                                <div style={{
-                                    color: '#1B3C53',
-                                    fontSize: '12px',
-                                    fontStyle: 'italic',
-                                    marginBottom: '6px'
-                                }}>
-                                    {activeChatData.propertyData.title}
-                                </div>
-                            )}
-                            {agent.agency && (
-                                <div style={{
-                                    color: '#64748b',
-                                    fontSize: '10px',
-                                    marginBottom: '4px'
-                                }}>
-                                    🏢 {agent.agency}
-                                </div>
-                            )}
-                            <div style={{
-                                display: 'flex',
-                                gap: '8px',
-                                fontSize: '10px',
-                                color: '#64748b'
-                            }}>
-                                {agent.email && <span>📧 {agent.email}</span>}
-                                {agent.phone && <span>📞 {agent.phone}</span>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
+    // File attachments component
     const FileAttachments = () => {
         if (fileList.length === 0) return null;
 
         return (
-            <div style={{
-                padding: '8px 16px',
-                borderBottom: '1px solid #f1f5f9',
-                background: '#fafafa'
-            }}>
-                <Text strong style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                    Attachments ({fileList.length})
-                </Text>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div className="chat-page-file-attachments-container">
+                <div className="chat-page-file-attachments-header">
+                    <Text strong className="chat-page-file-attachments-title">
+                        Attachments ({fileList.length})
+                    </Text>
+                    <Button
+                        type="text"
+                        size="small"
+                        onClick={() => setFileList([])}
+                        className="chat-page-file-attachments-clear-button"
+                    >
+                        Clear all
+                    </Button>
+                </div>
+                <div className="chat-page-file-attachments-list">
                     {fileList.map((file, index) => (
                         <div
                             key={file.uid || index}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                background: 'white',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '6px',
-                                padding: '6px 8px',
-                                maxWidth: '200px'
-                            }}
+                            className="chat-page-file-attachment-item"
                         >
-                            <div style={{ marginRight: '8px', fontSize: '16px' }}>
-                                {getFileIcon(file)}
+                            <div className="chat-page-file-attachment-icon">
+                                {file.type === 'image' ? (
+                                    <FileImageOutlined className="chat-page-file-attachment-icon-image" />
+                                ) : file.type === 'video' ? (
+                                    <PlayCircleOutlined className="chat-page-file-attachment-icon-video" />
+                                ) : (
+                                    <FileOutlined className="chat-page-file-attachment-icon-document" />
+                                )}
                             </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <Text style={{
-                                    fontSize: '11px',
-                                    display: 'block',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                }}>
+                            <div className="chat-page-file-attachment-details">
+                                <Text className="chat-page-file-attachment-name">
                                     {file.name}
                                 </Text>
-                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                <Text type="secondary" className="chat-page-file-attachment-size">
                                     {formatFileSize(file.size)}
                                 </Text>
                             </div>
                             <Button
                                 type="text"
                                 size="small"
-                                icon={<DeleteOutlined style={{ fontSize: '12px', color: '#ff4d4f' }} />}
+                                icon={<DeleteOutlined className="chat-page-file-attachment-delete-icon" />}
                                 onClick={() => handleFileRemove(file)}
-                                style={{ marginLeft: '4px', padding: '2px', height: 'auto' }}
+                                className="chat-page-file-attachment-delete-button"
                             />
                         </div>
                     ))}
@@ -1024,44 +1512,10 @@ const ChatPage = ({ propertyChatData }) => {
         );
     };
 
-    const EmojiPickerContent = () => (
-        <div style={{
-            width: 280,
-            height: 180,
-            overflowY: 'auto',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            padding: 6
-        }}>
-            {commonEmojis.map((emoji, index) => (
-                <Button
-                    key={index}
-                    type="text"
-                    onClick={() => handleEmojiClick(emoji)}
-                    style={{
-                        fontSize: '16px',
-                        padding: '2px 4px',
-                        minWidth: 'auto',
-                        height: 'auto'
-                    }}
-                >
-                    {emoji}
-                </Button>
-            ))}
-        </div>
-    );
-
-    // FIX 4: SIMPLIFIED CHAT LIST - REMOVED UNNECESSARY CONTROLS
+    // Chat list content
     const chatListContent = (
         <Card
-            style={{
-                border: '1px solid #e2e8f0',
-                height: '100%',
-                background: '#ffffff',
-                borderRadius: 0,
-                margin: 0
-            }}
+            className="chat-page-sidebar-card"
             bodyStyle={{
                 padding: 0,
                 height: '100%',
@@ -1069,35 +1523,28 @@ const ChatPage = ({ propertyChatData }) => {
                 flexDirection: 'column'
             }}
         >
-            <div style={{
-                padding: '16px',
-                borderBottom: '1px solid #f1f5f9',
-                flexShrink: 0
-            }}>
-                <Title level={4} style={{
-                    color: '#1B3C53',
-                    fontSize: '16px',
-                    margin: 0,
-                    marginBottom: '12px'
-                }}>
-                    Messages
-                </Title>
+            {/* Header */}
+            <div className="chat-page-sidebar-header">
+                <div className="chat-page-sidebar-title-container">
+                    <Title level={4} className="chat-page-sidebar-title">
+                        Chats
+                    </Title>
+                    <Button
+                        type="text"
+                        icon={<MoreOutlined />}
+                        className="chat-page-sidebar-menu-button"
+                    />
+                </div>
                 <Search
                     placeholder="Search messages..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                        borderRadius: 0,
-                        width: '100%'
-                    }}
+                    className="chat-page-sidebar-search"
                 />
             </div>
 
-            <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f1f5f9',
-                flexShrink: 0
-            }}>
+            {/* Tabs */}
+            <div className="chat-page-sidebar-tabs-container">
                 <Tabs
                     activeKey={activeTab}
                     onChange={setActiveTab}
@@ -1106,139 +1553,22 @@ const ChatPage = ({ propertyChatData }) => {
                         { key: 'all', label: 'All Chats' },
                         { key: 'unread', label: 'Unread' },
                     ]}
-                    style={{ width: '100%' }}
+                    className="chat-page-sidebar-tabs"
                 />
             </div>
 
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                minHeight: 0
-            }}>
-                {loadingChats ? (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        height: '100px'
-                    }}>
-                        <Spin size="small" />
-                        <Text type="secondary" style={{ marginLeft: 8 }}>Loading chats...</Text>
-                    </div>
-                ) : filteredChats.length > 0 ? (
+            {/* Chat List */}
+            <div className="chat-page-sidebar-chat-list">
+                {filteredChats.length > 0 ? (
                     <List
                         dataSource={filteredChats}
-                        renderItem={(chat) => (
-                            <List.Item
-                                style={{
-                                    padding: '12px 16px',
-                                    cursor: 'pointer',
-                                    background: activeChat === chat.id ? '#f0f9ff' : 'transparent',
-                                    borderBottom: '1px solid #f8fafc',
-                                    transition: 'background-color 0.2s',
-                                    margin: 0,
-                                    borderRadius: 0
-                                }}
-                                onClick={() => {
-                                    setActiveChat(chat.id);
-                                    setSidebarVisible(false);
-                                }}
-                            >
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    width: '100%'
-                                }}>
-                                    <Badge
-                                        dot={chat.online}
-                                        color="#52c41a"
-                                        offset={[-4, 28]}
-                                    >
-                                        <Avatar
-                                            src={chat.avatar}
-                                            size="default"
-                                            style={{ flexShrink: 0 }}
-                                        />
-                                    </Badge>
-                                    <div style={{
-                                        flex: 1,
-                                        marginLeft: '10px',
-                                        minWidth: 0,
-                                        overflow: 'hidden'
-                                    }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'flex-start',
-                                            width: '100%',
-                                            marginBottom: '4px'
-                                        }}>
-                                            <Text strong style={{
-                                                color: '#1B3C53',
-                                                fontSize: '13px',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                flex: 1
-                                            }}>
-                                                {chat.name}
-                                            </Text>
-                                            <Text type="secondary" style={{
-                                                fontSize: '11px',
-                                                flexShrink: 0,
-                                                marginLeft: '8px'
-                                            }}>
-                                                {chat.time}
-                                            </Text>
-                                        </div>
-                                        <div style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            width: '100%'
-                                        }}>
-                                            <Text
-                                                style={{
-                                                    color: '#64748b',
-                                                    fontSize: '12px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    display: 'block',
-                                                    width: '70%'
-                                                }}
-                                            >
-                                                {chat.lastMessage}
-                                            </Text>
-                                            {chat.unread > 0 && (
-                                                <Badge
-                                                    count={chat.unread}
-                                                    style={{
-                                                        marginLeft: '6px',
-                                                        background: '#1B3C53',
-                                                        fontSize: '10px',
-                                                        flexShrink: 0
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </List.Item>
-                        )}
+                        renderItem={(chat) => <ChatListItem chat={chat} />}
+                        className="chat-page-sidebar-list"
                     />
                 ) : (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        height: '100px',
-                        flexDirection: 'column',
-                        padding: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <WechatOutlined style={{ fontSize: '24px', color: '#ccc', marginBottom: '8px' }} />
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                    <div className="chat-page-sidebar-empty">
+                        <WechatOutlined className="chat-page-sidebar-empty-icon" />
+                        <Text type="secondary" className="chat-page-sidebar-empty-text">
                             {searchQuery ? 'No chats match your search' : 'No chats available'}
                         </Text>
                     </div>
@@ -1248,45 +1578,17 @@ const ChatPage = ({ propertyChatData }) => {
     );
 
     return (
-        <div style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            padding: 0,
-            margin: 0,
-            overflow: 'hidden'
-        }}>
-            <Row gutter={0} style={{
-                flex: 1,
-                margin: 0,
-                height: '100%',
-                width: '100%'
-            }}>
+        <div className="chat-page-container">
+            <Row gutter={0} className="chat-page-row">
                 {/* Sidebar - Hidden on mobile */}
-                <Col xs={0} md={6} lg={5} style={{
-                    padding: 0,
-                    margin: 0,
-                    height: '100%',
-                    borderRight: '1px solid #e2e8f0'
-                }}>
+                <Col xs={0} md={6} lg={5} className="chat-page-sidebar-col">
                     {chatListContent}
                 </Col>
 
                 {/* Main Chat Area */}
-                <Col xs={24} md={18} lg={19} style={{
-                    padding: 0,
-                    margin: 0,
-                    height: '100%'
-                }}>
+                <Col xs={24} md={18} lg={19} className="chat-page-main-col">
                     <Card
-                        style={{
-                            border: 'none',
-                            height: '100%',
-                            margin: 0,
-                            borderRadius: 0,
-                            width: '100%'
-                        }}
+                        className="chat-page-main-card"
                         bodyStyle={{
                             padding: 0,
                             height: '100%',
@@ -1297,287 +1599,54 @@ const ChatPage = ({ propertyChatData }) => {
                     >
                         {activeChatData ? (
                             <>
-                                {/* Chat Header */}
-                                <div style={{
-                                    padding: '12px 16px',
-                                    borderBottom: '1px solid #f1f5f9',
-                                    background: 'white',
-                                    flexShrink: 0,
-                                    borderRadius: 0
-                                }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        width: '100%'
-                                    }}>
-                                        <Space size="small" style={{ flex: 1 }}>
-                                            <Button
-                                                type="text"
-                                                icon={<LeftOutlined />}
-                                                onClick={() => setSidebarVisible(true)}
-                                                style={{
-                                                    color: '#1B3C53',
-                                                    padding: '4px 8px',
-                                                    display: window.innerWidth < 768 ? 'block' : 'none'
-                                                }}
-                                            />
-                                            <Badge
-                                                dot={activeChatData.online}
-                                                color="#52c41a"
-                                                offset={[-2, 28]}
-                                            >
-                                                <Avatar
-                                                    size={36}
-                                                    src={activeChatData.avatar}
-                                                    style={{
-                                                        border: '1px solid #e2e8f0',
-                                                        flexShrink: 0
-                                                    }}
-                                                />
-                                            </Badge>
-                                            <div style={{ minWidth: 0, flex: 1 }}>
-                                                <Title level={4} style={{
-                                                    margin: 0,
-                                                    color: '#1B3C53',
-                                                    fontSize: '15px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    {activeChatData.name}
-                                                </Title>
-                                                <Text type="secondary" style={{
-                                                    fontSize: '11px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    display: 'block'
-                                                }}>
-                                                    {activeChatData.online ? 'Online 🟢' : 'Last seen recently'}
-                                                    {activeChatData.propertyData?.title && ` • ${activeChatData.propertyData.title}`}
-                                                </Text>
-                                            </div>
-                                        </Space>
-                                        <Space size="small" style={{ flexShrink: 0 }}>
-                                            <Button
-                                                type="text"
-                                                icon={<InfoCircleOutlined />}
-                                                style={{
-                                                    color: '#1B3C53',
-                                                    padding: '4px 8px'
-                                                }}
-                                            />
-                                            <Button
-                                                type="text"
-                                                icon={<MoreOutlined />}
-                                                style={{
-                                                    color: '#1B3C53',
-                                                    padding: '4px 8px'
-                                                }}
-                                            />
-                                        </Space>
-                                    </div>
-                                </div>
+                                <ChatHeader />
+
+                                {/* Property Information Card */}
+                                {propertyInfo && <PropertyInfoCard />}
 
                                 {/* Messages Area */}
-                                <div style={{
-                                    flex: 1,
-                                    padding: '12px 8px',
-                                    overflowY: 'auto',
-                                    background: '#fafafa',
-                                    minHeight: 0,
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}>
-                                    <Space direction="vertical" style={{
-                                        width: '100%',
-                                        flex: 1
-                                    }} size="small">
-                                        {activeChatData.isAgentChat && <AgentInfoCard />}
-                                        {activeChatData.isAgentChat && <PropertyCard />}
-
-                                        {loadingMessages ? (
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                height: '100px'
-                                            }}>
-                                                <Spin size="small" />
-                                                <Text type="secondary" style={{ marginLeft: 8 }}>Loading messages...</Text>
-                                            </div>
-                                        ) : activeChatData.messages && activeChatData.messages.length > 0 ? (
-                                            activeChatData.messages.map(message => (
-                                                <div
-                                                    key={message.id}
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: message.sender === 'me' ? 'flex-end' : 'flex-start',
-                                                        marginBottom: '8px',
-                                                        width: '100%'
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            background: message.sender === 'me' ? '#1B3C53' : 'white',
-                                                            color: message.sender === 'me' ? 'white' : '#1B3C53',
-                                                            padding: '8px 12px',
-                                                            borderRadius: '8px',
-                                                            border: message.sender === 'me' ? 'none' : '1px solid #e2e8f0',
-                                                            maxWidth: '85%',
-                                                            wordBreak: 'break-word'
-                                                        }}
-                                                    >
-                                                        {message.text}
-                                                        <div style={{
-                                                            fontSize: '10px',
-                                                            color: message.sender === 'me' ? 'rgba(255,255,255,0.7)' : '#64748b',
-                                                            marginTop: '2px',
-                                                            textAlign: message.sender === 'me' ? 'right' : 'left'
-                                                        }}>
-                                                            {message.time}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div style={{
-                                                textAlign: 'center',
-                                                color: '#64748b',
-                                                padding: '20px',
-                                                flex: 1,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'center',
-                                                alignItems: 'center'
-                                            }}>
-                                                <WechatOutlined style={{ fontSize: '32px', marginBottom: '8px' }} />
-                                                <Text style={{ fontSize: '13px' }}>No messages yet. Start a conversation! 💬</Text>
-                                            </div>
-                                        )}
-                                        <div ref={messagesEndRef} />
-                                    </Space>
+                                <div className="chat-page-messages-area">
+                                    {activeChatData.messages && activeChatData.messages.length > 0 ? (
+                                        <>
+                                            {activeChatData.messages.map(message => (
+                                                <MessageBubble key={message.id} message={message} />
+                                            ))}
+                                            <div ref={messagesEndRef} />
+                                        </>
+                                    ) : (
+                                        <div className="chat-page-no-messages">
+                                            <WechatOutlined className="chat-page-no-messages-icon" />
+                                            <Text className="chat-page-no-messages-title">
+                                                {isPendingChat
+                                                    ? 'Start a new conversation about this property! 💬'
+                                                    : 'No messages yet. Start a conversation! 💬'}
+                                            </Text>
+                                            {currentAgent && (
+                                                <Text className="chat-page-no-messages-subtitle">
+                                                    {isPendingChat
+                                                        ? `You're about to chat with ${currentAgent.fullName}, the designated agent for this property.`
+                                                        : `You're chatting with ${currentAgent.fullName}, your designated agent for this property.`}
+                                                </Text>
+                                            )}
+                                            {isPendingChat && (
+                                                <Text className="chat-page-no-messages-warning">
+                                                    ⓘ This chat will be saved when you send your first message
+                                                </Text>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <FileAttachments />
-
-                                {/* Message Input */}
-                                <div style={{
-                                    padding: '12px 16px',
-                                    borderTop: '1px solid #f1f5f9',
-                                    background: 'white',
-                                    flexShrink: 0,
-                                    borderRadius: 0,
-                                    position: 'sticky',
-                                    bottom: 0,
-                                    width: '100%'
-                                }}>
-                                    <Space.Compact style={{
-                                        width: '100%',
-                                        display: 'flex'
-                                    }}>
-                                        <Upload
-                                            beforeUpload={beforeUpload}
-                                            fileList={fileList}
-                                            multiple
-                                            showUploadList={false}
-                                            accept="image/*,video/*"
-                                        >
-                                            <Button
-                                                type="text"
-                                                icon={<PaperClipOutlined />}
-                                                style={{
-                                                    borderRadius: '8px 0 0 8px',
-                                                    color: '#64748b',
-                                                    borderRight: 'none',
-                                                    height: 'auto',
-                                                    padding: '8px 12px',
-                                                    flexShrink: 0
-                                                }}
-                                            />
-                                        </Upload>
-                                        <Popover
-                                            content={<EmojiPickerContent />}
-                                            trigger="click"
-                                            open={emojiPickerVisible}
-                                            onOpenChange={setEmojiPickerVisible}
-                                            placement="topLeft"
-                                        >
-                                            <Button
-                                                type="text"
-                                                icon={<SmileOutlined />}
-                                                style={{
-                                                    borderRadius: 0,
-                                                    color: '#64748b',
-                                                    borderRight: 'none',
-                                                    borderLeft: 'none',
-                                                    height: 'auto',
-                                                    padding: '8px 12px',
-                                                    flexShrink: 0
-                                                }}
-                                            />
-                                        </Popover>
-                                        <TextArea
-                                            ref={textAreaRef}
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            onKeyPress={handleKeyPress}
-                                            placeholder="Type a message... 😊"
-                                            autoSize={{ minRows: 1, maxRows: 3 }}
-                                            style={{
-                                                borderRadius: 0,
-                                                resize: 'none',
-                                                borderLeft: 'none',
-                                                borderRight: 'none',
-                                                fontSize: '14px',
-                                                flex: 1
-                                            }}
-                                            disabled={sendingMessage}
-                                        />
-                                        <Button
-                                            type="primary"
-                                            icon={<SendOutlined />}
-                                            onClick={handleSendMessage}
-                                            disabled={(!newMessage.trim() && fileList.length === 0) || sendingMessage}
-                                            loading={sendingMessage}
-                                            style={{
-                                                borderRadius: '0 8px 8px 0',
-                                                background: '#1B3C53',
-                                                borderColor: '#1B3C53',
-                                                height: 'auto',
-                                                padding: '8px 12px',
-                                                flexShrink: 0
-                                            }}
-                                        >
-                                            Send
-                                        </Button>
-                                    </Space.Compact>
-                                </div>
+                                <MessageInputArea />
                             </>
                         ) : (
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                flexDirection: 'column',
-                                color: '#64748b',
-                                padding: '20px'
-                            }}>
-                                <WechatOutlined style={{ fontSize: '40px', marginBottom: '12px' }} />
-                                <Title level={3} style={{
-                                    color: '#64748b',
-                                    textAlign: 'center',
-                                    fontSize: '16px',
-                                    marginBottom: '8px'
-                                }}>
+                            <div className="chat-page-no-active-chat">
+                                <WechatOutlined className="chat-page-no-active-chat-icon" />
+                                <Title level={3} className="chat-page-no-active-chat-title">
                                     {chats.length === 0 ? 'No chats yet 💭' : 'Select a chat to start messaging 💭'}
                                 </Title>
-                                <Text style={{
-                                    textAlign: 'center',
-                                    fontSize: '13px'
-                                }}>
+                                <Text className="chat-page-no-active-chat-text">
                                     {chats.length === 0
                                         ? 'Start a conversation from a property page to begin chatting with agents'
                                         : 'Choose a conversation from the list to begin'}
@@ -1585,7 +1654,7 @@ const ChatPage = ({ propertyChatData }) => {
                                 {chats.length === 0 && (
                                     <Button
                                         type="primary"
-                                        style={{ marginTop: '16px', background: '#1B3C53' }}
+                                        className="chat-page-no-active-chat-button"
                                         onClick={() => navigate('/properties')}
                                     >
                                         Browse Properties
@@ -1597,27 +1666,32 @@ const ChatPage = ({ propertyChatData }) => {
                 </Col>
             </Row>
 
-            {/* Modals and Drawers */}
-            <Modal
-                open={previewVisible}
-                footer={null}
-                onCancel={() => setPreviewVisible(false)}
-                width="auto"
-                style={{ maxWidth: '90vw' }}
-            >
-                <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
-            </Modal>
-
+            {/* Mobile Drawer */}
             <Drawer
                 title="Chats"
                 placement="left"
                 onClose={() => setSidebarVisible(false)}
                 open={sidebarVisible}
                 width="100%"
-                styles={{ body: { padding: 0 } }}
+                styles={{
+                    body: { padding: 0 },
+                    header: { background: '#ffffff', borderBottom: '1px solid #e4e6eb' }
+                }}
             >
                 {chatListContent}
             </Drawer>
+
+            {/* Image Preview Modal */}
+            <Modal
+                open={previewVisible}
+                footer={null}
+                onCancel={() => setPreviewVisible(false)}
+                width="auto"
+                className="chat-page-image-preview-modal"
+                style={{ maxWidth: '90vw' }}
+            >
+                <img alt="Preview" className="chat-page-image-preview" src={previewImage} />
+            </Modal>
         </div>
     );
 };

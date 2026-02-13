@@ -417,18 +417,50 @@ class PropertyService {
         }
     }
 
-    // Change property status
+    // Change property status - FIXED VERSION
     async changePropertyStatus(propertyId, status) {
         try {
             console.log('Changing property status:', propertyId, status);
 
+            // First get the current property data to preserve all fields
+            const currentProperty = await this.getProperty(propertyId);
+
+            // Create complete update data with status change
             const updateData = {
-                status: status
+                property: {
+                    id: parseInt(propertyId),
+                    title: currentProperty.title || '',
+                    description: currentProperty.description || '',
+                    type: currentProperty.type || 'residential',
+                    price: parseFloat(currentProperty.price) || 0,
+                    status: status, // Use the provided status
+                    propertyAge: parseInt(currentProperty.propertyAge) || 0,
+                    propertyFloor: parseInt(currentProperty.propertyFloor) || 1,
+                    bedrooms: parseInt(currentProperty.bedrooms) || 0,
+                    bathrooms: parseFloat(currentProperty.bathrooms) || 0,
+                    areaSqm: parseInt(currentProperty.areaSqm) || 0,
+                    kitchen: parseInt(currentProperty.kitchen) || 0,
+                    garage: parseInt(currentProperty.garage) || 0,
+                    address: currentProperty.address || '',
+                    city: currentProperty.city || '',
+                    state: currentProperty.state || '',
+                    zipCode: currentProperty.zipCode || '',
+                    country: currentProperty.country || '',
+                    barangay: currentProperty.barangay || '',
+                    latitude: parseFloat(currentProperty.latitude) || 0,
+                    longitude: parseFloat(currentProperty.longitude) || 0,
+                    amenities: Array.isArray(currentProperty.amenities)
+                        ? JSON.stringify(currentProperty.amenities)
+                        : '[]',
+                    ownerId: currentProperty.ownerId || null,
+                    agentId: currentProperty.agentId || null,
+                    listedDate: currentProperty.listedDate || new Date().toISOString(),
+                }
             };
 
-            const response = await this.client.put(`/CreationProperty/${propertyId}`, {
-                property: updateData
-            });
+            console.log('Sending status update data:', updateData);
+
+            const response = await this.client.put(`/CreationProperty/${propertyId}`, updateData);
 
             if (response.data && response.data.success) {
                 return response.data.property || response.data;
@@ -469,48 +501,29 @@ class PropertyService {
         }
     }
 
-    // Approve property
+    // Approve property - FIXED VERSION
     async approveProperty(propertyId) {
         try {
             console.log('Approving property:', propertyId);
-
-            const updateData = {
-                status: 'approved'
-            };
-
-            const response = await this.client.put(`/CreationProperty/${propertyId}`, {
-                property: updateData
-            });
-
-            if (response.data && response.data.success) {
-                return response.data.property || response.data;
-            } else {
-                throw new Error(response.data.message || 'Failed to approve property');
-            }
+            // Use the fixed changePropertyStatus method with 'available' status
+            return await this.changePropertyStatus(propertyId, 'available');
         } catch (error) {
             console.error('Error approving property:', error);
             throw error;
         }
     }
 
-    // Reject property
+    // Reject property - FIXED VERSION
     async rejectProperty(propertyId, reason) {
         try {
             console.log('Rejecting property:', propertyId, reason);
+            // Use the fixed changePropertyStatus method with 'rejected' status
+            const result = await this.changePropertyStatus(propertyId, 'rejected');
 
-            const updateData = {
-                status: 'rejected'
-            };
+            // You can store the rejection reason separately if needed
+            console.log('Rejection reason:', reason);
 
-            const response = await this.client.put(`/CreationProperty/${propertyId}`, {
-                property: updateData
-            });
-
-            if (response.data && response.data.success) {
-                return response.data.property || response.data;
-            } else {
-                throw new Error(response.data.message || 'Failed to reject property');
-            }
+            return result;
         } catch (error) {
             console.error('Error rejecting property:', error);
             throw error;

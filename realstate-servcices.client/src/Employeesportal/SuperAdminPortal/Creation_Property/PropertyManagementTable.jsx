@@ -16,7 +16,9 @@ import {
     Badge,
     Image,
     Modal,
-    Divider
+    Divider,
+    Grid,
+    Collapse
 } from 'antd';
 import {
     SearchOutlined,
@@ -32,6 +34,8 @@ import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '
 
 const { Option } = Select;
 const { Search } = Input;
+const { useBreakpoint } = Grid;
+const { Panel } = Collapse;
 
 const PropertyManagementTable = () => {
     const [properties, setProperties] = useState([]);
@@ -43,6 +47,10 @@ const PropertyManagementTable = () => {
     const [mediaModalVisible, setMediaModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [filtersVisible, setFiltersVisible] = useState(false);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md; // md breakpoint and above is desktop
 
     useEffect(() => {
         loadProperties();
@@ -168,6 +176,7 @@ const PropertyManagementTable = () => {
         );
     };
 
+    // Table columns for desktop view
     const columns = [
         {
             title: 'Property',
@@ -261,7 +270,6 @@ const PropertyManagementTable = () => {
             ],
             onFilter: (value, record) => record.status === value,
         },
-     
         {
             title: 'Listed Date',
             dataIndex: 'listedDate',
@@ -286,63 +294,332 @@ const PropertyManagementTable = () => {
         },
     ];
 
+    // Mobile Card View
+    const renderMobileCard = (property) => {
+        const imageUrl = getPropertyImage(property);
+        const allMedia = getAllMedia(property);
+        const hasMedia = allMedia.length > 0;
+        const { imageCount, videoCount } = getMediaCounts(property);
+
+        return (
+            <Card
+                key={property.id}
+                style={{ marginBottom: 16 }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    <Badge dot={!hasMedia} color={hasMedia ? 'green' : 'red'} offset={[-5, 5]}>
+                        <Avatar
+                            src={imageUrl}
+                            shape="square"
+                            style={{
+                                backgroundColor: '#1a365d',
+                                width: 80,
+                                height: 80,
+                                objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                                e.target.src = '/default-property.jpg';
+                            }}
+                        >
+                            {property.title?.[0]?.toUpperCase()}
+                        </Avatar>
+                    </Badge>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                            {property.title || 'Untitled Property'}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                            {property.address}, {property.city}
+                        </div>
+                        <Tag color="blue" size="small">{property.type || 'N/A'}</Tag>
+                        <div style={{ marginTop: '8px' }}>
+                            <Tag color={getStatusColor(property.status)}>
+                                {getStatusText(property.status)}
+                            </Tag>
+                        </div>
+                    </div>
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                {/* Property Details */}
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            ₱{property.price ? property.price.toLocaleString() : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Price</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {property.bedrooms || 0} BD / {property.bathrooms || 0} BA
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Rooms</div>
+                    </Col>
+                </Row>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {property.areaSqm ? `${property.areaSqm} sqm` : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Area</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {property.propertyAge ? `${property.propertyAge} years` : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Age</div>
+                    </Col>
+                </Row>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {property.listedDate ? new Date(property.listedDate).toLocaleDateString() : 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Listed Date</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {imageCount} img, {videoCount} vid
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Media</div>
+                    </Col>
+                </Row>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                    <Button
+                        type="primary"
+                        icon={<PictureOutlined />}
+                        size="small"
+                        onClick={() => handleOpenMedia(property)}
+                        style={{
+                            backgroundColor: '#1e3a8a',
+                            borderColor: '#1e3a8a',
+                            flex: 1
+                        }}
+                    >
+                        Media
+                    </Button>
+                    <Button
+                        icon={<EyeOutlined />}
+                        size="small"
+                        onClick={() => console.log('View property:', property)}
+                        style={{ flex: 1 }}
+                    >
+                        View
+                    </Button>
+                </div>
+            </Card>
+        );
+    };
+
+    const renderFilters = () => {
+        if (isMobile) {
+            return (
+                <div style={{ width: '100%' }}>
+                    {/* Search Bar - Full width on mobile */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <Search
+                            placeholder="Search properties by title, address, or city..."
+                            allowClear
+                            onSearch={setSearchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            style={{ width: '100%' }}
+                            size="large"
+                        />
+                    </div>
+
+                    {/* Filter Toggle Button */}
+                    <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+                        <Button
+                            type={filtersVisible ? "primary" : "default"}
+                            icon={<FilterOutlined />}
+                            onClick={() => setFiltersVisible(!filtersVisible)}
+                            size="large"
+                            style={{ width: '100%' }}
+                        >
+                            {filtersVisible ? 'Hide Filters' : 'Show Filters'}
+                        </Button>
+                    </div>
+
+                    {/* Collapsible Filters */}
+                    {filtersVisible && (
+                        <div style={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px'
+                        }}>
+                            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                                <Select
+                                    value={statusFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={setStatusFilter}
+                                    placeholder="Filter by status"
+                                    size="large"
+                                >
+                                    <Option value="all">All Status</Option>
+                                    <Option value="available">Available</Option>
+                                    <Option value="pending">Pending</Option>
+                                    <Option value="approved">Approved</Option>
+                                    <Option value="sold">Sold</Option>
+                                    <Option value="rented">Rented</Option>
+                                    <Option value="rejected">Rejected</Option>
+                                </Select>
+
+                                <Select
+                                    value={typeFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={setTypeFilter}
+                                    placeholder="Filter by type"
+                                    size="large"
+                                >
+                                    <Option value="all">All Types</Option>
+                                    <Option value="House">House</Option>
+                                    <Option value="Apartment">Apartment</Option>
+                                    <Option value="Condo">Condo</Option>
+                                    <Option value="Townhouse">Townhouse</Option>
+                                    <Option value="Land">Land</Option>
+                                    <Option value="Commercial">Commercial</Option>
+                                </Select>
+
+                                <Select
+                                    value={priceRangeFilter}
+                                    style={{ width: '100%' }}
+                                    onChange={setPriceRangeFilter}
+                                    placeholder="Filter by price range"
+                                    size="large"
+                                >
+                                    <Option value="all">All Price Ranges</Option>
+                                    <Option value="low">Low (&lt; ₱500K)</Option>
+                                    <Option value="medium">Medium (₱500K - ₱2M)</Option>
+                                    <Option value="high">High (&gt; ₱2M)</Option>
+                                </Select>
+                            </Space>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Desktop filters
+        return (
+            <Space wrap>
+                <Search
+                    placeholder="Search properties by title, address, or city..."
+                    allowClear
+                    onSearch={setSearchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    style={{ width: 300 }}
+                />
+                <Select
+                    value={statusFilter}
+                    style={{ width: 150 }}
+                    onChange={setStatusFilter}
+                    placeholder="Filter by status"
+                    suffixIcon={<FilterOutlined />}
+                >
+                    <Option value="all">All Status</Option>
+                    <Option value="available">Available</Option>
+                    <Option value="pending">Pending</Option>
+                    <Option value="approved">Approved</Option>
+                    <Option value="sold">Sold</Option>
+                    <Option value="rented">Rented</Option>
+                    <Option value="rejected">Rejected</Option>
+                </Select>
+                <Select
+                    value={typeFilter}
+                    style={{ width: 150 }}
+                    onChange={setTypeFilter}
+                    placeholder="Filter by type"
+                    suffixIcon={<FilterOutlined />}
+                >
+                    <Option value="all">All Types</Option>
+                    <Option value="House">House</Option>
+                    <Option value="Apartment">Apartment</Option>
+                    <Option value="Condo">Condo</Option>
+                    <Option value="Townhouse">Townhouse</Option>
+                    <Option value="Land">Land</Option>
+                    <Option value="Commercial">Commercial</Option>
+                </Select>
+                <Select
+                    value={priceRangeFilter}
+                    style={{ width: 180 }}
+                    onChange={setPriceRangeFilter}
+                    placeholder="Filter by price range"
+                    suffixIcon={<FilterOutlined />}
+                >
+                    <Option value="all">All Price Ranges</Option>
+                    <Option value="low">Low (&lt; ₱500K)</Option>
+                    <Option value="medium">Medium (₱500K - ₱2M)</Option>
+                    <Option value="high">High (&gt; ₱2M)</Option>
+                </Select>
+            </Space>
+        );
+    };
+
     return (
         <div>
-            {/* Enhanced Stats Cards */}
+            {/* Enhanced Stats Cards - Responsive */}
             <div style={{ marginBottom: 24 }}>
-                <Row gutter={16}>
-                    <Col span={4}>
-                        <Card>
+                <Row gutter={[16, 16]}>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="Total Properties"
                                 value={stats.total}
-                                valueStyle={{ color: '#1890ff' }}
+                                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
-                    <Col span={4}>
-                        <Card>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="Available"
                                 value={stats.available}
-                                valueStyle={{ color: '#52c41a' }}
+                                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
-                    <Col span={4}>
-                        <Card>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="Pending"
                                 value={stats.pending}
-                                valueStyle={{ color: '#fa8c16' }}
+                                valueStyle={{ color: '#fa8c16', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
-                    <Col span={4}>
-                        <Card>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="Sold/Rented"
                                 value={stats.sold}
-                                valueStyle={{ color: '#f5222d' }}
+                                valueStyle={{ color: '#f5222d', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
-                    <Col span={4}>
-                        <Card>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="With Photos"
                                 value={stats.withPhotos}
-                                valueStyle={{ color: '#722ed1' }}
+                                valueStyle={{ color: '#722ed1', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
-                    <Col span={4}>
-                        <Card>
+                    <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
                             <Statistic
                                 title="Photo Rate"
                                 value={((stats.withPhotos / stats.total) * 100).toFixed(1)}
                                 suffix="%"
-                                valueStyle={{ color: '#13c2c2' }}
+                                valueStyle={{ color: '#13c2c2', fontSize: isMobile ? '16px' : '24px' }}
                             />
                         </Card>
                     </Col>
@@ -350,80 +627,57 @@ const PropertyManagementTable = () => {
             </div>
 
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                    <Space wrap>
-                        <Search
-                            placeholder="Search properties by title, address, or city..."
-                            allowClear
-                            onSearch={setSearchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            style={{ width: 300 }}
-                        />
-                        <Select
-                            value={statusFilter}
-                            style={{ width: 150 }}
-                            onChange={setStatusFilter}
-                            placeholder="Filter by status"
-                            suffixIcon={<FilterOutlined />}
-                        >
-                            <Option value="all">All Status</Option>
-                            <Option value="available">Available</Option>
-                            <Option value="pending">Pending</Option>
-                            <Option value="approved">Approved</Option>
-                            <Option value="sold">Sold</Option>
-                            <Option value="rented">Rented</Option>
-                            <Option value="rejected">Rejected</Option>
-                        </Select>
-                        <Select
-                            value={typeFilter}
-                            style={{ width: 150 }}
-                            onChange={setTypeFilter}
-                            placeholder="Filter by type"
-                            suffixIcon={<FilterOutlined />}
-                        >
-                            <Option value="all">All Types</Option>
-                            <Option value="House">House</Option>
-                            <Option value="Apartment">Apartment</Option>
-                            <Option value="Condo">Condo</Option>
-                            <Option value="Townhouse">Townhouse</Option>
-                            <Option value="Land">Land</Option>
-                            <Option value="Commercial">Commercial</Option>
-                        </Select>
-                        <Select
-                            value={priceRangeFilter}
-                            style={{ width: 180 }}
-                            onChange={setPriceRangeFilter}
-                            placeholder="Filter by price range"
-                            suffixIcon={<FilterOutlined />}
-                        >
-                            <Option value="all">All Price Ranges</Option>
-                            <Option value="low">Low (&lt; ₱500K)</Option>
-                            <Option value="medium">Medium (₱500K - ₱2M)</Option>
-                            <Option value="high">High (&gt; ₱2M)</Option>
-                        </Select>
-                    </Space>
-                    <Space>
-                     
+                {/* Filters Section */}
+                <div style={{
+                    marginBottom: 16,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    flexDirection: isMobile ? 'column' : 'row'
+                }}>
+                    {renderFilters()}
+
+                    <Space style={{
+                        width: isMobile ? '100%' : 'auto',
+                        justifyContent: isMobile ? 'center' : 'flex-end',
+                        marginTop: isMobile ? '8px' : '0'
+                    }}>
                         <div style={{ fontSize: '12px', color: '#666' }}>
                             Showing {filteredProperties.length} of {properties.length} properties
                         </div>
                     </Space>
                 </div>
 
-                <BaseTable
-                    data={filteredProperties}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} of ${total} properties`,
-                    }}
-                    scroll={{ x: 1200 }}
-                />
+                {/* Conditional Rendering: Table for Desktop, Cards for Mobile */}
+                {!isMobile ? (
+                    <BaseTable
+                        data={filteredProperties}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} properties`,
+                        }}
+                        scroll={{ x: 1200 }}
+                    />
+                ) : (
+                    <div>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                Loading properties...
+                            </div>
+                        ) : (
+                            <div>
+                                {filteredProperties.map(property => renderMobileCard(property))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </Card>
 
             {/* Media Gallery Modal */}
@@ -432,8 +686,8 @@ const PropertyManagementTable = () => {
                 open={mediaModalVisible}
                 onCancel={() => setMediaModalVisible(false)}
                 footer={null}
-                width={800}
-                style={{ top: 20 }}
+                width={isMobile ? '100%' : 800}
+                style={isMobile ? { top: 0, padding: 0 } : { top: 20 }}
             >
                 {selectedProperty && (() => {
                     const allMedia = getAllMedia(selectedProperty);
@@ -454,7 +708,7 @@ const PropertyManagementTable = () => {
                                 {currentMedia.type === 'image' ? (
                                     <Image
                                         width="100%"
-                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                        style={{ maxHeight: isMobile ? '300px' : '400px', objectFit: 'contain' }}
                                         src={currentMedia.url}
                                         alt={currentMedia.title}
                                         fallback="/fallback-image.png"
@@ -462,7 +716,7 @@ const PropertyManagementTable = () => {
                                 ) : (
                                     <video
                                         controls
-                                        style={{ width: '100%', maxHeight: '400px' }}
+                                        style={{ width: '100%', maxHeight: isMobile ? '300px' : '400px' }}
                                         src={currentMedia.url}
                                     >
                                         Your browser does not support the video tag.

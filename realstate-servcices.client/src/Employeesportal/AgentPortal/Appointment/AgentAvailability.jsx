@@ -1,4 +1,4 @@
-// AgentAvailability.jsx
+// AgentAvailability.jsx - AGENT VERSION (Mobile Optimized)
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -19,22 +19,30 @@ import {
     Select,
     Spin,
     Result,
-    Empty
+    Empty,
+    Popconfirm,
+    Grid,
+    Typography,
+    List
 } from 'antd';
 import {
     EditOutlined,
     CheckOutlined,
     CloseOutlined,
     ReloadOutlined,
-    PlusOutlined
+    PlusOutlined,
+    DeleteOutlined,
+    ClockCircleOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
 import { agentAvailabilityService } from '../../AdminPortal/appointment/Services/index.js';
 import authService from '../../../Authpage/Services/LoginAuth';
-import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService'; // Import agent service
+import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 const AgentAvailability = () => {
     const [availabilities, setAvailabilities] = useState([]);
@@ -46,6 +54,9 @@ const AgentAvailability = () => {
     const [submitting, setSubmitting] = useState(false);
     const [currentAgentId, setCurrentAgentId] = useState(null);
 
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
+
     // Day of week mapping
     const daysOfWeek = [
         'Sunday',
@@ -56,6 +67,35 @@ const AgentAvailability = () => {
         'Friday',
         'Saturday'
     ];
+
+    // Enhanced error handler
+    const handleApiError = (error) => {
+        console.error('API Error:', error);
+
+        if (error.response?.data) {
+            const serverError = error.response.data;
+
+            if (typeof serverError === 'string') {
+                return serverError;
+            }
+
+            if (serverError.message) {
+                return serverError.message;
+            }
+
+            if (serverError.details) {
+                return Array.isArray(serverError.details)
+                    ? serverError.details.join(', ')
+                    : serverError.details;
+            }
+        }
+
+        if (error.message) {
+            return error.message;
+        }
+
+        return 'An unexpected error occurred';
+    };
 
     // Helper functions for DayOfWeek conversion
     const dayOfWeekToNumber = (dayName) => {
@@ -112,11 +152,11 @@ const AgentAvailability = () => {
             setCurrentAgentId(agentId);
 
             const result = await agentAvailabilityService.getAvailabilitiesByAgent(agentId);
-            setAvailabilities(result);
+            setAvailabilities(result || []);
 
         } catch (error) {
             console.error('Error loading availabilities:', error);
-            const errorMessage = error.message || 'Failed to load availabilities';
+            const errorMessage = handleApiError(error);
             setError(errorMessage);
             message.error(errorMessage);
         } finally {
@@ -148,6 +188,7 @@ const AgentAvailability = () => {
 
     const handleSubmit = async (values) => {
         setSubmitting(true);
+        setError(null);
         try {
             // Get the actual agent ID for submission
             let agentId = currentAgentId;
@@ -164,7 +205,7 @@ const AgentAvailability = () => {
             const availabilityData = {
                 id: selectedAvailability?.id || 0,
                 agentId: parseInt(agentId), // Use the actual agent ID, not base member ID
-                dayOfWeek: values.dayOfWeek,
+                dayOfWeek: parseInt(values.dayOfWeek), // Ensure it's a number
                 startTime: values.startTime ? values.startTime.format('HH:mm:ss') : '00:00:00',
                 endTime: values.endTime ? values.endTime.format('HH:mm:ss') : '00:00:00',
                 isAvailable: values.isAvailable ?? true
@@ -181,18 +222,28 @@ const AgentAvailability = () => {
                 );
                 message.success('Availability updated successfully');
             } else {
-                // Create new
+                // Create new - Check for duplicate day first
+                const existingDay = availabilities.find(avail =>
+                    avail.dayOfWeek === availabilityData.dayOfWeek
+                );
+
+                if (existingDay) {
+                    message.warning(`You already have availability set for ${numberToDayOfWeek(availabilityData.dayOfWeek)}. Please edit the existing one instead.`);
+                    return;
+                }
+
                 result = await agentAvailabilityService.createAvailability(availabilityData);
                 message.success('Availability created successfully');
             }
 
             setModalVisible(false);
             form.resetFields();
+            setSelectedAvailability(null);
             loadAvailabilities();
 
         } catch (error) {
             console.error('Submit error details:', error);
-            const errorMessage = error.message || 'Failed to save availability';
+            const errorMessage = handleApiError(error);
             message.error(errorMessage);
             setError(errorMessage);
         } finally {
@@ -244,7 +295,8 @@ const AgentAvailability = () => {
             loadAvailabilities();
         } catch (error) {
             console.error('Error deleting availability:', error);
-            message.error('Failed to delete availability');
+            const errorMessage = handleApiError(error);
+            message.error(errorMessage);
         }
     };
 
@@ -273,7 +325,151 @@ const AgentAvailability = () => {
         </div>
     );
 
-    const columns = [
+    // Mobile Card Component
+    const AvailabilityCard = ({ record }) => {
+        const duration = () => {
+            if (!record.isAvailable) return null;
+
+            try {
+                const start = moment(record.startTime, 'HH:mm:ss');
+                const end = moment(record.endTime, 'HH:mm:ss');
+                const duration = moment.duration(end.diff(start));
+                const hours = duration.hours();
+                const minutes = duration.minutes();
+
+                if (hours === 0) {
+                    return `${minutes}m`;
+                } else if (minutes === 0) {
+                    return `${hours}h`;
+                } else {
+                    return `${hours}h ${minutes}m`;
+                }
+            } catch (error) {
+                return 'Invalid';
+            }
+        };
+
+        return (
+            <Card
+                size="small"
+                style={{
+                    marginBottom: 12,
+                    borderLeft: `4px solid ${record.isAvailable ? '#52c41a' : '#ff4d4f'}`
+                }}
+                bodyStyle={{ padding: '12px' }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                            <Tag
+                                color={record.isAvailable ? 'green' : 'red'}
+                                icon={record.isAvailable ? <CheckOutlined /> : <CloseOutlined />}
+                                style={{
+                                    margin: 0,
+                                    fontSize: '11px',
+                                    padding: '2px 6px'
+                                }}
+                            >
+                                {record.isAvailable ? 'Available' : 'Unavailable'}
+                            </Tag>
+                            <Text strong style={{ marginLeft: 8, fontSize: '14px' }}>
+                                {numberToDayOfWeek(record.dayOfWeek)}
+                            </Text>
+                        </div>
+
+                        {record.isAvailable && (
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                                <ClockCircleOutlined style={{ color: '#666', marginRight: 6 }} />
+                                <Text style={{ fontSize: '12px', color: '#52c41a' }}>
+                                    {record.startTime} - {record.endTime}
+                                </Text>
+                                {duration() && (
+                                    <Tag
+                                        color="blue"
+                                        style={{
+                                            marginLeft: 8,
+                                            fontSize: '10px',
+                                            padding: '1px 4px'
+                                        }}
+                                    >
+                                        {duration()}
+                                    </Tag>
+                                )}
+                            </div>
+                        )}
+
+                        {!record.isAvailable && (
+                            <div style={{ marginBottom: 6 }}>
+                                <Text style={{ fontSize: '12px', color: '#ff4d4f', fontStyle: 'italic' }}>
+                                    Not available this day
+                                </Text>
+                            </div>
+                        )}
+                    </div>
+
+                    <Space direction="vertical" size={4} style={{ marginLeft: 12 }}>
+                        <Tooltip title="Edit Availability">
+                            <Button
+                                icon={<EditOutlined />}
+                                size="small"
+                                onClick={() => handleEdit(record)}
+                                type="text"
+                                style={{ color: '#1890ff' }}
+                            />
+                        </Tooltip>
+                        <Popconfirm
+                            title="Delete this availability?"
+                            onConfirm={() => handleDelete(record.id)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Tooltip title="Delete Availability">
+                                <Button
+                                    icon={<DeleteOutlined />}
+                                    size="small"
+                                    danger
+                                    type="text"
+                                />
+                            </Tooltip>
+                        </Popconfirm>
+                    </Space>
+                </div>
+            </Card>
+        );
+    };
+
+    // Mobile Card List
+    const MobileCardList = () => (
+        <div style={{ padding: '8px 0' }}>
+            {availabilities.length > 0 ? (
+                availabilities.map(record => (
+                    <AvailabilityCard key={record.id} record={record} />
+                ))
+            ) : (
+                <Empty
+                    description="No availability configured"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    imageStyle={{ height: 60 }}
+                    style={{ margin: '40px 0' }}
+                >
+                    <p style={{ color: '#666', fontSize: '13px', marginBottom: 16 }}>
+                        Your availability schedule will appear here once configured.
+                    </p>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleAddNew}
+                        size="middle"
+                    >
+                        Add Your First Availability
+                    </Button>
+                </Empty>
+            )}
+        </div>
+    );
+
+    // Desktop Table Columns
+    const desktopColumns = [
         {
             title: 'Day',
             dataIndex: 'dayOfWeek',
@@ -356,15 +552,22 @@ const AgentAvailability = () => {
                             onClick={() => handleEdit(record)}
                         />
                     </Tooltip>
-                    <Tooltip title="Delete Availability">
-                        <Button
-                            danger
-                            size="small"
-                            onClick={() => handleDelete(record.id)}
-                        >
-                            Delete
-                        </Button>
-                    </Tooltip>
+                    <Popconfirm
+                        title="Are you sure to delete this availability?"
+                        onConfirm={() => handleDelete(record.id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Tooltip title="Delete Availability">
+                            <Button
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                            >
+                                Delete
+                            </Button>
+                        </Tooltip>
+                    </Popconfirm>
                 </Space>
             )
         }
@@ -372,35 +575,43 @@ const AgentAvailability = () => {
 
     return (
         <div>
-            <Card>
+            <Card bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
                 <div style={{
                     marginBottom: 16,
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'flex-start'
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: isMobile ? '12px' : '0'
                 }}>
                     <div>
-                        <h3 style={{ margin: 0 }}>My Availability</h3>
-                        <p style={{ margin: 0, color: '#666', maxWidth: '500px' }}>
+                        <h3 style={{
+                            margin: 0,
+                            fontSize: isMobile ? '18px' : '20px'
+                        }}>
+                            My Availability
+                        </h3>
+                        <p style={{
+                            margin: 0,
+                            color: '#666',
+                            maxWidth: '500px',
+                            fontSize: isMobile ? '13px' : '14px'
+                        }}>
                             Manage your working hours and availability for appointments.
                             Set specific time slots for each day when you're available.
                         </p>
                     </div>
-                    <Space>
+                    <Space direction={isMobile ? 'horizontal' : 'horizontal'}>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleAddNew}
+                            size={isMobile ? 'middle' : 'middle'}
+                            block={isMobile}
                         >
-                            Add Availability
+                            {isMobile ? 'Add Availability' : 'Add Availability'}
                         </Button>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={loadAvailabilities}
-                            loading={loading}
-                        >
-                            Refresh
-                        </Button>
+                        {/* Refresh button removed for mobile approach */}
                     </Space>
                 </div>
 
@@ -430,10 +641,12 @@ const AgentAvailability = () => {
                     <LoadingIndicator />
                 ) : error ? (
                     <ErrorIndicator message={error} onRetry={loadAvailabilities} />
+                ) : isMobile ? (
+                    <MobileCardList />
                 ) : (
                     <BaseTable
                         data={availabilities}
-                        columns={columns}
+                        columns={desktopColumns}
                         loading={loading}
                         rowKey="id"
                         pagination={false}
@@ -479,9 +692,17 @@ const AgentAvailability = () => {
                     setSelectedAvailability(null);
                 }}
                 footer={null}
-                width={500}
+                width={isMobile ? '90%' : 500}
                 confirmLoading={submitting}
                 destroyOnClose
+                maskClosable={!submitting}
+                style={{
+                    maxWidth: '100vw',
+                    top: isMobile ? 20 : undefined
+                }}
+                bodyStyle={{
+                    padding: isMobile ? '16px' : '24px'
+                }}
             >
                 <Form
                     form={form}
@@ -499,7 +720,11 @@ const AgentAvailability = () => {
                             label="Day of Week"
                             rules={[{ required: true, message: 'Please select a day' }]}
                         >
-                            <Select placeholder="Select day">
+                            <Select
+                                placeholder="Select day"
+                                disabled={submitting}
+                                size={isMobile ? 'middle' : 'large'}
+                            >
                                 {daysOfWeek.map((day, index) => (
                                     <Option key={index} value={index}>
                                         {day}
@@ -517,6 +742,7 @@ const AgentAvailability = () => {
                             <Input
                                 disabled
                                 value={numberToDayOfWeek(selectedAvailability.dayOfWeek)}
+                                size={isMobile ? 'middle' : 'large'}
                             />
                         </Form.Item>
                     )}
@@ -530,6 +756,7 @@ const AgentAvailability = () => {
                             checkedChildren="Available"
                             unCheckedChildren="Unavailable"
                             onChange={handleAvailabilityToggle}
+                            disabled={submitting}
                         />
                     </Form.Item>
 
@@ -549,9 +776,10 @@ const AgentAvailability = () => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="Start time"
-                                    disabled={!form.getFieldValue('isAvailable')}
+                                    disabled={!form.getFieldValue('isAvailable') || submitting}
                                     minuteStep={15}
                                     showNow={false}
+                                    size={isMobile ? 'middle' : 'large'}
                                 />
                             </Form.Item>
                         </Col>
@@ -571,16 +799,29 @@ const AgentAvailability = () => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="End time"
-                                    disabled={!form.getFieldValue('isAvailable')}
+                                    disabled={!form.getFieldValue('isAvailable') || submitting}
                                     minuteStep={15}
                                     showNow={false}
+                                    size={isMobile ? 'middle' : 'large'}
                                 />
                             </Form.Item>
                         </Col>
                     </Row>
 
                     <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-                        <Space>
+                        <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+                            {isMobile && (
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={submitting}
+                                    icon={<CheckOutlined />}
+                                    block
+                                    size="large"
+                                >
+                                    {selectedAvailability ? 'Update' : 'Create'} Availability
+                                </Button>
+                            )}
                             <Button
                                 onClick={() => {
                                     setModalVisible(false);
@@ -588,17 +829,22 @@ const AgentAvailability = () => {
                                     setSelectedAvailability(null);
                                 }}
                                 disabled={submitting}
+                                block={isMobile}
+                                size={isMobile ? 'large' : 'middle'}
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={submitting}
-                                icon={<CheckOutlined />}
-                            >
-                                {selectedAvailability ? 'Update' : 'Create'} Availability
-                            </Button>
+                            {!isMobile && (
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={submitting}
+                                    icon={<CheckOutlined />}
+                                    size="middle"
+                                >
+                                    {selectedAvailability ? 'Update' : 'Create'} Availability
+                                </Button>
+                            )}
                         </Space>
                     </Form.Item>
                 </Form>

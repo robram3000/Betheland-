@@ -27,6 +27,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var message = await _messageService.SendMessageAsync(createDto, userId);
                 return Ok(new { success = true, data = message });
             }
@@ -42,6 +44,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var message = await _messageService.UpdateMessageAsync(id, updateDto, userId);
                 return Ok(new { success = true, data = message });
             }
@@ -57,6 +61,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var result = await _messageService.DeleteMessageAsync(id, userId);
 
                 if (!result)
@@ -76,6 +82,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var message = await _messageService.AddReactionAsync(id, emoji, userId);
                 return Ok(new { success = true, data = message });
             }
@@ -91,6 +99,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var result = await _messageService.RemoveReactionAsync(id, userId);
 
                 if (!result)
@@ -126,6 +136,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var messages = await _messageService.GetMessagesByRecipientAsync(recipientId, userId, page, pageSize);
                 return Ok(new { success = true, data = messages });
             }
@@ -141,6 +153,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 // Get messages where current user is the recipient
                 var messages = await _messageService.GetMessagesByRecipientAsync(userId, userId, page, pageSize);
                 return Ok(new { success = true, data = messages });
@@ -157,6 +171,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 // Get messages where current user is the recipient
                 var messages = await _messageService.GetMessagesByRecipientAsync(userId, userId, page, pageSize);
                 return Ok(new { success = true, data = messages });
@@ -169,7 +185,19 @@ namespace Realstate_servcices.Server.Controllers
 
         private int GetCurrentUserId()
         {
-            return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userIdClaim))
+                {
+                    return 0;
+                }
+                return int.Parse(userIdClaim);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
         }
     }
 }

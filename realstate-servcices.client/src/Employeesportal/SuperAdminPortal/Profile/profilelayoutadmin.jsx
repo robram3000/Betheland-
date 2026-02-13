@@ -1,4 +1,4 @@
-// ProfileLayoutagent.jsx
+﻿// ProfileLayoutAdmin.jsx - Enhanced Mobile Version with OTP Verification
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import {
@@ -15,39 +15,64 @@ import {
     Alert,
     message,
     Row,
-    Col
+    Col,
+    Grid,
+    Modal,
+    Steps,
+    Avatar
 } from 'antd';
 import {
     UserOutlined,
     LockOutlined,
     SafetyCertificateOutlined,
     CheckCircleOutlined,
-    SecurityScanOutlined
+    SecurityScanOutlined,
+    SafetyOutlined,
+    MailOutlined,
+    PhoneOutlined
 } from '@ant-design/icons';
-import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import ProfileAdmin from './ProfileAdmin';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 import authService from '../../../Authpage/Services/LoginAuth';
+import { otpService } from '../../../Register/Services/otpService';
+import { forgotPasswordService } from '../../../Forgotpassword/Services/ForgotPasswordService';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Password } = Input;
+const { useBreakpoint } = Grid;
+const { Step } = Steps;
 
 const ProfileLayoutAdmin = () => {
-    const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('information');
     const [currentProfile, setCurrentProfile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [securityLoading, setSecurityLoading] = useState(false);
     const [securityError, setSecurityError] = useState(null);
     const [updatingProfile, setUpdatingProfile] = useState(false);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
+
+    // OTP Verification States
+    const [otpModalVisible, setOtpModalVisible] = useState(false);
+    const [otpStep, setOtpStep] = useState(0); // 0: request OTP, 1: verify OTP, 2: change password
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [otpData, setOtpData] = useState({
+        email: '',
+        otpCode: '',
+        newPassword: '',
+        confirmPassword: '',
+        currentPassword: ''
+    });
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
     const [securityForm] = Form.useForm();
+    const [otpForm] = Form.useForm();
 
     // Load current user profile
     useEffect(() => {
@@ -76,10 +101,6 @@ const ProfileLayoutAdmin = () => {
             console.error('Error loading current profile:', error);
             message.error('Failed to load profile data');
         }
-    };
-
-    const handleToggle = () => {
-        setCollapsed(!collapsed);
     };
 
     const handleTabChange = (key) => {
@@ -114,29 +135,127 @@ const ProfileLayoutAdmin = () => {
         }
     };
 
-    const handlePasswordChange = async (values) => {
-        setSecurityLoading(true);
-        setSecurityError(null);
+    // OTP Verification Flow for Password Change
+    const initiatePasswordChange = async (values) => {
+        if (values.newPassword !== values.confirmPassword) {
+            message.error('New passwords do not match!');
+            return;
+        }
 
+        // Store password data for later use
+        setOtpData({
+            email: currentProfile?.email || '',
+            newPassword: values.newPassword,
+            confirmPassword: values.confirmPassword,
+            currentPassword: values.currentPassword,
+            otpCode: ''
+        });
+
+        // Show OTP modal and start verification process
+        setOtpModalVisible(true);
+        setOtpStep(0);
+        setOtpVerified(false);
+        setSecurityError(null);
+    };
+
+    const requestOTP = async () => {
+        if (!currentProfile?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
         try {
-            // Call API to change password
-            const result = await authService.changePassword({
-                currentPassword: values.currentPassword,
-                newPassword: values.newPassword
-            });
+            await otpService.generateOTP(currentProfile.email);
+            message.success('OTP sent to your email!');
+            setOtpStep(1); // Move to verification step
+        } catch (error) {
+            console.error('OTP request error:', error);
+            message.error('Failed to send OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const verifyOTP = async (values) => {
+        if (!currentProfile?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            await otpService.verifyOTP(currentProfile.email, values.otpCode);
+            message.success('OTP verified successfully!');
+            setOtpVerified(true);
+            setOtpStep(2); // Move to password change step
+            setOtpData(prev => ({ ...prev, otpCode: values.otpCode }));
+        } catch (error) {
+            console.error('OTP verification error:', error);
+            message.error('Invalid OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const executePasswordChange = async () => {
+        if (!otpVerified) {
+            message.error('Please verify OTP first');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            // Use forgotPasswordService.resetPassword for password reset
+            const result = await forgotPasswordService.resetPassword(
+                otpData.email,
+                otpData.newPassword,
+                otpData.confirmPassword,
+                otpData.otpCode
+            );
 
             if (result && result.success) {
-                message.success('Password changed successfully');
+                message.success('Password changed successfully!');
+                setOtpModalVisible(false);
                 securityForm.resetFields();
+                setOtpVerified(false);
+                setOtpStep(0);
+                setSecurityError(null);
+
+                // Optional: Force logout for security
+                setTimeout(() => {
+                    message.info('Please login again with your new password');
+                    // authService.logout();
+                    // window.location.href = '/login';
+                }, 2000);
             } else {
                 throw new Error(result?.message || 'Password change failed');
             }
         } catch (error) {
-            console.error('Error changing password:', error);
-            setSecurityError(error.message || 'Failed to change password');
-            message.error('Failed to change password');
+            console.error('Password change error:', error);
+            const errorMsg = error.message || 'Failed to change password. Please try again.';
+            message.error(errorMsg);
+            setSecurityError(errorMsg);
         } finally {
-            setSecurityLoading(false);
+            setOtpLoading(false);
+        }
+    };
+
+    const resendOTP = async () => {
+        if (!currentProfile?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            await otpService.resendOTP(currentProfile.email);
+            message.success('OTP resent to your email!');
+        } catch (error) {
+            console.error('OTP resend error:', error);
+            message.error('Failed to resend OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
         }
     };
 
@@ -156,26 +275,54 @@ const ProfileLayoutAdmin = () => {
 
     const seoData = getSeoData();
 
-    const tabItems = [
-        {
-            key: 'information',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <UserOutlined />
-                    Information
-                </span>
-            ),
-        },
-        {
-            key: 'security',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <SafetyCertificateOutlined />
-                    Security
-                </span>
-            ),
-        },
-    ];
+    // Mobile header with better spacing
+    const renderHeader = () => {
+        const getHeaderTitle = () => {
+            switch (activeTab) {
+                case 'information': return 'Profile Information';
+                case 'security': return 'Security Settings';
+                default: return 'My Profile';
+            }
+        };
+
+        const getHeaderDescription = () => {
+            switch (activeTab) {
+                case 'information': return 'Update your personal and professional information';
+                case 'security': return 'Change your password and manage security settings';
+                default: return 'Manage your profile and security settings';
+            }
+        };
+
+        return (
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                }}>
+                    <div>
+                        <Title level={isMobile ? 3 : 2} style={{
+                            margin: 0,
+                            color: '#1a365d',
+                            fontSize: isMobile ? '20px' : '28px',
+                            fontWeight: 600
+                        }}>
+                            {getHeaderTitle()}
+                        </Title>
+                        <p style={{
+                            margin: '4px 0 0 0',
+                            color: '#666',
+                            fontSize: isMobile ? '14px' : '16px'
+                        }}>
+                            {getHeaderDescription()}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     const SecurityTab = () => (
         <Row gutter={[16, 16]}>
@@ -205,7 +352,7 @@ const ProfileLayoutAdmin = () => {
                     <Form
                         form={securityForm}
                         layout="vertical"
-                        onFinish={handlePasswordChange}
+                        onFinish={initiatePasswordChange}
                     >
                         <Form.Item
                             label="Current Password"
@@ -215,7 +362,7 @@ const ProfileLayoutAdmin = () => {
                             <Password
                                 prefix={<LockOutlined />}
                                 placeholder="Enter current password"
-                                size="large"
+                                size={isMobile ? "middle" : "large"}
                             />
                         </Form.Item>
 
@@ -230,7 +377,7 @@ const ProfileLayoutAdmin = () => {
                             <Password
                                 prefix={<LockOutlined />}
                                 placeholder="Enter new password"
-                                size="large"
+                                size={isMobile ? "middle" : "large"}
                             />
                         </Form.Item>
 
@@ -253,7 +400,7 @@ const ProfileLayoutAdmin = () => {
                             <Password
                                 prefix={<LockOutlined />}
                                 placeholder="Confirm new password"
-                                size="large"
+                                size={isMobile ? "middle" : "large"}
                             />
                         </Form.Item>
 
@@ -262,12 +409,17 @@ const ProfileLayoutAdmin = () => {
                                 type="primary"
                                 htmlType="submit"
                                 loading={securityLoading}
-                                size="large"
+                                size={isMobile ? "middle" : "large"}
                                 style={{ width: '100%' }}
+                                icon={<SafetyOutlined />}
                             >
-                                Change Password
+                                Verify & Change Password
                             </Button>
                         </Form.Item>
+
+                        <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'center' }}>
+                            You will need to verify via OTP before changing your password
+                        </Text>
                     </Form>
                 </Card>
             </Col>
@@ -349,16 +501,6 @@ const ProfileLayoutAdmin = () => {
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#f8f9fa',
-                    }
-                },
             }}
         >
             <Helmet>
@@ -381,108 +523,93 @@ const ProfileLayoutAdmin = () => {
                 <link rel="canonical" href={seoData.canonical} />
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh' }}>
-                <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
+                            background: colorBgContainer,
+                            minHeight: 'fit-content',
+                            overflow: 'visible',
+                            padding: isMobile ? '16px' : '30px'
                         }}
                     >
-                        <Layout>
-                            {/* Vertical Tabs Sidebar */}
-                            <Sider
-                                width={220}
+                        {/* Header Section */}
+                        {renderHeader()}
+
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
                                 style={{
-                                    background: colorBgContainer,
-                                    borderRadius: borderRadiusLG,
-                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0'
+                                    borderBottom: '1px solid #f0f0f0'
                                 }}
-                            >
-                                <div style={{ padding: '20px 0' }}>
-                                    {/* Profile Control Header */}
-                                    <div style={{
-                                        padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <Title
-                                            level={4}
-                                            style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '16px',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            My Profile
-                                        </Title>
-                                        <Text style={{
-                                            margin: '4px 0 0 0',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            lineHeight: 1.4,
-                                            display: 'block'
-                                        }}>
-                                            Manage your profile and security
-                                        </Text>
-                                    </div>
+                                items={[
+                                    {
+                                        key: 'information',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <UserOutlined />
+                                                {isMobile ? 'Profile' : 'Profile Information'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'security',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <SafetyCertificateOutlined />
+                                                {isMobile ? 'Security' : 'Security Settings'}
+                                            </span>
+                                        )
+                                    }
+                                ]}
+                            />
+                        </Card>
 
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={handleTabChange}
-                                        tabPosition="left"
-                                        type="line"
-                                        size="middle"
-                                        style={{ width: '100%' }}
-                                        tabBarStyle={{ border: 'none', width: '100%' }}
-                                        items={tabItems}
-                                    />
-                                </div>
-                            </Sider>
-
-                            {/* Main Content Area */}
-                            <Content
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible'
+                        }}>
+                            <Card
                                 style={{
-                                    background: colorBgContainer,
-                                    margin: '16px 16px 16px 0',
-                                    minHeight: 280,
-                                    borderRadius: borderRadiusLG,
-                                    overflow: 'hidden',
-                                    padding: '24px'
+                                    border: '1px solid #f0f0f0',
+                                    borderRadius: '12px',
+                                    padding: 0
                                 }}
+                                bodyStyle={{ padding: 0 }}
                             >
-                                {/* Header Section */}
-                                <div style={{ marginBottom: 24 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div>
-                                            <h1 style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '24px',
-                                                fontWeight: 600
-                                            }}>
-                                                {activeTab === 'information' ? 'Profile Information' : 'Security Settings'}
-                                            </h1>
-                                            <p style={{
-                                                margin: '6px 0 0 0',
-                                                color: '#666',
-                                                fontSize: '14px'
-                                            }}>
-                                                {activeTab === 'information'
-                                                    ? 'Update your personal and professional information'
-                                                    : 'Change your password and manage security settings'
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Conditional Content Rendering */}
                                 {activeTab === 'information' ? (
                                     <ProfileAdmin
                                         profile={currentProfile}
@@ -490,13 +617,146 @@ const ProfileLayoutAdmin = () => {
                                         onCancel={() => { }} // No cancel for profile edit in this context
                                     />
                                 ) : (
-                                    <SecurityTab />
+                                    <div style={{ padding: '24px' }}>
+                                        <SecurityTab />
+                                    </div>
                                 )}
-                            </Content>
-                        </Layout>
-                    </Layout>
+                            </Card>
+                        </div>
+                    </Content>
                 </Layout>
             </Layout>
+
+            {/* OTP Verification Modal */}
+            <Modal
+                title={
+                    <div style={{ textAlign: 'center' }}>
+                        <SafetyOutlined style={{ color: '#1a365d', marginRight: '8px' }} />
+                        OTP Verification Required
+                    </div>
+                }
+                open={otpModalVisible}
+                onCancel={() => !otpLoading && setOtpModalVisible(false)}
+                footer={null}
+                width={400}
+                closable={!otpLoading}
+                maskClosable={!otpLoading}
+            >
+                <Steps current={otpStep} size="small" style={{ marginBottom: '20px' }}>
+                    <Step title="Request" />
+                    <Step title="Verify" />
+                    <Step title="Change" />
+                </Steps>
+
+                {otpStep === 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                        <Avatar
+                            size={64}
+                            icon={<MailOutlined />}
+                            style={{ backgroundColor: '#1a365d', marginBottom: '16px' }}
+                        />
+                        <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            Secure Password Change
+                        </Text>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
+                            We need to verify your identity before changing your password.
+                        </Text>
+                        <div style={{ marginTop: '16px' }}>
+                            <Button
+                                type="primary"
+                                onClick={requestOTP}
+                                loading={otpLoading}
+                                size="large"
+                                style={{
+                                    backgroundColor: '#1a365d',
+                                    borderColor: '#1a365d',
+                                    width: '100%'
+                                }}
+                            >
+                                Send OTP to {currentProfile?.email}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {otpStep === 1 && (
+                    <Form
+                        form={otpForm}
+                        layout="vertical"
+                        onFinish={verifyOTP}
+                    >
+                        <Form.Item
+                            label="Enter OTP Code"
+                            name="otpCode"
+                            rules={[
+                                { required: true, message: 'Please enter OTP code' },
+                                { len: 6, message: 'OTP must be 6 digits' }
+                            ]}
+                        >
+                            <Input
+                                placeholder="Enter 6-digit OTP"
+                                maxLength={6}
+                                style={{
+                                    textAlign: 'center',
+                                    letterSpacing: '8px',
+                                    fontSize: '16px',
+                                    height: '40px'
+                                }}
+                            />
+                        </Form.Item>
+
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                            <Button
+                                onClick={resendOTP}
+                                loading={otpLoading}
+                                disabled={otpLoading}
+                                size="middle"
+                            >
+                                Resend OTP
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={otpLoading}
+                                size="middle"
+                                style={{
+                                    backgroundColor: '#1a365d',
+                                    borderColor: '#1a365d'
+                                }}
+                            >
+                                Verify OTP
+                            </Button>
+                        </div>
+                    </Form>
+                )}
+
+                {otpStep === 2 && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#52c41a', fontSize: '48px', marginBottom: '16px' }}>
+                            ✓
+                        </div>
+                        <Text strong style={{ display: 'block', marginBottom: '16px' }}>
+                            OTP Verified Successfully!
+                        </Text>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
+                            You can now change your password securely.
+                        </Text>
+                        <Button
+                            type="primary"
+                            onClick={executePasswordChange}
+                            loading={otpLoading}
+                            size="large"
+                            style={{
+                                backgroundColor: '#52c41a',
+                                borderColor: '#52c41a',
+                                width: '100%'
+                            }}
+                        >
+                            Change Password Now
+                        </Button>
+                    </div>
+                )}
+            </Modal>
         </ConfigProvider>
     );
 };

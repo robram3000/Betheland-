@@ -16,7 +16,9 @@ import {
     DatePicker,
     Statistic,
     Dropdown,
-    Menu
+    Menu,
+    Grid,
+    Divider
 } from 'antd';
 import {
     SearchOutlined,
@@ -34,7 +36,9 @@ import {
     PhoneOutlined,
     StarOutlined,
     UserOutlined,
-    CalendarOutlined
+    CalendarOutlined,
+    EnvironmentOutlined,
+    IdcardOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
@@ -44,6 +48,7 @@ import moment from 'moment';
 const { Search } = Input;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) => {
     const [agents, setAgents] = useState([]);
@@ -63,6 +68,12 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
         unverified: 0,
         active: 0
     });
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
+
+    // Auto-detect view mode based on screen size
+    const viewMode = isMobile ? 'card' : 'table';
 
     // Unique values for filters
     const [filterOptions, setFilterOptions] = useState({
@@ -282,6 +293,297 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
         message.info('PDF export functionality will be implemented soon');
     };
 
+    // Card View Component
+    const AgentCard = ({ agent }) => {
+        const experienceInfo = getExperienceLevel(agent.yearsOfExperience || 0);
+
+        const menuItems = [
+            {
+                key: 'view',
+                icon: <EyeOutlined />,
+                label: 'View Details',
+                onClick: () => handleView(agent)
+            },
+            {
+                key: 'edit',
+                icon: <EditOutlined />,
+                label: 'Edit Agent',
+                onClick: () => handleEdit(agent)
+            },
+            ...(!agent.isVerified ? [{
+                key: 'verify',
+                icon: <CheckOutlined />,
+                label: 'Verify Agent',
+                onClick: () => handleVerify(agent.id),
+                disabled: actionLoading === agent.id
+            }] : []),
+            {
+                type: 'divider',
+            },
+            {
+                key: 'delete',
+                icon: <DeleteOutlined />,
+                label: 'Delete Agent',
+                danger: true,
+                onClick: () => handleDelete(agent.id),
+                disabled: actionLoading === agent.id
+            }
+        ];
+
+        return (
+            <Card
+                style={{
+                    marginBottom: 16,
+                    borderRadius: 12,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    border: '1px solid #f0f0f0'
+                }}
+                bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
+            >
+                {/* Header Section */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <Avatar
+                        src={agent.profilePictureUrl}
+                        size={isMobile ? 60 : 80}
+                        style={{
+                            backgroundColor: '#1a365d',
+                            marginRight: 12,
+                            border: '3px solid #f0f0f0'
+                        }}
+                        icon={<UserOutlined />}
+                        onError={() => true}
+                    >
+                        {agent.firstName?.[0]}{agent.lastName?.[0]}
+                    </Avatar>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: 4
+                        }}>
+                            <h3 style={{
+                                margin: 0,
+                                fontSize: isMobile ? '16px' : '18px',
+                                fontWeight: 600,
+                                color: '#1a365d'
+                            }}>
+                                {agent.firstName} {agent.lastName}
+                            </h3>
+                            <Tag
+                                color={agent.isVerified ? 'green' : 'orange'}
+                                icon={agent.isVerified ? <CheckOutlined /> : null}
+                                style={{
+                                    fontWeight: 500,
+                                    fontSize: isMobile ? '10px' : '12px',
+                                    padding: isMobile ? '2px 6px' : '4px 8px'
+                                }}
+                            >
+                                {agent.isVerified ? 'Verified' : 'Unverified'}
+                            </Tag>
+                        </div>
+
+                        <div style={{
+                            fontSize: isMobile ? '12px' : '14px',
+                            color: '#666',
+                            marginBottom: 4
+                        }}>
+                            <MailOutlined style={{ marginRight: 6 }} />
+                            {agent.email}
+                        </div>
+
+                        {agent.brokerageName && (
+                            <div style={{
+                                fontSize: isMobile ? '11px' : '13px',
+                                color: '#999',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                <EnvironmentOutlined style={{ marginRight: 6 }} />
+                                {agent.brokerageName}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                {/* Contact & Experience Section */}
+                <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
+                    <Col span={12}>
+                        <div style={{ textAlign: 'center' }}>
+                            <PhoneOutlined style={{
+                                fontSize: isMobile ? '16px' : '18px',
+                                color: '#52c41a',
+                                marginBottom: 4
+                            }} />
+                            <div style={{
+                                fontSize: isMobile ? '11px' : '12px',
+                                fontWeight: 500
+                            }}>
+                                {agent.cellPhoneNo || 'N/A'}
+                            </div>
+                            <div style={{
+                                fontSize: isMobile ? '10px' : '11px',
+                                color: '#666'
+                            }}>
+                                Phone
+                            </div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ textAlign: 'center' }}>
+                            <IdcardOutlined style={{
+                                fontSize: isMobile ? '16px' : '18px',
+                                color: '#1890ff',
+                                marginBottom: 4
+                            }} />
+                            <div style={{
+                                fontSize: isMobile ? '11px' : '12px',
+                                fontWeight: 500
+                            }}>
+                                {agent.yearsOfExperience || 0} yrs
+                            </div>
+                            <div style={{
+                                fontSize: isMobile ? '10px' : '11px',
+                                color: experienceInfo.color
+                            }}>
+                                {experienceInfo.level}
+                            </div>
+                        </div>
+                    </Col>
+                </Row>
+
+                {/* Specializations & Languages */}
+                {(agent.specialization?.length > 0 || agent.languages?.length > 0) && (
+                    <>
+                        <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+                            {agent.specialization?.length > 0 && (
+                                <Col span={24}>
+                                    <div style={{
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        fontWeight: 500,
+                                        marginBottom: 4,
+                                        color: '#666'
+                                    }}>
+                                        Specializations:
+                                    </div>
+                                    <TagsWithMore
+                                        items={agent.specialization}
+                                        maxDisplay={2}
+                                        color="purple"
+                                    />
+                                </Col>
+                            )}
+                            {agent.languages?.length > 0 && (
+                                <Col span={24}>
+                                    <div style={{
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        fontWeight: 500,
+                                        marginBottom: 4,
+                                        color: '#666'
+                                    }}>
+                                        Languages:
+                                    </div>
+                                    <TagsWithMore
+                                        items={agent.languages}
+                                        maxDisplay={2}
+                                        color="green"
+                                    />
+                                </Col>
+                            )}
+                        </Row>
+                        <Divider style={{ margin: '8px 0' }} />
+                    </>
+                )}
+
+                {/* Registration Date */}
+                {agent.dateRegistered && (
+                    <div style={{
+                        fontSize: isMobile ? '10px' : '11px',
+                        color: '#999',
+                        textAlign: 'center',
+                        marginBottom: 12
+                    }}>
+                        <CalendarOutlined style={{ marginRight: 4 }} />
+                        Joined {moment(agent.dateRegistered).fromNow()}
+                    </div>
+                )}
+
+                {/* Actions Section */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Space size="small">
+                        <Tooltip title="Send Email">
+                            <Button
+                                type="text"
+                                icon={<MailOutlined />}
+                                size="small"
+                                onClick={() => handleContact(agent, 'email')}
+                                disabled={!agent.email}
+                                style={{ color: '#1890ff' }}
+                            />
+                        </Tooltip>
+                        <Tooltip title="Call">
+                            <Button
+                                type="text"
+                                icon={<PhoneOutlined />}
+                                size="small"
+                                onClick={() => handleContact(agent, 'phone')}
+                                disabled={!agent.cellPhoneNo}
+                                style={{ color: '#52c41a' }}
+                            />
+                        </Tooltip>
+                        <Tooltip title="View Details">
+                            <Button
+                                type="text"
+                                icon={<EyeOutlined />}
+                                size="small"
+                                onClick={() => handleView(agent)}
+                                style={{ color: '#722ed1' }}
+                            />
+                        </Tooltip>
+                    </Space>
+
+                    <Dropdown
+                        menu={{ items: menuItems }}
+                        trigger={['click']}
+                        placement="bottomRight"
+                    >
+                        <Button
+                            icon={<MoreOutlined />}
+                            size="small"
+                            type="text"
+                        />
+                    </Dropdown>
+                </div>
+            </Card>
+        );
+    };
+
+    // Card List View
+    const CardListView = () => (
+        <div>
+            {filteredAgents.length === 0 ? (
+                <Card style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{ fontSize: '16px', color: '#999', marginBottom: 16 }}>
+                        No agents found
+                    </div>
+                    <Button type="primary" onClick={clearAllFilters}>
+                        Clear Filters
+                    </Button>
+                </Card>
+            ) : (
+                <div>
+                    {filteredAgents.map(agent => (
+                        <AgentCard key={agent.id} agent={agent} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
+    // Table columns (for desktop view)
     const columns = [
         {
             title: 'Agent',
@@ -290,7 +592,7 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
             width: 220,
             fixed: 'left',
             render: (text, record) => (
-                <Space>
+                <Space size={8}>
                     <Avatar
                         src={record.profilePictureUrl}
                         size="large"
@@ -301,13 +603,25 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                         {record.firstName?.[0]}{record.lastName?.[0]}
                     </Avatar>
                     <div>
-                        <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                        <div style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            lineHeight: '1.4'
+                        }}>
                             {record.firstName} {record.lastName}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
+                        <div style={{
+                            fontSize: '12px',
+                            color: '#666',
+                            lineHeight: '1.4'
+                        }}>
                             {record.email}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#999' }}>
+                        <div style={{
+                            fontSize: '11px',
+                            color: '#999',
+                            lineHeight: '1.4'
+                        }}>
                             {record.brokerageName || 'No Brokerage'}
                         </div>
                     </div>
@@ -347,7 +661,10 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
             width: 140,
             render: (phone, record) => (
                 <Space direction="vertical" size={2}>
-                    <div style={{ fontSize: '12px', fontWeight: 500 }}>
+                    <div style={{
+                        fontSize: '12px',
+                        fontWeight: 500
+                    }}>
                         {phone || 'N/A'}
                     </div>
                     <Space size="small">
@@ -382,10 +699,17 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 const { level, color } = getExperienceLevel(years || 0);
                 return (
                     <Space direction="vertical" size={2}>
-                        <div style={{ fontSize: '12px', fontWeight: 500 }}>
+                        <div style={{
+                            fontSize: '12px',
+                            fontWeight: 500
+                        }}>
                             {years ? `${years} years` : 'Not specified'}
                         </div>
-                        <Tag color={color} style={{ fontSize: '10px', margin: 0 }}>
+                        <Tag color={color} style={{
+                            fontSize: '10px',
+                            margin: 0,
+                            padding: '2px 6px'
+                        }}>
                             {level}
                         </Tag>
                     </Space>
@@ -402,7 +726,11 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 <Tag
                     color={verified ? 'green' : 'orange'}
                     icon={verified ? <CheckOutlined /> : null}
-                    style={{ fontWeight: 500 }}
+                    style={{
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        padding: '4px 8px'
+                    }}
                 >
                     {verified ? 'Verified' : 'Unverified'}
                 </Tag>
@@ -496,22 +824,33 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
         <Card
             size="small"
             style={{ marginBottom: 16, border: '1px solid #d9d9d9' }}
-            bodyStyle={{ padding: '16px' }}
+            bodyStyle={{ padding: isMobile ? '12px' : '16px' }}
         >
             <Row gutter={[16, 16]}>
                 <Col span={24}>
-                    <div style={{ marginBottom: 12, fontWeight: 600, color: '#1a365d' }}>
+                    <div style={{
+                        marginBottom: 12,
+                        fontWeight: 600,
+                        color: '#1a365d',
+                        fontSize: isMobile ? '14px' : '16px'
+                    }}>
                         <FilterOutlined /> Advanced Filters
                     </div>
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Status</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Status
+                    </div>
                     <Select
                         value={statusFilter}
                         style={{ width: '100%' }}
                         onChange={handleStatusFilter}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                     >
                         <Option value="all">All Status</Option>
                         <Option value="verified">Verified</Option>
@@ -520,12 +859,18 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Experience</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Experience
+                    </div>
                     <Select
                         value={experienceFilter}
                         style={{ width: '100%' }}
                         onChange={handleExperienceFilter}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                     >
                         <Option value="all">All Experience</Option>
                         <Option value="0-2">0-2 years</Option>
@@ -536,12 +881,18 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Specialization</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Specialization
+                    </div>
                     <Select
                         value={specializationFilter}
                         style={{ width: '100%' }}
                         onChange={handleSpecializationFilter}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                     >
                         <Option value="all">All Specializations</Option>
                         {filterOptions.specializations.map(spec => (
@@ -551,12 +902,18 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Language</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Language
+                    </div>
                     <Select
                         value={languageFilter}
                         style={{ width: '100%' }}
                         onChange={handleLanguageFilter}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                     >
                         <Option value="all">All Languages</Option>
                         {filterOptions.languages.map(lang => (
@@ -566,12 +923,18 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Brokerage</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Brokerage
+                    </div>
                     <Select
                         value={brokerageFilter}
                         style={{ width: '100%' }}
                         onChange={handleBrokerageFilter}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                     >
                         <Option value="all">All Brokerages</Option>
                         {filterOptions.brokerages.map(brokerage => (
@@ -581,12 +944,18 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 </Col>
 
                 <Col xs={24} sm={12} md={8} lg={6}>
-                    <div style={{ marginBottom: 8, fontSize: '12px', fontWeight: 500 }}>Registration Date</div>
+                    <div style={{
+                        marginBottom: 8,
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: 500
+                    }}>
+                        Registration Date
+                    </div>
                     <RangePicker
                         value={dateRangeFilter}
                         onChange={handleDateRangeFilter}
                         style={{ width: '100%' }}
-                        size="small"
+                        size={isMobile ? "small" : "middle"}
                         format="MMM DD, YYYY"
                     />
                 </Col>
@@ -595,8 +964,8 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                     <Button
                         type="link"
                         onClick={clearAllFilters}
-                        size="small"
-                        style={{ padding: 0 }}
+                        size={isMobile ? "small" : "middle"}
+                        style={{ padding: 0, fontSize: isMobile ? '12px' : '14px' }}
                     >
                         Clear all filters
                     </Button>
@@ -610,104 +979,125 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
             {/* Statistics Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={6}>
-                    <Card size="small" bodyStyle={{ padding: '16px' }}>
+                    <Card size="small" bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                         <Statistic
                             title="Total Agents"
                             value={stats.total}
                             prefix={<UserOutlined />}
-                            valueStyle={{ color: '#1a365d' }}
+                            valueStyle={{
+                                color: '#1a365d',
+                                fontSize: isMobile ? '18px' : '24px'
+                            }}
                         />
                     </Card>
                 </Col>
                 <Col xs={12} sm={6}>
-                    <Card size="small" bodyStyle={{ padding: '16px' }}>
+                    <Card size="small" bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                         <Statistic
                             title="Verified"
                             value={stats.verified}
                             prefix={<CheckOutlined />}
-                            valueStyle={{ color: '#52c41a' }}
+                            valueStyle={{
+                                color: '#52c41a',
+                                fontSize: isMobile ? '18px' : '24px'
+                            }}
                         />
                     </Card>
                 </Col>
                 <Col xs={12} sm={6}>
-                    <Card size="small" bodyStyle={{ padding: '16px' }}>
+                    <Card size="small" bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                         <Statistic
                             title="Unverified"
                             value={stats.unverified}
                             prefix={<StarOutlined />}
-                            valueStyle={{ color: '#faad14' }}
+                            valueStyle={{
+                                color: '#faad14',
+                                fontSize: isMobile ? '18px' : '24px'
+                            }}
                         />
                     </Card>
                 </Col>
                 <Col xs={12} sm={6}>
-                    <Card size="small" bodyStyle={{ padding: '16px' }}>
+                    <Card size="small" bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                         <Statistic
                             title="Active"
                             value={stats.active}
                             prefix={<CalendarOutlined />}
-                            valueStyle={{ color: '#1890ff' }}
+                            valueStyle={{
+                                color: '#1890ff',
+                                fontSize: isMobile ? '18px' : '24px'
+                            }}
                         />
                     </Card>
                 </Col>
             </Row>
 
-            <Card>
+            <Card bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                 {/* Header Section */}
                 <div style={{
                     marginBottom: 16,
                     display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
+                    alignItems: isMobile ? 'stretch' : 'flex-start',
                     gap: 16
                 }}>
-                    <Space direction="vertical" size="small" style={{ flex: 1 }}>
+                    <Space direction="vertical" size="small" style={{
+                        flex: 1,
+                        width: isMobile ? '100%' : 'auto'
+                    }}>
                         <Search
-                            placeholder="Search agents by name, email, license, or brokerage..."
+                            placeholder={isMobile ? "Search agents..." : "Search agents by name, email, license, or brokerage..."}
                             allowClear
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
-                            style={{ width: 400, maxWidth: '100%' }}
-                            size="large"
+                            style={{ width: isMobile ? '100%' : 400 }}
+                            size={isMobile ? "middle" : "large"}
                         />
-                        <div style={{ fontSize: '12px', color: '#666' }}>
+                        <div style={{
+                            fontSize: isMobile ? '11px' : '12px',
+                            color: '#666'
+                        }}>
                             Showing {filteredAgents.length} of {agents.length} agents
                         </div>
                     </Space>
 
-                    <Space wrap>
+                    <Space wrap style={{
+                        justifyContent: isMobile ? 'center' : 'flex-end',
+                        width: isMobile ? '100%' : 'auto'
+                    }}>
                         <Button
                             icon={<FilterOutlined />}
                             onClick={() => setShowFilters(!showFilters)}
                             type={showFilters ? 'primary' : 'default'}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            Filters {showFilters ? '(On)' : ''}
+                            {isMobile ? 'Filters' : 'Filters'} {showFilters ? '(On)' : ''}
                         </Button>
 
                         <Button
                             icon={<FileExcelOutlined />}
                             onClick={handleExportExcel}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            Excel
+                            {isMobile ? 'Excel' : 'Excel'}
                         </Button>
 
                         <Button
                             icon={<FilePdfOutlined />}
                             onClick={handleExportPDF}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            PDF
+                            {isMobile ? 'PDF' : 'PDF'}
                         </Button>
 
                         <Button
                             icon={<ReloadOutlined />}
                             onClick={loadAgents}
                             loading={loading}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            Refresh
+                            {isMobile ? 'Refresh' : 'Refresh'}
                         </Button>
                     </Space>
                 </div>
@@ -715,22 +1105,26 @@ const AgentPage = ({ onAgentsUpdate, onEditAgent, onCreateAgent, onViewAgent }) 
                 {/* Advanced Filters */}
                 {showFilters && <FilterSection />}
 
-                {/* Table */}
-                <BaseTable
-                    data={filteredAgents}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    scroll={{ x: 1300 }}
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} of ${total} agents`,
-                        size: 'default',
-                    }}
-                />
+                {/* Content - Auto-switch between table and card views */}
+                {viewMode === 'table' ? (
+                    <BaseTable
+                        data={filteredAgents}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        scroll={{ x: 1300 }}
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} agents`,
+                            size: "default",
+                        }}
+                    />
+                ) : (
+                    <CardListView />
+                )}
             </Card>
         </div>
     );

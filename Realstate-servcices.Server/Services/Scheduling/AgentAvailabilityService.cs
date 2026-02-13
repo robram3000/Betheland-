@@ -3,8 +3,7 @@ using Realstate_servcices.Server.Repositories;
 
 namespace Realstate_servcices.Server.Services.Scheduling
 {
-
-   public interface IAgentAvailabilityService
+    public interface IAgentAvailabilityService
     {
         Task<AgentAvailability> GetAvailabilityByIdAsync(int id);
         Task<IEnumerable<AgentAvailability>> GetAvailabilitiesByAgentAsync(int agentId);
@@ -74,12 +73,55 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<AgentAvailability> UpdateAvailabilityAsync(AgentAvailability availability)
         {
-            var existingAvailability = await _availabilityRepository.GetByIdAsync(availability.Id);
-            if (existingAvailability == null)
-                throw new KeyNotFoundException($"Availability with ID {availability.Id} not found.");
+            try
+            {
+                Console.WriteLine($"UpdateAvailabilityAsync called with ID: {availability.Id}, AgentId: {availability.AgentId}, Day: {availability.DayOfWeek}");
 
-            availability.UpdatedAt = DateTime.UtcNow;
-            return await _availabilityRepository.UpdateAsync(availability);
+                var existingAvailability = await _availabilityRepository.GetByIdAsync(availability.Id);
+                if (existingAvailability == null)
+                {
+                    Console.WriteLine($"Availability with ID {availability.Id} not found");
+                    throw new KeyNotFoundException($"Availability with ID {availability.Id} not found.");
+                }
+
+                Console.WriteLine($"Found existing availability: AgentId: {existingAvailability.AgentId}, Day: {existingAvailability.DayOfWeek}");
+
+                // Check for overlapping availability (excluding the current one being updated)
+                var existingAvailabilities = await _availabilityRepository.GetByAgentAndDayAsync(
+                    availability.AgentId, availability.DayOfWeek);
+
+                Console.WriteLine($"Found {existingAvailabilities.Count()} existing availabilities for this agent and day");
+
+                var hasOverlap = existingAvailabilities.Any(a =>
+                    a.Id != availability.Id && // Exclude current record
+                    a.IsAvailable && availability.IsAvailable &&
+                    ((availability.StartTime >= a.StartTime && availability.StartTime < a.EndTime) ||
+                     (availability.EndTime > a.StartTime && availability.EndTime <= a.EndTime) ||
+                     (availability.StartTime <= a.StartTime && availability.EndTime >= a.EndTime)));
+
+                if (hasOverlap)
+                {
+                    Console.WriteLine("Overlap detected with existing availability");
+                    throw new InvalidOperationException("The availability period overlaps with existing availability.");
+                }
+
+                // Preserve original creation date
+                availability.CreatedAt = existingAvailability.CreatedAt;
+                availability.UpdatedAt = DateTime.UtcNow;
+
+                Console.WriteLine($"Updating availability with StartTime: {availability.StartTime}, EndTime: {availability.EndTime}");
+
+                var result = await _availabilityRepository.UpdateAsync(availability);
+                Console.WriteLine("Update successful");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in UpdateAvailabilityAsync: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         public async Task<bool> DeleteAvailabilityAsync(int id)

@@ -19,7 +19,9 @@
     <TypeScriptConfiguration Remove="src\Employeesportal\SuperAdminPortal\Conversation\**" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="src\Chat\NewFolder\" />
     <Folder Include="src\Employeesportal\AdminPortal\appointment\mappers\" />
+    <Folder Include="src\Employeesportal\AdminPortal\Convo\" />
     <Folder Include="src\Employeesportal\SuperAdminPortal\Content\Services\" />
     <Folder Include="src\Employeesportal\SuperAdminPortal\Convo\" />
     <Folder Include="src\Employeesportal\SuperAdminPortal\Client\" />

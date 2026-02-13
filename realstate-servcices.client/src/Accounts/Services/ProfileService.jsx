@@ -70,6 +70,70 @@ class ProfileService {
             };
         }
     }
+
+    async getprofiledisplaywithid(basemembedid) {
+
+        try {
+           
+            const response = await api.get(`/Client/${basemembedid}`);
+            if (!response) {
+                return {
+                    success: false,
+                    message: 'No response from server'
+                };
+            }
+
+            let clientData = response.data || response;
+            const mappedData = {
+                id: clientData.baseMemberId || clientData.id ,
+                clientId: clientData.id,
+                baseMemberId: clientData.baseMemberId,
+                email: clientData.email ,
+                username: clientData.username,
+                firstName: clientData.firstName,
+                lastName: clientData.lastName,
+                middleName: clientData.middleName,
+                suffix: clientData.suffix,
+                cellPhoneNo: clientData.cellPhoneNo,
+                country: clientData.country,
+                city: clientData.city,
+                street: clientData.street,
+                zipCode: clientData.zipCode,
+                gender: clientData.gender,
+                status: clientData.status,
+                createdAt: clientData.createdAt,
+                dateRegistered: clientData.dateRegistered,
+                profilePicture: clientData.profilePictureUrl || clientData.profilePicture,
+                address: clientData.address
+
+            }
+
+            return {
+                success: true,
+                data: mappedData,
+                message: 'Profile loaded successfully'
+            };
+        } catch (error) {
+            let errorMessage = 'Failed to load profile';
+            if (error.response) {
+                console.error('Response error details:', error.response);
+                errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+            } else if (error.request) {
+                errorMessage = 'No response from server - network error';
+            } else {
+                errorMessage = error.message || 'Failed to load profile';
+            }
+
+            return {
+                success: false,
+                message: errorMessage,
+                error: error
+            };
+        }
+
+
+
+    }
     async updateProfile(profileData) {
         try {
             const currentUser = authService.getCurrentUser();

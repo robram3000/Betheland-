@@ -1,4 +1,4 @@
-// ThirdContentEditor.jsx
+// ThirdContentEditor.jsx - Card Version
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -19,7 +19,8 @@ import {
     Tooltip,
     Spin,
     Empty,
-    InputNumber
+    InputNumber,
+    Grid
 } from 'antd';
 import {
     EditOutlined,
@@ -28,14 +29,16 @@ import {
     EyeOutlined,
     CheckOutlined,
     CloseOutlined,
-    ArrowUpOutlined,
-    ArrowDownOutlined
+    AppstoreOutlined,
+    OrderedListOutlined,
+    StarOutlined
 } from '@ant-design/icons';
 import ThirdSectionServices from './Services/ThirdSectionServices';
 import ThirdSectionMapper from './Services/ThirdSectionMapper';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
+const { useBreakpoint } = Grid;
 
 const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, refreshTrigger }) => {
     const [thirdSectionData, setThirdSectionData] = useState(null);
@@ -44,34 +47,24 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
     const [modalVisible, setModalVisible] = useState(false);
     const [editingStep, setEditingStep] = useState(null);
     const [editingFeature, setEditingFeature] = useState(null);
-    const [activeTab, setActiveTab] = useState('main'); // 'main', 'process', 'features'
+    const [activeTab, setActiveTab] = useState('main');
     const [form] = Form.useForm();
     const [stepForm] = Form.useForm();
     const [featureForm] = Form.useForm();
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
-    // Load third section data on component mount and when refreshTrigger changes
     useEffect(() => {
-        console.log('ThirdContentEditor mounted or refreshTrigger changed:', refreshTrigger);
         loadThirdSectionData();
     }, [refreshTrigger]);
 
     const loadThirdSectionData = async () => {
         setLoading(true);
         try {
-            console.log('Starting to load third section data...');
             const response = await ThirdSectionServices.getThirdSection();
-            console.log('Raw third section response:', response);
-
             const mappedData = ThirdSectionMapper.mapFromApi(response);
-            console.log('Mapped third section data:', mappedData);
-
             setThirdSectionData(mappedData);
-
-            if (ThirdSectionMapper.isEmpty(mappedData)) {
-                console.warn('Third section data is empty');
-            }
         } catch (error) {
-            console.error('Full third section error:', error);
             message.error(`Failed to load third section data: ${error.message}`);
             setThirdSectionData(ThirdSectionMapper.getEmptyThirdSection());
         } finally {
@@ -149,10 +142,8 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
         try {
             let updatedSteps;
             if (editingStep.id === 0) {
-                // New step
                 updatedSteps = [...(thirdSectionData.processSteps || []), values];
             } else {
-                // Update existing step
                 updatedSteps = thirdSectionData.processSteps.map(step =>
                     step.id === editingStep.id ? { ...step, ...values } : step
                 );
@@ -224,10 +215,8 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
         try {
             let updatedItems;
             if (editingFeature.id === 0) {
-                // New item
                 updatedItems = [...(thirdSectionData.featureItems || []), values];
             } else {
-                // Update existing item
                 updatedItems = thirdSectionData.featureItems.map(item =>
                     item.id === editingFeature.id ? { ...item, ...values } : item
                 );
@@ -263,15 +252,111 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
         featureForm.resetFields();
     };
 
+    // Card-based navigation
+    const navigationCards = [
+        {
+            key: 'main',
+            title: 'Main Content',
+            description: 'Edit section title, subtitle and description',
+            icon: <AppstoreOutlined />,
+            color: '#1890ff',
+            active: activeTab === 'main'
+        },
+        {
+            key: 'process',
+            title: 'Process Steps',
+            description: 'Manage process steps and workflow',
+            icon: <OrderedListOutlined />,
+            color: '#52c41a',
+            active: activeTab === 'process'
+        },
+        {
+            key: 'features',
+            title: 'Features',
+            description: 'Configure feature items and benefits',
+            icon: <StarOutlined />,
+            color: '#fa8c16',
+            active: activeTab === 'features'
+        }
+    ];
+
+    const renderNavigationCards = () => (
+        <Card
+            style={{ marginBottom: 24 }}
+            bodyStyle={{ padding: isMobile ? '16px' : '24px' }}
+        >
+            <Title level={5} style={{ marginBottom: 16, color: '#1a365d' }}>
+                Content Sections
+            </Title>
+            <Row gutter={[16, 16]}>
+                {navigationCards.map((card) => (
+                    <Col xs={24} sm={12} lg={8} key={card.key}>
+                        <Card
+                            hoverable
+                            style={{
+                                border: `2px solid ${card.active ? card.color : '#f0f0f0'}`,
+                                background: card.active ? `${card.color}08` : 'white',
+                                transition: 'all 0.3s ease',
+                                height: '100%'
+                            }}
+                            bodyStyle={{
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}
+                            onClick={() => setActiveTab(card.key)}
+                        >
+                            <div style={{
+                                fontSize: '32px',
+                                color: card.active ? card.color : '#666',
+                                marginBottom: '12px'
+                            }}>
+                                {card.icon}
+                            </div>
+                            <Title level={5} style={{
+                                margin: '8px 0',
+                                color: card.active ? card.color : '#1a365d'
+                            }}>
+                                {isMobile ? card.title.split(' ')[0] : card.title}
+                            </Title>
+                            <Text style={{
+                                color: card.active ? card.color : '#666',
+                                fontSize: '13px'
+                            }}>
+                                {isMobile ? card.description.split(' ').slice(0, 3).join(' ') + '...' : card.description}
+                            </Text>
+                            {card.active && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 8,
+                                    right: 8,
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    backgroundColor: card.color
+                                }} />
+                            )}
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+        </Card>
+    );
+
     const renderMainContent = () => (
         <Card
-            title="Main Content"
+            title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AppstoreOutlined />
+                    Main Content
+                </div>
+            }
             style={{ marginBottom: 16 }}
             extra={
                 <Button
                     type="primary"
                     onClick={() => form.submit()}
                     loading={saving}
+                    size={isMobile ? "middle" : "large"}
                 >
                     Save Changes
                 </Button>
@@ -284,22 +369,22 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                 initialValues={thirdSectionData}
             >
                 <Row gutter={16}>
-                    <Col span={12}>
+                    <Col span={isMobile ? 24 : 12}>
                         <Form.Item
                             label="Title"
                             name="title"
                             rules={[{ required: true, message: 'Please enter title' }]}
                         >
-                            <Input placeholder="Enter section title" />
+                            <Input placeholder="Enter section title" size="large" />
                         </Form.Item>
                     </Col>
-                    <Col span={12}>
+                    <Col span={isMobile ? 24 : 12}>
                         <Form.Item
                             label="Subtitle"
                             name="subtitle"
                             rules={[{ required: true, message: 'Please enter subtitle' }]}
                         >
-                            <Input placeholder="Enter section subtitle" />
+                            <Input placeholder="Enter section subtitle" size="large" />
                         </Form.Item>
                     </Col>
                 </Row>
@@ -312,6 +397,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     <TextArea
                         rows={4}
                         placeholder="Enter section description"
+                        size="large"
                     />
                 </Form.Item>
             </Form>
@@ -321,12 +407,13 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
     const renderProcessSteps = () => (
         <Card
             title={
-                <Space>
-                    <span>Process Steps</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <OrderedListOutlined />
+                    Process Steps
                     <Tag color="blue">
                         {thirdSectionData?.processSteps?.length || 0}/{ThirdSectionMapper.MAX_PROCESS_STEPS}
                     </Tag>
-                </Space>
+                </div>
             }
             style={{ marginBottom: 16 }}
             extra={
@@ -335,45 +422,43 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     icon={<PlusOutlined />}
                     onClick={handleAddProcessStep}
                     disabled={!ThirdSectionMapper.canAddProcessStep(thirdSectionData?.processSteps)}
+                    size={isMobile ? "middle" : "large"}
                 >
-                    Add Step
+                    {isMobile ? 'Add Step' : 'Add Process Step'}
                 </Button>
             }
         >
             {thirdSectionData?.processSteps?.length > 0 ? (
-                <List
-                    dataSource={ThirdSectionServices.sortProcessSteps(thirdSectionData.processSteps)}
-                    renderItem={(step, index) => (
-                        <List.Item
-                            key={ThirdSectionMapper.generateUniqueKey(step, index, 'step')}
-                            actions={[
-                                <Tooltip title="Edit">
-                                    <Button
-                                        type="text"
-                                        icon={<EditOutlined />}
-                                        onClick={() => handleEditProcessStep(step)}
-                                    />
-                                </Tooltip>,
-                                <Popconfirm
-                                    title="Delete Process Step"
-                                    description="Are you sure you want to delete this process step?"
-                                    onConfirm={() => handleDeleteProcessStep(step.id)}
-                                    okText="Yes"
-                                    cancelText="No"
-                                    okType="danger"
-                                >
-                                    <Tooltip title="Delete">
-                                        <Button
-                                            type="text"
-                                            icon={<DeleteOutlined />}
-                                            danger
+                <Row gutter={[16, 16]}>
+                    {ThirdSectionServices.sortProcessSteps(thirdSectionData.processSteps).map((step, index) => (
+                        <Col xs={24} lg={12} xl={8} key={ThirdSectionMapper.generateUniqueKey(step, index, 'step')}>
+                            <Card
+                                style={{
+                                    height: '100%',
+                                    border: '1px solid #f0f0f0'
+                                }}
+                                actions={[
+                                    <Tooltip title="Edit">
+                                        <EditOutlined
+                                            onClick={() => handleEditProcessStep(step)}
+                                            style={{ color: '#52c41a' }}
                                         />
-                                    </Tooltip>
-                                </Popconfirm>
-                            ]}
-                        >
-                            <List.Item.Meta
-                                avatar={
+                                    </Tooltip>,
+                                    <Popconfirm
+                                        title="Delete Process Step"
+                                        description="Are you sure you want to delete this process step?"
+                                        onConfirm={() => handleDeleteProcessStep(step.id)}
+                                        okText="Yes"
+                                        cancelText="No"
+                                        okType="danger"
+                                    >
+                                        <Tooltip title="Delete">
+                                            <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                                        </Tooltip>
+                                    </Popconfirm>
+                                ]}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '12px' }}>
                                     <div style={{
                                         width: 40,
                                         height: 40,
@@ -383,24 +468,33 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         color: 'white',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        flexShrink: 0
                                     }}>
                                         {step.stepNumber}
                                     </div>
-                                }
-                                title={step.title || 'Untitled Step'}
-                                description={
-                                    <Text ellipsis={{ tooltip: step.description }}>
-                                        {step.description || 'No description'}
-                                    </Text>
-                                }
-                            />
-                            {step.icon && (
-                                <Tag color="green">Icon: {step.icon}</Tag>
-                            )}
-                        </List.Item>
-                    )}
-                />
+                                    <div style={{ flex: 1 }}>
+                                        <Title level={5} style={{ margin: '0 0 8px 0' }}>
+                                            {step.title || 'Untitled Step'}
+                                        </Title>
+                                        <Paragraph
+                                            type="secondary"
+                                            style={{ margin: 0, fontSize: '14px' }}
+                                            ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}
+                                        >
+                                            {step.description || 'No description'}
+                                        </Paragraph>
+                                    </div>
+                                </div>
+                                {step.icon && (
+                                    <div style={{ marginTop: '12px' }}>
+                                        <Tag color="green">Icon: {step.icon}</Tag>
+                                    </div>
+                                )}
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
             ) : (
                 <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -417,12 +511,13 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
     const renderFeatureItems = () => (
         <Card
             title={
-                <Space>
-                    <span>Feature Items</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <StarOutlined />
+                    Feature Items
                     <Tag color="green">
                         {thirdSectionData?.featureItems?.length || 0}/{ThirdSectionMapper.MAX_FEATURE_ITEMS}
                     </Tag>
-                </Space>
+                </div>
             }
             extra={
                 <Button
@@ -430,56 +525,63 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     icon={<PlusOutlined />}
                     onClick={handleAddFeatureItem}
                     disabled={!ThirdSectionMapper.canAddFeatureItem(thirdSectionData?.featureItems)}
+                    size={isMobile ? "middle" : "large"}
                 >
-                    Add Feature
+                    {isMobile ? 'Add Feature' : 'Add Feature Item'}
                 </Button>
             }
         >
             {thirdSectionData?.featureItems?.length > 0 ? (
-                <List
-                    grid={{ gutter: 16, column: 2 }}
-                    dataSource={thirdSectionData.featureItems}
-                    renderItem={(item, index) => (
-                        <List.Item
-                            key={ThirdSectionMapper.generateUniqueKey(item, index, 'feature')}
-                        >
+                <Row gutter={[16, 16]}>
+                    {thirdSectionData.featureItems.map((item, index) => (
+                        <Col xs={24} lg={12} xl={8} key={ThirdSectionMapper.generateUniqueKey(item, index, 'feature')}>
                             <Card
-                                size="small"
+                                style={{
+                                    height: '100%',
+                                    border: '1px solid #f0f0f0'
+                                }}
                                 actions={[
                                     <Tooltip title="Edit">
-                                        <EditOutlined onClick={() => handleEditFeatureItem(item)} />
+                                        <EditOutlined
+                                            onClick={() => handleEditFeatureItem(item)}
+                                            style={{ color: '#52c41a' }}
+                                        />
                                     </Tooltip>,
-                                    <Tooltip title="Delete">
-                                        <Popconfirm
-                                            title="Delete Feature Item"
-                                            description="Are you sure you want to delete this feature item?"
-                                            onConfirm={() => handleDeleteFeatureItem(item.id)}
-                                            okText="Yes"
-                                            cancelText="No"
-                                            okType="danger"
-                                        >
-                                            <DeleteOutlined />
-                                        </Popconfirm>
-                                    </Tooltip>
+                                    <Popconfirm
+                                        title="Delete Feature Item"
+                                        description="Are you sure you want to delete this feature item?"
+                                        onConfirm={() => handleDeleteFeatureItem(item.id)}
+                                        okText="Yes"
+                                        cancelText="No"
+                                        okType="danger"
+                                    >
+                                        <Tooltip title="Delete">
+                                            <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                                        </Tooltip>
+                                    </Popconfirm>
                                 ]}
                             >
                                 <Card.Meta
                                     avatar={item.icon && (
-                                        <div style={{ fontSize: '24px' }}>
+                                        <div style={{ fontSize: '32px', color: '#fa8c16' }}>
                                             {item.icon}
                                         </div>
                                     )}
                                     title={item.title || 'Untitled Feature'}
                                     description={
-                                        <Text ellipsis={{ tooltip: item.description }}>
+                                        <Paragraph
+                                            type="secondary"
+                                            style={{ margin: 0 }}
+                                            ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}
+                                        >
                                             {item.description || 'No description'}
-                                        </Text>
+                                        </Paragraph>
                                     }
                                 />
                             </Card>
-                        </List.Item>
-                    )}
-                />
+                        </Col>
+                    ))}
+                </Row>
             ) : (
                 <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -504,35 +606,8 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
     return (
         <div>
-            {/* Navigation Tabs */}
-            <Card style={{ marginBottom: 16 }}>
-                <Row gutter={16}>
-                    <Col>
-                        <Button
-                            type={activeTab === 'main' ? 'primary' : 'default'}
-                            onClick={() => setActiveTab('main')}
-                        >
-                            Main Content
-                        </Button>
-                    </Col>
-                    <Col>
-                        <Button
-                            type={activeTab === 'process' ? 'primary' : 'default'}
-                            onClick={() => setActiveTab('process')}
-                        >
-                            Process Steps
-                        </Button>
-                    </Col>
-                    <Col>
-                        <Button
-                            type={activeTab === 'features' ? 'primary' : 'default'}
-                            onClick={() => setActiveTab('features')}
-                        >
-                            Feature Items
-                        </Button>
-                    </Col>
-                </Row>
-            </Card>
+            {/* Card-based Navigation */}
+            {renderNavigationCards()}
 
             {/* Content based on active tab */}
             {activeTab === 'main' && renderMainContent()}
@@ -541,11 +616,16 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
             {/* Process Step Modal */}
             <Modal
-                title={editingStep ? 'Edit Process Step' : 'Add Process Step'}
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <OrderedListOutlined />
+                        {editingStep ? 'Edit Process Step' : 'Add Process Step'}
+                    </div>
+                }
                 open={modalVisible && !!editingStep}
                 onCancel={handleCancelModal}
                 footer={null}
-                width={600}
+                width={isMobile ? '90vw' : 600}
                 destroyOnClose
             >
                 <Form
@@ -554,7 +634,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                     onFinish={handleSaveProcessStep}
                 >
                     <Row gutter={16}>
-                        <Col span={8}>
+                        <Col span={isMobile ? 24 : 8}>
                             <Form.Item
                                 label="Step Number"
                                 name="stepNumber"
@@ -567,16 +647,17 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                                     style={{ width: '100%' }}
                                     min={1}
                                     placeholder="1"
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={16}>
+                        <Col span={isMobile ? 24 : 16}>
                             <Form.Item
                                 label="Icon"
                                 name="icon"
                                 extra="Enter icon name or code"
                             >
-                                <Input placeholder="e.g., check-circle, user, etc." />
+                                <Input placeholder="e.g., check-circle, user, etc." size="large" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -586,7 +667,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         name="title"
                         rules={[{ required: true, message: 'Please enter step title' }]}
                     >
-                        <Input placeholder="Enter step title" />
+                        <Input placeholder="Enter step title" size="large" />
                     </Form.Item>
 
                     <Form.Item
@@ -597,6 +678,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         <TextArea
                             rows={3}
                             placeholder="Enter step description"
+                            size="large"
                         />
                     </Form.Item>
 
@@ -604,10 +686,10 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={handleCancelModal}>
+                            <Button onClick={handleCancelModal} size={isMobile ? "middle" : "large"}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button type="primary" htmlType="submit" size={isMobile ? "middle" : "large"}>
                                 {editingStep?.id === 0 ? 'Add Step' : 'Update Step'}
                             </Button>
                         </Space>
@@ -617,11 +699,16 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
             {/* Feature Item Modal */}
             <Modal
-                title={editingFeature ? 'Edit Feature Item' : 'Add Feature Item'}
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <StarOutlined />
+                        {editingFeature ? 'Edit Feature Item' : 'Add Feature Item'}
+                    </div>
+                }
                 open={modalVisible && !!editingFeature}
                 onCancel={handleCancelModal}
                 footer={null}
-                width={600}
+                width={isMobile ? '90vw' : 600}
                 destroyOnClose
             >
                 <Form
@@ -634,7 +721,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         name="icon"
                         extra="Enter icon name or code"
                     >
-                        <Input placeholder="e.g., star, heart, shield, etc." />
+                        <Input placeholder="e.g., star, heart, shield, etc." size="large" />
                     </Form.Item>
 
                     <Form.Item
@@ -642,7 +729,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         name="title"
                         rules={[{ required: true, message: 'Please enter feature title' }]}
                     >
-                        <Input placeholder="Enter feature title" />
+                        <Input placeholder="Enter feature title" size="large" />
                     </Form.Item>
 
                     <Form.Item
@@ -653,6 +740,7 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         <TextArea
                             rows={3}
                             placeholder="Enter feature description"
+                            size="large"
                         />
                     </Form.Item>
 
@@ -660,10 +748,10 @@ const ThirdContentEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={handleCancelModal}>
+                            <Button onClick={handleCancelModal} size={isMobile ? "middle" : "large"}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button type="primary" htmlType="submit" size={isMobile ? "middle" : "large"}>
                                 {editingFeature?.id === 0 ? 'Add Feature' : 'Update Feature'}
                             </Button>
                         </Space>

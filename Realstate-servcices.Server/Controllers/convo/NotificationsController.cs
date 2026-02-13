@@ -1,5 +1,4 @@
-﻿// NotificationsController.cs - FIXED VERSION
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Services.Conversation;
@@ -25,6 +24,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var notifications = await _notificationService.GetUserNotificationsAsync(userId, unreadOnly);
 
                 return Ok(new
@@ -47,6 +48,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var notifications = await _notificationService.GetUserNotificationsAsync(userId, false);
                 var notification = notifications.FirstOrDefault(n => n.Id == id);
 
@@ -67,6 +70,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 await _notificationService.MarkNotificationAsReadAsync(id, userId);
 
                 return Ok(new
@@ -88,6 +93,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 await _notificationService.MarkAllNotificationsAsReadAsync(userId);
 
                 return Ok(new
@@ -109,6 +116,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var result = await _notificationService.DeleteNotificationAsync(id, userId);
 
                 if (!result)
@@ -133,6 +142,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var notifications = await _notificationService.GetUserNotificationsAsync(userId, true);
                 var unreadCount = notifications.Count(n => !n.IsRead);
                 var totalCount = notifications.Count;
@@ -169,7 +180,19 @@ namespace Realstate_servcices.Server.Controllers
 
         private int GetCurrentUserId()
         {
-            return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userIdClaim))
+                {
+                    return 0;
+                }
+                return int.Parse(userIdClaim);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
         }
     }
 }

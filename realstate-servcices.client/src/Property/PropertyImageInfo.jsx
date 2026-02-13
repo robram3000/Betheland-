@@ -1,10 +1,12 @@
+// PropertyImageInfo.jsx (UPDATED - With Schedule Transition Support)
 import React, { useState, useEffect, useRef } from 'react';
 import {
     FaBed,
     FaBath,
     FaCar,
     FaRulerCombined,
-    FaUtensils
+    FaUtensils,
+    FaCalendarPlus
 } from 'react-icons/fa';
 import { Modal, Button } from 'antd';
 import {
@@ -52,7 +54,7 @@ const processImageUrl = (url) => {
     return '/default-property.jpg';
 };
 
-const PropertyImageInfo = ({ property, agent }) => {
+const PropertyImageInfo = ({ property, agent, onScheduleTour, onScheduleViewChange }) => {
     const [mainImage, setMainImage] = useState(property?.mainImage || '/default-property.jpg');
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isMobile, setIsMobile] = useState(false);
@@ -198,6 +200,18 @@ const PropertyImageInfo = ({ property, agent }) => {
         setIsModalOpen(false);
     };
 
+    // NEW: Enhanced schedule tour handler with transition support
+    const handleScheduleTour = () => {
+        if (onScheduleTour) {
+            onScheduleTour();
+        }
+
+        // NEW: Trigger view change to schedule template
+        if (onScheduleViewChange) {
+            onScheduleViewChange('schedule');
+        }
+    };
+
     const additionalImagesCount = Math.max(0, images.length - 4);
     const displayThumbnails = images.slice(0, 4);
 
@@ -250,6 +264,8 @@ const PropertyImageInfo = ({ property, agent }) => {
                         <span className="property-image-info-feature-label">Kitchen</span>
                     </div>
                 </div>
+
+             
             </div>
 
             {/* Image Section */}

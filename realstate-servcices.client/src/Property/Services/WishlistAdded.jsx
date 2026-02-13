@@ -1,10 +1,9 @@
-// WishlistAdded.jsx - Complete Fixed Version with Real-time Sync
+﻿// WishlistAdded.jsx - FIXED VERSION with Real-time Counting
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../../Authpage/Services/Api';
 
 const WishlistDataContext = createContext();
 
-// Custom hook to use wishlist data
 export const useWishlistData = () => {
     const context = useContext(WishlistDataContext);
     if (!context) {
@@ -20,7 +19,6 @@ const getAuthInfo = () => {
         localStorage.getItem('sessionAuthToken');
 
     if (!token) {
-        // Clear any stale clientId
         localStorage.removeItem('clientId');
         return { isAuthenticated: false, userId: null };
     }
@@ -30,7 +28,6 @@ const getAuthInfo = () => {
         const isExpired = payload.exp * 1000 < Date.now();
 
         if (isExpired) {
-            // Clear everything on expiration
             localStorage.removeItem('authToken');
             sessionStorage.removeItem('authToken');
             localStorage.removeItem('sessionAuthToken');
@@ -50,7 +47,6 @@ const getAuthInfo = () => {
         };
     } catch (error) {
         console.error('Error decoding token:', error);
-        // Clear invalid tokens
         localStorage.removeItem('authToken');
         sessionStorage.removeItem('authToken');
         localStorage.removeItem('sessionAuthToken');
@@ -100,7 +96,6 @@ class WishlistService {
 
 const wishlistService = new WishlistService();
 
-// Wishlist Data Provider Component
 export const WishlistDataProvider = ({ children, clientId }) => {
     const [wishlistItems, setWishlistItems] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -110,30 +105,36 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     const [initialized, setInitialized] = useState(false);
     const [updateTrigger, setUpdateTrigger] = useState(0);
 
-    // Global reference for external access
+    // Global reference for external access - FIXED COUNT SYNC
     useEffect(() => {
-        window.wishlistContextRef = {
-            refreshAuth: () => {
-                const newAuthInfo = getAuthInfo();
-                setAuthInfo(newAuthInfo);
-                return newAuthInfo;
-            },
-            loadWishlist: loadWishlist,
-            clearWishlist: clearWishlist,
-            getClientId: getCurrentClientId,
-            setClientId: (id) => {
-                localStorage.setItem('clientId', id.toString());
-            },
-            clearClientId: () => {
-                localStorage.removeItem('clientId');
-            },
-            triggerUpdate: () => setUpdateTrigger(prev => prev + 1)
+        const updateGlobalRef = () => {
+            window.wishlistContextRef = {
+                wishlistCount: wishlistCount,
+                isAuthenticated: authInfo.isAuthenticated,
+                refreshAuth: () => {
+                    const newAuthInfo = getAuthInfo();
+                    setAuthInfo(newAuthInfo);
+                    return newAuthInfo;
+                },
+                loadWishlist: loadWishlist,
+                clearWishlist: clearWishlist,
+                getClientId: getCurrentClientId,
+                setClientId: (id) => {
+                    localStorage.setItem('clientId', id.toString());
+                },
+                clearClientId: () => {
+                    localStorage.removeItem('clientId');
+                },
+                triggerUpdate: () => setUpdateTrigger(prev => prev + 1)
+            };
         };
+
+        updateGlobalRef();
 
         return () => {
             delete window.wishlistContextRef;
         };
-    }, []);
+    }, [wishlistCount, authInfo.isAuthenticated]); // Add dependencies
 
     // Update auth info when storage changes
     useEffect(() => {
@@ -143,7 +144,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         };
 
         window.addEventListener('storage', handleStorageChange);
-        // Also check auth periodically
         const authCheckInterval = setInterval(handleStorageChange, 30000);
 
         return () => {
@@ -152,13 +152,16 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         };
     }, []);
 
-    // Always keep wishlistCount in sync with wishlistItems
+    // FIXED: Always keep wishlistCount in sync with wishlistItems
     useEffect(() => {
         const count = Array.isArray(wishlistItems) ? wishlistItems.length : 0;
-        if (count !== wishlistCount) {
-            setWishlistCount(count);
+        setWishlistCount(count);
+
+        // Update global reference immediately
+        if (window.wishlistContextRef) {
+            window.wishlistContextRef.wishlistCount = count;
         }
-    }, [wishlistItems, wishlistCount]);
+    }, [wishlistItems]);
 
     const triggerUpdate = () => {
         setUpdateTrigger(prev => prev + 1);
@@ -175,22 +178,18 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     };
 
     const getCurrentClientId = async () => {
-        // Use provided clientId first
         if (clientId) return clientId;
 
-        // Check localStorage for cached clientId
         const storedClientId = localStorage.getItem('clientId');
         if (storedClientId) {
             const clientIdNum = parseInt(storedClientId);
             if (!isNaN(clientIdNum)) return clientIdNum;
         }
 
-        // If authenticated but no clientId, try to get from server
         if (authInfo.isAuthenticated) {
             try {
                 const serverClientId = await getClientIdFromServer();
                 if (serverClientId) {
-                    // Store for future use
                     localStorage.setItem('clientId', serverClientId.toString());
                     return serverClientId;
                 }
@@ -202,25 +201,23 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         return null;
     };
 
-    // Check if user is authenticated
     const isAuthenticated = () => {
         return authInfo.isAuthenticated;
     };
 
-    // Set client ID
     const setClientId = (id) => {
         localStorage.setItem('clientId', id.toString());
     };
 
-    // Clear client ID
     const clearClientId = () => {
         localStorage.removeItem('clientId');
     };
 
-    // Load client's wishlist
+    // Load client's wishlist - FIXED COUNT UPDATE
     const loadWishlist = async () => {
         if (!authInfo.isAuthenticated) {
             setError('Authentication required');
+            setWishlistItems([]);
             setWishlistCount(0);
             return [];
         }
@@ -228,6 +225,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         const currentClientId = await getCurrentClientId();
         if (!currentClientId) {
             setError('Unable to determine client ID. Please log in again.');
+            setWishlistItems([]);
             setWishlistCount(0);
             return [];
         }
@@ -238,12 +236,13 @@ export const WishlistDataProvider = ({ children, clientId }) => {
             const data = await wishlistService.getClientWishlist(currentClientId);
             const items = data || [];
             setWishlistItems(items);
-            setWishlistCount(items.length);
-            triggerUpdate(); // Notify all components
+            // Count will be updated automatically by the useEffect above
+            triggerUpdate();
             return items;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to load wishlist';
             setError(errorMessage);
+            setWishlistItems([]);
             setWishlistCount(0);
             console.error('Error loading wishlist:', err);
 
@@ -258,7 +257,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         }
     };
 
-    // Add property to wishlist
+    // Add property to wishlist - FIXED COUNT UPDATE
     const addToWishlist = async (propertyId, notes = '') => {
         if (!authInfo.isAuthenticated) {
             throw new Error('Please log in to add to wishlist');
@@ -281,9 +280,9 @@ export const WishlistDataProvider = ({ children, clientId }) => {
 
             const newItem = await wishlistService.addToWishlist(createDto);
 
-            // Update local state
+            // Update local state - count will auto-update
             setWishlistItems(prev => [...prev, newItem]);
-            triggerUpdate(); // Notify all components
+            triggerUpdate();
 
             return newItem;
         } catch (err) {
@@ -302,7 +301,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         }
     };
 
-    // Remove property from wishlist by ID
+    // Remove property from wishlist - FIXED COUNT UPDATE
     const removeFromWishlist = async (wishlistItemId) => {
         if (!authInfo.isAuthenticated) {
             throw new Error('Authentication required');
@@ -313,7 +312,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         try {
             await wishlistService.removeFromWishlist(wishlistItemId);
             setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId));
-            triggerUpdate(); // Notify all components
+            triggerUpdate();
             return true;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to remove from wishlist';
@@ -331,7 +330,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         }
     };
 
-    // Remove from wishlist by property ID
+    // Remove from wishlist by property ID - FIXED COUNT UPDATE
     const removeFromWishlistByProperty = async (propertyId) => {
         if (!authInfo.isAuthenticated) {
             throw new Error('Authentication required');
@@ -345,11 +344,9 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         setLoading(true);
         setError(null);
         try {
-            // Use the working endpoint that doesn't require wishlist ID
             await wishlistService.removeFromWishlistByProperty(currentClientId, propertyId);
-
             setWishlistItems(prev => prev.filter(item => item.propertyId !== propertyId));
-            triggerUpdate(); // Notify all components
+            triggerUpdate();
             return true;
         } catch (err) {
             const errorMessage = err?.message || 'Failed to remove from wishlist';
@@ -379,16 +376,13 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         }
 
         try {
-            // First check locally
             const localCheck = wishlistItems.some(item => item.propertyId === propertyId);
             if (localCheck) return true;
 
-            // Then check with server for certainty
             const serverCheck = await wishlistService.checkPropertyInWishlist(currentClientId, propertyId);
             return serverCheck;
         } catch (err) {
             console.error('Error checking wishlist status:', err);
-            // Fallback to local check
             return wishlistItems.some(item => item.propertyId === propertyId);
         }
     };
@@ -403,7 +397,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
             if (isFavorite) {
                 await addToWishlist(propertyId, notes);
             } else {
-                // Use property-based removal instead of ID-based
                 await removeFromWishlistByProperty(propertyId);
             }
             return true;
@@ -439,22 +432,19 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         setWishlistItems([]);
         setWishlistCount(0);
         setError(null);
-        triggerUpdate(); // Notify all components
+        triggerUpdate();
     };
 
-    // Get wishlist property IDs
     const getWishlistPropertyIds = () => {
         return wishlistItems.map(item => item.propertyId);
     };
 
-    // Refresh auth info
     const refreshAuth = () => {
         const newAuthInfo = getAuthInfo();
         setAuthInfo(newAuthInfo);
         return newAuthInfo;
     };
 
-    // Force refresh wishlist
     const refreshWishlist = async () => {
         return await loadWishlist();
     };
@@ -481,9 +471,7 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         initializeWishlist();
     }, [authInfo.isAuthenticated, clientId]);
 
-    // Context value
     const value = {
-        // State
         wishlistItems,
         loading,
         error,
@@ -494,7 +482,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         clientId: authInfo.isAuthenticated ? getCurrentClientId() : null,
         updateTrigger,
 
-        // Actions
         loadWishlist,
         addToWishlist,
         removeFromWishlist,
@@ -509,7 +496,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
         clearClientId,
         triggerUpdate,
 
-        // Aliases for convenience
         addItem: addToWishlist,
         removeItem: removeFromWishlist,
         removeItemByProperty: removeFromWishlistByProperty,
@@ -525,7 +511,6 @@ export const WishlistDataProvider = ({ children, clientId }) => {
     );
 };
 
-// HOC for components that need wishlist data
 export const withWishlistData = (Component) => {
     return (props) => (
         <WishlistDataProvider>
@@ -534,7 +519,6 @@ export const withWishlistData = (Component) => {
     );
 };
 
-// Utility function to refresh wishlist from anywhere
 export const refreshWishlistGlobal = async () => {
     if (window.wishlistContextRef) {
         return await window.wishlistContextRef.loadWishlist();
@@ -542,15 +526,15 @@ export const refreshWishlistGlobal = async () => {
     return null;
 };
 
-// Utility function to get current wishlist state
 export const getWishlistState = () => {
     if (window.wishlistContextRef) {
         return {
             isAuthenticated: window.wishlistContextRef.refreshAuth().isAuthenticated,
-            clientId: localStorage.getItem('clientId')
+            clientId: localStorage.getItem('clientId'),
+            wishlistCount: window.wishlistContextRef.wishlistCount || 0
         };
     }
-    return { isAuthenticated: false, clientId: null };
+    return { isAuthenticated: false, clientId: null, wishlistCount: 0 };
 };
 
 export default useWishlistData;

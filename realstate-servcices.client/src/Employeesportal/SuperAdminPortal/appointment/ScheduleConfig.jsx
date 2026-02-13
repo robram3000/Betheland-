@@ -17,7 +17,8 @@ import {
     Col,
     Popconfirm,
     Switch,
-    InputNumber
+    InputNumber,
+    Grid
 } from 'antd';
 import {
     PlusOutlined,
@@ -38,6 +39,7 @@ import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService
 // Destructure necessary components
 const { Option } = Select;
 const { TimePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 // Initialize service
 const agentScheduleConfigService = new AgentScheduleConfigService();
@@ -51,6 +53,9 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
     const [agents, setAgents] = useState([]);
     const [agentsCache, setAgentsCache] = useState({});
     const [agentLoading, setAgentLoading] = useState({});
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     useEffect(() => {
         loadConfigs();
@@ -179,21 +184,55 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
 
     const loadAgents = async () => {
         try {
+            console.log('Loading agents for schedule config dropdown...');
+
             // Load all agents for the dropdown
-            const allAgents = await agentService.getAllAgents();
-            const processedAgents = allAgents.map(agent => ({
-                id: agent.id,
-                firstName: agent.firstName || 'Unknown',
-                lastName: agent.lastName || 'Agent',
-                email: agent.email || '',
-                cellPhoneNo: agent.cellPhoneNo || '',
-                profilePictureUrl: agent.profilePictureUrl || '',
-                licenseNumber: agent.licenseNumber || ''
-            }));
+            const allAgents = await agentService.getAgents();
+            console.log('Raw agents data received:', allAgents);
+
+            // Enhanced agent processing with better error handling
+            const processedAgents = allAgents.map(agent => {
+                // Ensure we have basic required fields
+                const processedAgent = {
+                    id: agent.id || 0,
+                    firstName: agent.firstName || 'Unknown',
+                    lastName: agent.lastName || 'Agent',
+                    email: agent.email || '',
+                    cellPhoneNo: agent.cellPhoneNo || '',
+                    profilePictureUrl: agent.profilePictureUrl || '',
+                    licenseNumber: agent.licenseNumber || ''
+                };
+
+                // Log any problematic agents
+                if (!agent.id) {
+                    console.warn('Agent without ID found:', agent);
+                }
+
+                return processedAgent;
+            }).filter(agent => agent.id > 0); // Filter out invalid agents
+
+            console.log('Processed agents for dropdown:', processedAgents);
             setAgents(processedAgents);
+
+            if (processedAgents.length === 0) {
+                console.warn('No valid agents found for dropdown');
+                message.warning('No agents available. Please create agents first.');
+            }
+
         } catch (error) {
             console.error('Error loading agents:', error);
-            message.error('Failed to load agents');
+
+            // Provide more specific error messages
+            let errorMessage = 'Failed to load agents';
+            if (error.message?.includes('Network Error')) {
+                errorMessage = 'Network error: Unable to connect to server';
+            } else if (error.message?.includes('404')) {
+                errorMessage = 'Agents endpoint not found';
+            }
+
+            message.error(errorMessage);
+            console.error('Full error details:', error);
+
             // Fallback to empty array
             setAgents([]);
         }
@@ -281,6 +320,97 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
             console.error('Error saving configuration:', error);
             message.error(error.message || 'Failed to save configuration');
         }
+    };
+
+    // Mobile Card View
+    const renderMobileCard = (config) => {
+        const agent = config.agent;
+        const isLoading = config.agentId && isAgentLoading(config.agentId);
+
+        return (
+            <Card
+                key={config.id}
+                style={{ marginBottom: 16 }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    {getAgentAvatar(agent)}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                            {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
+                        </div>
+                        {getAgentContactInfo(agent) && (
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                {getAgentContactInfo(agent)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {config.slotDurationMinutes} min
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Slot Duration</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {config.bufferTimeMinutes} min
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Buffer Time</div>
+                    </Col>
+                </Row>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {config.maxSchedulesPerDay}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Max Daily</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px' }}>
+                            {config.workDayStart} - {config.workDayEnd}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Work Hours</div>
+                    </Col>
+                </Row>
+
+                <div style={{ marginBottom: '12px' }}>
+                    <Tag color={config.allowWeekendScheduling ? 'green' : 'red'}>
+                        {config.allowWeekendScheduling ? 'Weekends Allowed' : 'No Weekends'}
+                    </Tag>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                    <Button
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => handleEdit(config)}
+                        style={{ flex: 1 }}
+                    >
+                        Edit
+                    </Button>
+                    <Popconfirm
+                        title="Are you sure to delete this configuration?"
+                        onConfirm={() => handleDelete(config.id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            danger
+                            style={{ flex: 1 }}
+                        >
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </div>
+            </Card>
+        );
     };
 
     const columns = [
@@ -423,22 +553,49 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleCreate}
+                    size={isMobile ? "large" : "middle"}
+                    disabled={agents.length === 0}
                 >
                     Add Configuration
                 </Button>
             </div>
 
-            <BaseTable
-                data={configs}
-                columns={columns}
-                loading={loading}
-                rowKey="id"
-                pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                }}
-            />
+            {agents.length === 0 && (
+                <Card style={{ marginBottom: 16, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                        <UserOutlined style={{ fontSize: '24px', color: '#faad14', marginBottom: '8px' }} />
+                        <div style={{ fontWeight: 500, marginBottom: '8px' }}>No Agents Available</div>
+                        <div style={{ color: '#666' }}>Please create agents first before adding schedule configurations.</div>
+                    </div>
+                </Card>
+            )}
+
+            {/* Conditional Rendering: Table for Desktop, Cards for Mobile */}
+            {!isMobile ? (
+                <BaseTable
+                    data={configs}
+                    columns={columns}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                    }}
+                />
+            ) : (
+                <div>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                            Loading configurations...
+                        </div>
+                    ) : (
+                        <div>
+                            {configs.map(config => renderMobileCard(config))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Create/Edit Modal */}
             <Modal
@@ -446,7 +603,8 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                 open={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 footer={null}
-                width={500}
+                width={isMobile ? '100%' : 500}
+                style={isMobile ? { top: 0, padding: 0 } : {}}
             >
                 <Form
                     form={form}
@@ -459,12 +617,14 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                         rules={[{ required: true, message: 'Please select an agent' }]}
                     >
                         <Select
-                            placeholder="Select agent"
+                            placeholder={agents.length === 0 ? "No agents available" : "Select agent"}
                             showSearch
                             optionFilterProp="children"
                             filterOption={(input, option) =>
                                 option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                             }
+                            size={isMobile ? "large" : "middle"}
+                            disabled={agents.length === 0}
                         >
                             {agents.map(agent => (
                                 <Option key={agent.id} value={agent.id}>
@@ -487,6 +647,7 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                                     max={240}
                                     style={{ width: '100%' }}
                                     placeholder="e.g., 60"
+                                    size={isMobile ? "large" : "middle"}
                                 />
                             </Form.Item>
                         </Col>
@@ -502,6 +663,7 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                                     max={60}
                                     style={{ width: '100%' }}
                                     placeholder="e.g., 15"
+                                    size={isMobile ? "large" : "middle"}
                                 />
                             </Form.Item>
                         </Col>
@@ -518,6 +680,7 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                             max={20}
                             style={{ width: '100%' }}
                             placeholder="e.g., 8"
+                            size={isMobile ? "large" : "middle"}
                         />
                     </Form.Item>
 
@@ -532,6 +695,7 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="Start time"
+                                    size={isMobile ? "large" : "middle"}
                                 />
                             </Form.Item>
                         </Col>
@@ -545,6 +709,7 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="End time"
+                                    size={isMobile ? "large" : "middle"}
                                 />
                             </Form.Item>
                         </Col>
@@ -556,15 +721,20 @@ const ScheduleConfig = ({ onScheduleUpdate }) => {
                         valuePropName="checked"
                         initialValue={false}
                     >
-                        <Switch />
+                        <Switch size={isMobile ? "default" : "small"} />
                     </Form.Item>
 
                     <Form.Item style={{ textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={() => setModalVisible(false)}>
+                            <Button onClick={() => setModalVisible(false)} size={isMobile ? "large" : "middle"}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                size={isMobile ? "large" : "middle"}
+                                disabled={agents.length === 0}
+                            >
                                 {selectedConfig ? 'Update' : 'Create'} Configuration
                             </Button>
                         </Space>

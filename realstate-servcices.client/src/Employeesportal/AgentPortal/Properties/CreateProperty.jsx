@@ -1,11 +1,16 @@
-// CreateProperty.jsx - Update to handle auto-assignment
+// CreateProperty.jsx - Mobile Enhanced
 import React, { useEffect } from 'react';
-import { Card, Button, Space } from 'antd';
+import { Card, Button, Space, Grid } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import InsertProperty from './InsertProperty';
 import authService from '../../Services/LoginAuth';
 
+const { useBreakpoint } = Grid;
+
 const CreateProperty = ({ property, onSuccess, onBack, location }) => {
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
+
     const handleSuccess = () => {
         if (onSuccess) onSuccess();
     };
@@ -15,13 +20,26 @@ const CreateProperty = ({ property, onSuccess, onBack, location }) => {
     const currentUser = authService.getCurrentUser();
 
     return (
-        <Card>
-            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Card bodyStyle={{ padding: isMobile ? '16px' : '24px' }}>
+            <div style={{
+                marginBottom: isMobile ? 12 : 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+            }}>
                 <div>
-                    <h2 style={{ margin: 0, color: '#1a365d' }}>
+                    <h2 style={{
+                        margin: 0,
+                        color: '#1a365d',
+                        fontSize: isMobile ? '18px' : '24px'
+                    }}>
                         {property ? 'Edit Property' : 'Create New Property'}
                     </h2>
-                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '14px' }}>
+                    <p style={{
+                        margin: '4px 0 0 0',
+                        color: '#666',
+                        fontSize: isMobile ? '13px' : '14px'
+                    }}>
                         {property
                             ? 'Update property information, media, and agent assignments'
                             : shouldAutoAssignAgent
@@ -38,6 +56,7 @@ const CreateProperty = ({ property, onSuccess, onBack, location }) => {
                 onCancel={onBack}
                 autoAssignAgent={shouldAutoAssignAgent}
                 currentAgentId={currentUser?.userId}
+                isMobile={isMobile}
             />
         </Card>
     );

@@ -1,7 +1,7 @@
 // AgentScheduleLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge, Card, Row, Col, Statistic, Typography, Spin, Alert, Button } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Card, Row, Col, Statistic, Typography, Spin, Alert, Button, Grid } from 'antd';
 import {
     CalendarOutlined,
     ClockCircleOutlined,
@@ -10,6 +10,7 @@ import {
     SettingOutlined,
     ReloadOutlined
 } from '@ant-design/icons';
+import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import AgentScheduleAppointments from './AgentScheduleAppointments';
 import AgentAvailability from './AgentAvailability';
 import AgentTimeOff from './AgentTimeOff';
@@ -18,8 +19,9 @@ import { SchedulePropertiesService } from '../../AdminPortal/appointment/Service
 import authService from '../../../Authpage/Services/LoginAuth';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const AgentScheduleLayout = () => {
     const [activeTab, setActiveTab] = useState('appointments');
@@ -32,6 +34,8 @@ const AgentScheduleLayout = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [currentAgentId, setCurrentAgentId] = useState(null);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const scheduleService = new SchedulePropertiesService();
 
@@ -128,45 +132,6 @@ const AgentScheduleLayout = () => {
         ogImage: `${window.location.origin}/images/agent-schedule-og.jpg`
     };
 
-    const tabItems = [
-        {
-            key: 'appointments',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CalendarOutlined />
-                    My Appointments
-                </span>
-            ),
-        },
-        {
-            key: 'availability',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ClockCircleOutlined />
-                    My Availability
-                </span>
-            ),
-        },
-        {
-            key: 'timeoff',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircleOutlined />
-                    Time Off
-                </span>
-            ),
-        },
-        {
-            key: 'config',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <SettingOutlined />
-                    Schedule Settings
-                </span>
-            ),
-        },
-    ];
-
     const getHeaderTitle = () => {
         switch (activeTab) {
             case 'appointments': return 'My Appointments';
@@ -196,16 +161,6 @@ const AgentScheduleLayout = () => {
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#f8f9fa',
-                    }
-                },
             }}
         >
             <Helmet>
@@ -220,172 +175,227 @@ const AgentScheduleLayout = () => {
                 <link rel="canonical" href={seoData.canonical} />
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh', background: colorBgContainer }}>
-                {/* Vertical Tabs Sidebar */}
-                <Sider
-                    width={220}
-                    style={{
-                        background: colorBgContainer,
-                        borderRadius: borderRadiusLG,
-                        boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                        borderRight: '1px solid #f0f0f0'
-                    }}
-                >
-                    <div style={{ padding: '20px 0' }}>
-                        {/* Schedule Control Header */}
-                        <div style={{
-                            padding: '0 16px 16px 16px',
-                            borderBottom: '1px solid #f0f0f0',
-                            marginBottom: '8px'
-                        }}>
-                            <Title
-                                level={4}
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden' // Keep the main layout non-scrollable
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto' // Make only this layout scrollable
+                }}>
+                    <Content
+                        style={{
+                            background: colorBgContainer,
+                            padding: isMobile ? '16px' : '30px',
+                            overflow: 'visible', // Content should flow naturally
+                            minHeight: 'fit-content' // Allow content to determine height
+                        }}
+                    >
+                        {/* Header Section */}
+                        <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div>
+                                        <Title level={isMobile ? 3 : 2} style={{
+                                            margin: 0,
+                                            color: '#1a365d',
+                                            fontSize: isMobile ? '20px' : '28px',
+                                            fontWeight: 600
+                                        }}>
+                                            {getHeaderTitle()}
+                                        </Title>
+                                        <p style={{
+                                            margin: '4px 0 0 0',
+                                            color: '#666',
+                                            fontSize: isMobile ? '14px' : '16px'
+                                        }}>
+                                            {getHeaderDescription()}
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        {/* Error Alert */}
+                        {error && (
+                            <Alert
+                                message="Error Loading Statistics"
+                                description={error}
+                                type="error"
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                                action={
+                                    <Button
+                                        size="small"
+                                        type="primary"
+                                        ghost
+                                        onClick={loadAgentStats}
+                                        icon={<ReloadOutlined />}
+                                        loading={loading}
+                                    >
+                                        Retry
+                                    </Button>
+                                }
+                            />
+                        )}
+
+                        {/* Agent Statistics */}
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '20px', marginBottom: isMobile ? 16 : 24 }}>
+                                <Spin size="large" />
+                                <div style={{ marginTop: 16 }}>Loading statistics...</div>
+                            </div>
+                        ) : (
+                            <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 16 : 24 }}>
+                                <Col xs={12} sm={6}>
+                                    <Card size="small">
+                                        <Statistic
+                                            title={isMobile ? "Total" : "Total Appointments"}
+                                            value={agentStats.total}
+                                            prefix={<CalendarOutlined />}
+                                            valueStyle={{ color: '#1a365d' }}
+                                        />
+                                    </Card>
+                                </Col>
+                                <Col xs={12} sm={6}>
+                                    <Card size="small">
+                                        <Statistic
+                                            title={isMobile ? "Scheduled" : "Scheduled"}
+                                            value={agentStats.scheduled}
+                                            prefix={<ClockCircleOutlined />}
+                                            valueStyle={{ color: '#1890ff' }}
+                                        />
+                                    </Card>
+                                </Col>
+                                <Col xs={12} sm={6}>
+                                    <Card size="small">
+                                        <Statistic
+                                            title={isMobile ? "Completed" : "Completed"}
+                                            value={agentStats.completed}
+                                            prefix={<CheckCircleOutlined />}
+                                            valueStyle={{ color: '#52c41a' }}
+                                        />
+                                    </Card>
+                                </Col>
+                                <Col xs={12} sm={6}>
+                                    <Card size="small">
+                                        <Statistic
+                                            title={isMobile ? "Today" : "Upcoming Today"}
+                                            value={agentStats.upcoming}
+                                            prefix={<UserOutlined />}
+                                            valueStyle={{ color: '#faad14' }}
+                                        />
+                                    </Card>
+                                </Col>
+                            </Row>
+                        )}
+
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
                                 style={{
-                                    margin: 0,
-                                    color: '#1a365d',
-                                    fontSize: '16px',
-                                    fontWeight: 600
+                                    borderBottom: '1px solid #f0f0f0'
                                 }}
-                            >
-                                My Schedule
-                            </Title>
-                            <p style={{
-                                margin: '4px 0 0 0',
-                                color: '#666',
-                                fontSize: '12px',
-                                lineHeight: 1.4
-                            }}>
-                                Manage your appointments and availability
-                            </p>
-                        </div>
+                                items={[
+                                    {
+                                        key: 'appointments',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <CalendarOutlined />
+                                                {isMobile ? 'Appointments' : 'My Appointments'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'availability',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <ClockCircleOutlined />
+                                                {isMobile ? 'Availability' : 'My Availability'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'timeoff',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <CheckCircleOutlined />
+                                                {isMobile ? 'Time Off' : 'Time Off'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'config',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <SettingOutlined />
+                                                {isMobile ? 'Settings' : 'Schedule Settings'}
+                                            </span>
+                                        )
+                                    }
+                                ]}
+                            />
+                        </Card>
 
-                        <Tabs
-                            activeKey={activeTab}
-                            onChange={handleTabChange}
-                            tabPosition="left"
-                            type="line"
-                            size="middle"
-                            style={{ width: '100%' }}
-                            tabBarStyle={{ border: 'none', width: '100%' }}
-                            items={tabItems}
-                        />
-                    </div>
-                </Sider>
-
-                {/* Main Content Area */}
-                <Content
-                    style={{
-                        padding: '24px',
-                        background: colorBgContainer,
-                        borderRadius: borderRadiusLG,
-                    }}
-                >
-                    {/* Header Section */}
-                    <div style={{ marginBottom: 24 }}>
-                        <h1 style={{
-                            margin: 0,
-                            color: '#1a365d',
-                            fontSize: '24px',
-                            fontWeight: 600
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible' // No scrolling here
                         }}>
-                            {getHeaderTitle()}
-                        </h1>
-                        <p style={{
-                            margin: '6px 0 0 0',
-                            color: '#666',
-                            fontSize: '14px'
-                        }}>
-                            {getHeaderDescription()}
-                        </p>
-                    </div>
-
-                    {error && (
-                        <Alert
-                            message="Error Loading Statistics"
-                            description={error}
-                            type="error"
-                            showIcon
-                            style={{ marginBottom: 16 }}
-                            action={
-                                <Button
-                                    size="small"
-                                    type="primary"
-                                    ghost
-                                    onClick={loadAgentStats}
-                                    icon={<ReloadOutlined />}
-                                    loading={loading}
-                                >
-                                    Retry
-                                </Button>
-                            }
-                        />
-                    )}
-
-                    {/* Agent Statistics */}
-                    {loading ? (
-                        <div style={{ textAlign: 'center', padding: '20px' }}>
-                            <Spin size="large" />
-                            <div style={{ marginTop: 16 }}>Loading statistics...</div>
+                            {activeTab === 'appointments' && (
+                                <AgentScheduleAppointments onScheduleUpdate={loadAgentStats} />
+                            )}
+                            {activeTab === 'availability' && (
+                                <AgentAvailability />
+                            )}
+                            {activeTab === 'timeoff' && (
+                                <AgentTimeOff />
+                            )}
+                            {activeTab === 'config' && (
+                                <AgentScheduleConfig />
+                            )}
                         </div>
-                    ) : (
-                        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                            <Col xs={12} sm={6}>
-                                <Card size="small">
-                                    <Statistic
-                                        title="Total Appointments"
-                                        value={agentStats.total}
-                                        prefix={<CalendarOutlined />}
-                                        valueStyle={{ color: '#1a365d' }}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={12} sm={6}>
-                                <Card size="small">
-                                    <Statistic
-                                        title="Scheduled"
-                                        value={agentStats.scheduled}
-                                        prefix={<ClockCircleOutlined />}
-                                        valueStyle={{ color: '#1890ff' }}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={12} sm={6}>
-                                <Card size="small">
-                                    <Statistic
-                                        title="Completed"
-                                        value={agentStats.completed}
-                                        prefix={<CheckCircleOutlined />}
-                                        valueStyle={{ color: '#52c41a' }}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={12} sm={6}>
-                                <Card size="small">
-                                    <Statistic
-                                        title="Upcoming Today"
-                                        value={agentStats.upcoming}
-                                        prefix={<UserOutlined />}
-                                        valueStyle={{ color: '#faad14' }}
-                                    />
-                                </Card>
-                            </Col>
-                        </Row>
-                    )}
-
-                    {/* Conditional Content Rendering */}
-                    {activeTab === 'appointments' && (
-                        <AgentScheduleAppointments onScheduleUpdate={loadAgentStats} />
-                    )}
-                    {activeTab === 'availability' && (
-                        <AgentAvailability />
-                    )}
-                    {activeTab === 'timeoff' && (
-                        <AgentTimeOff />
-                    )}
-                    {activeTab === 'config' && (
-                        <AgentScheduleConfig />
-                    )}
-                </Content>
+                    </Content>
+                </Layout>
             </Layout>
         </ConfigProvider>
     );

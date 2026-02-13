@@ -1,10 +1,9 @@
-﻿// AnnouncementEditor.jsx
+﻿// AnnouncementEditor.jsx - Card Version
 import React, { useState, useEffect } from 'react';
 import {
-    Table,
+    Card,
     Button,
     Space,
-    Card,
     Tag,
     Modal,
     Form,
@@ -19,7 +18,9 @@ import {
     Spin,
     Row,
     Col,
-    Select
+    Select,
+    Grid,
+    Typography
 } from 'antd';
 import {
     EditOutlined,
@@ -28,7 +29,6 @@ import {
     PlusOutlined,
     CheckOutlined,
     CloseOutlined,
-    ReloadOutlined,
     SearchOutlined,
     NotificationOutlined
 } from '@ant-design/icons';
@@ -37,6 +37,8 @@ import AnnouncementMapper from './Services/AnnouncementMapper';
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { useBreakpoint } = Grid;
+const { Title, Text, Paragraph } = Typography;
 
 const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, refreshTrigger }) => {
     const [announcements, setAnnouncements] = useState([]);
@@ -47,39 +49,21 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
     const [searchText, setSearchText] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
-    // Load announcements on component mount and when refreshTrigger changes
     useEffect(() => {
-        console.log('🚀 AnnouncementEditor mounted, loading announcements...');
         loadAnnouncements();
     }, [refreshTrigger]);
 
     const loadAnnouncements = async () => {
         setLoading(true);
         try {
-            console.log('🔍 Starting to load announcements...');
             const response = await AnnouncementServices.getAllAnnouncements();
-            console.log('📦 Raw API Response:', response);
-
-            // Use the ultra-simple mapper for direct array responses
             let mappedAnnouncements = AnnouncementMapper.mapDirectArray(response);
-            console.log('✅ Mapped Announcements:', mappedAnnouncements);
-
             const sortedAnnouncements = AnnouncementMapper.sortAnnouncements(mappedAnnouncements);
-            console.log('🔢 Final Sorted Announcements:', sortedAnnouncements);
-
             setAnnouncements(sortedAnnouncements);
-
-            if (sortedAnnouncements.length === 0) {
-                console.warn('⚠️ No announcements found after mapping');
-                message.info('No announcements found in the system');
-            } else {
-                console.log(`🎉 Successfully loaded ${sortedAnnouncements.length} announcements`);
-                message.success(`Loaded ${sortedAnnouncements.length} announcements`);
-            }
         } catch (error) {
-            console.error('💥 Error loading announcements:', error);
-            console.error('💥 Error response:', error.response);
             message.error(`Failed to load announcements: ${error.message}`);
         } finally {
             setLoading(false);
@@ -140,15 +124,11 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
             }
 
             if (editingAnnouncement) {
-                // Update existing announcement
                 const updateDto = AnnouncementMapper.mapToUpdateAnnouncementDto(values);
-                console.log('📤 Update DTO:', updateDto);
                 await AnnouncementServices.updateAnnouncement(editingAnnouncement.id, updateDto);
                 message.success('Announcement updated successfully');
             } else {
-                // Create new announcement
                 const createDto = AnnouncementMapper.mapToCreateAnnouncementDto(values);
-                console.log('📤 Create DTO:', createDto);
                 await AnnouncementServices.createAnnouncement(createDto);
                 message.success('Announcement created successfully');
             }
@@ -170,7 +150,6 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
         setEditingAnnouncement(null);
     };
 
-    // Filter announcements based on search text, category, and status
     const filteredAnnouncements = announcements.filter(announcement => {
         const matchesSearch = announcement.content.toLowerCase().includes(searchText.toLowerCase()) ||
             announcement.category.toLowerCase().includes(searchText.toLowerCase());
@@ -181,135 +160,125 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
         return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    // Get unique categories for filter
     const categories = [...new Set(announcements.map(announcement => announcement.category))];
 
-    const columns = [
-        {
-            title: 'Content',
-            dataIndex: 'content',
-            key: 'content',
-            render: (text, record) => (
-                <div>
-                    <div style={{ fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {text}
-                    </div>
-                  
-                </div>
-            ),
-        },
-        {
-            title: 'Category',
-            dataIndex: 'category',
-            key: 'category',
-            width: 150,
-            render: (category) => (
-                <Tag color="blue" style={{ margin: 0 }}>
-                    {category}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Display Order',
-            dataIndex: 'displayOrder',
-            key: 'displayOrder',
-            width: 120,
-            sorter: (a, b) => a.displayOrder - b.displayOrder,
-            render: (order) => (
-                <Tag color="green">{order}</Tag>
-            ),
-        },
-        {
-            title: 'Status',
-            dataIndex: 'isActive',
-            key: 'status',
-            width: 100,
-            render: (isActive, record) => (
-                <Tooltip title={isActive ? 'Click to deactivate' : 'Click to activate'}>
-                    <Switch
-                        checked={isActive}
-                        onChange={() => handleToggleStatus(record.id, isActive)}
-                        checkedChildren={<CheckOutlined />}
-                        unCheckedChildren={<CloseOutlined />}
-                    />
-                </Tooltip>
-            ),
-        },
-        {
-            title: 'Created',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            width: 120,
-            render: (date) => date ? new Date(date).toLocaleDateString() : '-',
-        },
-        {
-            title: 'Updated',
-            dataIndex: 'updatedAt',
-            key: 'updatedAt',
-            width: 120,
-            render: (date) => date ? new Date(date).toLocaleDateString() : '-',
-        },
-        {
-            title: 'Actions',
-            key: 'actions',
-            width: 150,
-            render: (_, record) => (
-                <Space size="small">
-                    <Tooltip title="View Details">
-                        <Button
-                            type="text"
-                            icon={<EyeOutlined />}
-                            onClick={() => handleView(record)}
+    const renderAnnouncementCard = (announcement) => (
+        <Col xs={24} lg={12} xl={8} key={announcement.id}>
+            <Card
+                style={{
+                    height: '100%',
+                    border: `1px solid ${announcement.isActive ? '#d6e4ff' : '#f0f0f0'}`,
+                    background: announcement.isActive ? '#f6ffed' : '#fafafa'
+                }}
+                actions={[
+                    <Tooltip title="View">
+                        <EyeOutlined
+                            onClick={() => handleView(announcement)}
                             style={{ color: '#1890ff' }}
                         />
-                    </Tooltip>
+                    </Tooltip>,
                     <Tooltip title="Edit">
-                        <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            onClick={() => handleEdit(record)}
+                        <EditOutlined
+                            onClick={() => handleEdit(announcement)}
                             style={{ color: '#52c41a' }}
                         />
-                    </Tooltip>
+                    </Tooltip>,
                     <Popconfirm
                         title="Delete Announcement"
                         description="Are you sure you want to delete this announcement?"
-                        onConfirm={() => handleDelete(record.id)}
+                        onConfirm={() => handleDelete(announcement.id)}
                         okText="Yes"
                         cancelText="No"
                         okType="danger"
                     >
                         <Tooltip title="Delete">
-                            <Button
-                                type="text"
-                                icon={<DeleteOutlined />}
-                                style={{ color: '#ff4d4f' }}
-                            />
+                            <DeleteOutlined style={{ color: '#ff4d4f' }} />
                         </Tooltip>
                     </Popconfirm>
-                </Space>
-            ),
-        },
-    ];
+                ]}
+            >
+                <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                        <Tag color="blue" style={{ margin: 0 }}>
+                            {announcement.category}
+                        </Tag>
+                        <Tag color={announcement.isActive ? 'green' : 'red'} style={{ margin: 0 }}>
+                            {announcement.isActive ? 'Active' : 'Inactive'}
+                        </Tag>
+                    </div>
+
+                    <Paragraph
+                        ellipsis={{ rows: 3, expandable: true, symbol: 'more' }}
+                        style={{
+                            marginBottom: '12px',
+                            fontSize: '14px',
+                            lineHeight: '1.5'
+                        }}
+                    >
+                        {announcement.content}
+                    </Paragraph>
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Order: {announcement.displayOrder}
+                        </Text>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                            {announcement.isActive ? 'Active' : 'Inactive'}
+                        </Text>
+                        <Tooltip title={announcement.isActive ? 'Deactivate' : 'Activate'}>
+                            <Switch
+                                size="small"
+                                checked={announcement.isActive}
+                                onChange={() => handleToggleStatus(announcement.id, announcement.isActive)}
+                            />
+                        </Tooltip>
+                    </div>
+                </div>
+
+                {announcement.createdAt && (
+                    <div style={{ marginTop: '8px' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Created: {new Date(announcement.createdAt).toLocaleDateString()}
+                        </Text>
+                    </div>
+                )}
+            </Card>
+        </Col>
+    );
 
     return (
         <div>
-     
-
             {/* Header Section */}
             <Card
                 style={{ marginBottom: 16 }}
-                bodyStyle={{ padding: '16px 24px' }}
+                bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
             >
-                <Row justify="end" align="middle">
+                <Row justify="space-between" align="middle" gutter={[16, 16]}>
+                    <Col flex="auto">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <NotificationOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
+                            <div>
+                                <Title level={4} style={{ margin: 0 }}>Announcement Management</Title>
+                                <Text type="secondary">
+                                    Manage running letter announcements and display settings
+                                </Text>
+                            </div>
+                        </div>
+                    </Col>
                     <Col>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleCreate}
-                            size="large"
+                            size={isMobile ? "middle" : "large"}
                         >
-                            Add New Announcement
+                            {isMobile ? 'Add Announcement' : 'Add New Announcement'}
                         </Button>
                     </Col>
                 </Row>
@@ -318,16 +287,17 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
             {/* Filters Section */}
             <Card
                 style={{ marginBottom: 16 }}
-                bodyStyle={{ padding: '16px 24px' }}
+                bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
             >
                 <Row gutter={[16, 16]} align="middle">
                     <Col xs={24} sm={12} md={8}>
                         <Input
-                            placeholder="Search announcements by content or category..."
+                            placeholder="Search announcements..."
                             prefix={<SearchOutlined />}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             allowClear
+                            size={isMobile ? "middle" : "large"}
                         />
                     </Col>
                     <Col xs={24} sm={12} md={6}>
@@ -337,6 +307,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                             value={categoryFilter}
                             onChange={setCategoryFilter}
                             allowClear
+                            size={isMobile ? "middle" : "large"}
                         >
                             <Option value="all">All Categories</Option>
                             {categories.map(category => (
@@ -353,42 +324,32 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                             value={statusFilter}
                             onChange={setStatusFilter}
                             allowClear
+                            size={isMobile ? "middle" : "large"}
                         >
                             <Option value="all">All Status</Option>
                             <Option value="active">Active</Option>
                             <Option value="inactive">Inactive</Option>
                         </Select>
                     </Col>
-                    <Col xs={24} sm={12} md={3}>
-                   
-                    </Col>
-                    <Col xs={24} sm={12} md={3}>
-                        <div style={{ textAlign: 'right' }}>
-                            <span style={{ color: '#666', fontSize: '14px' }}>
+                    <Col xs={24} md={6}>
+                        <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                            <Text type="secondary">
                                 Showing {filteredAnnouncements.length} of {announcements.length} announcements
-                            </span>
+                            </Text>
                         </div>
                     </Col>
                 </Row>
             </Card>
 
-            {/* Announcements Table */}
-            <Card>
+            {/* Announcements Grid */}
+            <Card
+                bodyStyle={{ padding: isMobile ? '16px' : '24px' }}
+            >
                 <Spin spinning={loading}>
                     {filteredAnnouncements.length > 0 ? (
-                        <Table
-                            columns={columns}
-                            dataSource={filteredAnnouncements}
-                            rowKey="id"
-                            pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                showQuickJumper: true,
-                                showTotal: (total, range) =>
-                                    `${range[0]}-${range[1]} of ${total} announcements`,
-                            }}
-                            scroll={{ x: 1000 }}
-                        />
+                        <Row gutter={[16, 16]}>
+                            {filteredAnnouncements.map(renderAnnouncementCard)}
+                        </Row>
                     ) : (
                         <Empty
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -413,16 +374,15 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
             {/* Create/Edit Modal */}
             <Modal
                 title={
-                    <div>
-                        <NotificationOutlined style={{ marginRight: 8 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <NotificationOutlined />
                         {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
-                    
                     </div>
                 }
                 open={modalVisible}
                 onCancel={handleCancel}
                 footer={null}
-                width={700}
+                width={isMobile ? '90vw' : 700}
                 destroyOnClose
             >
                 <Form
@@ -448,11 +408,12 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                             rows={3}
                             showCount
                             maxLength={500}
+                            size="large"
                         />
                     </Form.Item>
 
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Category"
                                 name="category"
@@ -462,10 +423,13 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                                 ]}
                                 extra="Used to group similar announcements"
                             >
-                                <Input placeholder="Enter category (e.g., Promotion, News, Update)" />
+                                <Input
+                                    placeholder="Enter category (e.g., Promotion, News, Update)"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={isMobile ? 24 : 12}>
                             <Form.Item
                                 label="Display Order"
                                 name="displayOrder"
@@ -478,6 +442,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                                     style={{ width: '100%' }}
                                     min={0}
                                     placeholder="0"
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
@@ -492,6 +457,7 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
                         <Switch
                             checkedChildren="Active"
                             unCheckedChildren="Inactive"
+                            size={isMobile ? "default" : "small"}
                         />
                     </Form.Item>
 
@@ -499,10 +465,10 @@ const AnnouncementEditor = ({ onEditContent, onViewContent, onContentUpdated, re
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={handleCancel}>
+                            <Button onClick={handleCancel} size={isMobile ? "middle" : "large"}>
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button type="primary" htmlType="submit" size={isMobile ? "middle" : "large"}>
                                 {editingAnnouncement ? 'Update Announcement' : 'Create Announcement'}
                             </Button>
                         </Space>

@@ -1,3 +1,4 @@
+// ClientPage.jsx - Updated with Mobile Card Layout
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
@@ -17,7 +18,8 @@ import {
     Menu,
     Row,
     Col,
-    Divider
+    Divider,
+    Grid
 } from 'antd';
 import {
     SearchOutlined,
@@ -41,10 +43,11 @@ import {
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import clientService from '../../AdminPortal/Creation_Agent/Services/ClientService';
-import {processImageUrl } from '../../AdminPortal/Creation_Property/processImageUrl';
+import { processImageUrl } from '../../AdminPortal/Creation_Property/processImageUrl';
 
 const { Search } = Input;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
 const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClient, onAddClient }) => {
     const [clients, setClients] = useState([]);
@@ -56,6 +59,9 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
     const [selectedClient, setSelectedClient] = useState(null);
     const [viewModalVisible, setViewModalVisible] = useState(false);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     // Notify parent component when filters change
     useEffect(() => {
@@ -374,6 +380,110 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
         </Menu>
     );
 
+    // Mobile Card Layout Component
+    const ClientCard = ({ client }) => (
+        <Card
+            style={{
+                marginBottom: 16,
+                borderRadius: 12,
+            
+            }}
+            bodyStyle={{ padding: 16 }}
+        >
+            {/* Header with Avatar and Basic Info */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Badge dot={client.status === 'Active'} color="green" offset={[-5, 5]}>
+                        {getClientAvatar(client)}
+                    </Badge>
+                    <div>
+                        <div style={{ fontWeight: 600, fontSize: 16, color: '#1a365d' }}>
+                            {getFullName(client)}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#666' }}>
+                            @{client.username || 'No username'}
+                        </div>
+                    </div>
+                </div>
+                <Tag color={getStatusColor(client.status)} style={{ margin: 0 }}>
+                    {getStatusText(client.status)}
+                </Tag>
+            </div>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            {/* Contact Information */}
+            <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 500, marginBottom: 8, color: '#1a365d' }}>Contact Information</div>
+                <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                    {client.email && (
+                        <Space size={6}>
+                            <MailOutlined style={{ color: '#1e3a8a', fontSize: 12 }} />
+                            <span style={{ fontSize: 12 }}>{client.email}</span>
+                        </Space>
+                    )}
+                    {client.cellPhoneNo && (
+                        <Space size={6}>
+                            <PhoneOutlined style={{ color: '#1e3a8a', fontSize: 12 }} />
+                            <span style={{ fontSize: 12 }}>{client.cellPhoneNo}</span>
+                        </Space>
+                    )}
+                    {getLocationInfo(client) && (
+                        <Space size={6}>
+                            <EnvironmentOutlined style={{ color: '#1e3a8a', fontSize: 12 }} />
+                            <span style={{ fontSize: 12 }}>{getLocationInfo(client)}</span>
+                        </Space>
+                    )}
+                </Space>
+            </div>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            {/* Personal Details */}
+            <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 500, marginBottom: 8, color: '#1a365d' }}>Personal Details</div>
+                <div style={{ fontSize: 12, marginBottom: 4 }}>
+                    <strong>Gender:</strong> {client.gender || 'Not specified'}
+                </div>
+                <Space size={6}>
+                    <CalendarOutlined style={{ color: '#1e3a8a', fontSize: 12 }} />
+                    <span style={{ fontSize: 11, color: '#666' }}>
+                        Registered: {formatDate(client.dateRegistered)}
+                    </span>
+                </Space>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <Button
+                    icon={<EyeOutlined />}
+                    size="small"
+                    onClick={() => handleView(client)}
+                    style={{ flex: 1 }}
+                >
+                    View
+                </Button>
+                <Button
+                    icon={<EditOutlined />}
+                    size="small"
+                    onClick={() => handleEdit(client)}
+                    style={{ flex: 1 }}
+                >
+                    Edit
+                </Button>
+                <Dropdown overlay={actionMenu(client)} trigger={['click']}>
+                    <Button
+                        icon={<MoreOutlined />}
+                        size="small"
+                    >
+                        More
+                    </Button>
+                </Dropdown>
+            </div>
+        </Card>
+    );
+
+    // Desktop Table Columns
     const columns = [
         {
             title: 'Client',
@@ -391,7 +501,6 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                                 @{record.username || 'No username'}
                             </div>
                             <Divider style={{ margin: '8px 0' }} />
-                          
                         </div>
                     </Space>
                 </Space>
@@ -402,8 +511,6 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
             key: 'contact',
             render: (_, record) => (
                 <Space direction="vertical" size={8}>
-                  
-               
                     <Space direction="vertical" size={4}>
                         {record.email && (
                             <Space size={4}>
@@ -504,11 +611,11 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                             placeholder="Search clients by name, email, phone..."
                             allowClear
                             onSearch={handleSearch}
-                            style={{ width: 300 }}
+                            style={{ width: isMobile ? 200 : 300 }}
                         />
                         <Select
                             defaultValue="all"
-                            style={{ width: 150 }}
+                            style={{ width: isMobile ? 120 : 150 }}
                             onChange={handleStatusFilter}
                         >
                             <Option value="all">All Status</Option>
@@ -518,7 +625,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                         </Select>
                         <Select
                             defaultValue="all"
-                            style={{ width: 120 }}
+                            style={{ width: isMobile ? 100 : 120 }}
                             onChange={handleGenderFilter}
                         >
                             <Option value="all">All Gender</Option>
@@ -528,7 +635,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                         </Select>
                         <Select
                             defaultValue="all"
-                            style={{ width: 150 }}
+                            style={{ width: isMobile ? 120 : 150 }}
                             onChange={handleCityFilter}
                         >
                             <Option value="all">All Cities</Option>
@@ -539,40 +646,60 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                     </Space>
 
                     <Space>
-                    
                         <Tooltip title="Print">
                             <Button icon={<PrinterOutlined />} onClick={handlePrint}>
-                                Print
+                                {isMobile ? '' : 'Print'}
                             </Button>
                         </Tooltip>
                         <Tooltip title="Export PDF">
                             <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
-                                PDF
+                                {isMobile ? '' : 'PDF'}
                             </Button>
                         </Tooltip>
                         <Tooltip title="Export Excel">
                             <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
-                                Excel
+                                {isMobile ? '' : 'Excel'}
                             </Button>
                         </Tooltip>
                     </Space>
                 </div>
 
-                <BaseTable
-                    data={filteredClients}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} of ${total} clients`,
-                        position: ['bottomRight']
-                    }}
-                    style={{ marginBottom: 0 }}
-                />
+                {/* Conditional Rendering: Cards for Mobile, Table for Desktop */}
+                {isMobile ? (
+                    <div>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: 40 }}>
+                                Loading clients...
+                            </div>
+                        ) : filteredClients.length > 0 ? (
+                            <div>
+                                {filteredClients.map(client => (
+                                    <ClientCard key={client.id} client={client} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                                No clients found matching your criteria
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <BaseTable
+                        data={filteredClients}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} clients`,
+                            position: ['bottomRight']
+                        }}
+                        style={{ marginBottom: 0 }}
+                    />
+                )}
             </Card>
 
             {/* View Client Modal */}
@@ -585,12 +712,12 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                         Close
                     </Button>,
                 ]}
-                width={700}
+                width={isMobile ? '90%' : 700}
             >
                 {selectedClient && (
                     <div>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={8} style={{ textAlign: 'center' }}>
+                            <Col span={isMobile ? 24 : 8} style={{ textAlign: 'center' }}>
                                 {getClientAvatar(selectedClient)}
                                 <div style={{ marginTop: 8 }}>
                                     <Tag color={getStatusColor(selectedClient.status)}>
@@ -598,7 +725,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                                     </Tag>
                                 </div>
                             </Col>
-                            <Col span={16}>
+                            <Col span={isMobile ? 24 : 16}>
                                 <h2>{getFullName(selectedClient)}</h2>
                                 <p style={{ color: '#666' }}>@{selectedClient.username || 'No username'}</p>
                                 <Space direction="vertical">
@@ -619,7 +746,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                         </Row>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Personal Information</h3>
                                 <p><strong>Gender:</strong> {selectedClient.gender || 'Not specified'}</p>
                                 <p><strong>Date Registered:</strong> {formatDate(selectedClient.dateRegistered)}</p>
@@ -627,7 +754,7 @@ const ClientPage = ({ onFilterUpdate, onClientsUpdate, onEditClient, onViewClien
                                     <p><strong>Created:</strong> {formatDate(selectedClient.createdAt)}</p>
                                 )}
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Address Information</h3>
                                 <p><strong>City:</strong> {selectedClient.city || 'N/A'}</p>
                                 <p><strong>Country:</strong> {selectedClient.country || 'N/A'}</p>

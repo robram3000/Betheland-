@@ -1,30 +1,24 @@
-// AuthLogLayout.jsx
+// AuthLogLayout.jsx - Enhanced Mobile Version
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography, Card } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography, Card, Grid } from 'antd';
 import {
-    SecurityScanOutlined,
-    LoginOutlined,
+    ArrowLeftOutlined,
     UserAddOutlined,
     HistoryOutlined,
-    DashboardOutlined,
-    ArrowLeftOutlined,
-    LockOutlined,
-    AuditOutlined,
-    CodeOutlined,
     MonitorOutlined,
-    TeamOutlined
+    TeamOutlined,
+    CodeOutlined
 } from '@ant-design/icons';
-import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import AuthPage from './AuthPage';
 import LoginHistory from './LoginHistory';
 import SecurityDashboard from './SecurityDashboard';
 import UserManagement from './UserManagement';
 
-const { Content, Sider } = Layout;
-const { TabPane } = Tabs;
-const { Title, Text } = Typography;
+const { Content } = Layout;
+const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const mockAuthService = {
     getFailedAttempts: () => Promise.resolve(12),
@@ -41,46 +35,14 @@ const mockAuthService = {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             timestamp: new Date().toISOString(),
             additionalInfo: { method: 'password', twoFactor: true }
-        },
-        {
-            id: 2,
-            username: 'john_doe',
-            status: 'failed',
-            type: 'login',
-            ipAddress: '192.168.1.101',
-            location: 'London, UK',
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            timestamp: new Date(Date.now() - 300000).toISOString(),
-            additionalInfo: { reason: 'Invalid password', attempts: 3 }
-        },
-        {
-            id: 3,
-            username: 'jane_smith',
-            status: 'locked',
-            type: 'login',
-            ipAddress: '192.168.1.102',
-            location: 'Tokyo, JP',
-            userAgent: 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36',
-            timestamp: new Date(Date.now() - 600000).toISOString(),
-            additionalInfo: { lockedUntil: new Date(Date.now() + 3600000).toISOString() }
         }
     ]),
-    lockUser: (username) => {
-        console.log(`Locking user: ${username}`);
-        return Promise.resolve({ success: true });
-    },
-    unlockUser: (username) => {
-        console.log(`Unlocking user: ${username}`);
-        return Promise.resolve({ success: true });
-    },
-    deleteAuthEvent: (eventId) => {
-        console.log(`Deleting auth event: ${eventId}`);
-        return Promise.resolve({ success: true });
-    }
+    lockUser: (username) => Promise.resolve({ success: true }),
+    unlockUser: (username) => Promise.resolve({ success: true }),
+    deleteAuthEvent: (eventId) => Promise.resolve({ success: true })
 };
 
 const AuthLogLayout = () => {
-    const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('auth');
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [activeSessions, setActiveSessions] = useState(0);
@@ -89,14 +51,12 @@ const AuthLogLayout = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedUser, setSelectedUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
-
-    const handleToggle = () => {
-        setCollapsed(!collapsed);
-    };
 
     const handleTabChange = (key) => {
         setActiveTab(key);
@@ -221,6 +181,85 @@ const AuthLogLayout = () => {
 
     const seoData = getSeoData();
 
+    // Mobile header with better spacing
+    const renderHeader = () => {
+        const getHeaderTitle = () => {
+            if (isEditing) return `Edit User: ${selectedUser?.username || 'unknown'}`;
+            switch (activeTab) {
+                case 'auth': return 'Authentication Log';
+                case 'history': return 'Audit Trail';
+                case 'management': return 'User Management';
+                case 'dashboard': return 'Security Dashboard';
+                default: return 'Security Console';
+            }
+        };
+
+        const getHeaderDescription = () => {
+            if (isEditing) return `Modifying user permissions and security settings`;
+            switch (activeTab) {
+                case 'auth': return 'Monitoring authentication events and login attempts';
+                case 'history': return 'Reviewing historical security events and audit logs';
+                case 'management': return 'Managing user accounts and access permissions';
+                case 'dashboard': return 'Real-time security monitoring and threat detection';
+                default: return 'Security management interface';
+            }
+        };
+
+        const showBackButton = isEditing;
+
+        return (
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {showBackButton && (
+                            <Button
+                                icon={<ArrowLeftOutlined />}
+                                onClick={handleBackToAuth}
+                                style={{ border: 'none' }}
+                                size={isMobile ? "small" : "middle"}
+                            >
+                                {isMobile ? 'Back' : 'Back to Auth Log'}
+                            </Button>
+                        )}
+                        <div>
+                            <Title level={isMobile ? 3 : 2} style={{
+                                margin: 0,
+                                color: '#1a365d',
+                                fontSize: isMobile ? '20px' : '28px',
+                                fontWeight: 600
+                            }}>
+                                {getHeaderTitle()}
+                            </Title>
+                            <p style={{
+                                margin: '4px 0 0 0',
+                                color: '#666',
+                                fontSize: isMobile ? '14px' : '16px'
+                            }}>
+                                {getHeaderDescription()}
+                            </p>
+                        </div>
+                    </div>
+                    {activeTab === 'auth' && !isEditing && (
+                        <Button
+                            type="primary"
+                            icon={<UserAddOutlined />}
+                            onClick={handleCreateUser}
+                            size={isMobile ? "middle" : "large"}
+                        >
+                            {isMobile ? 'Add User' : 'Add User'}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <ConfigProvider
             theme={{
@@ -229,22 +268,6 @@ const AuthLogLayout = () => {
                     colorPrimary: '#1890ff',
                     colorInfo: '#1890ff',
                     colorSuccess: '#52c41a',
-                    colorBgContainer: '#ffffff',
-                    colorText: '#000000',
-                    colorBorder: '#d9d9d9',
-                },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1890ff',
-                        itemActiveColor: '#1890ff',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#ffffff',
-                    },
-                    Card: {
-                        colorBgContainer: '#ffffff',
-                    }
                 },
             }}
         >
@@ -268,266 +291,142 @@ const AuthLogLayout = () => {
                 <link rel="canonical" href={seoData.canonical} />
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh', background: '#ffffff' }}>
-                <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
-                            background: '#ffffff'
+                            background: colorBgContainer,
+                            minHeight: 'fit-content',
+                            overflow: 'visible',
+                            padding: isMobile ? '16px' : '30px'
                         }}
                     >
-                        <Layout>
-                            <Sider
-                                width={240}
-                                style={{
-                                    background: '#ffffff',
-                                    borderRadius: borderRadiusLG,
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                    borderRight: '1px solid #d9d9d9',
-                                    position: 'sticky',
-                                    top: 68,
-                                    height: 'calc(100vh - 84px)',
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden'
-                                }}
-                            >
-                                <div style={{ padding: '20px 0' }}>
-                                    <div style={{
-                                        padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #d9d9d9',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <Title
-                                            level={4}
-                                            style={{
-                                                margin: 0,
-                                                color: '#000000',
-                                                fontSize: '16px',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            Security Console
-                                        </Title>
-                                        <Text
-                                            style={{
-                                                margin: '4px 0 0 0',
-                                                color: '#666666',
-                                                fontSize: '12px',
-                                                lineHeight: 1.4
-                                            }}
-                                        >
-                                            Authentication Management System
-                                        </Text>
-                                    </div>
+                        {/* Header Section */}
+                        {renderHeader()}
 
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={handleTabChange}
-                                        tabPosition="left"
-                                        type="line"
-                                        size="middle"
-                                        style={{
-                                            width: '100%',
-                                        }}
-                                        tabBarStyle={{
-                                            border: 'none',
-                                            width: '100%'
-                                        }}
-                                    >
-                                        <TabPane
-                                            key="auth"
-                                            tab={
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
+                                style={{
+                                    borderBottom: '1px solid #f0f0f0'
+                                }}
+                                items={[
+                                    {
+                                        key: 'auth',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <CodeOutlined />
+                                                {isMobile ? 'Auth Log' : 'Authentication Log'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'history',
+                                        label: (
+                                            <Badge count={failedAttempts} size="small" offset={[10, -5]} color="#ff4d4f">
                                                 <span style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px'
+                                                    gap: '6px',
+                                                    fontSize: isMobile ? '14px' : '16px',
+                                                    fontWeight: 500
                                                 }}>
-                                                    <CodeOutlined />
-                                                    Auth Log
+                                                    <HistoryOutlined />
+                                                    {isMobile ? 'Audit' : 'Audit Trail'}
                                                 </span>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="history"
-                                            tab={
-                                                <Badge count={failedAttempts} size="small" offset={[10, -5]} color="#ff4d4f">
-                                                    <span style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px'
-                                                    }}>
-                                                        <HistoryOutlined />
-                                                        Audit Trail
-                                                    </span>
-                                                </Badge>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="management"
-                                            tab={
+                                            </Badge>
+                                        )
+                                    },
+                                    {
+                                        key: 'management',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <TeamOutlined />
+                                                {isMobile ? 'Users' : 'User Management'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'dashboard',
+                                        label: (
+                                            <Badge count={securityAlerts} size="small" offset={[10, -5]} color="#faad14">
                                                 <span style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px'
+                                                    gap: '6px',
+                                                    fontSize: isMobile ? '14px' : '16px',
+                                                    fontWeight: 500
                                                 }}>
-                                                    <TeamOutlined />
-                                                    {isEditing ? 'Edit User' : 'User Management'}
+                                                    <MonitorOutlined />
+                                                    {isMobile ? 'Dashboard' : 'Security Dashboard'}
                                                 </span>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="dashboard"
-                                            tab={
-                                                <Badge count={securityAlerts} size="small" offset={[10, -5]} color="#faad14">
-                                                    <span style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px'
-                                                    }}>
-                                                        <MonitorOutlined />
-                                                        Dashboard
-                                                    </span>
-                                                </Badge>
-                                            }
-                                        />
-                                    </Tabs>
+                                            </Badge>
+                                        )
+                                    }
+                                ]}
+                            />
+                        </Card>
 
-                                    <Card
-                                        size="small"
-                                        style={{
-                                            margin: '16px',
-                                            background: '#ffffff',
-                                            border: '1px solid #d9d9d9'
-                                        }}
-                                        bodyStyle={{ padding: '12px' }}
-                                    >
-                                        <div style={{ color: '#000000', fontSize: '12px', marginBottom: '8px' }}>
-                                            System Status
-                                        </div>
-                                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                                <Text style={{ color: '#000000' }}>Active Sessions:</Text>
-                                                <Badge count={activeSessions} color="#1890ff" />
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                                <Text style={{ color: '#ff4d4f' }}>Failed Auth:</Text>
-                                                <Badge count={failedAttempts} color="#ff4d4f" />
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                                <Text style={{ color: '#faad14' }}>Alerts:</Text>
-                                                <Badge count={securityAlerts} color="#faad14" />
-                                            </div>
-                                        </Space>
-                                    </Card>
-                                </div>
-                            </Sider>
-
-                            <Content
-                                style={{
-                                    background: '#ffffff',
-                                    margin: '16px 16px 16px 0',
-                                    minHeight: 280,
-                                    borderRadius: borderRadiusLG,
-                                    overflow: 'hidden',
-                                    padding: '24px',
-                                    border: '1px solid #d9d9d9'
-                                }}
-                            >
-                                <div style={{ marginBottom: 24 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            {isEditing && (
-                                                <Button
-                                                    icon={<ArrowLeftOutlined />}
-                                                    onClick={handleBackToAuth}
-                                                    style={{
-                                                        border: '1px solid #d9d9d9',
-                                                        background: 'transparent',
-                                                        color: '#000000'
-                                                    }}
-                                                >
-                                                    Back to Auth Log
-                                                </Button>
-                                            )}
-                                            <div>
-                                                <div style={{
-                                                    color: '#000000',
-                                                    fontSize: '16px',
-                                                    marginBottom: '4px',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {(() => {
-                                                        if (isEditing) return `Edit User: ${selectedUser?.username || 'unknown'}`;
-                                                        switch (activeTab) {
-                                                            case 'auth': return 'Authentication Log';
-                                                            case 'history': return 'Audit Trail';
-                                                            case 'management': return 'User Management';
-                                                            case 'dashboard': return 'Security Dashboard';
-                                                            default: return 'Security Console';
-                                                        }
-                                                    })()}
-                                                </div>
-                                                <div style={{
-                                                    color: '#666666',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {(() => {
-                                                        if (isEditing) return `Modifying user permissions and security settings`;
-                                                        switch (activeTab) {
-                                                            case 'auth': return 'Monitoring authentication events and login attempts';
-                                                            case 'history': return 'Reviewing historical security events and audit logs';
-                                                            case 'management': return 'Managing user accounts and access permissions';
-                                                            case 'dashboard': return 'Real-time security monitoring and threat detection';
-                                                            default: return 'Security management interface';
-                                                        }
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {activeTab === 'auth' && !isEditing && (
-                                            <Button
-                                                type="primary"
-                                                icon={<UserAddOutlined />}
-                                                onClick={handleCreateUser}
-                                                style={{
-                                                    background: '#1890ff',
-                                                    borderColor: '#1890ff'
-                                                }}
-                                            >
-                                                Add User
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {activeTab === 'auth' && (
-                                    <AuthPage
-                                        onFilterUpdate={updateFilters}
-                                        onAuthUpdate={handleAuthUpdate}
-                                        onEditUser={handleEditUser}
-                                        onCreateUser={handleCreateUser}
-                                    />
-                                )}
-                                {activeTab === 'history' && (
-                                    <LoginHistory onUpdate={handleAuthUpdate} />
-                                )}
-                                {activeTab === 'management' && (
-                                    <UserManagement
-                                        user={selectedUser}
-                                        onSuccess={handleAuthUpdate}
-                                        onBack={handleBackToAuth}
-                                    />
-                                )}
-                                {activeTab === 'dashboard' && (
-                                    <SecurityDashboard onUpdate={handleAuthUpdate} />
-                                )}
-                            </Content>
-                        </Layout>
-                    </Layout>
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible'
+                        }}>
+                            {activeTab === 'auth' && (
+                                <AuthPage
+                                    onFilterUpdate={updateFilters}
+                                    onAuthUpdate={handleAuthUpdate}
+                                    onEditUser={handleEditUser}
+                                    onCreateUser={handleCreateUser}
+                                />
+                            )}
+                            {activeTab === 'history' && (
+                                <LoginHistory onUpdate={handleAuthUpdate} />
+                            )}
+                            {activeTab === 'management' && (
+                                <UserManagement
+                                    user={selectedUser}
+                                    onSuccess={handleAuthUpdate}
+                                    onBack={handleBackToAuth}
+                                />
+                            )}
+                            {activeTab === 'dashboard' && (
+                                <SecurityDashboard onUpdate={handleAuthUpdate} />
+                            )}
+                        </div>
+                    </Content>
                 </Layout>
             </Layout>
         </ConfigProvider>

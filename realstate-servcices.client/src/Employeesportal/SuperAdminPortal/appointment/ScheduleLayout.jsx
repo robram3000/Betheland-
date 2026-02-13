@@ -1,18 +1,13 @@
+// ScheduleLayout.jsx - Enhanced Mobile Version
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography, Card, Grid } from 'antd';
 import {
-    PlusCircleOutlined,
-    CheckCircleOutlined,
-    DashboardOutlined,
-    ArrowLeftOutlined,
-    TeamOutlined,
     CalendarOutlined,
     ClockCircleOutlined,
-    HomeOutlined,
+    CheckCircleOutlined,
     SettingOutlined
 } from '@ant-design/icons';
-import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import ScheduleAppointments from './ScheduleAppointments';
 import AgentAvailability from './AgentAvailability';
@@ -25,22 +20,20 @@ import {
     schedulePropertiesService
 } from '../../AdminPortal/appointment/Services/index';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const ScheduleLayout = () => {
-    const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('appointments');
     const [pendingCount, setPendingCount] = useState(0);
     const [appointmentsCount, setAppointmentsCount] = useState(0);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
-
-    const handleToggle = () => {
-        setCollapsed(!collapsed);
-    };
 
     const handleTabChange = (key) => {
         setActiveTab(key);
@@ -125,65 +118,57 @@ const ScheduleLayout = () => {
         };
     };
 
-    const tabItems = [
-        {
-            key: 'appointments',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CalendarOutlined />
-                    All Appointments
-                </span>
-            ),
-        },
-        {
-            key: 'availability',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ClockCircleOutlined />
-                    Agent Availability
-                </span>
-            ),
-        },
-        {
-            key: 'timeoff',
-            label: (
-                <Badge count={pendingCount} size="small" offset={[10, -5]}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckCircleOutlined />
-                        Time Off
-                    </span>
-                </Badge>
-            ),
-        },
-        {
-            key: 'config',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <SettingOutlined />
-                    Configuration
-                </span>
-            ),
-        }
-    ];
+    // Mobile header with better spacing
+    const renderHeader = () => {
+        const getHeaderTitle = () => {
+            switch (activeTab) {
+                case 'appointments': return 'All Appointments';
+                case 'availability': return 'Agent Availability';
+                case 'timeoff': return 'Time Off Management';
+                case 'config': return 'Schedule Configuration';
+                default: return 'Schedule Management';
+            }
+        };
 
-    const getHeaderTitle = () => {
-        switch (activeTab) {
-            case 'appointments': return 'All Appointments';
-            case 'availability': return 'Agent Availability';
-            case 'timeoff': return 'Time Off Management';
-            case 'config': return 'Schedule Configuration';
-            default: return 'Schedule Management';
-        }
-    };
+        const getHeaderDescription = () => {
+            switch (activeTab) {
+                case 'appointments': return `Browse and manage ${appointmentsCount} appointments`;
+                case 'availability': return 'Manage agent working hours and availability schedules';
+                case 'timeoff': return pendingCount > 0 ? `${pendingCount} time off requests pending approval` : 'Manage agent time off requests and approvals';
+                case 'config': return 'Configure agent scheduling preferences and constraints';
+                default: return 'Manage appointments, agent availability, and scheduling configurations';
+            }
+        };
 
-    const getHeaderDescription = () => {
-        switch (activeTab) {
-            case 'appointments': return `Browse and manage ${appointmentsCount} appointments`;
-            case 'availability': return 'Manage agent working hours and availability schedules';
-            case 'timeoff': return pendingCount > 0 ? `${pendingCount} time off requests pending approval` : 'Manage agent time off requests and approvals';
-            case 'config': return 'Configure agent scheduling preferences and constraints';
-            default: return 'Manage appointments, agent availability, and scheduling configurations';
-        }
+        return (
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                }}>
+                    <div>
+                        <Title level={isMobile ? 3 : 2} style={{
+                            margin: 0,
+                            color: '#1a365d',
+                            fontSize: isMobile ? '20px' : '28px',
+                            fontWeight: 600
+                        }}>
+                            {getHeaderTitle()}
+                        </Title>
+                        <p style={{
+                            margin: '4px 0 0 0',
+                            color: '#666',
+                            fontSize: isMobile ? '14px' : '16px'
+                        }}>
+                            {getHeaderDescription()}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const seoData = getSeoData();
@@ -196,16 +181,6 @@ const ScheduleLayout = () => {
                     colorPrimary: '#1a365d',
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
-                },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#f8f9fa',
-                    }
                 },
             }}
         >
@@ -227,151 +202,137 @@ const ScheduleLayout = () => {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
-
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "WebApplication",
-                        "name": "Betheland Schedule Management",
-                        "description": seoData.description,
-                        "url": seoData.canonical,
-                        "applicationCategory": "BusinessApplication",
-                        "operatingSystem": "Web Browser",
-                        "permissions": "microphone",
-                        "author": {
-                            "@type": "Organization",
-                            "name": "Betheland"
-                        },
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        }
-                    })}
-                </script>
-
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "RealEstateAgent",
-                        "name": "Betheland",
-                        "description": "Professional real estate scheduling management platform",
-                        "telephone": "+1-555-123-4567",
-                        "address": {
-                            "@type": "PostalAddress",
-                            "streetAddress": "123 Schedule Lane",
-                            "addressLocality": "Real Estate City",
-                            "addressRegion": "CA",
-                            "postalCode": "12345",
-                            "addressCountry": "US"
-                        }
-                    })}
-                </script>
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh' }}>
-                <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
+                            background: colorBgContainer,
+                            minHeight: 'fit-content',
+                            overflow: 'visible',
+                            padding: isMobile ? '16px' : '30px'
                         }}
                     >
-                        <Layout>
-                            {/* Vertical Tabs Sidebar - Sticky */}
-                            <Sider
-                                width={220}
+                        {/* Header Section */}
+                        {renderHeader()}
+
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
                                 style={{
-                                    background: colorBgContainer,
-                                    borderRadius: borderRadiusLG,
-                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0',
-                                    position: 'sticky',
-                                    top: 68, // Topbar height + some padding
-                                    height: 'calc(100vh - 84px)', // Full viewport height minus top offset
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden'
+                                    borderBottom: '1px solid #f0f0f0'
                                 }}
-                            >
-                                <div style={{ padding: '20px 0' }}>
-                                    {/* Schedule Control Header */}
-                                    <div style={{
-                                        padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <Title
-                                            level={4}
-                                            style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '16px',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            Schedule Control
-                                        </Title>
-                                        <p style={{
-                                            margin: '4px 0 0 0',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            lineHeight: 1.4
-                                        }}>
-                                            Manage appointments, availability, and schedules
-                                        </p>
-                                    </div>
+                                items={[
+                                    {
+                                        key: 'appointments',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <CalendarOutlined />
+                                                {isMobile ? 'Appointments' : 'All Appointments'}
+                                                {appointmentsCount > 0 && (
+                                                    <Badge
+                                                        count={appointmentsCount}
+                                                        size="small"
+                                                        style={{
+                                                            marginLeft: '4px',
+                                                            backgroundColor: '#1a365d'
+                                                        }}
+                                                    />
+                                                )}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'availability',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <ClockCircleOutlined />
+                                                {isMobile ? 'Availability' : 'Agent Availability'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'timeoff',
+                                        label: (
+                                            <Badge count={pendingCount} size="small" offset={[10, -5]}>
+                                                <span style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    fontSize: isMobile ? '14px' : '16px',
+                                                    fontWeight: 500
+                                                }}>
+                                                    <CheckCircleOutlined />
+                                                    {isMobile ? 'Time Off' : 'Time Off'}
+                                                </span>
+                                            </Badge>
+                                        )
+                                    },
+                                    {
+                                        key: 'config',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <SettingOutlined />
+                                                {isMobile ? 'Config' : 'Configuration'}
+                                            </span>
+                                        )
+                                    }
+                                ]}
+                            />
+                        </Card>
 
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={handleTabChange}
-                                        tabPosition="left"
-                                        type="line"
-                                        size="middle"
-                                        style={{ width: '100%' }}
-                                        tabBarStyle={{ border: 'none', width: '100%' }}
-                                        items={tabItems}
-                                    />
-                                </div>
-                            </Sider>
-
-                            {/* Main Content Area */}
-                            <Content
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible'
+                        }}>
+                            <Card
                                 style={{
-                                    background: colorBgContainer,
-                                    margin: '16px 16px 16px 0',
-                                    minHeight: 280,
-                                    borderRadius: borderRadiusLG,
-                                    overflow: 'hidden',
-                                    padding: '24px'
+                                    border: '1px solid #f0f0f0',
+                                    borderRadius: '12px',
+                                    padding: 0
                                 }}
+                                bodyStyle={{ padding: 0 }}
                             >
-                                {/* Header Section */}
-                                <div style={{ marginBottom: 24 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div>
-                                            <h1 style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '24px',
-                                                fontWeight: 600
-                                            }}>
-                                                {getHeaderTitle()}
-                                            </h1>
-                                            <p style={{
-                                                margin: '6px 0 0 0',
-                                                color: '#666',
-                                                fontSize: '14px'
-                                            }}>
-                                                {getHeaderDescription()}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Conditional Content Rendering */}
                                 {activeTab === 'appointments' && (
                                     <ScheduleAppointments onScheduleUpdate={handleScheduleUpdate} />
                                 )}
@@ -384,9 +345,9 @@ const ScheduleLayout = () => {
                                 {activeTab === 'config' && (
                                     <ScheduleConfig onScheduleUpdate={handleScheduleUpdate} />
                                 )}
-                            </Content>
-                        </Layout>
-                    </Layout>
+                            </Card>
+                        </div>
+                    </Content>
                 </Layout>
             </Layout>
         </ConfigProvider>

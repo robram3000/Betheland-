@@ -1,7 +1,7 @@
-// ConfigContentLandingpage.jsx
+// ConfigContentLandingpage.jsx - Enhanced Mobile Version
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Card, Typography, Button, Space, message, Spin } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Card, Typography, Button, Space, message, Spin, Grid } from 'antd';
 import {
     EditOutlined,
     EyeOutlined,
@@ -10,35 +10,32 @@ import {
     ArrowLeftOutlined,
     NotificationOutlined
 } from '@ant-design/icons';
-import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import PartnerEditor from './PartnerEditor';
 import ThirdContentEditor from './ThirdContentEditor';
 import AnnouncementEditor from './AnnouncementEditor';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const ConfigContentLandingpage = () => {
-    const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('partner');
     const [isEditing, setIsEditing] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
     const [selectedContent, setSelectedContent] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [contentLoading, setContentLoading] = useState(false);
-
-    const handleContentUpdated = () => {
-        setRefreshTrigger(prev => prev + 1);
-        message.success('Content updated successfully');
-    };
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
-    const handleToggle = () => {
-        setCollapsed(!collapsed);
+    const handleContentUpdated = () => {
+        setRefreshTrigger(prev => prev + 1);
+        message.success('Content updated successfully');
     };
 
     const handleTabChange = (key) => {
@@ -137,61 +134,76 @@ const ConfigContentLandingpage = () => {
 
     const seoData = getSeoData();
 
-    const tabItems = [
-        {
-            key: 'partner',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <EditOutlined />
-                    Partner Editor
-                </span>
-            ),
-        },
-        {
-            key: 'announcements',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <NotificationOutlined />
-                    Announcement Editor
-                </span>
-            ),
-        },
-        {
-            key: 'third',
-            label: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <GlobalOutlined />
-                    Third Content Editor
-                </span>
-            ),
-        },
-    ];
+    // Mobile header with better spacing
+    const renderHeader = () => {
+        const getHeaderTitle = () => {
+            if (isViewing) return `Content View - ${selectedContent?.name || selectedContent?.content?.substring(0, 30) || 'Selected Content'}`;
+            if (isEditing) return `Edit Content - ${selectedContent?.name || selectedContent?.content?.substring(0, 30) || 'Selected Content'}`;
 
-    const getHeaderTitle = () => {
-        if (isViewing) return `Content View - ${selectedContent?.name || selectedContent?.content?.substring(0, 30) || 'Selected Content'}`;
-        if (isEditing) return `Edit Content - ${selectedContent?.name || selectedContent?.content?.substring(0, 30) || 'Selected Content'}`;
+            switch (activeTab) {
+                case 'partner': return 'Partner Editor';
+                case 'announcements': return 'Announcement Editor';
+                case 'third': return 'Third Content Editor';
+                default: return 'Landing Page Configuration';
+            }
+        };
 
-        switch (activeTab) {
-            case 'partner': return 'Partner Editor';
-            case 'announcements': return 'Announcement Editor';
-            case 'third': return 'Third Content Editor';
-            default: return 'Landing Page Configuration';
-        }
+        const getHeaderDescription = () => {
+            if (isViewing) return 'View detailed content information and configuration';
+            if (isEditing) return 'Modify content settings and configuration';
+
+            switch (activeTab) {
+                case 'partner': return 'Manage partner content sections and configurations';
+                case 'announcements': return 'Configure running letter announcements and display settings';
+                case 'third': return 'Configure third-party content and integrations';
+                default: return 'Manage your landing page configuration and content';
+            }
+        };
+
+        const showBackButton = isEditing || isViewing;
+
+        return (
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {showBackButton && (
+                            <Button
+                                icon={<ArrowLeftOutlined />}
+                                onClick={handleBackToMain}
+                                style={{ border: 'none' }}
+                                size={isMobile ? "small" : "middle"}
+                            >
+                                {isMobile ? 'Back' : 'Back to Editor'}
+                            </Button>
+                        )}
+                        <div>
+                            <Title level={isMobile ? 3 : 2} style={{
+                                margin: 0,
+                                color: '#1a365d',
+                                fontSize: isMobile ? '20px' : '28px',
+                                fontWeight: 600
+                            }}>
+                                {getHeaderTitle()}
+                            </Title>
+                            <p style={{
+                                margin: '4px 0 0 0',
+                                color: '#666',
+                                fontSize: isMobile ? '14px' : '16px'
+                            }}>
+                                {getHeaderDescription()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
-
-    const getHeaderDescription = () => {
-        if (isViewing) return 'View detailed content information and configuration';
-        if (isEditing) return 'Modify content settings and configuration';
-
-        switch (activeTab) {
-            case 'partner': return 'Manage partner content sections and configurations';
-            case 'announcements': return 'Configure running letter announcements and display settings';
-            case 'third': return 'Configure third-party content and integrations';
-            default: return 'Manage your landing page configuration and content';
-        }
-    };
-
-    const showBackButton = isEditing || isViewing;
 
     return (
         <ConfigProvider
@@ -201,16 +213,6 @@ const ConfigContentLandingpage = () => {
                     colorPrimary: '#1a365d',
                     colorInfo: '#1a365d',
                     colorSuccess: '#10b981',
-                },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#f8f9fa',
-                    }
                 },
             }}
         >
@@ -232,146 +234,113 @@ const ConfigContentLandingpage = () => {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <meta name="theme-color" content="#1a365d" />
                 <link rel="canonical" href={seoData.canonical} />
-
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "WebApplication",
-                        "name": "Betheland Landing Page Configuration",
-                        "description": seoData.description,
-                        "url": seoData.canonical,
-                        "applicationCategory": "BusinessApplication",
-                        "operatingSystem": "Web Browser",
-                        "author": {
-                            "@type": "Organization",
-                            "name": "Betheland"
-                        },
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        }
-                    })}
-                </script>
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh' }}>
-                <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
+                            background: colorBgContainer,
+                            minHeight: 'fit-content',
+                            overflow: 'visible',
+                            padding: isMobile ? '16px' : '30px'
                         }}
                     >
-                        <Layout>
-                            {/* Vertical Tabs Sidebar */}
-                            <Sider
-                                width={240}
+                        {/* Header Section */}
+                        {renderHeader()}
+
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
                                 style={{
-                                    background: colorBgContainer,
-                                    borderRadius: borderRadiusLG,
-                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0'
+                                    borderBottom: '1px solid #f0f0f0'
                                 }}
-                            >
-                                <div style={{ padding: '20px 0' }}>
-                                    {/* Configuration Header */}
-                                    <div style={{
-                                        padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <Title
-                                            level={4}
-                                            style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '16px',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            Landing Page Config
-                                        </Title>
-                                        <p style={{
-                                            margin: '4px 0 0 0',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            lineHeight: 1.4
-                                        }}>
-                                            Manage content and settings
-                                        </p>
-                                    </div>
+                                items={[
+                                    {
+                                        key: 'partner',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <EditOutlined />
+                                                {isMobile ? 'Partners' : 'Partner Editor'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'announcements',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <NotificationOutlined />
+                                                {isMobile ? 'Announcements' : 'Announcement Editor'}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'third',
+                                        label: (
+                                            <span style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 500
+                                            }}>
+                                                <GlobalOutlined />
+                                                {isMobile ? 'Third Party' : 'Third Content Editor'}
+                                            </span>
+                                        )
+                                    }
+                                ]}
+                            />
+                        </Card>
 
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={handleTabChange}
-                                        tabPosition="left"
-                                        type="line"
-                                        size="middle"
-                                        style={{ width: '100%' }}
-                                        tabBarStyle={{ border: 'none', width: '100%' }}
-                                        items={tabItems}
-                                    />
-                                </div>
-                            </Sider>
-
-                            {/* Main Content Area */}
-                            <Content
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible'
+                        }}>
+                            <Card
                                 style={{
-                                    background: colorBgContainer,
-                                    margin: '16px 16px 16px 0',
-                                    minHeight: 280,
-                                    borderRadius: borderRadiusLG,
-                                    overflow: 'hidden',
-                                    padding: '24px'
+                                    minHeight: '500px',
+                                    border: '1px solid #f0f0f0',
+                                    borderRadius: '12px',
+                                    padding: 0
                                 }}
+                                bodyStyle={{ padding: 0 }}
                             >
-                                {/* Header Section */}
-                                <div style={{ marginBottom: 24 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            {showBackButton && (
-                                                <Button
-                                                    icon={<ArrowLeftOutlined />}
-                                                    onClick={handleBackToMain}
-                                                    style={{ border: 'none', boxShadow: 'none' }}
-                                                >
-                                                    Back to Editor
-                                                </Button>
-                                            )}
-                                            <div>
-                                                <h1 style={{
-                                                    margin: 0,
-                                                    color: '#1a365d',
-                                                    fontSize: '24px',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {getHeaderTitle()}
-                                                </h1>
-                                                <p style={{
-                                                    margin: '6px 0 0 0',
-                                                    color: '#666',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {getHeaderDescription()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Conditional Content Rendering */}
-                                {isViewing ? (
-                                    <Card
-                                        style={{
-                                            minHeight: '500px',
-                                            border: '1px solid #f0f0f0',
-                                            borderRadius: '12px'
-                                        }}
-                                    >
+                                <Spin spinning={contentLoading} tip="Loading content...">
+                                    {isViewing ? (
                                         <div style={{ textAlign: 'center', padding: '40px' }}>
                                             <EyeOutlined style={{ fontSize: '48px', color: '#1a365d', marginBottom: '16px' }} />
                                             <Title level={3}>Content View</Title>
@@ -390,15 +359,7 @@ const ConfigContentLandingpage = () => {
                                                 </div>
                                             )}
                                         </div>
-                                    </Card>
-                                ) : isEditing ? (
-                                    <Card
-                                        style={{
-                                            minHeight: '500px',
-                                            border: '1px solid #f0f0f0',
-                                            borderRadius: '12px'
-                                        }}
-                                    >
+                                    ) : isEditing ? (
                                         <div style={{ textAlign: 'center', padding: '40px' }}>
                                             <EditOutlined style={{ fontSize: '48px', color: '#1a365d', marginBottom: '16px' }} />
                                             <Title level={3}>Edit Content</Title>
@@ -409,19 +370,8 @@ const ConfigContentLandingpage = () => {
                                                 </Button>
                                             </div>
                                         </div>
-                                    </Card>
-                                ) : (
-                                    // Regular Tab Content
-                                    <Card
-                                        style={{
-                                            minHeight: '500px',
-                                            border: '1px solid #f0f0f0',
-                                            borderRadius: '12px',
-                                            padding: 0
-                                        }}
-                                        bodyStyle={{ padding: 0 }}
-                                    >
-                                        <Spin spinning={contentLoading} tip="Loading content...">
+                                    ) : (
+                                        <>
                                             {activeTab === 'partner' && (
                                                 <PartnerEditor
                                                     onEditContent={handleEditContent}
@@ -446,12 +396,12 @@ const ConfigContentLandingpage = () => {
                                                     refreshTrigger={refreshTrigger}
                                                 />
                                             )}
-                                        </Spin>
-                                    </Card>
-                                )}
-                            </Content>
-                        </Layout>
-                    </Layout>
+                                        </>
+                                    )}
+                                </Spin>
+                            </Card>
+                        </div>
+                    </Content>
                 </Layout>
             </Layout>
         </ConfigProvider>

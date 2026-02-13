@@ -1,4 +1,4 @@
-// AgentScheduleConfig.jsx
+// AgentScheduleConfig.jsx - Mobile Enhanced
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -18,7 +18,9 @@ import {
     Alert,
     Input,
     Spin,
-    Result
+    Result,
+    Grid,
+    Collapse
 } from 'antd';
 import {
     SaveOutlined,
@@ -27,7 +29,8 @@ import {
     ClockCircleOutlined,
     CalendarOutlined,
     SettingOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    DownOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
 import { agentScheduleConfigService } from '../../AdminPortal/appointment/Services/index.js';
@@ -35,6 +38,8 @@ import authService from '../../../Authpage/Services/LoginAuth';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
+const { useBreakpoint } = Grid;
+const { Panel } = Collapse;
 
 const AgentScheduleConfig = () => {
     const [loading, setLoading] = useState(false);
@@ -43,6 +48,8 @@ const AgentScheduleConfig = () => {
     const [form] = Form.useForm();
     const [error, setError] = useState(null);
     const [currentAgentId, setCurrentAgentId] = useState(null);
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     // Default config aligned with backend DTO
     const defaultConfig = {
@@ -260,6 +267,58 @@ const AgentScheduleConfig = () => {
         return 0;
     };
 
+    // Mobile Configuration Summary Component
+    const MobileConfigSummary = () => {
+        const values = form.getFieldsValue();
+        return (
+            <Card
+                size="small"
+                style={{
+                    background: '#fafafa',
+                    marginBottom: 16
+                }}
+            >
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                    fontSize: '14px'
+                }}>
+                    <div>
+                        <strong>Duration:</strong>
+                        <div>{values.slotDurationMinutes} min</div>
+                    </div>
+                    <div>
+                        <strong>Buffer:</strong>
+                        <div>{values.bufferTimeMinutes} min</div>
+                    </div>
+                    <div>
+                        <strong>Max/Day:</strong>
+                        <div>{values.maxSchedulesPerDay}</div>
+                    </div>
+                    <div>
+                        <strong>Hours:</strong>
+                        <div>
+                            {values.workDayStart?.format('HH:mm')} - {values.workDayEnd?.format('HH:mm')}
+                        </div>
+                    </div>
+                    <div>
+                        <strong>Weekends:</strong>
+                        <div>
+                            <Tag color={values.allowWeekendScheduling ? 'green' : 'red'} size="small">
+                                {values.allowWeekendScheduling ? 'Yes' : 'No'}
+                            </Tag>
+                        </div>
+                    </div>
+                    <div>
+                        <strong>Advance:</strong>
+                        <div>{values.advanceBookingDays} days</div>
+                    </div>
+                </div>
+            </Card>
+        );
+    };
+
     const ErrorIndicator = ({ message, onRetry }) => (
         <Result
             status="error"
@@ -289,7 +348,7 @@ const AgentScheduleConfig = () => {
         <div>
             <Alert
                 message="Schedule Configuration"
-                description="Configure your appointment preferences, working hours, and booking rules. These settings will affect how clients can book appointments with you."
+                description="Configure your appointment preferences, working hours, and booking rules."
                 type="info"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -335,27 +394,30 @@ const AgentScheduleConfig = () => {
                         </Space>
                     }
                     extra={
-                        <Space>
-                        
-                            <Button
-                                icon={<ClockCircleOutlined />}
-                                onClick={handleResetToDefaults}
-                                disabled={saving || loading}
-                            >
-                                Set Default Hours
-                            </Button>
-                            <Button
-                                type="primary"
-                                icon={<SaveOutlined />}
-                                loading={saving}
-                                onClick={() => form.submit()}
-                                disabled={loading}
-                            >
-                                Save Changes
-                            </Button>
-                        </Space>
+                        !isMobile && (
+                            <Space>
+                                <Button
+                                    icon={<ClockCircleOutlined />}
+                                    onClick={handleResetToDefaults}
+                                    disabled={saving || loading}
+                                >
+                                    Set Default Hours
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    icon={<SaveOutlined />}
+                                    loading={saving}
+                                    onClick={() => form.submit()}
+                                    disabled={loading}
+                                >
+                                    Save Changes
+                                </Button>
+                            </Space>
+                        )
                     }
                 >
+                    {isMobile && <MobileConfigSummary />}
+
                     <Form
                         form={form}
                         layout="vertical"
@@ -367,229 +429,359 @@ const AgentScheduleConfig = () => {
                         }}
                         disabled={loading}
                     >
-                        <Divider orientation="left">
-                            <Space>
-                                <CalendarOutlined />
-                                Appointment Settings
-                            </Space>
-                        </Divider>
-
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="slotDurationMinutes"
-                                    label={
+                        {isMobile ? (
+                            // Mobile Collapsible Form
+                            <Collapse
+                                defaultActiveKey={['appointment', 'working', 'features']}
+                                ghost
+                            >
+                                <Panel
+                                    header={
                                         <Space>
-                                            Appointment Duration
-                                            <Tooltip title="Default duration for each appointment">
-                                                <InfoCircleOutlined />
-                                            </Tooltip>
+                                            <CalendarOutlined />
+                                            Appointment Settings
                                         </Space>
                                     }
-                                    rules={[{ required: true, message: 'Please enter duration' }]}
+                                    key="appointment"
                                 >
-                                    <InputNumber
-                                        min={15}
-                                        max={240}
-                                        step={15}
-                                        addonAfter="minutes"
-                                        style={{ width: '100%' }}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="bufferTimeMinutes"
-                                    label={
+                                    <Row gutter={[8, 8]}>
+                                        <Col span={12}>
+                                            <Form.Item
+                                                name="slotDurationMinutes"
+                                                label="Duration"
+                                                rules={[{ required: true, message: 'Please enter duration' }]}
+                                            >
+                                                <InputNumber
+                                                    min={15}
+                                                    max={240}
+                                                    step={15}
+                                                    addonAfter="min"
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={12}>
+                                            <Form.Item
+                                                name="bufferTimeMinutes"
+                                                label="Buffer Time"
+                                                rules={[{ required: true, message: 'Please enter buffer time' }]}
+                                            >
+                                                <InputNumber
+                                                    min={0}
+                                                    max={60}
+                                                    step={5}
+                                                    addonAfter="min"
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={24}>
+                                            <Form.Item
+                                                name="maxSchedulesPerDay"
+                                                label="Max Appointments/Day"
+                                                rules={[{ required: true, message: 'Please enter maximum appointments' }]}
+                                            >
+                                                <InputNumber
+                                                    min={1}
+                                                    max={20}
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                </Panel>
+
+                                <Panel
+                                    header={
                                         <Space>
-                                            Buffer Time
-                                            <Tooltip title="Time between appointments for preparation">
-                                                <InfoCircleOutlined />
-                                            </Tooltip>
+                                            <ClockCircleOutlined />
+                                            Working Hours
+                                            <Tag color="blue">
+                                                {calculateTotalWorkingHours().toFixed(1)}h
+                                            </Tag>
                                         </Space>
                                     }
-                                    rules={[{ required: true, message: 'Please enter buffer time' }]}
+                                    key="working"
                                 >
-                                    <InputNumber
-                                        min={0}
-                                        max={60}
-                                        step={5}
-                                        addonAfter="minutes"
-                                        style={{ width: '100%' }}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="maxSchedulesPerDay"
-                                    label={
-                                        <Space>
-                                            Max Appointments/Day
-                                            <Tooltip title="Maximum number of appointments allowed per day">
-                                                <InfoCircleOutlined />
-                                            </Tooltip>
-                                        </Space>
-                                    }
-                                    rules={[{ required: true, message: 'Please enter maximum appointments' }]}
+                                    <Row gutter={[8, 8]}>
+                                        <Col span={12}>
+                                            <Form.Item
+                                                name="workDayStart"
+                                                label="Start Time"
+                                                rules={[{ required: true, message: 'Please select start time' }]}
+                                            >
+                                                <TimePicker
+                                                    format="HH:mm"
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Start"
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={12}>
+                                            <Form.Item
+                                                name="workDayEnd"
+                                                label="End Time"
+                                                rules={[
+                                                    { required: true, message: 'Please select end time' },
+                                                    ({ getFieldValue }) => ({
+                                                        validator(_, value) {
+                                                            const start = getFieldValue('workDayStart');
+                                                            if (!value || !start || value.isAfter(start)) {
+                                                                return Promise.resolve();
+                                                            }
+                                                            return Promise.reject(new Error('End time must be after start time'));
+                                                        },
+                                                    }),
+                                                ]}
+                                            >
+                                                <TimePicker
+                                                    format="HH:mm"
+                                                    style={{ width: '100%' }}
+                                                    placeholder="End"
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={24}>
+                                            <Form.Item
+                                                name="advanceBookingDays"
+                                                label="Advance Booking Days"
+                                                rules={[{ required: true, message: 'Please enter advance booking days' }]}
+                                            >
+                                                <InputNumber
+                                                    min={1}
+                                                    max={365}
+                                                    addonAfter="days"
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                </Panel>
+
+                                <Panel
+                                    header="Features & Preferences"
+                                    key="features"
                                 >
-                                    <InputNumber
-                                        min={1}
-                                        max={20}
-                                        style={{ width: '100%' }}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                                    <Form.Item
+                                        name="allowWeekendScheduling"
+                                        label="Allow Weekend Scheduling"
+                                        valuePropName="checked"
+                                    >
+                                        <Switch
+                                            checkedChildren="Enabled"
+                                            unCheckedChildren="Disabled"
+                                        />
+                                    </Form.Item>
+                                </Panel>
+                            </Collapse>
+                        ) : (
+                            // Desktop Form (original layout)
+                            <>
+                                <Divider orientation="left">
+                                    <Space>
+                                        <CalendarOutlined />
+                                        Appointment Settings
+                                    </Space>
+                                </Divider>
 
-                        <Divider orientation="left">
-                            <Space>
-                                <ClockCircleOutlined />
-                                Working Hours
-                                <Tag color="blue">
-                                    {calculateTotalWorkingHours().toFixed(1)} hours/day
-                                </Tag>
-                            </Space>
-                        </Divider>
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="slotDurationMinutes"
+                                            label="Appointment Duration"
+                                            rules={[{ required: true, message: 'Please enter duration' }]}
+                                        >
+                                            <InputNumber
+                                                min={15}
+                                                max={240}
+                                                step={15}
+                                                addonAfter="minutes"
+                                                style={{ width: '100%' }}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="bufferTimeMinutes"
+                                            label="Buffer Time"
+                                            rules={[{ required: true, message: 'Please enter buffer time' }]}
+                                        >
+                                            <InputNumber
+                                                min={0}
+                                                max={60}
+                                                step={5}
+                                                addonAfter="minutes"
+                                                style={{ width: '100%' }}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="maxSchedulesPerDay"
+                                            label="Max Appointments/Day"
+                                            rules={[{ required: true, message: 'Please enter maximum appointments' }]}
+                                        >
+                                            <InputNumber
+                                                min={1}
+                                                max={20}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
 
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="workDayStart"
-                                    label="Start Time"
-                                    rules={[{ required: true, message: 'Please select start time' }]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="Start time"
-                                        onChange={() => form.validateFields(['workDayEnd'])}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="workDayEnd"
-                                    label="End Time"
-                                    rules={[
-                                        { required: true, message: 'Please select end time' },
-                                        ({ getFieldValue }) => ({
-                                            validator(_, value) {
-                                                const start = getFieldValue('workDayStart');
-                                                if (!value || !start || value.isAfter(start)) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(new Error('End time must be after start time'));
-                                            },
-                                        }),
-                                    ]}
-                                >
-                                    <TimePicker
-                                        format="HH:mm"
-                                        style={{ width: '100%' }}
-                                        placeholder="End time"
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item
-                                    name="advanceBookingDays"
-                                    label={
-                                        <Space>
-                                            Advance Booking
-                                            <Tooltip title="How far in advance clients can book">
-                                                <InfoCircleOutlined />
-                                            </Tooltip>
-                                        </Space>
-                                    }
-                                    rules={[{ required: true, message: 'Please enter advance booking days' }]}
-                                >
-                                    <InputNumber
-                                        min={1}
-                                        max={365}
-                                        addonAfter="days"
-                                        style={{ width: '100%' }}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Features & Preferences</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name="allowWeekendScheduling"
-                                    label="Allow Weekend Scheduling"
-                                    valuePropName="checked"
-                                >
-                                    <Switch
-                                        checkedChildren="Enabled"
-                                        unCheckedChildren="Disabled"
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Configuration Summary</Divider>
-
-                        <Card size="small" style={{ background: '#fafafa' }}>
-                            <Row gutter={[16, 8]}>
-                                <Col span={6}>
-                                    <strong>Appointment Duration:</strong>
-                                    <div>{form.getFieldValue('slotDurationMinutes')} minutes</div>
-                                </Col>
-                                <Col span={6}>
-                                    <strong>Buffer Time:</strong>
-                                    <div>{form.getFieldValue('bufferTimeMinutes')} minutes</div>
-                                </Col>
-                                <Col span={6}>
-                                    <strong>Max Appointments:</strong>
-                                    <div>{form.getFieldValue('maxSchedulesPerDay')}/day</div>
-                                </Col>
-                                <Col span={6}>
-                                    <strong>Working Hours:</strong>
-                                    <div>
-                                        {form.getFieldValue('workDayStart')?.format('HH:mm')} - {form.getFieldValue('workDayEnd')?.format('HH:mm')}
-                                    </div>
-                                </Col>
-                                <Col span={6}>
-                                    <strong>Weekend Booking:</strong>
-                                    <div>
-                                        <Tag color={form.getFieldValue('allowWeekendScheduling') ? 'green' : 'red'}>
-                                            {form.getFieldValue('allowWeekendScheduling') ? 'Allowed' : 'Not Allowed'}
+                                <Divider orientation="left">
+                                    <Space>
+                                        <ClockCircleOutlined />
+                                        Working Hours
+                                        <Tag color="blue">
+                                            {calculateTotalWorkingHours().toFixed(1)} hours/day
                                         </Tag>
-                                    </div>
-                                </Col>
-                                <Col span={6}>
-                                    <strong>Advance Booking:</strong>
-                                    <div>{form.getFieldValue('advanceBookingDays')} days</div>
-                                </Col>
-                            </Row>
-                        </Card>
+                                    </Space>
+                                </Divider>
 
-                        <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
-                            <Space>
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="workDayStart"
+                                            label="Start Time"
+                                            rules={[{ required: true, message: 'Please select start time' }]}
+                                        >
+                                            <TimePicker
+                                                format="HH:mm"
+                                                style={{ width: '100%' }}
+                                                placeholder="Start time"
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="workDayEnd"
+                                            label="End Time"
+                                            rules={[
+                                                { required: true, message: 'Please select end time' },
+                                                ({ getFieldValue }) => ({
+                                                    validator(_, value) {
+                                                        const start = getFieldValue('workDayStart');
+                                                        if (!value || !start || value.isAfter(start)) {
+                                                            return Promise.resolve();
+                                                        }
+                                                        return Promise.reject(new Error('End time must be after start time'));
+                                                    },
+                                                }),
+                                            ]}
+                                        >
+                                            <TimePicker
+                                                format="HH:mm"
+                                                style={{ width: '100%' }}
+                                                placeholder="End time"
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="advanceBookingDays"
+                                            label="Advance Booking"
+                                            rules={[{ required: true, message: 'Please enter advance booking days' }]}
+                                        >
+                                            <InputNumber
+                                                min={1}
+                                                max={365}
+                                                addonAfter="days"
+                                                style={{ width: '100%' }}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Divider orientation="left">Features & Preferences</Divider>
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="allowWeekendScheduling"
+                                            label="Allow Weekend Scheduling"
+                                            valuePropName="checked"
+                                        >
+                                            <Switch
+                                                checkedChildren="Enabled"
+                                                unCheckedChildren="Disabled"
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                            </>
+                        )}
+
+                        {!isMobile && (
+                            <>
+                                <Divider orientation="left">Configuration Summary</Divider>
+                                <Card size="small" style={{ background: '#fafafa' }}>
+                                    <Row gutter={[16, 8]}>
+                                        <Col span={6}>
+                                            <strong>Appointment Duration:</strong>
+                                            <div>{form.getFieldValue('slotDurationMinutes')} minutes</div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <strong>Buffer Time:</strong>
+                                            <div>{form.getFieldValue('bufferTimeMinutes')} minutes</div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <strong>Max Appointments:</strong>
+                                            <div>{form.getFieldValue('maxSchedulesPerDay')}/day</div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <strong>Working Hours:</strong>
+                                            <div>
+                                                {form.getFieldValue('workDayStart')?.format('HH:mm')} - {form.getFieldValue('workDayEnd')?.format('HH:mm')}
+                                            </div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <strong>Weekend Booking:</strong>
+                                            <div>
+                                                <Tag color={form.getFieldValue('allowWeekendScheduling') ? 'green' : 'red'}>
+                                                    {form.getFieldValue('allowWeekendScheduling') ? 'Allowed' : 'Not Allowed'}
+                                                </Tag>
+                                            </div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <strong>Advance Booking:</strong>
+                                            <div>{form.getFieldValue('advanceBookingDays')} days</div>
+                                        </Col>
+                                    </Row>
+                                </Card>
+                            </>
+                        )}
+
+                        <Form.Item style={{
+                            textAlign: isMobile ? 'center' : 'center',
+                            marginTop: 24
+                        }}>
+                            <Space direction={isMobile ? "vertical" : "horizontal"} style={{ width: isMobile ? '100%' : 'auto' }}>
                                 <Button
-                                    size="large"
+                                    size={isMobile ? "middle" : "large"}
                                     onClick={handleFormReset}
                                     disabled={saving}
+                                    block={isMobile}
                                 >
                                     Reset Form
                                 </Button>
                                 <Button
-                                    size="large"
+                                    size={isMobile ? "middle" : "large"}
                                     onClick={handleResetToDefaults}
                                     disabled={saving}
                                     icon={<ClockCircleOutlined />}
+                                    block={isMobile}
                                 >
                                     Set Default Hours
                                 </Button>
                                 <Button
                                     type="primary"
-                                    size="large"
+                                    size={isMobile ? "middle" : "large"}
                                     htmlType="submit"
                                     loading={saving}
                                     icon={<SaveOutlined />}
+                                    block={isMobile}
                                 >
                                     Save Configuration
                                 </Button>

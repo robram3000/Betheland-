@@ -26,6 +26,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chats = await _chatService.GetUserChatsAsync(userId);
                 return Ok(new { success = true, data = chats });
             }
@@ -55,6 +57,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chats = await _chatService.GetByAgentChatAsync(agentId);
                 return Ok(new { success = true, data = chats });
             }
@@ -70,6 +74,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chat = await _chatService.GetChatAsync(id, userId);
 
                 if (chat == null)
@@ -89,6 +95,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chat = await _chatService.CreateChatAsync(createDto, userId);
                 return Ok(new { success = true, data = chat });
             }
@@ -104,6 +112,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chat = await _chatService.UpdateChatAsync(id, updateDto, userId);
                 return Ok(new { success = true, data = chat });
             }
@@ -119,6 +129,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var result = await _chatService.DeleteChatAsync(id, userId);
 
                 if (!result)
@@ -138,6 +150,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var participant = await _chatService.AddParticipantAsync(chatId, addDto, userId);
                 return Ok(new { success = true, data = participant });
             }
@@ -153,6 +167,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var result = await _chatService.RemoveParticipantAsync(chatId, participantId, userId);
 
                 if (!result)
@@ -172,6 +188,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var messages = await _messageService.GetChatMessagesAsync(chatId, userId, page, pageSize);
                 return Ok(new { success = true, data = messages });
             }
@@ -189,6 +207,8 @@ namespace Realstate_servcices.Server.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+                if (userId <= 0) return Unauthorized(new { success = false, message = "Invalid user authentication" });
+
                 var chats = await _chatService.GetChatsByRecipientAsync(recipientId, userId);
                 return Ok(new { success = true, data = chats });
             }
@@ -198,10 +218,21 @@ namespace Realstate_servcices.Server.Controllers
             }
         }
 
-       
         private int GetCurrentUserId()
         {
-            return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userIdClaim))
+                {
+                    return 0;
+                }
+                return int.Parse(userIdClaim);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
         }
     }
 }

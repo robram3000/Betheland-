@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { schedulePropertiesMapper } from '../mappers/schedulePropertiesMapper';
 
 const API_BASE_URL = '/api';
@@ -105,7 +105,11 @@ class SchedulePropertiesService {
 
     async createSchedule(scheduleData) {
         try {
+            console.log('🔄 createSchedule called with:', scheduleData);
+
+            // Use the mapper but log the transformation
             const backendData = schedulePropertiesMapper.toCreateRequest(scheduleData);
+            console.log('📝 Mapped backend data:', backendData);
 
             const requestPayload = {
                 propertyId: backendData.propertyId,
@@ -120,35 +124,130 @@ class SchedulePropertiesService {
                 virtualMeetingLink: backendData.virtualMeetingLink
             };
 
-            console.log('Final API Payload:', requestPayload);
+            console.log('📤 Final API Payload:', JSON.stringify(requestPayload, null, 2));
 
             const response = await this.client.post('/ScheduleProperties', requestPayload);
+
+            console.log('✅ Schedule created successfully:', response.data);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
-            console.error('Error creating schedule:', error);
+            console.error('❌ Error creating schedule:', error);
 
+            // Enhanced error logging
             if (error.response) {
-                console.error('Backend response error:', {
+                console.error('🔍 Backend response error details:', {
                     status: error.response.status,
+                    statusText: error.response.statusText,
                     data: error.response.data,
                     headers: error.response.headers
                 });
+
+                // Log the exact error message from backend
+                if (error.response.data) {
+                    console.error('📝 Backend error message:', error.response.data);
+
+                    // Check for specific validation errors
+                    if (error.response.data.errors) {
+                        console.error('🔍 Validation errors breakdown:');
+                        Object.keys(error.response.data.errors).forEach(key => {
+                            console.error(`  - ${key}:`, error.response.data.errors[key]);
+                        });
+                    }
+                }
+            }
+
+            if (error.request) {
+                console.error('🌐 No response received:', error.request);
             }
 
             throw error;
         }
     }
 
-    async updateSchedule(id, scheduleData) {
+    async updateSchedule(schedule) {
         try {
-            const backendData = schedulePropertiesMapper.toUpdateRequest({
-                ...scheduleData,
-                id: id
+            console.log('🔄 updateSchedule called with:', schedule);
+
+            // Extract the ID from the schedule object
+            const id = schedule.id;
+            console.log('📤 Using ID for URL:', id);
+
+            // DEBUG: Log the exact data being sent
+            console.log('🔍 Data being sent to backend:', JSON.stringify(schedule, null, 2));
+            console.log('🔍 Data types:', {
+                id: typeof schedule.id,
+                scheduleNo: typeof schedule.scheduleNo,
+                propertyId: typeof schedule.propertyId,
+                agentId: typeof schedule.agentId,
+                clientId: typeof schedule.clientId,
+                scheduleTime: typeof schedule.scheduleTime,
+                scheduleEndTime: typeof schedule.scheduleEndTime,
+                status: typeof schedule.status,
+                meetingType: typeof schedule.meetingType,
+                meetingLocation: typeof schedule.meetingLocation,
+                virtualMeetingLink: typeof schedule.virtualMeetingLink,
+                notes: typeof schedule.notes
             });
-            const response = await this.client.put(`/ScheduleProperties/${id}`, backendData);
+
+            // Send the entire schedule object to the backend
+            const response = await this.client.put(`/ScheduleProperties/${id}`, schedule);
+            console.log('✅ Schedule updated successfully:', response.data);
             return schedulePropertiesMapper.toFrontend(response.data);
         } catch (error) {
-            console.error('Error updating schedule:', error);
+            console.error('❌ Error updating schedule:', error);
+
+            // Enhanced error logging for update
+            if (error.response) {
+                console.error('🔍 Update - Backend response error details:', {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    data: error.response.data,
+                    headers: error.response.headers
+                });
+
+                if (error.response.data) {
+                    console.error('📝 Update - Backend error message:', error.response.data);
+
+                    // Log validation errors if present
+                    if (error.response.data.errors) {
+                        console.error('🔍 Validation errors:');
+                        Object.keys(error.response.data.errors).forEach(key => {
+                            console.error(`  - ${key}:`, error.response.data.errors[key]);
+                        });
+                    }
+                }
+            }
+
+            throw error;
+        }
+    }
+
+    // FIXED: Added createScheduleWithoutMapper as a proper method
+    async createScheduleWithoutMapper(scheduleData) {
+        try {
+            console.log('🔄 Creating schedule without mapper transformation...');
+
+            const requestPayload = {
+                propertyId: scheduleData.propertyId,
+                agentId: scheduleData.agentId,
+                clientId: scheduleData.clientId,
+                scheduleTime: scheduleData.scheduleTime, // Keep local time
+                scheduleEndTime: scheduleData.scheduleEndTime, // Keep local time
+                notes: scheduleData.notes,
+                status: scheduleData.status,
+                meetingType: scheduleData.meetingType,
+                meetingLocation: scheduleData.meetingLocation,
+                virtualMeetingLink: scheduleData.virtualMeetingLink
+            };
+
+            console.log('📤 Final API Payload (No Mapper):', JSON.stringify(requestPayload, null, 2));
+
+            const response = await this.client.post('/ScheduleProperties', requestPayload);
+
+            console.log('✅ Schedule created successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error creating schedule (No Mapper):', error);
             throw error;
         }
     }
@@ -156,7 +255,14 @@ class SchedulePropertiesService {
     async acceptSchedule(id) {
         try {
             const response = await this.client.patch(`/ScheduleProperties/${id}/accept`);
-            return schedulePropertiesMapper.toFrontend(response.data);
+
+            // Return success and fetch updated schedule
+            if (response.status === 200) {
+                // Fetch the updated schedule to get current status
+                const updatedSchedule = await this.getScheduleById(id);
+                return updatedSchedule;
+            }
+            return null;
         } catch (error) {
             console.error('Error accepting schedule:', error);
             throw error;
@@ -170,7 +276,13 @@ class SchedulePropertiesService {
             };
 
             const response = await this.client.patch(`/ScheduleProperties/${id}/cancel`, requestData);
-            return schedulePropertiesMapper.toFrontend(response.data);
+
+            if (response.status === 200) {
+                // Fetch the updated schedule
+                const updatedSchedule = await this.getScheduleById(id);
+                return updatedSchedule;
+            }
+            return null;
         } catch (error) {
             console.error('Error cancelling schedule:', error);
             throw error;
@@ -180,12 +292,16 @@ class SchedulePropertiesService {
     async reschedule(id, newScheduleTime, reason = '') {
         try {
             const requestData = {
-                newScheduleTime: newScheduleTime,
-                reason: reason
+                newScheduleTime: newScheduleTime
             };
 
             const response = await this.client.patch(`/ScheduleProperties/${id}/reschedule`, requestData);
-            return schedulePropertiesMapper.toFrontend(response.data);
+
+            if (response.status === 200) {
+                const updatedSchedule = await this.getScheduleById(id);
+                return updatedSchedule;
+            }
+            return null;
         } catch (error) {
             console.error('Error rescheduling:', error);
             throw error;
@@ -195,7 +311,12 @@ class SchedulePropertiesService {
     async completeSchedule(id) {
         try {
             const response = await this.client.patch(`/ScheduleProperties/${id}/complete`);
-            return schedulePropertiesMapper.toFrontend(response.data);
+
+            if (response.status === 200) {
+                const updatedSchedule = await this.getScheduleById(id);
+                return updatedSchedule;
+            }
+            return null;
         } catch (error) {
             console.error('Error completing schedule:', error);
             throw error;
@@ -205,7 +326,12 @@ class SchedulePropertiesService {
     async reopenSchedule(id) {
         try {
             const response = await this.client.patch(`/ScheduleProperties/${id}/reopen`);
-            return schedulePropertiesMapper.toFrontend(response.data);
+
+            if (response.status === 200) {
+                const updatedSchedule = await this.getScheduleById(id);
+                return updatedSchedule;
+            }
+            return null;
         } catch (error) {
             console.error('Error reopening schedule:', error);
             throw error;
@@ -257,7 +383,7 @@ class SchedulePropertiesService {
             const response = await this.client.get('/ScheduleProperties/check-availability', {
                 params: { agentId, scheduleTime }
             });
-            return response.data;
+            return response.data.isAvailable;
         } catch (error) {
             console.error('Error checking time slot availability:', error);
             throw error;

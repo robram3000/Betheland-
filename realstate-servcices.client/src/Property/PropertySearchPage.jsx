@@ -1,4 +1,4 @@
-﻿// PropertySearchPage.jsx - FIXED VERSION
+﻿// PropertySearchPage.jsx - FIXED VERSION WITH STATUS FILTERING
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Layout,
@@ -109,7 +109,7 @@ const PropertySearchPage = () => {
         }
     }, [properties, loading, error, searchTerm, filters, currentPage]);
 
-    // FIXED: Enhanced property filtering with better amenities handling
+    // FIXED: Enhanced property filtering with better amenities handling and status filtering
     const filteredProperties = useMemo(() => {
         if (!properties || !Array.isArray(properties)) {
             console.log('❌ No properties array found');
@@ -121,6 +121,14 @@ const PropertySearchPage = () => {
         let filtered = properties.filter(property => {
             if (!property || !property.id) {
                 console.log('❌ Filtering out invalid property:', property);
+                return false;
+            }
+
+            // EXCLUDE PENDING, REJECTED, AND DRAFT STATUSES
+            const excludedStatuses = ['pending', 'rejected', 'draft'];
+            const propertyStatus = (property.status || '').toLowerCase();
+            if (excludedStatuses.includes(propertyStatus)) {
+                console.log(`❌ Filtering out ${propertyStatus} property:`, property.id);
                 return false;
             }
 
@@ -333,6 +341,15 @@ const PropertySearchPage = () => {
         return count;
     }, [filters, searchTerm]);
 
+    // Calculate display counts
+    const totalPropertiesCount = properties?.length || 0;
+    const excludedPropertiesCount = properties ? properties.filter(property => {
+        const excludedStatuses = ['pending', 'rejected', 'draft'];
+        const propertyStatus = (property.status || '').toLowerCase();
+        return excludedStatuses.includes(propertyStatus);
+    }).length : 0;
+    const availablePropertiesCount = totalPropertiesCount - excludedPropertiesCount;
+
     return (
         <div style={{
             width: '100%',
@@ -368,14 +385,19 @@ const PropertySearchPage = () => {
                                 display: 'block',
                                 textAlign: window.innerWidth < 768 ? 'center' : 'left'
                             }}>
-                                {properties?.length || 0} properties available
-                                {filteredProperties.length !== properties?.length &&
+                                {availablePropertiesCount} properties available
+                                {filteredProperties.length !== availablePropertiesCount &&
                                     ` (${filteredProperties.length} filtered)`
                                 }
                                 {activeFiltersCount > 0 && (
                                     <Tag color="blue" style={{ marginLeft: '8px' }}>
                                         {activeFiltersCount} active filter{activeFiltersCount !== 1 ? 's' : ''}
                                     </Tag>
+                                )}
+                                {excludedPropertiesCount > 0 && (
+                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                                        {excludedPropertiesCount} properties hidden (pending/rejected/draft)
+                                    </Text>
                                 )}
                             </Text>
                         </Col>
@@ -525,12 +547,12 @@ const PropertySearchPage = () => {
                                 description={
                                     <div>
                                         <Text style={{ color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                                            {properties?.length === 0
-                                                ? 'No properties found'
+                                            {availablePropertiesCount === 0
+                                                ? 'No available properties found'
                                                 : 'No properties match your search criteria'
                                             }
                                         </Text>
-                                        {properties?.length > 0 && (
+                                        {availablePropertiesCount > 0 && (
                                             <Button onClick={handleResetFilters}>
                                                 Reset All Filters
                                             </Button>

@@ -1,60 +1,63 @@
-// Enhanced PropertyLayout.jsx with sticky vertical tabs and icons
+// PropertyLayout.jsx - Enhanced Mobile Version with Archive
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Layout, theme, ConfigProvider, Tabs, Badge, Button, Space, Typography } from 'antd';
+import { Layout, theme, ConfigProvider, Tabs, Button, Space, Typography, Card, Grid, Badge } from 'antd';
 import {
     HomeOutlined,
     PlusCircleOutlined,
+    ArrowLeftOutlined,
     CheckCircleOutlined,
     DashboardOutlined,
-    ArrowLeftOutlined,
     InboxOutlined
 } from '@ant-design/icons';
-import GlobalAdminNavigation from '../Navigation/GlobalAdminNavigation';
+
 import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 import PropertyPage from './PropertyPage';
 import CreateProperty from './CreateProperty';
-import PropertyManagementTable from './PropertyManagementTable';
 import ApprovalQueue from './ApprovalQueue';
+import PropertyManagementTable from './PropertyManagementTable';
+import ArchiveProperty from './ArchiveProperty'; // Add ArchiveProperty component
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
 
-const { Content, Sider } = Layout;
+const { Content } = Layout;
 const { TabPane } = Tabs;
-const { Title } = Typography;
+const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const PropertyLayout = () => {
-    const [collapsed, setCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('properties');
-    const [pendingCount, setPendingCount] = useState(0);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [typeFilter, setTypeFilter] = useState('all');
-    const [propertiesCount, setPropertiesCount] = useState(0);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [editingProperty, setEditingProperty] = useState(null);
+    const [propertiesCount, setPropertiesCount] = useState(0);
+    const [pendingCount, setPendingCount] = useState(0);
+    const [archiveCount, setArchiveCount] = useState(0); // Add archive count
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
-    const handleToggle = () => {
-        setCollapsed(!collapsed);
-    };
-
     const handleTabChange = (key) => {
         setActiveTab(key);
-        setIsEditing(false);
-        setSelectedProperty(null);
+        if (key === 'properties') {
+            setIsEditing(false);
+            setSelectedProperty(null);
+            setEditingProperty(null);
+        }
     };
 
     const handleEditProperty = (property) => {
         setSelectedProperty(property);
+        setEditingProperty(property);
         setIsEditing(true);
-        setActiveTab('create'); // Use create tab for editing
+        setActiveTab('create');
     };
 
     const handleCreateProperty = () => {
         setSelectedProperty(null);
+        setEditingProperty(null);
         setIsEditing(false);
         setActiveTab('create');
     };
@@ -63,11 +66,30 @@ const PropertyLayout = () => {
         setActiveTab('properties');
         setIsEditing(false);
         setSelectedProperty(null);
+        setEditingProperty(null);
+    };
+
+    const handlePropertySuccess = () => {
+        setEditingProperty(null);
+        setSelectedProperty(null);
+        setIsEditing(false);
+        loadPendingCount();
+        loadPropertiesCount();
+        loadArchiveCount(); // Load archive count on success
+    };
+
+    const handlePropertiesUpdate = (count) => {
+        if (count !== undefined) {
+            setPropertiesCount(count);
+        }
+        loadPendingCount();
+        loadPropertiesCount();
+        loadArchiveCount(); // Load archive count on update
     };
 
     const loadPendingCount = async () => {
         try {
-            const data = await propertyService.getPendingProperties();
+            const data = await propertyService.getPropertiesByStatus('pending');
             setPendingCount(data.length);
         } catch (error) {
             console.error('Error loading pending count:', error);
@@ -83,110 +105,210 @@ const PropertyLayout = () => {
         }
     };
 
-    useEffect(() => {
-        loadPendingCount();
-        loadPropertiesCount();
-    }, []);
-
-    // Centralized SEO data management
-    const getSeoData = () => {
-        const baseTitle = "Betheland Property Management";
-        const baseDescription = "Comprehensive property management platform for real estate professionals";
-        const baseUrl = window.location.origin;
-
-        const tabConfig = {
-            properties: {
-                title: searchText
-                    ? `Search: "${searchText}" - All Properties | ${baseTitle}`
-                    : statusFilter !== 'all'
-                        ? `${getStatusDisplayName(statusFilter)} Properties | ${baseTitle}`
-                        : typeFilter !== 'all'
-                            ? `${typeFilter} Properties | ${baseTitle}`
-                            : `All Properties (${propertiesCount}) | ${baseTitle}`,
-                description: searchText
-                    ? `Search results for "${searchText}" in Betheland property management system. Find ${propertiesCount} properties, agents, and real estate listings.`
-                    : `Browse and manage ${propertiesCount} property listings in Betheland real estate platform. Comprehensive property management dashboard.`,
-                keywords: "property management, real estate listings, property search, Betheland, property dashboard, real estate management",
-                canonical: `${baseUrl}/properties`,
-                ogImage: `${baseUrl}/images/properties-og.jpg`
-            },
-            approval: {
-                title: pendingCount > 0
-                    ? `Approval Queue (${pendingCount} Pending) | ${baseTitle}`
-                    : `Approval Queue - All Caught Up | ${baseTitle}`,
-                description: pendingCount > 0
-                    ? `Manage ${pendingCount} pending property approvals in Betheland real estate platform. Review, approve, or reject property listings awaiting approval.`
-                    : 'No properties pending approval in Betheland property management system. All property listings have been reviewed and processed.',
-                keywords: "property approval, pending properties, real estate approval, property queue, Betheland, property review",
-                canonical: `${baseUrl}/properties/approval`,
-                ogImage: `${baseUrl}/images/approval-og.jpg`
-            },
-            create: {
-                title: isEditing
-                    ? `Edit Property - ${selectedProperty?.title || 'Property'} | ${baseTitle}`
-                    : `Create New Property | ${baseTitle}`,
-                description: isEditing
-                    ? `Edit property listing for ${selectedProperty?.title || 'property'} in Betheland real estate management system. Update property details, images, videos, and agent assignments.`
-                    : 'Create new property listings in Betheland real estate management system. Add property details, images, videos, and assign agents.',
-                keywords: isEditing ? "edit property, update listing, modify property, Betheland, property editing" : "create property, add listing, new property, real estate listing, Betheland, property creation",
-                canonical: `${baseUrl}/properties/${isEditing ? 'edit' : 'create'}`,
-                ogImage: `${baseUrl}/images/${isEditing ? 'edit-property-og.jpg' : 'create-property-og.jpg'}`
-            },
-            management: {
-                title: `Property Management Dashboard | ${baseTitle}`,
-                description: 'Advanced property management dashboard with statistics, media management, and comprehensive property analytics for real estate professionals.',
-                keywords: "property management, dashboard, statistics, media management, property analytics, Betheland, real estate tools",
-                canonical: `${baseUrl}/properties/management`,
-                ogImage: `${baseUrl}/images/management-og.jpg`
-            },
-            archive: {
-                title: `Archived Properties | ${baseTitle}`,
-                description: 'View and manage archived property listings in Betheland real estate management system.',
-                keywords: "archived properties, property archive, historical listings, Betheland",
-                canonical: `${baseUrl}/properties/archive`,
-                ogImage: `${baseUrl}/images/archive-og.jpg`
-            }
-        };
-
-        return tabConfig[activeTab] || {
-            title: `Property Management | ${baseTitle}`,
-            description: baseDescription,
-            keywords: "property management, real estate, Betheland, property listings",
-            canonical: `${baseUrl}/properties`,
-            ogImage: `${baseUrl}/images/properties-og.jpg`
-        };
-    };
-
-    const getStatusDisplayName = (status) => {
-        const statusMap = {
-            'available': 'Available',
-            'pending': 'Pending Approval',
-            'approved': 'Approved',
-            'sold': 'Sold',
-            'rented': 'Rented',
-            'rejected': 'Rejected',
-            'draft': 'Draft'
-        };
-        return statusMap[status] || status;
-    };
-
-    // Handler to update filters from child components
-    const updateFilters = (search, status, type) => {
-        setSearchText(search || '');
-        setStatusFilter(status || 'all');
-        setTypeFilter(type || 'all');
-    };
-
-    // Handler for when properties are updated
-    const handlePropertiesUpdate = () => {
-        loadPendingCount();
-        loadPropertiesCount();
-        if (activeTab === 'create') {
-            handleBackToProperties();
+    const loadArchiveCount = async () => {
+        try {
+            const data = await propertyService.getPropertiesByStatus('draft');
+            setArchiveCount(data.length);
+        } catch (error) {
+            console.error('Error loading archive count:', error);
         }
     };
 
-    const seoData = getSeoData();
+    useEffect(() => {
+        loadPendingCount();
+        loadPropertiesCount();
+        loadArchiveCount();
+    }, []);
+
+    const seoData = {
+        title: "Betheland Property Management",
+        description: "Comprehensive property management platform",
+        keywords: "property management, real estate, Betheland",
+        canonical: `${window.location.origin}/properties`,
+        ogImage: `${window.location.origin}/images/properties-og.jpg`
+    };
+
+    // Mobile header with better spacing
+    const renderHeader = () => (
+        <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isEditing && (
+                        <Button
+                            icon={<ArrowLeftOutlined />}
+                            onClick={handleBackToProperties}
+                            style={{ border: 'none' }}
+                            size={isMobile ? "small" : "middle"}
+                        >
+                            {isMobile ? 'Back' : 'Back to Properties'}
+                        </Button>
+                    )}
+                    <div>
+                        <Title level={isMobile ? 3 : 2} style={{
+                            margin: 0,
+                            color: '#1a365d',
+                            fontSize: isMobile ? '20px' : '28px',
+                            fontWeight: 600
+                        }}>
+                            {(() => {
+                                if (isEditing) return `Edit Property`;
+                                switch (activeTab) {
+                                    case 'properties': return 'All Properties';
+                                    case 'approval': return 'Approval Queue';
+                                    case 'create': return 'Create New Property';
+                                    case 'management': return 'Property Management';
+                                    case 'archive': return 'Archived Properties';
+                                    default: return 'Property Management';
+                                }
+                            })()}
+                        </Title>
+                        <p style={{
+                            margin: '4px 0 0 0',
+                            color: '#666',
+                            fontSize: isMobile ? '14px' : '16px'
+                        }}>
+                            {(() => {
+                                if (isEditing) return 'Update property information, media, and details';
+                                switch (activeTab) {
+                                    case 'properties': return `Manage property listings in your portfolio ${propertiesCount > 0 ? `(${propertiesCount} properties)` : ''}`;
+                                    case 'approval': return pendingCount > 0 ? `${pendingCount} properties pending approval` : 'All properties are approved';
+                                    case 'create': return 'Add new property listings with detailed information';
+                                    case 'management': return 'Advanced property management and analytics';
+                                    case 'archive': return archiveCount > 0 ? `${archiveCount} archived properties` : 'No archived properties';
+                                    default: return 'Manage real estate properties and agent assignments';
+                                }
+                            })()}
+                        </p>
+                    </div>
+                </div>
+                {activeTab === 'properties' && !isEditing && (
+                    <Button
+                        type="primary"
+                        icon={<PlusCircleOutlined />}
+                        onClick={handleCreateProperty}
+                        size={isMobile ? "middle" : "large"}
+                    >
+                        {isMobile ? 'Add' : 'Add New Property'}
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+
+    // Tab items configuration with Archive
+    const tabItems = [
+        {
+            key: 'properties',
+            label: (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500
+                }}>
+                    <HomeOutlined />
+                    {isMobile ? 'Properties' : 'All Properties'}
+                    {propertiesCount > 0 && (
+                        <Badge
+                            count={propertiesCount}
+                            size="small"
+                            style={{
+                                marginLeft: '4px',
+                                backgroundColor: '#1a365d'
+                            }}
+                        />
+                    )}
+                </span>
+            )
+        },
+        {
+            key: 'approval',
+            label: (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500
+                }}>
+                    <CheckCircleOutlined />
+                    {isMobile ? 'Approval' : 'Approval Queue'}
+                    {pendingCount > 0 && (
+                        <Badge
+                            count={pendingCount}
+                            size="small"
+                            style={{
+                                marginLeft: '4px',
+                                backgroundColor: '#ff4d4f'
+                            }}
+                        />
+                    )}
+                </span>
+            )
+        },
+        {
+            key: 'create',
+            label: (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500
+                }}>
+                    <PlusCircleOutlined />
+                    {isEditing ? 'Edit' : 'Create'}
+                </span>
+            )
+        },
+        {
+            key: 'management',
+            label: (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500
+                }}>
+                    <DashboardOutlined />
+                    {isMobile ? 'Management' : 'Management'}
+                </span>
+            )
+        },
+        {
+            key: 'archive',
+            label: (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500
+                }}>
+                    <InboxOutlined />
+                    {isMobile ? 'Archive' : 'Archive'}
+                    {archiveCount > 0 && (
+                        <Badge
+                            count={archiveCount}
+                            size="small"
+                            style={{
+                                marginLeft: '4px',
+                                backgroundColor: '#fa8c16'
+                            }}
+                        />
+                    )}
+                </span>
+            )
+        }
+    ];
 
     return (
         <ConfigProvider
@@ -197,319 +319,88 @@ const PropertyLayout = () => {
                     colorInfo: '#1a365d',
                     colorSuccess: '#1a365d',
                 },
-                components: {
-                    Tabs: {
-                        itemSelectedColor: '#1a365d',
-                        itemActiveColor: '#1a365d',
-                        horizontalItemPadding: '12px 16px',
-                    },
-                    Layout: {
-                        siderBg: '#f8f9fa',
-                    }
-                },
             }}
         >
-            {/* Centralized Helmet Management */}
             <Helmet>
-                {/* Basic Meta Tags */}
                 <title>{seoData.title}</title>
                 <meta name="description" content={seoData.description} />
-                <meta name="keywords" content={seoData.keywords} />
-
-                {/* Open Graph Meta Tags */}
-                <meta property="og:title" content={seoData.title} />
-                <meta property="og:description" content={seoData.description} />
-                <meta property="og:type" content="website" />
-                <meta property="og:url" content={seoData.canonical} />
-                <meta property="og:image" content={seoData.ogImage} />
-                <meta property="og:site_name" content="Betheland Property Management" />
-
-                {/* Twitter Card Meta Tags */}
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={seoData.title} />
-                <meta name="twitter:description" content={seoData.description} />
-                <meta name="twitter:image" content={seoData.ogImage} />
-
-                {/* Additional Meta Tags */}
-                <meta name="robots" content="index, follow" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <meta name="theme-color" content="#1a365d" />
-                <link rel="canonical" href={seoData.canonical} />
-
-                {/* Structured Data for SEO */}
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "WebApplication",
-                        "name": "Betheland Property Management",
-                        "description": seoData.description,
-                        "url": seoData.canonical,
-                        "applicationCategory": "BusinessApplication",
-                        "operatingSystem": "Web Browser",
-                        "permissions": "microphone",
-                        "author": {
-                            "@type": "Organization",
-                            "name": "Betheland"
-                        },
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        }
-                    })}
-                </script>
-
-                {/* Additional Schema for Real Estate */}
-                <script type="application/ld+json">
-                    {JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "RealEstateAgent",
-                        "name": "Betheland",
-                        "description": "Professional real estate property management platform",
-                        "telephone": "+1-555-123-4567",
-                        "address": {
-                            "@type": "PostalAddress",
-                            "streetAddress": "123 Property Lane",
-                            "addressLocality": "Real Estate City",
-                            "addressRegion": "CA",
-                            "postalCode": "12345",
-                            "addressCountry": "US"
-                        }
-                    })}
-                </script>
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh' }}>
-                <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
+                <GlobalAdminTopbar />
+                <Layout style={{
+                    marginTop: isMobile ? 64 : 112,
+                    marginLeft: 0,
+                    height: `calc(100vh - ${isMobile ? 64 : 112}px)`,
+                    overflow: 'auto'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
+                            background: colorBgContainer,
+                            minHeight: 'fit-content',
+                            overflow: 'visible',
+                            padding: isMobile ? '16px' : '30px'
                         }}
                     >
-                        <Layout>
-                            {/* Sticky Vertical Tabs Sidebar with Shadow */}
-                            <Sider
-                                width={220}
+                        {/* Header Section */}
+                        {renderHeader()}
+
+                        {/* Horizontal Tabs */}
+                        <Card
+                            bodyStyle={{ padding: '0' }}
+                            style={{
+                                marginBottom: isMobile ? 16 : 24,
+                                border: 'none',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={handleTabChange}
+                                type="line"
+                                size={isMobile ? "middle" : "large"}
                                 style={{
-                                    background: colorBgContainer,
-                                    borderRadius: borderRadiusLG,
-                                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
-                                    borderRight: '1px solid #f0f0f0',
-                                    position: 'sticky',
-                                    top: 68, // Account for topbar height + margin
-                                    height: 'calc(100vh - 68px)', // Full viewport height minus topbar
-                                    overflow: 'auto',
-                                    zIndex: 10
+                                    borderBottom: '1px solid #f0f0f0'
                                 }}
-                            >
-                                <div style={{ padding: '20px 0' }}>
-                                    {/* Property Control Header */}
-                                    <div style={{
-                                        padding: '0 16px 16px 16px',
-                                        borderBottom: '1px solid #f0f0f0',
-                                        marginBottom: '8px',
-                                        position: 'sticky',
-                                        top: 0,
-                                        background: colorBgContainer,
-                                        zIndex: 1
-                                    }}>
-                                        <Title
-                                            level={4}
-                                            style={{
-                                                margin: 0,
-                                                color: '#1a365d',
-                                                fontSize: '16px',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            Property Control
-                                        </Title>
-                                        <p style={{
-                                            margin: '4px 0 0 0',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            lineHeight: 1.4
-                                        }}>
-                                            Manage properties, approvals, and listings
-                                        </p>
-                                    </div>
+                                items={tabItems}
+                            />
+                        </Card>
 
-                                    <Tabs
-                                        activeKey={activeTab}
-                                        onChange={handleTabChange}
-                                        tabPosition="left"
-                                        type="line"
-                                        size="middle"
-                                        style={{
-                                            width: '100%',
-                                        }}
-                                        tabBarStyle={{
-                                            border: 'none',
-                                            width: '100%',
-                                        }}
-                                    >
-                                        <TabPane
-                                            key="properties"
-                                            tab={
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <HomeOutlined />
-                                                    All Properties
-                                                </span>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="approval"
-                                            tab={
-                                                <Badge count={pendingCount} size="small" offset={[10, -5]}>
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <CheckCircleOutlined />
-                                                        Approval Queue
-                                                    </span>
-                                                </Badge>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="create"
-                                            tab={
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <PlusCircleOutlined />
-                                                    {isEditing ? 'Edit Property' : 'Create Property'}
-                                                </span>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="management"
-                                            tab={
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <DashboardOutlined />
-                                                    Property Management
-                                                </span>
-                                            }
-                                        />
-                                        <TabPane
-                                            key="archive"
-                                            tab={
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <InboxOutlined />
-                                                    Archive
-                                                </span>
-                                            }
-                                        />
-                                    </Tabs>
-                                </div>
-                            </Sider>
-
-                            {/* Main Content Area */}
-                            <Content
-                                style={{
-                                    background: colorBgContainer,
-                                    margin: '16px 16px 16px 0',
-                                    minHeight: 280,
-                                    borderRadius: borderRadiusLG,
-                                    overflow: 'hidden',
-                                    padding: '24px',
-                                    flex: 1
-                                }}
-                            >
-                                {/* Header with Back Button for Edit Mode */}
-                                <div style={{ marginBottom: 24 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            {isEditing && (
-                                                <Button
-                                                    icon={<ArrowLeftOutlined />}
-                                                    onClick={handleBackToProperties}
-                                                    style={{ border: 'none' }}
-                                                >
-                                                    Back to Properties
-                                                </Button>
-                                            )}
-                                            <div>
-                                                <h1 style={{
-                                                    margin: 0,
-                                                    color: '#1a365d',
-                                                    fontSize: '24px',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {(() => {
-                                                        if (isEditing) return `Edit Property - ${selectedProperty?.title || 'Property'}`;
-                                                        switch (activeTab) {
-                                                            case 'properties': return 'All Properties';
-                                                            case 'approval': return 'Approval Queue';
-                                                            case 'create': return 'Create New Property';
-                                                            case 'management': return 'Property Management Dashboard';
-                                                            case 'archive': return 'Archived Properties';
-                                                            default: return 'Property Management';
-                                                        }
-                                                    })()}
-                                                </h1>
-                                                <p style={{
-                                                    margin: '6px 0 0 0',
-                                                    color: '#666',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {(() => {
-                                                        if (isEditing) return 'Update property information, media, and agent assignments';
-                                                        switch (activeTab) {
-                                                            case 'properties': return `Browse and manage ${propertiesCount} property listings`;
-                                                            case 'approval': return pendingCount > 0 ? `${pendingCount} properties pending approval` : 'All properties are approved';
-                                                            case 'create': return 'Add new property listings with detailed information';
-                                                            case 'management': return 'Advanced property management and analytics';
-                                                            case 'archive': return 'View and manage archived property listings';
-                                                            default: return 'Manage real estate properties and agent assignments';
-                                                        }
-                                                    })()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {activeTab === 'properties' && !isEditing && (
-                                            <Button
-                                                type="primary"
-                                                icon={<PlusCircleOutlined />}
-                                                onClick={handleCreateProperty}
-                                            >
-                                                Add Property
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Render active tab content */}
-                                {activeTab === 'properties' && (
-                                    <PropertyPage
-                                        onFilterUpdate={updateFilters}
-                                        onPropertiesUpdate={handlePropertiesUpdate}
-                                        onEditProperty={handleEditProperty}
-                                        onCreateProperty={handleCreateProperty}
-                                    />
-                                )}
-                                {activeTab === 'approval' && (
-                                    <ApprovalQueue onUpdate={handlePropertiesUpdate} />
-                                )}
-                                {activeTab === 'create' && (
-                                    <CreateProperty
-                                        property={selectedProperty}
-                                        onSuccess={handlePropertiesUpdate}
-                                        onBack={handleBackToProperties}
-                                    />
-                                )}
-                                {activeTab === 'management' && (
-                                    <PropertyManagementTable onUpdate={handlePropertiesUpdate} />
-                                )}
-                                {activeTab === 'archive' && (
-                                    <div style={{ textAlign: 'center', padding: '40px' }}>
-                                        <InboxOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
-                                        <h3 style={{ color: '#666' }}>Archive Feature Coming Soon</h3>
-                                        <p style={{ color: '#999' }}>The archive functionality is currently under development.</p>
-                                    </div>
-                                )}
-                            </Content>
-                        </Layout>
-                    </Layout>
+                        {/* Main Content Area - NO SCROLL */}
+                        <div style={{
+                            width: '100%',
+                            overflow: 'visible'
+                        }}>
+                            {activeTab === 'properties' && (
+                                <PropertyPage
+                                    onPropertiesUpdate={handlePropertiesUpdate}
+                                    onEditProperty={handleEditProperty}
+                                />
+                            )}
+                            {activeTab === 'approval' && (
+                                <ApprovalQueue onUpdate={handlePropertiesUpdate} />
+                            )}
+                            {activeTab === 'create' && (
+                                <CreateProperty
+                                    property={editingProperty}
+                                    onSuccess={handlePropertySuccess}
+                                    onBack={handleBackToProperties}
+                                />
+                            )}
+                            {activeTab === 'management' && (
+                                <PropertyManagementTable onUpdate={handlePropertiesUpdate} />
+                            )}
+                            {activeTab === 'archive' && (
+                                <ArchiveProperty
+                                    onUpdate={handlePropertiesUpdate}
+                                    onEditProperty={handleEditProperty}
+                                />
+                            )}
+                        </div>
+                    </Content>
                 </Layout>
             </Layout>
         </ConfigProvider>

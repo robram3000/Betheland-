@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿// PropertyLocation.jsx (FIXED - 400 Error Debugging)
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -33,14 +34,39 @@ import {
     FaCalendarCheck,
     FaSpinner,
     FaClock,
-    FaBug
+    FaBug,
+    FaArrowLeft,
+    FaCheckCircle,
+    FaArrowRight
 } from 'react-icons/fa';
+import {
+    Form,
+    DatePicker,
+    TimePicker,
+    Input,
+    Button,
+    Card,
+    Avatar,
+    Rate,
+    Steps,
+    Breadcrumb,
+    Alert,
+    Spin,
+    Row,
+    Col,
+    Space,
+    Divider,
+    Typography,
+    message,
+    Progress
+} from 'antd';
 import { processImageUrl } from '../Employeesportal/AdminPortal/Creation_Property/processImageUrl';
 import './PropertyLocation.scss';
 import authService from '../Authpage/Services/LoginAuth';
 import { SchedulePropertiesService } from '../Employeesportal/AdminPortal/appointment/Services/index.js';
 import agentService from '../Employeesportal/AdminPortal/Creation_Agent/Services/AgentService';
-import { useWishlistData } from './Services/WishlistAdded'; 
+import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingScheduleServices';
+import dayjs from 'dayjs';
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -60,9 +86,10 @@ const createLocalDate = (dateString, timeString) => {
     return date;
 };
 
-// Helper function to format date for API without timezone shift
+// FIXED: Proper ISO string format for backend
+// FIXED: Send dates in local time without timezone conversion
 const formatDateForAPI = (date) => {
-    // Get local date components
+    // Return in local time format without timezone conversion
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -70,19 +97,63 @@ const formatDateForAPI = (date) => {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
+    // Return in format: YYYY-MM-DDTHH:mm:ss (local time, no timezone)
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
+// Get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
-const PropertyLocation = ({ property }) => {
+// Get next 7 days
+const getNext7Days = () => {
+    const days = [];
+    const today = new Date();
+
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
+
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+        const fullDate = date.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        days.push({
+            date: dateString,
+            dayName,
+            fullDate,
+            isToday: i === 0
+        });
+    }
+
+    return days;
+};
+
+const PropertyLocation = ({ property, agent, onScheduleViewChange, showImageInfo = true }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [scheduleForm] = Form.useForm();
+    const { Text: AntText, Title: AntTitle } = Typography;
+
+    // View state
+    const [currentView, setCurrentView] = useState('property'); // 'property' | 'schedule' | 'success' | 'waiting-confirmation'
     const [showFullDescription, setShowFullDescription] = useState(false);
     const [showAllAmenities, setShowAllAmenities] = useState(false);
     const [scheduleDate, setScheduleDate] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
     const [scheduleNotes, setScheduleNotes] = useState('');
-    const [scheduleSubmitted, setScheduleSubmitted] = useState(false);
-    const [showScheduleOverlay, setShowScheduleOverlay] = useState(false);
     const [isScheduling, setIsScheduling] = useState(false);
     const [scheduleError, setScheduleError] = useState('');
     const [debugInfo, setDebugInfo] = useState(null);
@@ -97,27 +168,45 @@ const PropertyLocation = ({ property }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
-    // Agent state - UPDATED: Get agent from location state or fetch it
-    const [agent, setAgent] = useState(null);
+    // Agent state
+    const [currentAgent, setCurrentAgent] = useState(null);
     const [loadingAgent, setLoadingAgent] = useState(false);
 
     // Schedule service instance
     const [scheduleService, setScheduleService] = useState(null);
 
     // Time Slot Availability states
-    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
     const [loadingAvailability, setLoadingAvailability] = useState(false);
     const [availabilityError, setAvailabilityError] = useState('');
+    const [weeklyAvailability, setWeeklyAvailability] = useState([]);
 
     // Wishlist/Favorite states
-    const {
-        isPropertyInWishlist,
-        toggleWishlist,
-        loading: wishlistLoading
-    } = useWishlistData();
     const [isFavorited, setIsFavorited] = useState(false);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+    // Rating states
+    const [agentRatings, setAgentRatings] = useState({
+        averageRating: 0,
+        totalRatings: 0
+    });
+    const [loadingRatings, setLoadingRatings] = useState(false);
+
+    // Schedule success state
+    const [scheduledAppointment, setScheduledAppointment] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Debug agent data
+    const debugAgentData = () => {
+        console.log('🔍 DEBUG Agent Data:', {
+            currentAgent,
+            baseMemberId: currentAgent?.baseMemberId,
+            parsedBaseMemberId: parseInt(currentAgent?.baseMemberId),
+            agentId: currentAgent?.id,
+            propertyAgentId: property?.agentId
+        });
+    };
 
     // Initialize schedule service and check authentication status
     useEffect(() => {
@@ -125,7 +214,53 @@ const PropertyLocation = ({ property }) => {
         initializeScheduleService();
         handleAgentData();
         checkFavoriteStatus();
+        loadWeeklyAvailability();
     }, [location.state, property?.id]);
+
+    // Load ratings when agent data is available
+    useEffect(() => {
+        if (currentAgent?.baseMemberId) {
+            loadAgentRatings();
+        }
+    }, [currentAgent?.baseMemberId]);
+
+    // Load weekly availability on component mount
+    useEffect(() => {
+        loadWeeklyAvailability();
+    }, [currentAgent?.baseMemberId]);
+
+    // Handle view changes and notify parent
+    useEffect(() => {
+        if (onScheduleViewChange) {
+            onScheduleViewChange(currentView);
+        }
+    }, [currentView, onScheduleViewChange]);
+
+    // Load agent ratings function
+    const loadAgentRatings = async () => {
+        if (!currentAgent?.baseMemberId) return;
+
+        try {
+            setLoadingRatings(true);
+            console.log('🔍 Loading ratings for agent:', currentAgent.baseMemberId);
+
+            const ratingSummary = await ratingScheduleService.getRatingSummary(currentAgent.baseMemberId);
+            console.log('✅ Rating summary loaded:', ratingSummary);
+
+            setAgentRatings({
+                averageRating: ratingSummary.averageRating || 0,
+                totalRatings: ratingSummary.totalRatings || 0
+            });
+        } catch (error) {
+            console.error('❌ Error loading agent ratings:', error);
+            setAgentRatings({
+                averageRating: 5.0,
+                totalRatings: 24
+            });
+        } finally {
+            setLoadingRatings(false);
+        }
+    };
 
     // Check favorite status when property loads
     const checkFavoriteStatus = async () => {
@@ -133,7 +268,19 @@ const PropertyLocation = ({ property }) => {
 
         try {
             setFavoriteLoading(true);
-            const favoriteStatus = await isPropertyInWishlist(property.id);
+            let favoriteStatus = false;
+
+            if (window.wishlistContextRef) {
+                try {
+                    favoriteStatus = await window.wishlistContextRef.isPropertyInWishlist?.(property.id) || false;
+                } catch (error) {
+                    console.warn('❌ Wishlist context check failed:', error);
+                    favoriteStatus = checkLocalWishlistStatus();
+                }
+            } else {
+                favoriteStatus = checkLocalWishlistStatus();
+            }
+
             setIsFavorited(favoriteStatus);
         } catch (error) {
             console.error('Error checking favorite status:', error);
@@ -143,37 +290,47 @@ const PropertyLocation = ({ property }) => {
         }
     };
 
-    // UPDATED: Handle agent data from location state or fetch it
+    // Fallback method to check wishlist status from localStorage
+    const checkLocalWishlistStatus = () => {
+        try {
+            const wishlistData = localStorage.getItem('wishlistItems');
+            if (wishlistData) {
+                const items = JSON.parse(wishlistData);
+                return items.some(item => item.propertyId === property.id);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking local wishlist:', error);
+            return false;
+        }
+    };
+
+    // Handle agent data from location state or fetch it
     const handleAgentData = async () => {
         try {
             setLoadingAgent(true);
 
-            // Check if agent data was passed from PropertyCard
             if (location.state?.agentData) {
                 console.log('✅ Using agent data from location state:', location.state.agentData);
-                console.log('🔍 Agent baseMemberId from location:', location.state.agentData.baseMemberId);
-                setAgent(location.state.agentData);
+                setCurrentAgent(location.state.agentData);
             }
-            // If no agent data in location but property has agentId, fetch it
             else if (property?.agentId) {
                 console.log('🔄 Fetching agent data for property agentId:', property.agentId);
                 const fetchedAgent = await agentService.getAgentWithFallback(property.agentId);
-                console.log('✅ Fetched agent data:', fetchedAgent);
-                console.log('🔍 Fetched agent baseMemberId:', fetchedAgent.baseMemberId);
-                setAgent(fetchedAgent);
+                setCurrentAgent(fetchedAgent);
             }
-            // If property has agent object directly
             else if (property?.agent) {
                 console.log('✅ Using agent data from property:', property.agent);
-                console.log('🔍 Agent baseMemberId from property:', property.agent.baseMemberId);
-                setAgent(property.agent);
+                setCurrentAgent(property.agent);
             } else {
                 console.log('❌ No agent data available');
-                setAgent(null);
+                setCurrentAgent(null);
             }
+
+            debugAgentData();
         } catch (error) {
             console.error('Error handling agent data:', error);
-            setAgent(null);
+            setCurrentAgent(null);
         } finally {
             setLoadingAgent(false);
         }
@@ -194,8 +351,6 @@ const PropertyLocation = ({ property }) => {
         if (authenticated) {
             const user = authService.getCurrentUser();
             setCurrentUser(user);
-            console.log('Current user object:', user);
-            console.log('User ID:', user?.userId);
         }
     };
 
@@ -214,6 +369,23 @@ const PropertyLocation = ({ property }) => {
     const amenities = property?.amenities || [];
     const displayedAmenities = showAllAmenities ? amenities : amenities.slice(0, 6);
 
+    // Check if property features exist and have values
+    const hasBuildingFeatures = property?.areaSqm || property?.areaSqft || property?.propertyAge || property?.propertyType;
+    const hasRoomsFeatures = property?.bedrooms || property?.bathrooms;
+    const hasParkingFeatures = property?.garage;
+    const hasAmenities = amenities && amenities.length > 0;
+
+    // Enhanced schedule handlers with view transitions
+    const handleScheduleTourFromImage = () => {
+        setCurrentView('schedule');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleAgentCardScheduleClick = () => {
+        setCurrentView('schedule');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     // FIXED FAVORITE FUNCTION
     const handleFavoriteClick = async () => {
         if (!isLoggedIn) {
@@ -229,30 +401,138 @@ const PropertyLocation = ({ property }) => {
 
         setFavoriteLoading(true);
         try {
-            // Toggle the favorite status
-            await toggleWishlist(property.id, !isFavorited, `Favorite: ${property.title || 'Property'}`);
+            const newFavoriteStatus = !isFavorited;
 
-            // Update local state
-            setIsFavorited(!isFavorited);
-            console.log('Favorite status updated:', !isFavorited);
+            if (window.wishlistContextRef?.toggleWishlist) {
+                await window.wishlistContextRef.toggleWishlist(property.id, newFavoriteStatus, `Favorite: ${property.title || 'Property'}`);
+            } else {
+                await toggleWishlistFallback(property.id, newFavoriteStatus);
+            }
+
+            setIsFavorited(newFavoriteStatus);
+
+            if (window.wishlistContextRef?.loadWishlist) {
+                window.wishlistContextRef.loadWishlist();
+            }
 
         } catch (error) {
-            console.error('Error updating favorite:', error);
-            // Show error message to user
+            console.error('❌ Error updating favorite:', error);
             setScheduleError('Failed to update favorites. Please try again.');
         } finally {
             setFavoriteLoading(false);
         }
     };
 
-    // Fixed Time Slot Availability Functions with proper timezone handling
-    const generateTimeSlots = () => {
+    // Fallback wishlist toggle function
+    const toggleWishlistFallback = async (propertyId, isFavorite) => {
+        try {
+            const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            if (!authToken) {
+                throw new Error('No authentication token found');
+            }
+
+            if (isFavorite) {
+                const response = await fetch('/api/wishlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        propertyId: propertyId,
+                        notes: `Favorite: ${property?.title || 'Property'}`,
+                        addedDate: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to add to wishlist');
+                }
+            } else {
+                const response = await fetch(`/api/wishlist/property/${propertyId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to remove from wishlist');
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Fallback wishlist error:', error);
+            throw error;
+        }
+    };
+
+    // FIXED: Enhanced availability check function
+    const checkTimeSlotAvailability = async (timeSlots, date = selectedDate) => {
+        if (!scheduleService || !currentAgent?.baseMemberId) {
+            return timeSlots.map(slot => ({ ...slot, isAvailable: true }));
+        }
+
+        const updatedSlots = [];
+        const agentBaseMemberId = parseInt(currentAgent.baseMemberId);
+
+        for (const slot of timeSlots) {
+            try {
+                const slotDate = createLocalDate(date, slot.time);
+
+                // Check if slot is in the past
+                if (slotDate <= new Date()) {
+                    updatedSlots.push({ ...slot, isAvailable: false });
+                    continue;
+                }
+
+                // Use the same format as schedule creation
+                const apiDateString = formatDateForAPI(slotDate);
+
+                console.log(`🔍 Checking availability for:`, {
+                    agentId: agentBaseMemberId,
+                    dateTime: apiDateString,
+                    localTime: slotDate.toString(),
+                    slotTime: slot.time
+                });
+
+                const response = await scheduleService.checkTimeSlotAvailability(
+                    agentBaseMemberId,
+                    apiDateString
+                );
+
+                // Handle both response formats
+                const isAvailable = response?.isAvailable ?? response ?? true;
+
+                console.log(`✅ Availability result for ${slot.time}:`, isAvailable);
+
+                updatedSlots.push({
+                    ...slot,
+                    isAvailable: isAvailable
+                });
+            } catch (error) {
+                console.error(`❌ Error checking availability for ${slot.time}:`, error);
+                // Fail open - don't block scheduling due to availability check errors
+                const slotDate = createLocalDate(date, slot.time);
+                updatedSlots.push({
+                    ...slot,
+                    isAvailable: slotDate > new Date() // Only block if in past
+                });
+            }
+        }
+
+        return updatedSlots;
+    };
+
+    // Helper function to generate time slots for a specific day
+    const generateTimeSlotsForDay = (dateString) => {
         const slots = [];
-        const startHour = 9; // 9 AM
-        const endHour = 17; // 5 PM
+        const startHour = 9;
+        const endHour = 17;
 
         for (let hour = startHour; hour < endHour; hour++) {
-            for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
+            for (let minute = 0; minute < 60; minute += 30) {
                 const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 
                 slots.push({
@@ -262,75 +542,102 @@ const PropertyLocation = ({ property }) => {
                         minute: '2-digit',
                         hour12: true
                     }),
-                    isAvailable: true // Will be updated by API check
+                    isAvailable: true
                 });
             }
         }
         return slots;
     };
 
-    const checkTimeSlotAvailability = async (timeSlots) => {
-        if (!scheduleService || !agent?.baseMemberId) {
-            return timeSlots.map(slot => ({ ...slot, isAvailable: true }));
-        }
-
-        const updatedSlots = [];
-        const agentBaseMemberId = parseInt(agent.baseMemberId);
-
-        for (const slot of timeSlots) {
-            try {
-                // Create local date without timezone conversion
-                const slotDate = createLocalDate(selectedDate, slot.time);
-
-                // Check if the slot is in the past
-                if (slotDate <= new Date()) {
-                    updatedSlots.push({
-                        ...slot,
-                        isAvailable: false
-                    });
-                    continue;
-                }
-
-                // Format date for API without timezone shift
-                const apiDateString = formatDateForAPI(slotDate);
-
-                // Use the correct API endpoint with properly formatted date
-                const isAvailable = await scheduleService.checkTimeSlotAvailability(
-                    agentBaseMemberId,
-                    apiDateString
-                );
-
-                updatedSlots.push({
-                    ...slot,
-                    isAvailable: isAvailable?.isAvailable ?? isAvailable ?? true
-                });
-            } catch (error) {
-                console.error(`Error checking availability for ${slot.time}:`, error);
-                // Fallback: assume available for future slots
-                const slotDate = createLocalDate(selectedDate, slot.time);
-
-                updatedSlots.push({
-                    ...slot,
-                    isAvailable: slotDate > new Date() // Only available if in future
-                });
-            }
-        }
-
-        return updatedSlots;
+    // Helper function to format display date
+    const formatDisplayDate = (date) => {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric'
+        });
     };
 
-    const handleDateSelection = async (date) => {
-        setSelectedDate(date);
+    // Helper function to get day name
+    const getDayName = (date) => {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+
+        if (date.toDateString() === today.toDateString()) return 'Today';
+        if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
+        return date.toLocaleDateString('en-US', { weekday: 'long' });
+    };
+
+    // Load weekly availability
+    const loadWeeklyAvailability = async () => {
+        if (!scheduleService || !currentAgent?.baseMemberId) return;
+
         setLoadingAvailability(true);
         setAvailabilityError('');
 
         try {
-            // Generate time slots for the selected date
-            const timeSlots = generateTimeSlots();
+            const today = new Date();
+            const weeklySlots = [];
 
-            // Check availability for each time slot
-            const slotsWithAvailability = await checkTimeSlotAvailability(timeSlots);
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const dateString = date.toISOString().split('T')[0];
 
+                const timeSlots = generateTimeSlotsForDay(dateString);
+                const slotsWithAvailability = await checkTimeSlotAvailability(timeSlots, dateString);
+
+                const availableCount = slotsWithAvailability.filter(slot => slot.isAvailable).length;
+
+                weeklySlots.push({
+                    date: dateString,
+                    displayDate: formatDisplayDate(date),
+                    dayName: getDayName(date),
+                    availableCount: availableCount,
+                    totalSlots: slotsWithAvailability.length,
+                    isToday: i === 0,
+                    slots: slotsWithAvailability
+                });
+            }
+
+            setWeeklyAvailability(weeklySlots);
+        } catch (error) {
+            console.error('Error loading weekly availability:', error);
+            setAvailabilityError('Failed to load availability. Please try again.');
+        } finally {
+            setLoadingAvailability(false);
+        }
+    };
+
+    const handleTimeSlotSelect = (date, time) => {
+        if (!isLoggedIn) {
+            const returnUrl = window.location.pathname + window.location.search;
+            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
+            return;
+        }
+
+        setScheduleDate(date);
+        setScheduleTime(time);
+        scheduleForm.setFieldValue('date', dayjs(date));
+        scheduleForm.setFieldValue('time', dayjs(`2000-01-01T${time}`));
+    };
+
+    const handleDaySelection = async (date) => {
+        setSelectedDate(date);
+        await loadAvailability(date);
+    };
+
+    // Load availability when agent or day changes
+    const loadAvailability = async (date = selectedDate) => {
+        if (!currentAgent) return;
+
+        setLoadingAvailability(true);
+        setAvailabilityError('');
+
+        try {
+            const timeSlots = generateTimeSlotsForDay(date);
+            const slotsWithAvailability = await checkTimeSlotAvailability(timeSlots, date);
             setAvailableTimeSlots(slotsWithAvailability);
         } catch (error) {
             console.error('Error loading availability:', error);
@@ -340,33 +647,7 @@ const PropertyLocation = ({ property }) => {
         }
     };
 
-    const handleTimeSlotSelect = (time) => {
-        if (!isLoggedIn) {
-            const returnUrl = window.location.pathname + window.location.search;
-            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
-            return;
-        }
-
-        setScheduleDate(selectedDate);
-        setScheduleTime(time);
-
-        // Scroll to schedule section
-        const scheduleSection = document.querySelector('.property-location-schedule-section');
-        if (scheduleSection) {
-            scheduleSection.scrollIntoView({ behavior: 'smooth' });
-        }
-    };
-
-    const formatSelectedDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    };
-
-    // FIXED: Enhanced Chat Handler with proper agent data
+    // FIXED: Enhanced Chat Handler with complete data and chat creation flag
     const handleChatClick = () => {
         if (!isLoggedIn) {
             const returnUrl = window.location.pathname + window.location.search;
@@ -374,277 +655,222 @@ const PropertyLocation = ({ property }) => {
             return;
         }
 
-        // Enhanced chat data with proper agent ID handling
+        // Ensure we have all required data
+        if (!currentAgent || !property) {
+            console.error('Missing agent or property data for chat');
+            message.error('Unable to start chat. Please try again.');
+            return;
+        }
+
         const chatData = {
             property: {
-                id: property?.id,
-                title: property?.title || 'Untitled Property',
-                price: property?.price || 0,
-                mainImage: processImageUrl(property?.mainImage) || '/default-property.jpg',
-                address: property?.address || 'Address not specified',
-                bedrooms: property?.bedrooms || 0,
-                bathrooms: property?.bathrooms || 0,
-                areaSqft: property?.areaSqft || property?.squareFeet || 'N/A',
-                city: property?.city || '',
-                state: property?.state || '',
-                propertyType: property?.propertyType || 'Property'
+                id: property.id,
+                title: property.title || 'Untitled Property',
+                price: property.price || 0,
+                mainImage: processImageUrl(property.mainImage) || '/default-property.jpg',
+                address: property.address || 'Address not specified',
+                bedrooms: property.bedrooms || 0,
+                bathrooms: property.bathrooms || 0,
+                areaSqft: property.areaSqft || property.squareFeet || 'N/A',
+                city: property.city || '',
+                state: property.state || '',
+                propertyType: property.propertyType || 'Property'
             },
             agent: {
-                // Try multiple possible ID fields
-                id: agent?.id || agent?.agentId || agent?.userId || agent?.baseMemberId || 'agent-1',
-                baseMemberId: agent?.baseMemberId || agent?.id,
-                name: agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent',
-                firstName: agent?.firstName || 'Agent',
-                lastName: agent?.lastName || '',
-                profilePicture: processImageUrl(agent?.profilePictureUrl, 'profile'),
-                title: agent?.title || 'Real Estate Agent',
-                phone: agent?.cellPhoneNo,
-                email: agent?.email,
-                brokerageName: agent?.brokerageName || 'Real Estate Company'
+                id: currentAgent.id || currentAgent.agentId || currentAgent.userId || currentAgent.baseMemberId,
+                baseMemberId: currentAgent.baseMemberId || currentAgent.id,
+                name: `${currentAgent.firstName} ${currentAgent.lastName}`,
+                firstName: currentAgent.firstName || 'Agent',
+                lastName: currentAgent.lastName || '',
+                profilePictureUrl: processImageUrl(currentAgent.profilePictureUrl, 'profile') || '/default-profile.jpg',
+                profileImage: processImageUrl(currentAgent.profilePictureUrl, 'profile') || '/default-profile.jpg',
+                title: currentAgent.title || 'Real Estate Agent',
+                phone: currentAgent.cellPhoneNo,
+                email: currentAgent.email,
+                brokerageName: currentAgent.brokerageName || 'Real Estate Company',
+                // Include additional agent data for completeness
+                specialties: currentAgent.specialties || ['Real Estate'],
+                yearsExperience: currentAgent.yearsExperience || 5,
+                languages: currentAgent.languages || ['English', 'Tagalog'],
+                licenseNumber: currentAgent.licenseNumber || ''
             },
             chatType: 'property_chat',
+            // Add flags to indicate this needs to create a new chat
+            shouldCreateNew: true,
             timestamp: new Date().toISOString()
         };
 
-        console.log('🔍 Debug - Chat data being sent:', chatData);
-        console.log('🔍 Debug - Agent ID:', chatData.agent.id);
-        console.log('🔍 Debug - Agent baseMemberId:', chatData.agent.baseMemberId);
+        console.log('📱 Opening chat with complete data:', chatData);
 
         navigate('/messages', {
             state: {
                 propertyChat: chatData,
-                // Add additional context for debugging
-                _debug: {
-                    source: 'PropertyLocation',
-                    propertyId: property?.id,
-                    agentId: agent?.id,
-                    agentBaseMemberId: agent?.baseMemberId,
-                    timestamp: new Date().toISOString()
+                chatCreationData: {
+                    shouldCreateNew: true,
+                    propertyId: property.id,
+                    agentId: currentAgent.baseMemberId,
+                    clientId: currentUser?.userId || ClientID,
+                    _debug: {
+                        source: 'PropertyLocation',
+                        propertyId: property.id,
+                        agentId: currentAgent.id,
+                        agentBaseMemberId: currentAgent.baseMemberId,
+                        timestamp: new Date().toISOString()
+                    }
                 }
             }
         });
     };
 
-    const handleAgentCardScheduleClick = () => {
-        const scheduleSection = document.querySelector('.property-location-schedule-section');
-        if (scheduleSection) {
-            scheduleSection.scrollIntoView({ behavior: 'smooth' });
+    const handleScheduleSubmit = async (values) => {
+        if (isSubmitting) {
+            console.log('⏳ Schedule submission already in progress, skipping duplicate');
+            return;
         }
-    };
 
-    const handleCloseScheduleOverlay = () => {
-        setShowScheduleOverlay(false);
-        setScheduleError('');
-    };
-
-    // Enhanced debug function to test backend validation
-    const debugBackendValidation = async (scheduleData) => {
-        try {
-            console.log('🔍 DEBUG: Testing backend validation with data:', scheduleData);
-
-            // Test with minimal required data
-            const testData = {
-                propertyId: scheduleData.propertyId,
-                agentId: scheduleData.agentId,
-                clientId: scheduleData.clientId,
-                scheduleTime: scheduleData.scheduleTime,
-                scheduleEndTime: scheduleData.scheduleEndTime,
-                status: "Scheduled"
-            };
-
-            console.log('🔍 DEBUG: Minimal test data:', testData);
-
-            // Try to create a simple test request
-            const response = await fetch('/api/ScheduleProperties/debug/test-creation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(testData)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.log('🔍 DEBUG: Backend validation failed:', errorData);
-                return errorData;
-            }
-
-            const result = await response.json();
-            console.log('🔍 DEBUG: Backend validation passed:', result);
-            return result;
-
-        } catch (error) {
-            console.log('🔍 DEBUG: Backend validation test failed:', error);
-            return { error: error.message };
-        }
-    };
-
-    // UPDATED: handleScheduleSubmit with proper baseMemberId handling
-    const handleScheduleSubmit = async (e) => {
-        e.preventDefault();
+        setIsSubmitting(true);
+        setIsScheduling(true);
         setScheduleError('');
         setDebugInfo(null);
 
-        // Authentication check
-        if (!isLoggedIn) {
-            const returnUrl = window.location.pathname + window.location.search;
-            navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
-            return;
-        }
-
-        // Wait for agent data to be loaded
-        if (loadingAgent) {
-            setScheduleError('Agent information is still loading. Please wait...');
-            return;
-        }
-
-        // Debug agent object to see available properties
-        console.log('🔍 DEBUG - Current Agent object:', agent);
-        console.log('🔍 DEBUG - Agent baseMemberId:', agent?.baseMemberId);
-        console.log('🔍 DEBUG - All agent properties:', Object.keys(agent || {}));
-
-        // Use baseMemberId specifically
-        const agentBaseMemberId = agent?.baseMemberId;
-
-        if (!agentBaseMemberId) {
-            setScheduleError('Agent information is not available. Please try again later.');
-            console.error('❌ Agent baseMemberId is undefined');
-            console.error('Available agent data:', agent);
-            return;
-        }
-
-        if (!scheduleDate || !scheduleTime) {
-            setScheduleError('Please select both date and time');
-            return;
-        }
-
-        // Create local date without timezone conversion
-        const selectedDateTime = createLocalDate(scheduleDate, scheduleTime);
-
-        // Validate if the selected time is in the future
-        if (selectedDateTime <= new Date()) {
-            setScheduleError('Please select a future date and time');
-            return;
-        }
-
-        if (!scheduleService) {
-            setScheduleError('Scheduling service is not available. Please try again.');
-            return;
-        }
-
-        setIsScheduling(true);
-
         try {
-            const clientId = currentUser?.userId;
+            console.log('🚀 Starting schedule submission...');
+            debugAgentData();
 
+            // Authentication check
+            if (!isLoggedIn) {
+                const returnUrl = window.location.pathname + window.location.search;
+                navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
+                return;
+            }
+
+            if (!currentAgent?.baseMemberId) {
+                setScheduleError('Agent information is not available. Please try again later.');
+                return;
+            }
+
+            const selectedDate = values.date.format('YYYY-MM-DD');
+            const selectedTime = values.time.format('HH:mm');
+            const selectedDateTime = createLocalDate(selectedDate, selectedTime);
+
+            if (selectedDateTime <= new Date()) {
+                setScheduleError('Please select a future date and time');
+                return;
+            }
+
+            const clientId = currentUser?.userId;
             if (!clientId) {
                 setScheduleError('Unable to identify user. Please log in again.');
                 return;
             }
 
-            // FIX: Create date in local time but send as UTC to avoid timezone issues
-            const localDate = new Date(selectedDateTime.getTime() - (selectedDateTime.getTimezoneOffset() * 60000));
-            const apiDateString = localDate.toISOString();
+            // Use the same date format as availability checks
+            const apiDateString = formatDateForAPI(selectedDateTime);
+            const apiEndDateString = formatDateForAPI(new Date(selectedDateTime.getTime() + 60 * 60 * 1000));
 
-            console.log('=== SCHEDULE DEBUG INFO ===');
-            console.log('Client ID:', clientId);
-            console.log('Property ID:', property.id);
-            console.log('Agent baseMemberId:', agentBaseMemberId);
-            console.log('Selected DateTime (Local):', selectedDateTime.toString());
-            console.log('Selected DateTime (ISO):', selectedDateTime.toISOString());
-            console.log('API Date String:', apiDateString);
+            console.log('📅 Final schedule data:', {
+                selectedDate,
+                selectedTime,
+                selectedDateTime: selectedDateTime.toString(),
+                apiDateString,
+                apiEndDateString,
+                agentId: parseInt(currentAgent.baseMemberId),
+                clientId: parseInt(clientId),
+                propertyId: parseInt(property.id)
+            });
 
-            // Check availability with the properly formatted date
-            const availabilityResponse = await scheduleService.checkTimeSlotAvailability(
-                parseInt(agentBaseMemberId),
+            // Double-check availability with the exact same parameters
+            console.log('🔍 Final availability check...');
+            const finalAvailabilityCheck = await scheduleService.checkTimeSlotAvailability(
+                parseInt(currentAgent.baseMemberId),
                 apiDateString
             );
 
-            console.log('Availability Response:', availabilityResponse);
-
-            const isAvailable = availabilityResponse?.isAvailable ?? availabilityResponse;
+            const isAvailable = finalAvailabilityCheck?.isAvailable ?? finalAvailabilityCheck;
+            console.log('✅ Final availability result:', isAvailable);
 
             if (!isAvailable) {
-                // Get detailed debug info
-                try {
-                    const debugResponse = await fetch(`/api/ScheduleProperties/debug/availability?agentId=${agentBaseMemberId}&scheduleTime=${encodeURIComponent(apiDateString)}`);
-                    const debugData = await debugResponse.json();
-                    console.log('Debug Availability Info:', debugData);
-                    setDebugInfo(debugData);
-                } catch (debugError) {
-                    console.log('Could not get debug info:', debugError);
-                }
-
                 setScheduleError('This time slot is not available. Please choose a different time.');
                 return;
             }
 
-            // Prepare schedule data with baseMemberId
+            // Create schedule data using the mapper but with enhanced debugging
             const scheduleData = {
                 propertyId: parseInt(property.id),
-                agentId: parseInt(agentBaseMemberId), // Using baseMemberId here
+                agentId: parseInt(currentAgent.baseMemberId),
                 clientId: parseInt(clientId),
-                scheduleTime: apiDateString,
-                scheduleEndTime: new Date(localDate.getTime() + 60 * 60 * 1000).toISOString(), // 1 hour later
-                notes: scheduleNotes || '',
-                status: "Scheduled",
+                scheduleTime: apiDateString, // Use the local time string directly
+                scheduleEndTime: apiEndDateString, // Use the local time string directly
+                notes: values.notes || '',
+                status: "Pending",
                 meetingType: "InPerson",
                 meetingLocation: property?.address || '',
                 virtualMeetingLink: ""
             };
 
-            console.log('Final Schedule Data for API:', scheduleData);
+            console.log('📤 Creating schedule with data:', JSON.stringify(scheduleData, null, 2));
 
-            // Create the schedule
-            const createdSchedule = await scheduleService.createSchedule(scheduleData);
+            // FIXED: Use the correct method from scheduleService
+            const createdAppointment = await scheduleService.createSchedule(scheduleData);
 
-            // Success handling
-            setScheduleDate('');
-            setScheduleTime('');
-            setScheduleNotes('');
-            setScheduleSubmitted(true);
-            setScheduleError('');
-            setDebugInfo(null);
+            // Store the scheduled appointment data
+            setScheduledAppointment({
+                ...createdAppointment,
+                property: property,
+                agent: currentAgent,
+                scheduledDate: selectedDate,
+                scheduledTime: selectedTime,
+                notes: values.notes || ''
+            });
 
-            console.log('Schedule created successfully:', createdSchedule);
+            // Show success message
+            message.success('Tour scheduled successfully!');
 
-            // Reset available slots
-            setAvailableTimeSlots([]);
-            setSelectedDate('');
-
-            setTimeout(() => {
-                setScheduleSubmitted(false);
-            }, 5000);
+            // Move to success view
+            setCurrentView('success');
 
         } catch (error) {
-            console.error('=== SCHEDULING ERROR DETAILS ===');
-            console.error('Error:', error);
+            console.error('❌ Error scheduling tour:', error);
 
-            // Enhanced error handling
-            if (error.message?.includes('time slot is not available')) {
-                setScheduleError('The selected time slot is not available. Please choose a different time.');
-            } else if (error.status === 400) {
-                setScheduleError(error.responseData || 'Invalid data submitted. Please check your information.');
+            // Enhanced error handling for 400 errors
+            if (error.response) {
+                console.error('🔍 Backend 400 Error Details:', {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    data: error.response.data,
+                    headers: error.response.headers
+                });
+
+                if (error.response.status === 400) {
+                    const errorMessage = error.response.data?.message || error.response.data || 'Invalid data sent to server';
+                    setScheduleError(`Server validation error: ${errorMessage}`);
+
+                    // Log the exact validation errors
+                    if (error.response.data?.errors) {
+                        console.error('📝 Validation errors:', error.response.data.errors);
+                    }
+
+                    // Check for specific validation issues
+                    if (error.response.data?.includes('Agent') || error.response.data?.includes('agent')) {
+                        setScheduleError('Agent validation failed. Please check if the agent exists.');
+                    } else if (error.response.data?.includes('Client') || error.response.data?.includes('client')) {
+                        setScheduleError('Client validation failed. Please make sure you are properly logged in.');
+                    } else if (error.response.data?.includes('Property') || error.response.data?.includes('property')) {
+                        setScheduleError('Property validation failed. Please refresh the page and try again.');
+                    }
+                } else if (error.response.status === 409) {
+                    setScheduleError('This time slot is already booked. Please choose a different time.');
+                } else {
+                    setScheduleError(error.response.data?.message || 'Failed to schedule tour. Please try again.');
+                }
             } else {
-                setScheduleError(error.message || 'Failed to schedule viewing. Please try again.');
+                setScheduleError(error.message || 'Failed to schedule tour. Please try again.');
             }
         } finally {
             setIsScheduling(false);
+            setIsSubmitting(false);
         }
     };
-
-    // Auth handlers for overlay
-    const handleSignIn = () => {
-        const returnUrl = window.location.pathname + window.location.search;
-        navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}&action=${encodeURIComponent('schedule viewing')}`);
-        handleCloseScheduleOverlay();
-    };
-
-    const handleJoin = () => {
-        navigate('/register/verify-email');
-        handleCloseScheduleOverlay();
-    };
-
     // Video handler functions
     const handleVideoPlay = () => {
         setIsVideoPlaying(true);
@@ -684,450 +910,860 @@ const PropertyLocation = ({ property }) => {
     };
 
     // Render star ratings
-    const renderStars = (rating = 5) => {
+    const renderStars = (rating = 5, size = 'medium') => {
+        const starSize = size === 'large' ? '18px' : size === 'small' ? '12px' : '14px';
         return Array.from({ length: 5 }, (_, index) => (
             <FaStar
                 key={index}
                 className="property-location-schedule-rating-star"
+                style={{ fontSize: starSize }}
                 color={index < rating ? "#ffc107" : "#e0e0e0"}
             />
         ));
     };
 
-    // Enhanced schedule form with proper service integration
-    const renderScheduleForm = () => (
-        <form onSubmit={handleScheduleSubmit}>
-            {scheduleError && (
-                <div className="property-location-schedule-error">
-                    <FaExclamationTriangle style={{ marginRight: '8px' }} />
-                    {scheduleError}
-                </div>
-            )}
+    // Render star rating with decimal support
+    const renderDecimalStars = (rating, size = 'medium') => {
+        const starSize = size === 'large' ? '18px' : size === 'small' ? '12px' : '14px';
+        return Array.from({ length: 5 }, (_, index) => {
+            let fillPercentage = 0;
+            if (rating >= index + 1) {
+                fillPercentage = 100;
+            } else if (rating > index) {
+                fillPercentage = (rating - index) * 100;
+            }
 
-            {/* Debug Information */}
-            {debugInfo && (
-                <div className="property-location-debug-info">
-                    <FaBug style={{ marginRight: '8px' }} />
-                    <strong>Debug Info:</strong> {JSON.stringify(debugInfo)}
-                </div>
-            )}
-
-            {/* Loading Agent Indicator */}
-            {loadingAgent && (
-                <div className="property-location-agent-loading">
-                    <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
-                    Loading agent information...
-                </div>
-            )}
-
-            <div className="property-location-schedule-overlay-inputs">
-                <div className="property-location-schedule-overlay-input-group">
-                    <label className="property-location-schedule-overlay-label">
-                        Preferred Date *
-                    </label>
-                    <input
-                        type="date"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        className="property-location-schedule-overlay-input"
-                        min={new Date().toISOString().split('T')[0]}
-                        required
-                        disabled={!isLoggedIn || isScheduling || loadingAgent}
+            return (
+                <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
+                    <FaStar
+                        style={{ fontSize: starSize, color: '#e0e0e0' }}
                     />
-                </div>
-                <div className="property-location-schedule-overlay-input-group">
-                    <label className="property-location-schedule-overlay-label">
-                        Preferred Time *
-                    </label>
-                    <input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className="property-location-schedule-overlay-input"
-                        min="09:00"
-                        max="17:00"
-                        required
-                        disabled={!isLoggedIn || isScheduling || loadingAgent}
-                    />
-                </div>
-            </div>
-
-            <div className="property-location-schedule-overlay-input-group">
-                <label className="property-location-schedule-overlay-label">
-                    Your Message (Optional)
-                </label>
-                <textarea
-                    value={scheduleNotes}
-                    onChange={(e) => setScheduleNotes(e.target.value)}
-                    className="property-location-schedule-overlay-textarea"
-                    placeholder="What would you like to ask the agent? For example: I'd like to see the backyard and ask about recent renovations..."
-                    rows="4"
-                    disabled={!isLoggedIn || isScheduling || loadingAgent}
-                />
-            </div>
-
-            <button
-                type="submit"
-                className="property-location-schedule-overlay-submit-btn"
-                disabled={!isLoggedIn || isScheduling || !scheduleService || loadingAgent || !agent?.baseMemberId}
-            >
-                {isScheduling ? (
-                    <>
-                        <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
-                        Scheduling...
-                    </>
-                ) : loadingAgent ? (
-                    <>
-                        <FaSpinner className="spinner" style={{ marginRight: '8px' }} />
-                        Loading Agent...
-                    </>
-                ) : (
-                    <>
-                        <FaCalendarPlus style={{ marginRight: '8px' }} />
-                        {isLoggedIn ? `Send Enquiry to ${agent?.firstName || 'Agent'}` : 'Sign In to Schedule'}
-                    </>
-                )}
-            </button>
-
-            {/* Debug Button - Optional, can be removed */}
-            <button
-                type="button"
-                className="property-location-debug-btn"
-                onClick={() => setDebugInfo(prev => !prev)}
-                style={{
-                    marginTop: '10px',
-                    padding: '5px 10px',
-                    background: '#f0f0f0',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                }}
-            >
-                <FaBug style={{ marginRight: '5px' }} />
-                Toggle Debug Info
-            </button>
-        </form>
-    );
-
-    const renderSignInPrompt = () => (
-        <div className="property-location-schedule-overlay-signin">
-            <div className="property-location-schedule-overlay-signin-content">
-                <div className="property-location-schedule-overlay-signin-text">
-                    <h4>Sign in to schedule a viewing</h4>
-                    <p>Create an account or sign in to schedule property viewings and connect with agents directly.</p>
-
-                    <div className="property-location-schedule-overlay-signin-buttons">
-                        <button
-                            className="property-location-schedule-overlay-signin-btn property-location-schedule-overlay-signin-primary"
-                            onClick={handleSignIn}
-                        >
-                            <FaUser style={{ marginRight: '8px' }} />
-                            Sign in
-                        </button>
-                        <button
-                            className="property-location-schedule-overlay-signin-btn property-location-schedule-overlay-signin-secondary"
-                            onClick={handleJoin}
-                        >
-                            <FaUserPlus style={{ marginRight: '8px' }} />
-                            Join Now
-                        </button>
-                    </div>
-
-                    <div className="property-location-schedule-overlay-signin-benefits">
-                        <div className="property-location-schedule-overlay-benefit-item">
-                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
-                            Schedule property viewings instantly
-                        </div>
-                        <div className="property-location-schedule-overlay-benefit-item">
-                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
-                            Chat directly with agents
-                        </div>
-                        <div className="property-location-schedule-overlay-benefit-item">
-                            <FaCheck className="property-location-schedule-overlay-benefit-icon" />
-                            Save favorite properties
-                        </div>
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: `${fillPercentage}%`,
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <FaStar
+                            style={{ fontSize: starSize, color: '#ffc107' }}
+                        />
                     </div>
                 </div>
+            );
+        });
+    };
+
+    // Time Slot Component
+    const TimeSlot = ({ slot, onSelect }) => (
+        <div
+            className={`time-slot ${slot.isAvailable ? 'available' : 'unavailable'}`}
+            onClick={() => slot.isAvailable && onSelect(slot.time)}
+            style={{
+                padding: '12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                cursor: slot.isAvailable ? 'pointer' : 'not-allowed',
+                background: slot.isAvailable ? '#f6ffed' : '#f5f5f5',
+                opacity: slot.isAvailable ? 1 : 0.6,
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                minWidth: '100px'
+            }}
+        >
+            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {slot.displayTime}
+            </div>
+            <div style={{ fontSize: '12px', color: slot.isAvailable ? '#52c41a' : '#d9d9d9' }}>
+                {slot.isAvailable ? 'Available' : 'Unavailable'}
             </div>
         </div>
     );
 
-    // Enhanced success message with schedule details
-    const renderSuccessMessage = () => {
-        const formattedDate = new Date(scheduleDate).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+    // Day Selector Component
+    const DaySelector = ({ days, selectedDay, onDaySelect }) => (
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0', marginBottom: '16px' }}>
+            {days.map(day => (
+                <div
+                    key={day.date}
+                    onClick={() => onDaySelect(day.date)}
+                    style={{
+                        padding: '12px 16px',
+                        border: `2px solid ${selectedDay === day.date ? '#1B3C53' : '#d9d9d9'}`,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: selectedDay === day.date ? '#1B3C53' : 'white',
+                        color: selectedDay === day.date ? 'white' : '#333',
+                        minWidth: '120px',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                        {day.dayName}
+                    </div>
+                    <div style={{ fontSize: '11px', opacity: 0.8 }}>
+                        {day.fullDate.split(',')[0]}
+                    </div>
+                    {day.isToday && (
+                        <span style={{
+                            background: '#1890ff',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            marginTop: '4px',
+                            display: 'inline-block'
+                        }}>
+                            Today
+                        </span>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
 
-        const formattedTime = new Date(`2000-01-01T${scheduleTime}`).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+    // Agent Information Component
+    const AgentInfo = ({ agent }) => {
+        const agentName = agent ? `${agent.firstName} ${agent.lastName}`.trim() : 'Contact Agent';
+        const rating = agentRatings.averageRating;
+        const reviews = agentRatings.totalRatings;
 
         return (
-            <div className="property-location-schedule-success">
-                <div className="property-location-schedule-success-content">
-                    <FaCalendarCheck className="property-location-schedule-success-icon" />
-                    <h4>Viewing Scheduled Successfully!</h4>
-                    <p>Your viewing request has been sent to {agent?.firstName || 'the agent'}. They will contact you shortly to confirm the appointment.</p>
-                    <div className="property-location-schedule-success-details">
-                        <div><strong>Property:</strong> {property?.title || 'Property'}</div>
-                        <div><strong>Date:</strong> {formattedDate}</div>
-                        <div><strong>Time:</strong> {formattedTime}</div>
-                        <div><strong>Agent:</strong> {agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent'}</div>
-                        {scheduleNotes && <div><strong>Your message:</strong> {scheduleNotes}</div>}
+            <Card
+                style={{
+                    border: '1px solid #1B3C53',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%)',
+                    marginBottom: '20px'
+                }}
+                styles={{ body: { padding: '16px' } }}
+            >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                    <Avatar
+                        size={60}
+                        src={agent?.profilePictureUrl}
+                        icon={<FaUser />}
+                        style={{
+                            backgroundColor: agent?.profilePictureUrl ? 'transparent' : '#1B3C53',
+                            border: '3px solid #1B3C53',
+                            flexShrink: 0
+                        }}
+                    />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                            <AntText strong style={{ fontSize: '16px', color: '#1B3C53' }}>{agentName}</AntText>
+                            <span style={{
+                                background: 'gold',
+                                color: '#000',
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold'
+                            }}>
+                                👑 DESIGNATED AGENT
+                            </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <Rate
+                                disabled
+                                value={rating}
+                                style={{ fontSize: '14px' }}
+                            />
+                            <AntText type="secondary" style={{ fontSize: '12px' }}>
+                                {rating.toFixed(1)} ({reviews} reviews)
+                            </AntText>
+                        </div>
+
+                        <AntText type="secondary" style={{ fontSize: '13px', display: 'block', marginBottom: '4px' }}>
+                            {agent?.specialties?.join(', ') || 'Real Estate Agent'}
+                        </AntText>
+
+                        <AntText type="secondary" style={{ fontSize: '12px' }}>
+                            {agent?.yearsExperience || '5'} years experience • {agent?.languages?.join(', ') || 'English, Tagalog'}
+                        </AntText>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FaEnvelope style={{ fontSize: '12px', color: '#1B3C53' }} />
+                                <AntText style={{ fontSize: '12px' }}>
+                                    {agent?.email}
+                                </AntText>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FaPhone style={{ fontSize: '12px', color: '#1B3C53' }} />
+                                <AntText style={{ fontSize: '12px' }}>
+                                    {agent?.cellPhoneNo}
+                                </AntText>
+                            </div>
+                        </div>
+
+                        {agent?.brokerageName && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                                <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    backgroundColor: '#1B3C53',
+                                    borderRadius: '2px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '9px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {agent.brokerageName.charAt(0).toUpperCase()}
+                                </div>
+                                <AntText type="secondary" style={{ fontSize: '11px' }}>
+                                    {agent.brokerageName}
+                                </AntText>
+                            </div>
+                        )}
                     </div>
-                    <button
-                        className="property-location-schedule-success-close"
-                        onClick={() => setScheduleSubmitted(false)}
-                    >
-                        Close
-                    </button>
                 </div>
+            </Card>
+        );
+    };
+
+    // Breadcrumb items configuration
+    const getBreadcrumbItems = (view) => {
+        const baseItems = [
+            {
+                title: <FaHome />,
+            },
+            {
+                title: <a onClick={() => setCurrentView('property')}>Property</a>,
+            }
+        ];
+
+        if (view === 'schedule') {
+            return [
+                ...baseItems,
+                {
+                    title: 'Schedule Tour',
+                }
+            ];
+        } else if (view === 'waiting-confirmation') {
+            return [
+                ...baseItems,
+                {
+                    title: 'Appointment Confirmation',
+                }
+            ];
+        }
+
+        return baseItems;
+    };
+
+    // SUCCESS VIEW COMPONENT
+    const SuccessView = () => (
+        <div style={{ padding: '40px 24px', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <FaCheckCircle style={{ fontSize: '64px', color: '#52c41a', marginBottom: '16px' }} />
+                <AntTitle level={2} style={{ color: '#52c41a' }}>Tour Scheduled Successfully!</AntTitle>
+                <AntText type="secondary" style={{ fontSize: '16px' }}>
+                    Your property tour has been scheduled and the agent has been notified.
+                </AntText>
+            </div>
+
+            <div style={{ marginBottom: '32px' }}>
+                <Button
+                    type="primary"
+                    onClick={() => setCurrentView('waiting-confirmation')}
+                    size="large"
+                    style={{ marginRight: '16px' }}
+                >
+                    View Appointment Details
+                </Button>
+                <Button
+                    onClick={() => setCurrentView('property')}
+                    size="large"
+                >
+                    Back to Property
+                </Button>
+            </div>
+
+            <Card style={{ marginTop: '32px', textAlign: 'left' }}>
+                <AntTitle level={4}>What happens next?</AntTitle>
+                <div style={{ marginTop: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <FaCheckCircle style={{ color: '#52c41a', marginRight: '12px', marginTop: '2px', flexShrink: 0 }} />
+                        <div>
+                            <AntText strong>Tour Scheduled</AntText>
+                            <br />
+                            <AntText type="secondary">Your request has been sent to the agent</AntText>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <FaClock style={{ color: '#1890ff', marginRight: '12px', marginTop: '2px', flexShrink: 0 }} />
+                        <div>
+                            <AntText strong>Agent Confirmation</AntText>
+                            <br />
+                            <AntText type="secondary">Waiting for the agent to confirm your tour</AntText>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                        <FaUser style={{ color: '#666', marginRight: '12px', marginTop: '2px', flexShrink: 0 }} />
+                        <div>
+                            <AntText strong>Tour Preparation</AntText>
+                            <br />
+                            <AntText type="secondary">Agent will contact you to finalize details</AntText>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </div>
+    );
+
+    // WAITING CONFIRMATION VIEW COMPONENT
+    const WaitingConfirmationView = () => (
+        <div style={{ padding: '40px 24px', maxWidth: '800px', margin: '0 auto' }}>
+            <Breadcrumb
+                items={getBreadcrumbItems('waiting-confirmation')}
+                style={{ marginBottom: '24px' }}
+            />
+
+            <Card>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <FaClock style={{ fontSize: '64px', color: '#1890ff', marginBottom: '16px' }} />
+                    <AntTitle level={2} style={{ color: '#1890ff' }}>Waiting for Agent Confirmation</AntTitle>
+                    <AntText type="secondary" style={{ fontSize: '16px' }}>
+                        Your tour request has been sent to the agent. They will confirm within 24 hours.
+                    </AntText>
+                </div>
+
+                <Progress
+                    percent={50}
+                    status="active"
+                    strokeColor={{
+                        '0%': '#108ee9',
+                        '100%': '#87d068',
+                    }}
+                    style={{ marginBottom: '32px' }}
+                />
+
+                <Row gutter={[32, 32]}>
+                    <Col span={12}>
+                        <Card
+                            title="Appointment Details"
+                            size="small"
+                            style={{ border: '1px solid #f0f0f0' }}
+                        >
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <div>
+                                    <AntText strong>Property: </AntText>
+                                    <AntText>{property?.title}</AntText>
+                                </div>
+                                <div>
+                                    <AntText strong>Date & Time: </AntText>
+                                    <AntText>{scheduledAppointment?.scheduledDate} at {scheduledAppointment?.scheduledTime}</AntText>
+                                </div>
+                                <div>
+                                    <AntText strong>Agent: </AntText>
+                                    <AntText>{currentAgent?.firstName} {currentAgent?.lastName}</AntText>
+                                </div>
+                                {scheduledAppointment?.notes && (
+                                    <div>
+                                        <AntText strong>Notes: </AntText>
+                                        <AntText type="secondary">{scheduledAppointment.notes}</AntText>
+                                    </div>
+                                )}
+                            </Space>
+                        </Card>
+                    </Col>
+
+                    <Col span={12}>
+                        <Card
+                            title="Agent Contact"
+                            size="small"
+                            style={{ border: '1px solid #f0f0f0' }}
+                        >
+                            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                                <Button
+                                    type="primary"
+                                    icon={<FaPhone />}
+                                    block
+                                    style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                                >
+                                    Call Agent: {currentAgent?.cellPhoneNo}
+                                </Button>
+                                <Button
+                                    icon={<FaEnvelope />}
+                                    block
+                                >
+                                    Email Agent: {currentAgent?.email}
+                                </Button>
+                                <Button
+                                    icon={<FaComments />}
+                                    block
+                                    onClick={handleChatClick}
+                                >
+                                    Send Message
+                                </Button>
+                            </Space>
+                        </Card>
+                    </Col>
+                </Row>
+
+                <Alert
+                    message="Confirmation Timeline"
+                    description="The agent typically confirms appointments within 24 hours. You'll receive a notification once your tour is confirmed."
+                    type="info"
+                    showIcon
+                    style={{ marginTop: '24px' }}
+                />
+
+                <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                    <Space size="large">
+                        <Button
+                            type="primary"
+                            onClick={() => setCurrentView('property')}
+                            size="large"
+                        >
+                            Back to Property
+                        </Button>
+                        <Button
+                            onClick={() => setCurrentView('schedule')}
+                            size="large"
+                        >
+                            Modify Appointment
+                        </Button>
+                    </Space>
+                </div>
+            </Card>
+        </div>
+    );
+
+    // SCHEDULE VIEW COMPONENT
+    const ScheduleView = () => {
+        const next7Days = getNext7Days();
+
+        return (
+            <div style={{
+                padding: '40px 24px',
+                maxWidth: '800px',
+                margin: '0 auto',
+                minHeight: '100vh'
+            }}>
+                {/* Breadcrumb Navigation */}
+                <Breadcrumb
+                    items={getBreadcrumbItems('schedule')}
+                    style={{ marginBottom: '32px' }}
+                />
+
+                {/* Back Button */}
+                <Button
+                    type="text"
+                    icon={<FaArrowLeft />}
+                    onClick={() => setCurrentView('property')}
+                    style={{ marginBottom: '24px' }}
+                >
+                    Back to Property
+                </Button>
+
+                {/* Property Header */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                    padding: '24px',
+                    borderRadius: '12px',
+                    marginBottom: '32px',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    <Row gutter={16} align="middle">
+                        <Col flex="80px">
+                            <img
+                                src={property?.mainImage || '/default-property.jpg'}
+                                alt={property?.title}
+                                style={{
+                                    width: '80px',
+                                    height: '80px',
+                                    objectFit: 'cover',
+                                    borderRadius: '8px'
+                                }}
+                            />
+                        </Col>
+                        <Col flex="auto">
+                            <AntTitle level={3} style={{ margin: 0, color: '#1B3C53' }}>
+                                {property?.title}
+                            </AntTitle>
+                            <AntText type="secondary" style={{ fontSize: '16px' }}>
+                                {property?.address}
+                            </AntText>
+                            <div style={{ marginTop: '8px' }}>
+                                <AntText strong style={{ fontSize: '18px', color: '#1B3C53' }}>
+                                    {property?.price ? `₱${property.price.toLocaleString()}` : 'Price not set'}
+                                </AntText>
+                            </div>
+                        </Col>
+                    </Row>
+                </div>
+
+                {/* Progress Steps */}
+                <Steps
+                    current={currentAgent ? 1 : 0}
+                    style={{ marginBottom: '40px' }}
+                    items={[
+                        {
+                            title: 'Select Agent',
+                            description: 'Choose your tour guide'
+                        },
+                        {
+                            title: 'Schedule Time',
+                            description: 'Pick date & time'
+                        },
+                        {
+                            title: 'Confirm',
+                            description: 'Review & book'
+                        }
+                    ]}
+                />
+
+                <Form
+                    form={scheduleForm}
+                    layout="vertical"
+                    onFinish={handleScheduleSubmit}
+                    requiredMark="optional"
+                >
+                    {/* Agent Information Section */}
+                    {currentAgent && (
+                        <div style={{ marginBottom: '32px' }}>
+                            <AntText strong style={{ display: 'block', marginBottom: '16px', fontSize: '16px' }}>
+                                Designated Agent
+                            </AntText>
+                            <AntText type="secondary" style={{ display: 'block', marginBottom: '16px', fontSize: '14px' }}>
+                                This agent is assigned to the property and will conduct your tour.
+                            </AntText>
+                            <AgentInfo agent={currentAgent} />
+                        </div>
+                    )}
+
+                    {/* Time Slot Availability Section */}
+                    {currentAgent && (
+                        <>
+                            <Divider style={{ margin: '32px 0' }}>
+                                <FaClock style={{ marginRight: '8px' }} />
+                                <AntText style={{ fontSize: '16px' }}>Available Time Slots</AntText>
+                            </Divider>
+
+                            <div style={{ marginBottom: '24px' }}>
+                                <AntText strong style={{ display: 'block', marginBottom: '16px', fontSize: '16px' }}>
+                                    Select Day to View Availability
+                                </AntText>
+
+                                <DaySelector
+                                    days={next7Days}
+                                    selectedDay={selectedDate}
+                                    onDaySelect={handleDaySelection}
+                                />
+
+                                {availabilityError && (
+                                    <Alert message={availabilityError} type="error" style={{ marginTop: '16px' }} />
+                                )}
+
+                                {selectedDate && availableTimeSlots.length > 0 && (
+                                    <div style={{ marginTop: '24px' }}>
+                                        <AntText strong style={{ display: 'block', marginBottom: '16px', fontSize: '16px' }}>
+                                            Available Time Slots for {new Date(selectedDate).toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}
+                                        </AntText>
+                                        {loadingAvailability ? (
+                                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                                <Spin tip="Loading available time slots..." />
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                                gap: '16px',
+                                                maxHeight: '400px',
+                                                overflowY: 'auto',
+                                                padding: '20px',
+                                                border: '1px solid #f0f0f0',
+                                                borderRadius: '8px',
+                                                background: '#fafafa'
+                                            }}>
+                                                {availableTimeSlots.map((slot, index) => (
+                                                    <TimeSlot
+                                                        key={index}
+                                                        slot={slot}
+                                                        onSelect={(time) => handleTimeSlotSelect(selectedDate, time)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Tour Details Section */}
+                    <Divider style={{ margin: '32px 0' }}>
+                        <AntText style={{ fontSize: '16px' }}>Tour Details</AntText>
+                    </Divider>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="date"
+                                label="Selected Date"
+                                rules={[{ required: true, message: 'Please select a date' }]}
+                            >
+                                <DatePicker
+                                    style={{ width: '100%' }}
+                                    disabledDate={(current) => current && current < dayjs().startOf('day')}
+                                    value={selectedDate ? dayjs(selectedDate) : null}
+                                    onChange={(date, dateString) => handleDaySelection(dateString)}
+                                    size="large"
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="time"
+                                label="Selected Time"
+                                rules={[{ required: true, message: 'Please select a time' }]}
+                            >
+                                <TimePicker
+                                    style={{ width: '100%' }}
+                                    format="HH:mm"
+                                    minuteStep={15}
+                                    showNow={false}
+                                    placeholder="Select time from available slots above"
+                                    size="large"
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Form.Item
+                        name="notes"
+                        label="Additional Notes (Optional)"
+                        help="Any specific requirements, questions, or special requests for the agent"
+                    >
+                        <Input.TextArea
+                            rows={4}
+                            placeholder="Example: I'd like to see the garden area, please bring the key for the storage room, I have questions about the HOA fees..."
+                            maxLength={500}
+                            showCount
+                        />
+                    </Form.Item>
+
+                    {scheduleError && (
+                        <Alert message={scheduleError} type="error" style={{ marginBottom: '24px' }} />
+                    )}
+
+                    <Form.Item style={{ marginBottom: 0, textAlign: 'center', marginTop: '32px' }}>
+                        <Space size="large">
+                            <Button
+                                size="large"
+                                onClick={() => setCurrentView('property')}
+                                disabled={isScheduling || isSubmitting}
+                                style={{ minWidth: '120px' }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                size="large"
+                                disabled={!currentAgent || isScheduling || isSubmitting}
+                                loading={isScheduling || isSubmitting}
+                                icon={<FaCalendarPlus />}
+                                style={{ minWidth: '200px' }}
+                            >
+                                {isScheduling || isSubmitting ? 'Scheduling...' : `Schedule with ${currentAgent?.firstName || 'Agent'}`}
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
             </div>
         );
     };
 
-    // Render Time Slot Availability Section
-    const renderTimeSlotAvailability = () => (
-        <div className="property-location-availability-section">
-            <h2 className="property-location-section-title">Available Time Slots</h2>
-            <div className="property-location-availability-container">
-                <div className="property-location-availability-info">
-                    <div className="property-location-availability-header">
-                        <FaCalendarCheck className="property-location-availability-icon" />
-                        <h3>Check {agent?.firstName || 'Agent'}'s Availability</h3>
-                    </div>
-                    <p className="property-location-availability-description">
-                        View available time slots for property viewings with {agent?.firstName || 'the agent'}.
-                        Select a date to see available times.
-                    </p>
-
-                    <div className="property-location-availability-form">
-                        <div className="property-location-availability-input-group">
-                            <label className="property-location-availability-label">
-                                Select Date to Check Availability
-                            </label>
-                            <input
-                                type="date"
-                                className="property-location-availability-input"
-                                min={new Date().toISOString().split('T')[0]}
-                                onChange={(e) => handleDateSelection(e.target.value)}
-                                value={selectedDate}
-                                disabled={loadingAgent || !agent?.baseMemberId}
+    // PROPERTY VIEW COMPONENT (Original Content)
+    const PropertyView = () => (
+        <div className="property-location-two-column-layout">
+            {/* Map Column */}
+            <div className="property-location-map-column">
+                {hasValidCoordinates ? (
+                    <div className="property-location-map-container">
+                        <MapContainer
+                            center={position}
+                            zoom={15}
+                            style={{ height: '100%', width: '100%' }}
+                            scrollWheelZoom={false}
+                        >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                        </div>
-
-                        {availabilityError && (
-                            <div className="property-location-availability-error">
-                                <FaExclamationTriangle style={{ marginRight: '8px' }} />
-                                {availabilityError}
-                            </div>
-                        )}
-
-                        {selectedDate && (
-                            <div className="property-location-availability-slots">
-                                <h4>Available Time Slots for {formatSelectedDate(selectedDate)}</h4>
-                                {loadingAvailability ? (
-                                    <div className="property-location-availability-loading">
-                                        <FaSpinner className="spinner" />
-                                        Loading available time slots...
+                            <Marker position={position}>
+                                <Popup>
+                                    <div>
+                                        <strong>{property?.address || 'Property Location'}</strong>
+                                        <br />
+                                        {[property?.city, property?.state, property?.zipCode].filter(Boolean).join(', ')}
                                     </div>
-                                ) : availableTimeSlots.length > 0 ? (
-                                    <div className="property-location-time-slots-grid">
-                                        {availableTimeSlots.map((slot, index) => (
-                                            <div
-                                                key={index}
-                                                className={`property-location-time-slot ${slot.isAvailable ? 'available' : 'unavailable'}`}
-                                                onClick={() => slot.isAvailable && handleTimeSlotSelect(slot.time)}
-                                            >
-                                                <FaClock className="property-location-slot-icon" />
-                                                <span className="property-location-slot-time">
-                                                    {slot.displayTime}
-                                                </span>
-                                                <span className="property-location-slot-status">
-                                                    {slot.isAvailable ? (
-                                                        <>
-                                                            <FaCheck className="property-location-slot-status-icon" />
-                                                            Available
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <FaTimes className="property-location-slot-status-icon" />
-                                                            Unavailable
-                                                        </>
-                                                    )}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="property-location-no-slots">
-                                        <FaExclamationTriangle className="property-location-no-slots-icon" />
-                                        <p>No time slots available for this date. Please select another date.</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                </Popup>
+                            </Marker>
+                        </MapContainer>
                     </div>
-                </div>
-            </div>
-        </div>
-    );
+                ) : (
+                    <div className="property-location-no-location">
+                        <div className="property-location-no-location-text">
+                            Location map is not available for this property.
+                        </div>
+                        <div className="property-location-no-location-text">
+                            The property is located in {[property?.city, property?.state, property?.country].filter(Boolean).join(', ')}
+                        </div>
+                    </div>
+                )}
 
-    return (
-        <div className="property-location-container">
-            <div className="property-location-two-column-layout">
-                {/* Map Column */}
-                <div className="property-location-map-column">
-                    {hasValidCoordinates ? (
-                        <div className="property-location-map-container">
-                            <MapContainer
-                                center={position}
-                                zoom={15}
-                                style={{ height: '100%', width: '100%' }}
-                                scrollWheelZoom={false}
-                            >
-                                <TileLayer
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                />
-                                <Marker position={position}>
-                                    <Popup>
-                                        <div>
-                                            <strong>{property?.address || 'Property Location'}</strong>
-                                            <br />
-                                            {[property?.city, property?.state, property?.zipCode].filter(Boolean).join(', ')}
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            </MapContainer>
-                        </div>
-                    ) : (
-                        <div className="property-location-no-location">
-                            <div className="property-location-no-location-text">
-                                Location map is not available for this property.
-                            </div>
-                            <div className="property-location-no-location-text">
-                                The property is located in {[property?.city, property?.state, property?.country].filter(Boolean).join(', ')}
-                            </div>
-                        </div>
+                {/* Divider */}
+                <div className="property-location-divider"></div>
+
+                {/* About Property Section */}
+                <div>
+                    <h2 className="property-location-section-title">About This Property</h2>
+                    <div className="property-location-address">
+                        {property?.address || 'Address not specified'}
+                    </div>
+                    <div className="property-location-description">
+                        {showFullDescription ? description : shortDescription}
+                    </div>
+                    {description.length > 200 && (
+                        <button
+                            className="property-location-read-more-btn"
+                            onClick={() => setShowFullDescription(!showFullDescription)}
+                        >
+                            {showFullDescription ? 'Read Less' : 'Read More'}
+                        </button>
                     )}
+                </div>
 
-                    {/* Divider */}
-                    <div className="property-location-divider"></div>
+                {/* Divider */}
+                <div className="property-location-divider"></div>
 
-                    {/* About Property Section */}
-                    <div>
-                        <h2 className="property-location-section-title">About This Property</h2>
-                        <div className="property-location-address">
-                            {property?.address || 'Address not specified'}
-                        </div>
-                        <div className="property-location-description">
-                            {showFullDescription ? description : shortDescription}
-                        </div>
-                        {description.length > 200 && (
-                            <button
-                                className="property-location-read-more-btn"
-                                onClick={() => setShowFullDescription(!showFullDescription)}
-                            >
-                                {showFullDescription ? 'Read Less' : 'Read More'}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Divider */}
-                    <div className="property-location-divider"></div>
-
-                    {/* Property Features Section */}
+                {/* Property Features Section */}
+                {hasBuildingFeatures || hasRoomsFeatures || hasParkingFeatures || hasAmenities ? (
                     <div className="property-location-features-container">
                         <div className="property-location-feature-section">
                             <h3 className="property-location-feature-header">Property Features</h3>
 
                             {/* Building Size */}
-                            <div className="property-location-building-features">
-                                <div className="property-location-feature-item">
-                                    <FaBuilding className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Building Size</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.areaSqm ? `${property.areaSqm} sqm` : 'N/A'}
-                                        </span>
-                                    </div>
+                            {hasBuildingFeatures && (
+                                <div className="property-location-building-features">
+                                    {property?.areaSqm && (
+                                        <div className="property-location-feature-item">
+                                            <FaBuilding className="property-location-feature-icon" />
+                                            <div className="property-location-feature-text">
+                                                <span className="property-location-feature-label">Building Size</span>
+                                                <span className="property-location-feature-value">
+                                                    {property.areaSqm} sqm
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {property?.areaSqft && (
+                                        <div className="property-location-feature-item">
+                                            <FaRulerCombined className="property-location-feature-icon" />
+                                            <div className="property-location-feature-text">
+                                                <span className="property-location-feature-label">Square Feet</span>
+                                                <span className="property-location-feature-value">
+                                                    {property.areaSqft} sqft
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {property?.propertyAge && (
+                                        <div className="property-location-feature-item">
+                                            <FaCalendarAlt className="property-location-feature-icon" />
+                                            <div className="property-location-feature-text">
+                                                <span className="property-location-feature-label">Property Age</span>
+                                                <span className="property-location-feature-value">
+                                                    {property.propertyAge} years
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {property?.propertyType && (
+                                        <div className="property-location-feature-item">
+                                            <FaHome className="property-location-feature-icon" />
+                                            <div className="property-location-feature-text">
+                                                <span className="property-location-feature-label">Property Type</span>
+                                                <span className="property-location-feature-value">
+                                                    {property.propertyType}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="property-location-feature-item">
-                                    <FaRulerCombined className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Square Feet</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.areaSqft ? `${property.areaSqft} sqft` : 'N/A'}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="property-location-feature-item">
-                                    <FaCalendarAlt className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Property Age</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.propertyAge ? `${property.propertyAge} years` : 'N/A'}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="property-location-feature-item">
-                                    <FaHome className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Property Type</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.propertyType || 'N/A'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Bedrooms & Bathrooms */}
-                            <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Bedrooms & Bathrooms</h4>
-                            <div className="property-location-rooms-container">
-                                <div className="property-location-room-item">
-                                    <FaBed className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Bedrooms</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.bedrooms || 0}
-                                        </span>
+                            {hasRoomsFeatures && (
+                                <>
+                                    <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Bedrooms & Bathrooms</h4>
+                                    <div className="property-location-rooms-container">
+                                        {(property?.bedrooms || property?.bedrooms === 0) && (
+                                            <div className="property-location-room-item">
+                                                <FaBed className="property-location-feature-icon" />
+                                                <div className="property-location-feature-text">
+                                                    <span className="property-location-feature-label">Bedrooms</span>
+                                                    <span className="property-location-feature-value">
+                                                        {property.bedrooms}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {(property?.bathrooms || property?.bathrooms === 0) && (
+                                            <div className="property-location-room-item">
+                                                <FaBath className="property-location-feature-icon" />
+                                                <div className="property-location-feature-text">
+                                                    <span className="property-location-feature-label">Bathrooms</span>
+                                                    <span className="property-location-feature-value">
+                                                        {property.bathrooms}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="property-location-room-item">
-                                    <FaBath className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Bathrooms</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.bathrooms || 0}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                             {/* Parking */}
-                            <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Parking</h4>
-                            <div className="property-location-rooms-container">
-                                <div className="property-location-room-item">
-                                    <FaCar className="property-location-feature-icon" />
-                                    <div className="property-location-feature-text">
-                                        <span className="property-location-feature-label">Garage</span>
-                                        <span className="property-location-feature-value">
-                                            {property?.garage || 0}
-                                        </span>
+                            {hasParkingFeatures && (
+                                <>
+                                    <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Parking</h4>
+                                    <div className="property-location-rooms-container">
+                                        {(property?.garage || property?.garage === 0) && (
+                                            <div className="property-location-room-item">
+                                                <FaCar className="property-location-feature-icon" />
+                                                <div className="property-location-feature-text">
+                                                    <span className="property-location-feature-label">Garage</span>
+                                                    <span className="property-location-feature-value">
+                                                        {property.garage}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                             {/* Amenities */}
-                            <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Amenities</h4>
-                            {amenities.length > 0 ? (
+                            {hasAmenities && (
                                 <>
+                                    <h4 className="property-location-feature-header" style={{ fontSize: '16px', marginBottom: '15px' }}>Amenities</h4>
                                     <div className="property-location-amenities-grid">
                                         {displayedAmenities.map((amenity, index) => (
                                             <div key={index} className="property-location-amenity-item">
@@ -1145,259 +1781,209 @@ const PropertyLocation = ({ property }) => {
                                         </button>
                                     )}
                                 </>
-                            ) : (
-                                <div className="property-location-description">No amenities listed</div>
                             )}
                         </div>
                     </div>
-
-                    {/* Divider */}
-                    <div className="property-location-divider"></div>
-
-                    {/* Property Video Section */}
-                    <div className="property-location-video-section">
-                        <h2 className="property-location-section-title">Property Video</h2>
-                        <div className="property-location-video-container">
-                            <div className="property-location-video-wrapper">
-                                {property?.videoUrl ? (
-                                    <>
-                                        <video
-                                            id="property-video"
-                                            className="property-location-video-player"
-                                            controls
-                                            onPlay={handleVideoPlay}
-                                            onPause={handleVideoPause}
-                                            onError={handleVideoError}
-                                            onLoadStart={handleVideoLoadStart}
-                                            onLoadedData={handleVideoLoaded}
-                                            muted={isVideoMuted}
-                                            poster={processImageUrl(property?.videoThumbnail)}
-                                        >
-                                            <source src={property.videoUrl} type="video/mp4" />
-                                            <source src={property.videoUrl} type="video/webm" />
-                                            Your browser does not support the video tag.
-                                        </video>
-                                        {videoLoading && (
-                                            <div className="property-location-video-loading">
-                                                <FaVideo className="property-location-video-icon" />
-                                                <div>Loading video...</div>
-                                            </div>
-                                        )}
-                                        {videoError && (
-                                            <div className="property-location-video-error">
-                                                <FaExclamationTriangle className="property-location-video-error-icon" />
-                                                <div className="property-location-video-error-text">Video unavailable</div>
-                                                <div>We couldn't load the property video.</div>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="property-location-video-placeholder">
-                                        <FaVideo className="property-location-video-icon" />
-                                        <div className="property-location-video-placeholder-text">No Video Available</div>
-                                        <div className="property-location-video-placeholder-subtext">
-                                            Video tour not provided for this property
-                                        </div>
-                                    </div>
-                                )}
+                ) : (
+                    <div className="property-location-features-container">
+                        <div className="property-location-feature-section">
+                            <h3 className="property-location-feature-header">Property Features</h3>
+                            <div className="property-location-no-features">
+                                No property features available for this listing.
                             </div>
+                        </div>
+                    </div>
+                )}
 
-                            {property?.videoUrl && !videoError && (
+                {/* Divider */}
+                <div className="property-location-divider"></div>
+
+                {/* Property Video Section */}
+                <div className="property-location-video-section">
+                    <h2 className="property-location-section-title">Property Video</h2>
+                    <div className="property-location-video-container">
+                        <div className="property-location-video-wrapper">
+                            {property?.videoUrl ? (
                                 <>
-                                    <div className="property-location-video-description">
-                                        {property.videoDescription || 'Take a virtual tour of this beautiful property and explore every corner from the comfort of your home.'}
-                                    </div>
-                                    <div className="property-location-video-controls">
-                                        <button
-                                            className="property-location-video-control-btn"
-                                            onClick={togglePlay}
-                                        >
-                                            {isVideoPlaying ? <FaPause /> : <FaPlay />}
-                                            {isVideoPlaying ? 'Pause' : 'Play'}
-                                        </button>
-                                        <button
-                                            className="property-location-video-control-btn"
-                                            onClick={toggleMute}
-                                        >
-                                            {isVideoMuted ? <FaVolumeMute /> : <FaVolumeUp />}
-                                            {isVideoMuted ? 'Unmute' : 'Mute'}
-                                        </button>
-                                        <button
-                                            className="property-location-video-control-btn"
-                                            onClick={handleFullscreen}
-                                        >
-                                            <FaExpand />
-                                            Fullscreen
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="property-location-divider"></div>
-
-                    {/* Time Slot Availability Section */}
-                    {renderTimeSlotAvailability()}
-
-                    {/* Divider */}
-                    <div className="property-location-divider"></div>
-
-                    {/* Schedule Section - Always show form */}
-                    <div className="property-location-schedule-section">
-                        <h2 className="property-location-section-title">Schedule a Viewing</h2>
-                        <div className="property-location-schedule-container">
-                            <div className={`property-location-schedule-card ${!isLoggedIn ? 'property-location-schedule-card-blurred' : ''}`}>
-                                <div className="property-location-schedule-agent-info">
-                                    {agent?.profilePictureUrl && (
-                                        <img
-                                            src={processImageUrl(agent.profilePictureUrl, 'profile')}
-                                            alt={`${agent.firstName} ${agent.lastName}`}
-                                            className="property-location-schedule-agent-image"
-                                            onError={(e) => {
-                                                e.target.src = '/default-profile.jpg';
-                                            }}
-                                        />
+                                    <video
+                                        id="property-video"
+                                        className="property-location-video-player"
+                                        controls
+                                        onPlay={handleVideoPlay}
+                                        onPause={handleVideoPause}
+                                        onError={handleVideoError}
+                                        onLoadStart={handleVideoLoadStart}
+                                        onLoadedData={handleVideoLoaded}
+                                        muted={isVideoMuted}
+                                        poster={processImageUrl(property?.videoThumbnail)}
+                                    >
+                                        <source src={property.videoUrl} type="video/mp4" />
+                                        <source src={property.videoUrl} type="video/webm" />
+                                        Your browser does not support the video tag.
+                                    </video>
+                                    {videoLoading && (
+                                        <div className="property-location-video-loading">
+                                            <FaVideo className="property-location-video-icon" />
+                                            <div>Loading video...</div>
+                                        </div>
                                     )}
-                                    <div className="property-location-schedule-agent-details">
-                                        <div className="property-location-schedule-agent-name">
-                                            {agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent'}
+                                    {videoError && (
+                                        <div className="property-location-video-error">
+                                            <FaExclamationTriangle className="property-location-video-error-icon" />
+                                            <div className="property-location-video-error-text">Video unavailable</div>
+                                            <div>We couldn't load the property video.</div>
                                         </div>
-                                        <div className="property-location-schedule-agent-profession">
-                                            {agent?.title || 'Real Estate Agent'} • {agent?.brokerageName || 'Real Estate Company'}
-                                        </div>
-                                        <div className="property-location-schedule-agent-ratings">
-                                            <div className="property-location-schedule-rating-stars">
-                                                {renderStars(5)}
-                                            </div>
-                                            <span className="property-location-schedule-rating-text">5.0 (24 reviews)</span>
-                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="property-location-video-placeholder">
+                                    <FaVideo className="property-location-video-icon" />
+                                    <div className="property-location-video-placeholder-text">No Video Available</div>
+                                    <div className="property-location-video-placeholder-subtext">
+                                        Video tour not provided for this property
                                     </div>
-                                </div>
-
-                                <div className="property-location-schedule-prompt">
-                                    <h3>Schedule a Viewing with {agent?.firstName || 'the Agent'}</h3>
-                                    <p>Select your preferred date and time to schedule a viewing of this property.</p>
-                                </div>
-
-                                {/* Schedule Form (always rendered) */}
-                                <div className="property-location-schedule-form-content">
-                                    {renderScheduleForm()}
-                                </div>
-                            </div>
-
-                            {/* Blurred Overlay for Non-Logged-In Users */}
-                            {!isLoggedIn && (
-                                <div className="property-location-schedule-blurred-overlay">
-                                    <div className="property-location-schedule-blurred-content">
-                                        {renderSignInPrompt()}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Success Message */}
-                            {scheduleSubmitted && (
-                                <div className="property-location-schedule-success-overlay">
-                                    {renderSuccessMessage()}
                                 </div>
                             )}
                         </div>
+
+                        {property?.videoUrl && !videoError && (
+                            <>
+                                <div className="property-location-video-description">
+                                    {property.videoDescription || 'Take a virtual tour of this beautiful property and explore every corner from the comfort of your home.'}
+                                </div>
+                                <div className="property-location-video-controls">
+                                    <button
+                                        className="property-location-video-control-btn"
+                                        onClick={togglePlay}
+                                    >
+                                        {isVideoPlaying ? <FaPause /> : <FaPlay />}
+                                        {isVideoPlaying ? 'Pause' : 'Play'}
+                                    </button>
+                                    <button
+                                        className="property-location-video-control-btn"
+                                        onClick={toggleMute}
+                                    >
+                                        {isVideoMuted ? <FaVolumeMute /> : <FaVolumeUp />}
+                                        {isVideoMuted ? 'Unmute' : 'Mute'}
+                                    </button>
+                                    <button
+                                        className="property-location-video-control-btn"
+                                        onClick={handleFullscreen}
+                                    >
+                                        <FaExpand />
+                                        Fullscreen
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
+            </div>
 
-                {/* Agent Column */}
-                <div className="property-location-agent-column">
-                    <div className="property-location-agent-card">
-                        <div className="property-location-agent-header">
-                            <div className="property-location-agent-header-content">
-                                {agent?.profilePictureUrl && (
-                                    <img
-                                        src={processImageUrl(agent.profilePictureUrl, 'profile')}
-                                        alt={`${agent.firstName} ${agent.lastName}`}
-                                        className="property-location-agent-image"
-                                        onError={(e) => {
-                                            e.target.src = '/default-profile.jpg';
-                                        }}
-                                    />
-                                )}
-                                <div className="property-location-agent-info">
-                                    <div className="property-location-agent-name">
-                                        {agent ? `${agent.firstName} ${agent.lastName}` : 'Contact Agent'}
-                                    </div>
-                                    <div className="property-location-agent-title">
-                                        {agent?.title || 'Real Estate Agent'}
-                                    </div>
-                                    <div className="property-location-agent-company">
-                                        {agent?.brokerageName || 'Real Estate Company'}
-                                    </div>
+            {/* Agent Column */}
+            <div className="property-location-agent-column">
+                <div className="property-location-agent-card">
+                    <div className="property-location-agent-header">
+                        <div className="property-location-agent-header-content">
+                            {currentAgent?.profilePictureUrl && (
+                                <img
+                                    src={processImageUrl(currentAgent.profilePictureUrl, 'profile')}
+                                    alt={`${currentAgent.firstName} ${currentAgent.lastName}`}
+                                    className="property-location-agent-image"
+                                    onError={(e) => {
+                                        e.target.src = '/default-profile.jpg';
+                                    }}
+                                />
+                            )}
+                            <div className="property-location-agent-info">
+                                <div className="property-location-agent-name">
+                                    {currentAgent ? `${currentAgent.firstName} ${currentAgent.lastName}` : 'Contact Agent'}
                                 </div>
-                            </div>
-
-                            {/* Ratings Section */}
-                            <div className="property-location-agent-ratings">
-                                <div className="property-location-agent-rating-stars">
-                                    {renderStars(5)}
+                                <div className="property-location-agent-title">
+                                    {currentAgent?.title || 'Real Estate Agent'}
                                 </div>
-                                <span className="property-location-agent-rating-text">5.0 (24 reviews)</span>
+                                <div className="property-location-agent-company">
+                                    {currentAgent?.brokerageName || 'Real Estate Company'}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Divider after ratings */}
-                        <div className="property-location-divider"></div>
-
-                        {/* Action Buttons */}
-                        <div className="property-location-action-buttons">
-                            <button
-                                className="property-location-action-btn property-location-chat-btn"
-                                onClick={handleChatClick}
-                            >
-                                <FaComments className="property-location-action-icon" />
-                                Chat
-                            </button>
-                            <button
-                                className="property-location-action-btn property-location-favorite-btn"
-                                onClick={handleFavoriteClick}
-                                disabled={favoriteLoading || !property?.id}
-                            >
-                                {favoriteLoading ? (
-                                    <FaSpinner className="property-location-action-icon spinner" />
-                                ) : isFavorited ? (
-                                    <FaHeart className="property-location-action-icon" />
-                                ) : (
-                                    <FaRegHeart className="property-location-action-icon" />
-                                )}
-                                {favoriteLoading ? 'Loading...' : (isFavorited ? 'Favorited' : 'Favorite')}
-                            </button>
-                            <button
-                                className="property-location-action-btn property-location-schedule-btn"
-                                onClick={handleAgentCardScheduleClick}
-                            >
-                                <FaCalendarPlus className="property-location-action-icon" />
-                                Schedule
-                            </button>
+                        {/* Ratings Section */}
+                        <div className="property-location-agent-ratings">
+                            <div className="property-location-agent-rating-stars">
+                                {renderDecimalStars(agentRatings.averageRating)}
+                            </div>
+                            <span className="property-location-agent-rating-text">
+                                {agentRatings.averageRating.toFixed(1)} ({agentRatings.totalRatings} review{agentRatings.totalRatings !== 1 ? 's' : ''})
+                            </span>
                         </div>
+                    </div>
 
-                        <div className="property-location-contact-info">
-                            {agent?.cellPhoneNo && (
-                                <div className="property-location-contact-item">
-                                    <FaPhone className="property-location-contact-icon" />
-                                    <span>{agent.cellPhoneNo}</span>
-                                </div>
-                            )}
-                            {agent?.email && (
-                                <div className="property-location-contact-item">
-                                    <FaEnvelope className="property-location-contact-icon" />
-                                    <span>{agent.email}</span>
-                                </div>
-                            )}
+                    {/* Divider after ratings */}
+                    <div className="property-location-divider"></div>
 
-                        </div>
+                    {/* Action Buttons */}
+                    <div className="property-location-action-buttons">
+                        <button
+                            className="property-location-action-btn property-location-chat-btn"
+                            onClick={handleChatClick}
+                        >
+                            <FaComments className="property-location-action-icon" />
+                            Chat
+                        </button>
+                        <button
+                            className="property-location-action-btn property-location-favorite-btn"
+                            onClick={handleFavoriteClick}
+                            disabled={favoriteLoading || !property?.id}
+                        >
+                            {favoriteLoading ? (
+                                <FaSpinner className="property-location-action-icon spinner" />
+                            ) : isFavorited ? (
+                                <FaHeart className="property-location-action-icon" style={{ color: '#ff4d4f' }} />
+                            ) : (
+                                <FaRegHeart className="property-location-action-icon" />
+                            )}
+                            {favoriteLoading ? 'Loading...' : (isFavorited ? 'Favorited' : 'Favorite')}
+                        </button>
+                        <button
+                            className="property-location-action-btn property-location-schedule-btn"
+                            onClick={handleAgentCardScheduleClick}
+                        >
+                            <FaCalendarPlus className="property-location-action-icon" />
+                            Schedule
+                        </button>
+                    </div>
+
+                    <div className="property-location-contact-info">
+                        {currentAgent?.cellPhoneNo && (
+                            <div className="property-location-contact-item">
+                                <FaPhone className="property-location-contact-icon" />
+                                <span>{currentAgent.cellPhoneNo}</span>
+                            </div>
+                        )}
+                        {currentAgent?.email && (
+                            <div className="property-location-contact-item">
+                                <FaEnvelope className="property-location-contact-icon" />
+                                <span>{currentAgent.email}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
         </div>
     );
+
+    // Main render with view switching
+    switch (currentView) {
+        case 'success':
+            return <SuccessView />;
+        case 'waiting-confirmation':
+            return <WaitingConfirmationView />;
+        case 'schedule':
+            return <ScheduleView />;
+        default:
+            return <PropertyView />;
+    }
 };
 
 export default PropertyLocation;

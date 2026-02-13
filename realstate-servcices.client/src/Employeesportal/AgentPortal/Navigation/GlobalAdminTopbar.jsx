@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿// GlobalAdminTopbar.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Layout,
     Typography,
@@ -7,32 +8,33 @@ import {
     Space,
     Avatar,
     Badge,
-    Input,
     theme,
-    Switch,
     message,
     Grid,
     Drawer,
     List,
-    Skeleton
+    Skeleton,
+    Menu
 } from 'antd';
 import {
     QuestionCircleOutlined,
     UserOutlined,
     LogoutOutlined,
     BellOutlined,
-    MenuFoldOutlined,
-    MenuUnfoldOutlined,
     SettingOutlined,
     CloseOutlined,
     EyeOutlined,
     ReloadOutlined,
-    DeleteOutlined
+    DeleteOutlined,
+    MessageOutlined,
+    CalendarOutlined,
+    HomeOutlined,
+    MenuOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import authService from '../../../Authpage/Services/LoginAuth';
 import { useUser } from '../../../Authpage/Services/UserContextService';
-import chatService from '../../AdminPortal/Convo/chatService'; 
+import chatService from '../../AdminPortal/Convo/chatService';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -95,18 +97,65 @@ const getNotificationIcon = (type) => {
 const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [notificationDrawerVisible, setNotificationDrawerVisible] = useState(false);
+    const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [notificationCount, setNotificationCount] = useState(0);
     const [loadingNotifications, setLoadingNotifications] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useUser();
     const screens = useBreakpoint();
+    const [selectedNavKey, setSelectedNavKey] = useState('chat');
     const {
         token: { colorBgContainer },
     } = theme.useToken();
 
-    // Load real notifications
+    const isMobile = !screens.md;
+
+    // Navigation items for the sub-topbar
+    const navigationItems = [
+        {
+            key: 'chat',
+            icon: <MessageOutlined />,
+            label: 'Chat',
+            path: '/portal/agent/all-chats'
+        },
+        {
+            key: 'appointments',
+            icon: <CalendarOutlined />,
+            label: 'Appointment',
+            path: '/portal/agent/schedule'
+        },
+        {
+            key: 'properties',
+            icon: <HomeOutlined />,
+            label: 'Property',
+            path: '/portal/agent/all-properties'
+        }
+    ];
+
+    // Set selected navigation key based on current path
+    useEffect(() => {
+        const currentPath = location.pathname;
+        const currentItem = navigationItems.find(item =>
+            currentPath.startsWith(item.path)
+        );
+        if (currentItem) {
+            setSelectedNavKey(currentItem.key);
+        }
+    }, [location.pathname]);
+
+    const handleNavClick = ({ key }) => {
+        setSelectedNavKey(key);
+        const navItem = navigationItems.find(item => item.key === key);
+        if (navItem) {
+            navigate(navItem.path);
+        }
+        setMobileDrawerVisible(false);
+    };
+
+    // Enhanced real-time notification loading
     const loadNotifications = useCallback(async () => {
         if (!user) {
             setNotifications([]);
@@ -131,6 +180,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             setNotificationCount(mappedNotifications.filter(n => !n.read).length);
         } catch (error) {
             console.error('💥 Error loading notifications:', error);
+            // Fallback to empty array on error
             setNotifications([]);
             setNotificationCount(0);
         } finally {
@@ -138,7 +188,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         }
     }, [user]);
 
-    // Load notification count separately for performance
+    // Enhanced real-time notification count
     const loadNotificationCount = useCallback(async () => {
         if (!user) {
             setNotificationCount(0);
@@ -212,45 +262,90 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
         switch (notification.type) {
             case 'property':
                 if (navData?.propertyId) {
-                    navigate(`/portal/admin/properties/${navData.propertyId}`);
+                    console.log('yehey')
                 } else {
-                    navigate('/portal/admin/properties');
+                    console.log('yehey')
                 }
                 break;
             case 'schedule':
-                navigate('/portal/admin/schedule');
+                console.log('yehey')
                 break;
             case 'message':
-                if (navData?.chatId) {
-                    navigate(`/portal/admin/messages?chat=${navData.chatId}`);
-                } else {
-                    navigate('/portal/admin/messages');
-                }
+                console.log('yehey')
                 break;
             case 'system':
-                navigate('/portal/admin/system-alerts');
+                console.log('yehey')
                 break;
             default:
-                navigate('/portal/admin/notifications');
+                console.log('yehey')
         }
         setNotificationDrawerVisible(false);
     };
 
+    const refreshNotifications = () => {
+        if (user) {
+            loadNotifications();
+            loadNotificationCount();
+        }
+    };
+
+    // Enhanced real-time notification polling
+    useEffect(() => {
+        if (user) {
+            // Initial load
+            loadNotifications();
+            loadNotificationCount();
+
+            // Set up interval for real-time updates (every 30 seconds)
+            const interval = setInterval(() => {
+                loadNotificationCount(); // Lightweight count check
+
+                // Full refresh every 2 minutes
+                if (Math.floor(Date.now() / 1000) % 120 === 0) {
+                    loadNotifications();
+                }
+            }, 30000);
+
+            return () => clearInterval(interval);
+        } else {
+            // Clean up when user logs out
+            setNotifications([]);
+            setNotificationCount(0);
+        }
+    }, [user, loadNotifications, loadNotificationCount]);
+
+    // Listen for global notification events (if implemented elsewhere)
+    useEffect(() => {
+        const handleGlobalNotificationUpdate = () => {
+            refreshNotifications();
+        };
+
+        // Listen for custom events or global state changes
+        window.addEventListener('notificationUpdate', handleGlobalNotificationUpdate);
+
+        return () => {
+            window.removeEventListener('notificationUpdate', handleGlobalNotificationUpdate);
+        };
+    }, []);
+
     const handleLogout = () => {
         logout();
         message.success('Logged out successfully');
-        window.location.href = '/';
+        window.location.href = '/login';
         setDropdownVisible(false);
+        setMobileDrawerVisible(false);
     };
 
     const handleProfile = () => {
         navigate('/portal/agent/profile');
         setDropdownVisible(false);
+        setMobileDrawerVisible(false);
     };
 
     const handleSettings = () => {
         navigate('/settings');
         setDropdownVisible(false);
+        setMobileDrawerVisible(false);
     };
 
     const handleHelp = () => {
@@ -258,37 +353,9 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
     };
 
     const handleNotifications = () => {
-        if (mobileView) {
-            setNotificationDrawerVisible(true);
-        } else {
-            // For desktop, show dropdown
-            console.log('Notifications clicked - desktop view');
-        }
+        setNotificationDrawerVisible(true);
+        refreshNotifications();
     };
-
-    const refreshNotifications = () => {
-        loadNotifications();
-        loadNotificationCount();
-    };
-
-    // Load notifications on component mount and user change
-    useEffect(() => {
-        if (user) {
-            loadNotifications();
-            loadNotificationCount();
-        }
-    }, [user, loadNotifications, loadNotificationCount]);
-
-    // Auto-refresh notifications every 30 seconds
-    useEffect(() => {
-        if (user) {
-            const interval = setInterval(() => {
-                loadNotificationCount(); // Lightweight count check
-            }, 30000);
-
-            return () => clearInterval(interval);
-        }
-    }, [user, loadNotificationCount]);
 
     const getDisplayName = () => {
         if (!user) return 'Admin';
@@ -347,7 +414,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
 
     const NotificationContent = () => (
         <div style={{
-            width: 320,
+            width: isMobile ? '100%' : 320,
             maxHeight: 400,
             overflow: 'auto',
             background: 'white',
@@ -481,7 +548,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 <Button
                     type="link"
                     onClick={() => {
-                        navigate('/portal/admin/notifications');
+                    
                         setNotificationDrawerVisible(false);
                     }}
                     icon={<EyeOutlined />}
@@ -522,9 +589,153 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             placement="right"
             onClose={() => setNotificationDrawerVisible(false)}
             open={notificationDrawerVisible}
-            width={mobileView ? '100%' : 400}
+            width={isMobile ? '100%' : 400}
         >
             <NotificationContent />
+        </Drawer>
+    );
+
+    const MobileDrawer = () => (
+        <Drawer
+            title={
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingRight: '8px'
+                }}>
+                    <span style={{
+                        fontWeight: 'bold',
+                        fontSize: '18px',
+                        color: '#001529'
+                    }}>
+                        Menu
+                    </span>
+                    <Button
+                        type="text"
+                        icon={<CloseOutlined />}
+                        onClick={() => setMobileDrawerVisible(false)}
+                        aria-label="Close menu"
+                        style={{
+                            color: '#001529'
+                        }}
+                    />
+                </div>
+            }
+            placement="right"
+            onClose={() => setMobileDrawerVisible(false)}
+            open={mobileDrawerVisible}
+            closable={false}
+            width={280}
+            bodyStyle={{
+                padding: '16px 0'
+            }}
+        >
+            {/* Navigation Menu for Mobile */}
+            <Menu
+                mode="vertical"
+                selectedKeys={[selectedNavKey]}
+                onClick={handleNavClick}
+                style={{
+                    border: 'none',
+                    marginBottom: '16px'
+                }}
+                items={navigationItems.map(item => ({
+                    key: item.key,
+                    icon: item.icon,
+                    label: item.label,
+                    style: {
+                        padding: '12px 20px',
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        margin: '0',
+                        height: 'auto',
+                        lineHeight: '1.5',
+                        border: 'none'
+                    }
+                }))}
+            />
+
+            {/* User Info Section */}
+            <div style={{
+                marginTop: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                padding: '0 20px',
+                borderTop: '1px solid #f0f0f0',
+                paddingTop: '20px'
+            }}>
+                {/* User Info */}
+                <div style={{
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #f0f0f0',
+                    background: 'rgba(0,0,0,0.02)'
+                }}>
+                    <div style={{
+                        fontWeight: '600',
+                        fontSize: '16px',
+                        color: '#001529',
+                        marginBottom: '4px'
+                    }}>
+                        {getDisplayName()}
+                    </div>
+                    <div style={{
+                        fontSize: '14px',
+                        color: '#666',
+                        marginBottom: '6px'
+                    }}>
+                        {user?.email || 'No email'}
+                    </div>
+                    <div style={{
+                        fontSize: '12px',
+                        color: '#888',
+                        fontWeight: '500',
+                        background: 'rgba(0, 21, 41, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                    }}>
+                        {getRoleDisplayName()}
+                    </div>
+                </div>
+
+                <Button
+                    size="large"
+                    icon={<UserOutlined />}
+                    onClick={handleProfile}
+                    style={{
+                        color: '#001529',
+                        borderColor: '#001529',
+                        fontWeight: '500',
+                        height: '44px',
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start'
+                    }}
+                >
+                    My Profile
+                </Button>
+              
+                <Button
+                    size="large"
+                    icon={<LogoutOutlined />}
+                    danger
+                    onClick={handleLogout}
+                    style={{
+                        fontWeight: '500',
+                        height: '44px',
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        marginTop: '8px'
+                    }}
+                >
+                    Logout
+                </Button>
+            </div>
         </Drawer>
     );
 
@@ -540,24 +751,24 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                 }}>
                     <div style={{
                         fontWeight: '600',
-                        fontSize: mobileView ? '14px' : '13px',
-                        color: '#1a365d',
+                        fontSize: '13px',
+                        color: '#001529',
                         marginBottom: '4px'
                     }}>
                         {getDisplayName()}
                     </div>
                     <div style={{
-                        fontSize: mobileView ? '13px' : '12px',
+                        fontSize: '12px',
                         color: '#666',
                         marginBottom: '6px'
                     }}>
                         {user?.email || 'No email'}
                     </div>
                     <div style={{
-                        fontSize: mobileView ? '12px' : '11px',
+                        fontSize: '11px',
                         color: '#888',
                         fontWeight: '500',
-                        background: 'rgba(26, 54, 93, 0.1)',
+                        background: 'rgba(0, 21, 41, 0.1)',
                         padding: '4px 8px',
                         borderRadius: '4px',
                         display: 'inline-block'
@@ -577,12 +788,7 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
             label: 'My Profile',
             onClick: handleProfile,
         },
-        {
-            key: 'settings',
-            icon: <SettingOutlined />,
-            label: 'Settings',
-            onClick: handleSettings,
-        },
+     
         {
             type: 'divider',
         },
@@ -597,11 +803,13 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
 
     return (
         <>
+            {/* Main Topbar */}
             <Header
                 style={{
-                    background: colorBgContainer,
-                    padding: mobileView ? '0 16px' : '0 24px',
-                    boxShadow: '0 1px 4px rgba(0,21,41,.08)',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '0.5px solid rgba(0, 0, 0, 0.1)',
+                    padding: isMobile ? '0 16px' : '0 24px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -611,74 +819,177 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                     right: 0,
                     zIndex: 1000,
                     height: 64,
-                    borderBottom: '1px solid #f0f0f0',
                     width: '100%',
                 }}
             >
                 {/* Left Side */}
                 <Space size="middle">
-                    {/* Collapse Toggle */}
-                    <Button
-                        type="text"
-                        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                        onClick={onToggle}
+                    {/* Logo */}
+                    <div
                         style={{
-                            fontSize: '18px',
-                            width: 40,
-                            height: 40,
-                            color: '#1a365d',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            userSelect: 'none',
+                            height: '40px',
                             display: 'flex',
                             alignItems: 'center',
+                            flexDirection: 'column',
                             justifyContent: 'center'
                         }}
-                    />
-
-                    {/* Logo */}
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <Text
-                            strong
-                            style={{
-                                fontSize: mobileView ? '18px' : '20px',
-                                color: '#1a365d',
-                                fontWeight: 800,
-                                lineHeight: 1.2,
-                            }}
-                        >
+                        onClick={() => navigate()}
+                        role="button"
+                        tabIndex={0}
+                        onKeyPress={(e) => e.key === 'Enter'}
+                        aria-label="Betheland Home"
+                    >
+                        <div style={{
+                            color: '#001529',
+                            fontSize: '20px',
+                            fontWeight: 'bold',
+                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                            lineHeight: '1.2'
+                        }}>
                             BETHELAND
-                        </Text>
-                        <Text
-                            style={{
-                                fontSize: mobileView ? '10px' : '11px',
-                                color: '#666',
-                                fontWeight: 400,
-                                lineHeight: 1.2,
-                                marginTop: '2px',
-                            }}
-                        >
+                        </div>
+                        <div style={{
+                            color: '#666',
+                            fontSize: '10px',
+                            fontWeight: 'normal',
+                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                            lineHeight: '1.2',
+                            marginTop: '2px',
+                            letterSpacing: '0.5px'
+                        }}>
                             Real Estate Services
-                        </Text>
+                        </div>
                     </div>
                 </Space>
 
-                {/* Right Side */}
-                <Space size="middle">
-                    {/* Notifications */}
-                    <Dropdown
-                        overlay={<NotificationContent />}
-                        trigger={['click']}
-                        placement="bottomRight"
-                        disabled={mobileView}
-                        overlayStyle={{
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                            borderRadius: '8px',
-                            background: 'white'
-                        }}
-                        onOpenChange={(open) => {
-                            if (open && !mobileView) {
-                                refreshNotifications();
-                            }
-                        }}
-                    >
+                {/* Right Side - Only show on desktop */}
+                {!isMobile && (
+                    <Space size="middle">
+                        {/* Notifications */}
+                        <Dropdown
+                            overlay={<NotificationContent />}
+                            trigger={['click']}
+                            placement="bottomRight"
+                            overlayStyle={{
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                                borderRadius: '8px',
+                                background: 'white'
+                            }}
+                            onOpenChange={(open) => {
+                                if (open) {
+                                    refreshNotifications();
+                                }
+                            }}
+                        >
+                            <Badge
+                                count={notificationCount}
+                                size="small"
+                                style={{
+                                    backgroundColor: '#ff4d4f',
+                                }}
+                            >
+                                <Button
+                                    type="text"
+                                    icon={<BellOutlined />}
+                                    style={{
+                                        width: 40,
+                                        height: 40,
+                                        color: '#001529',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                />
+                            </Badge>
+                        </Dropdown>
+
+                      
+                        {/* Mobile Menu Button - Moved to be next to Help button */}
+                        <Button
+                            type="text"
+                            icon={<MenuOutlined />}
+                            onClick={() => setMobileDrawerVisible(true)}
+                            style={{
+                                color: '#001529',
+                                width: 40,
+                                height: 40,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        />
+
+                        {/* Profile Dropdown */}
+                        <Dropdown
+                            menu={{ items: profileMenuItems }}
+                            trigger={['click']}
+                            open={dropdownVisible}
+                            onOpenChange={setDropdownVisible}
+                            placement="bottomRight"
+                            overlayStyle={{
+                                minWidth: 220,
+                            }}
+                        >
+                            <Button
+                                type="text"
+                                style={{
+                                    padding: '4px 12px',
+                                    height: 'auto',
+                                    borderRadius: '8px',
+                                    border: '1px solid transparent',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = '#001529';
+                                    e.currentTarget.style.backgroundColor = 'rgba(0, 21, 41, 0.04)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = 'transparent';
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                            >
+                                <Space size="small">
+                                    <Avatar
+                                        size="small"
+                                        style={{
+                                            backgroundColor: '#001529',
+                                            verticalAlign: 'middle',
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {getUserInitials()}
+                                    </Avatar>
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-start',
+                                        lineHeight: 1.2,
+                                    }}>
+                                        <Text strong style={{
+                                            fontSize: '13px',
+                                            color: '#001529',
+                                        }}>
+                                            {getDisplayName()}
+                                        </Text>
+                                        <Text type="secondary" style={{
+                                            fontSize: '11px',
+                                        }}>
+                                            {getRoleDisplayName()}
+                                        </Text>
+                                    </div>
+                                </Space>
+                            </Button>
+                        </Dropdown>
+                    </Space>
+                )}
+
+                {/* Right Side - Mobile only icons */}
+                {isMobile && (
+                    <Space size="small">
+                        {/* Notifications Button for Mobile */}
                         <Badge
                             count={notificationCount}
                             size="small"
@@ -689,27 +1000,40 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                             <Button
                                 type="text"
                                 icon={<BellOutlined />}
-                                onClick={mobileView ? handleNotifications : undefined}
+                                onClick={handleNotifications}
                                 style={{
                                     width: 40,
                                     height: 40,
-                                    color: '#1a365d',
+                                    color: '#001529',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}
                             />
                         </Badge>
-                    </Dropdown>
 
-                    {/* Help Button */}
-                    {mobileView ? (
+                        {/* Help Button for Mobile */}
                         <Button
                             type="text"
                             icon={<QuestionCircleOutlined />}
                             onClick={handleHelp}
                             style={{
-                                color: '#1a365d',
+                                width: 40,
+                                height: 40,
+                                color: '#001529',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        />
+
+                        {/* Mobile Menu Button */}
+                        <Button
+                            type="text"
+                            icon={<MenuOutlined />}
+                            onClick={() => setMobileDrawerVisible(true)}
+                            style={{
+                                color: '#001529',
                                 width: 40,
                                 height: 40,
                                 display: 'flex',
@@ -717,87 +1041,60 @@ const GlobalAdminTopbar = ({ onToggle, collapsed, mobileView }) => {
                                 justifyContent: 'center'
                             }}
                         />
-                    ) : (
-                        <Button
-                            type="text"
-                            icon={<QuestionCircleOutlined />}
-                            onClick={handleHelp}
-                            style={{
-                                color: '#1a365d',
-                            }}
-                        >
-                            Help
-                        </Button>
-                    )}
-
-                    {/* Profile Dropdown */}
-                    <Dropdown
-                        menu={{ items: profileMenuItems }}
-                        trigger={['click']}
-                        open={dropdownVisible}
-                        onOpenChange={setDropdownVisible}
-                        placement="bottomRight"
-                        overlayStyle={{
-                            minWidth: 220,
-                        }}
-                    >
-                        <Button
-                            type="text"
-                            style={{
-                                padding: mobileView ? '4px' : '4px 12px',
-                                height: 'auto',
-                                borderRadius: '8px',
-                                border: '1px solid transparent',
-                                transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = '#1a365d';
-                                e.currentTarget.style.backgroundColor = 'rgba(26, 54, 93, 0.04)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                        >
-                            <Space size="small">
-                                <Avatar
-                                    size={mobileView ? "default" : "small"}
-                                    style={{
-                                        backgroundColor: '#1a365d',
-                                        verticalAlign: 'middle',
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    {getUserInitials()}
-                                </Avatar>
-                                {!mobileView && (
-                                    <div style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'flex-start',
-                                        lineHeight: 1.2,
-                                    }}>
-                                        <Text strong style={{
-                                            fontSize: '13px',
-                                            color: '#1a365d',
-                                        }}>
-                                            {getDisplayName()}
-                                        </Text>
-                                        <Text type="secondary" style={{
-                                            fontSize: '11px',
-                                        }}>
-                                            {getRoleDisplayName()}
-                                        </Text>
-                                    </div>
-                                )}
-                            </Space>
-                        </Button>
-                    </Dropdown>
-                </Space>
+                    </Space>
+                )}
             </Header>
 
-            {/* Notification Drawer for Mobile */}
+            {/* Sub Navigation Bar - Only show on desktop */}
+            {!isMobile && (
+                <Header
+                    style={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        padding: '0 24px',
+                        borderBottom: '0.5px solid rgba(0, 0, 0, 0.1)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        position: 'fixed',
+                        top: 64,
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                        height: 45,
+                        width: '100%',
+                    }}
+                >
+                    <Menu
+                        mode="horizontal"
+                        selectedKeys={[selectedNavKey]}
+                        onClick={handleNavClick}
+                        style={{
+                            flex: 1,
+                            border: 'none',
+                            background: 'transparent',
+                            lineHeight: '44px',
+                        }}
+                        items={navigationItems.map(item => ({
+                            key: item.key,
+                            icon: item.icon,
+                            label: item.label,
+                            style: {
+                                fontWeight: selectedNavKey === item.key ? 600 : 400,
+                                color: selectedNavKey === item.key ? '#001529' : '#666',
+                                borderBottom: selectedNavKey === item.key ? '2px solid #001529' : '2px solid transparent',
+                                marginBottom: '-2px',
+                            }
+                        }))}
+                    />
+                </Header>
+            )}
+
+            {/* Notification Drawer */}
             <NotificationDrawer />
+
+            {/* Mobile Navigation Drawer */}
+            <MobileDrawer />
         </>
     );
 };

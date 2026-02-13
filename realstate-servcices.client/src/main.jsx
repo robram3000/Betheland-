@@ -286,11 +286,7 @@ createRoot(document.getElementById('root')).render(
                                 requiredRole="Agent"
                                 requiredPermission="manage_profile"
                             >
-                                <AgentLayout>
-                                    <BaseChatAgent>
-                                     
-                                    </BaseChatAgent>
-                                </AgentLayout>
+                                    <BaseChatAgent/>        
                             </ProtectedRoute>
                         }
                     />
@@ -298,16 +294,16 @@ createRoot(document.getElementById('root')).render(
                         <ProtectedRoute requiredRole="Agent"
                             requiredPermission= "manage_profile"
                         >
-                           
+  
                                 <ProfileLayoutAgent />
                          
                         </ProtectedRoute>
                     } />
                     <Route path="/portal/agent/schedule" element={
                         <ProtectedRoute requiredRole="Agent">
-                            <AgentLayout>
+                           
                                 <AgentScheduleLayout />
-                            </AgentLayout>
+                         
                         </ProtectedRoute>
                     } />
 

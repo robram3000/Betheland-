@@ -1,4 +1,4 @@
-// EditAgent.jsx
+// EditAgent.jsx - Mobile Optimized
 import React, { useState, useEffect } from 'react';
 import {
     Form,
@@ -19,7 +19,8 @@ import {
     Alert,
     Descriptions,
     Avatar,
-    Tag
+    Tag,
+    Grid
 } from 'antd';
 import {
     UserOutlined,
@@ -42,6 +43,7 @@ import moment from 'moment';
 const { Option } = Select;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const EditAgent = ({ agent, onSuccess, onCancel }) => {
     const [form] = Form.useForm();
@@ -50,6 +52,9 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
     const [originalAgent, setOriginalAgent] = useState(null);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     useEffect(() => {
         if (agent) {
@@ -279,19 +284,23 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
         <div>
             {/* Agent Info Summary */}
             {originalAgent && (
-                <Card size="small" style={{ marginBottom: 16 }} bodyStyle={{ padding: '12px' }}>
-                    <Descriptions size="small" column={2}>
+                <Card size="small" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '8px' : '12px' }}>
+                    <Descriptions size="small" column={isMobile ? 1 : 2}>
                         <Descriptions.Item label="Current Status">
                             <Space>
                                 <Avatar size="small" src={originalAgent.profilePictureUrl} icon={<UserOutlined />} />
-                                <Text strong>{originalAgent.firstName} {originalAgent.lastName}</Text>
+                                <Text strong style={{ fontSize: isMobile ? '12px' : '14px' }}>
+                                    {originalAgent.firstName} {originalAgent.lastName}
+                                </Text>
                                 <Tag color={originalAgent.isVerified ? 'green' : 'orange'} icon={originalAgent.isVerified ? <CheckOutlined /> : <CloseOutlined />}>
                                     {originalAgent.isVerified ? 'Verified' : 'Unverified'}
                                 </Tag>
                             </Space>
                         </Descriptions.Item>
                         <Descriptions.Item label="Last Updated">
-                            {originalAgent.updatedAt ? moment(originalAgent.updatedAt).format('MMM DD, YYYY') : 'Never'}
+                            <Text style={{ fontSize: isMobile ? '12px' : '14px' }}>
+                                {originalAgent.updatedAt ? moment(originalAgent.updatedAt).format('MMM DD, YYYY') : 'Never'}
+                            </Text>
                         </Descriptions.Item>
                     </Descriptions>
                 </Card>
@@ -306,15 +315,15 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                 onFieldsChange={clearError}
                 scrollToFirstError
             >
-                <Row gutter={[16, 16]}>
+                <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
                     {/* Left Column - Personal & Professional Info */}
                     <Col xs={24} lg={12}>
                         {/* Profile Picture */}
-                        <Card size="small" title="Profile Picture" style={{ marginBottom: 16 }}>
+                        <Card size="small" title="Profile Picture" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                             <div style={{ textAlign: 'center' }}>
                                 <ProfilePictureUpload />
                                 {imageUrl && (
-                                    <Text type="success" style={{ display: 'block', marginTop: 8 }}>
+                                    <Text type="success" style={{ display: 'block', marginTop: 8, fontSize: isMobile ? '12px' : '14px' }}>
                                         <CheckOutlined /> Profile picture uploaded
                                     </Text>
                                 )}
@@ -322,43 +331,61 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                         </Card>
 
                         {/* Personal Information */}
-                        <Card size="small" title="Personal Information" style={{ marginBottom: 16 }}>
-                            <Row gutter={[8, 8]}>
-                                <Col span={8}>
+                        <Card size="small" title="Personal Information" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
+                            <Row gutter={[isMobile ? 4 : 8, isMobile ? 4 : 8]}>
+                                <Col span={isMobile ? 24 : 8}>
                                     <Form.Item
                                         label="First Name"
                                         name="firstName"
                                         rules={[{ required: true, message: 'Please enter first name' }]}
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <Input prefix={<UserOutlined />} placeholder="First name" />
+                                        <Input
+                                            prefix={<UserOutlined />}
+                                            placeholder="First name"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={isMobile ? 24 : 8}>
                                     <Form.Item
                                         label="Middle Name"
                                         name="middleName"
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <Input placeholder="Middle name" />
+                                        <Input
+                                            placeholder="Middle name"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={isMobile ? 24 : 8}>
                                     <Form.Item
                                         label="Last Name"
                                         name="lastName"
                                         rules={[{ required: true, message: 'Please enter last name' }]}
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <Input placeholder="Last name" />
+                                        <Input
+                                            placeholder="Last name"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
                             </Row>
 
-                            <Row gutter={[8, 8]}>
-                                <Col span={6}>
+                            <Row gutter={[isMobile ? 4 : 8, isMobile ? 4 : 8]}>
+                                <Col span={isMobile ? 24 : 6}>
                                     <Form.Item
                                         label="Suffix"
                                         name="suffix"
+                                        style={{ marginBottom: isMobile ? 8 : 0 }}
                                     >
-                                        <Select placeholder="Suffix" allowClear>
+                                        <Select
+                                            placeholder="Suffix"
+                                            allowClear
+                                            size={isMobile ? "small" : "middle"}
+                                        >
                                             <Option value="Jr">Jr</Option>
                                             <Option value="Sr">Sr</Option>
                                             <Option value="II">II</Option>
@@ -367,7 +394,7 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                                         </Select>
                                     </Form.Item>
                                 </Col>
-                                <Col span={9}>
+                                <Col span={isMobile ? 24 : 9}>
                                     <Form.Item
                                         label="Cell Phone"
                                         name="cellPhoneNo"
@@ -375,6 +402,7 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                                             { required: true, message: 'Please enter phone number' },
                                             { pattern: /^\d{11}$/, message: 'Must be 11 digits' }
                                         ]}
+                                        style={{ marginBottom: isMobile ? 8 : 0 }}
                                     >
                                         <Input
                                             prefix={<PhoneOutlined />}
@@ -383,10 +411,11 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                                             onInput={(e) => {
                                                 e.target.value = e.target.value.replace(/\D/g, '');
                                             }}
+                                            size={isMobile ? "small" : "middle"}
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col span={9}>
+                                <Col span={isMobile ? 24 : 9}>
                                     <Form.Item
                                         label="Email"
                                         name="email"
@@ -394,56 +423,78 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                                             { required: true, message: 'Please enter email' },
                                             { type: 'email', message: 'Please enter valid email' }
                                         ]}
+                                        style={{ marginBottom: isMobile ? 8 : 0 }}
                                     >
-                                        <Input prefix={<MailOutlined />} placeholder="Email address" />
+                                        <Input
+                                            prefix={<MailOutlined />}
+                                            placeholder="Email address"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
                             </Row>
                         </Card>
 
                         {/* Professional Information */}
-                        <Card size="small" title="Professional Information" style={{ marginBottom: 16 }}>
-                            <Row gutter={[8, 8]}>
-                                <Col span={12}>
+                        <Card size="small" title="Professional Information" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
+                            <Row gutter={[isMobile ? 4 : 8, isMobile ? 4 : 8]}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="License Number"
                                         name="licenseNumber"
                                         rules={[{ required: true, message: 'Please enter license number' }]}
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <Input prefix={<IdcardOutlined />} placeholder="License number" />
+                                        <Input
+                                            prefix={<IdcardOutlined />}
+                                            placeholder="License number"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="License Expiry"
                                         name="licenseExpiry"
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <DatePicker style={{ width: '100%' }} placeholder="Expiry date" />
+                                        <DatePicker
+                                            style={{ width: '100%' }}
+                                            placeholder="Expiry date"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
                             </Row>
 
-                            <Row gutter={[8, 8]}>
-                                <Col span={12}>
+                            <Row gutter={[isMobile ? 4 : 8, isMobile ? 4 : 8]}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="Years of Experience"
                                         name="yearsOfExperience"
                                         rules={[{ type: 'number', min: 0, max: 50 }]}
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
                                         <InputNumber
                                             style={{ width: '100%' }}
                                             placeholder="Years"
                                             min={0}
                                             max={50}
+                                            size={isMobile ? "small" : "middle"}
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="Brokerage Name"
                                         name="brokerageName"
+                                        style={{ marginBottom: isMobile ? 8 : 8 }}
                                     >
-                                        <Input prefix={<ShopOutlined />} placeholder="Brokerage name" />
+                                        <Input
+                                            prefix={<ShopOutlined />}
+                                            placeholder="Brokerage name"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
                             </Row>
@@ -451,11 +502,13 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="Specialization"
                                 name="specialization"
+                                style={{ marginBottom: isMobile ? 8 : 16 }}
                             >
                                 <Select
                                     mode="multiple"
                                     placeholder="Select specializations"
                                     allowClear
+                                    size={isMobile ? "small" : "middle"}
                                 >
                                     {specializationOptions.map(spec => (
                                         <Option key={spec} value={spec}>{spec}</Option>
@@ -466,8 +519,13 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="Experience Summary"
                                 name="experience"
+                                style={{ marginBottom: 0 }}
                             >
-                                <TextArea rows={2} placeholder="Professional experience summary" />
+                                <TextArea
+                                    rows={2}
+                                    placeholder="Professional experience summary"
+                                    size={isMobile ? "small" : "middle"}
+                                />
                             </Form.Item>
                         </Card>
                     </Col>
@@ -475,30 +533,44 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                     {/* Right Column - Contact & Additional Info */}
                     <Col xs={24} lg={12}>
                         {/* Contact Information */}
-                        <Card size="small" title="Contact Information" style={{ marginBottom: 16 }}>
+                        <Card size="small" title="Contact Information" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                             <Form.Item
                                 label="Office Address"
                                 name="officeAddress"
+                                style={{ marginBottom: isMobile ? 8 : 16 }}
                             >
-                                <TextArea rows={2} placeholder="Full office address" />
+                                <TextArea
+                                    rows={2}
+                                    placeholder="Full office address"
+                                    size={isMobile ? "small" : "middle"}
+                                />
                             </Form.Item>
 
-                            <Row gutter={[8, 8]}>
-                                <Col span={12}>
+                            <Row gutter={[isMobile ? 4 : 8, isMobile ? 4 : 8]}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="Office Phone"
                                         name="officePhone"
+                                        style={{ marginBottom: isMobile ? 8 : 0 }}
                                     >
-                                        <Input placeholder="Office phone number" />
+                                        <Input
+                                            placeholder="Office phone number"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col span={isMobile ? 24 : 12}>
                                     <Form.Item
                                         label="Website"
                                         name="website"
                                         rules={[{ type: 'url', message: 'Please enter valid URL' }]}
+                                        style={{ marginBottom: isMobile ? 8 : 0 }}
                                     >
-                                        <Input prefix={<GlobalOutlined />} placeholder="https://example.com" />
+                                        <Input
+                                            prefix={<GlobalOutlined />}
+                                            placeholder="https://example.com"
+                                            size={isMobile ? "small" : "middle"}
+                                        />
                                     </Form.Item>
                                 </Col>
                             </Row>
@@ -506,11 +578,13 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                             <Form.Item
                                 label="Languages Spoken"
                                 name="languages"
+                                style={{ marginBottom: 0 }}
                             >
                                 <Select
                                     mode="multiple"
                                     placeholder="Select languages"
                                     allowClear
+                                    size={isMobile ? "small" : "middle"}
                                 >
                                     {languageOptions.map(lang => (
                                         <Option key={lang} value={lang}>{lang}</Option>
@@ -520,47 +594,56 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                         </Card>
 
                         {/* Additional Information */}
-                        <Card size="small" title="Additional Information" style={{ marginBottom: 16 }}>
+                        <Card size="small" title="Additional Information" style={{ marginBottom: 16 }} bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                             <Form.Item
                                 label="Education & Certifications"
                                 name="education"
+                                style={{ marginBottom: isMobile ? 8 : 16 }}
                             >
                                 <TextArea
                                     rows={2}
                                     placeholder="Educational background and certifications"
-                                    prefix={<ReadOutlined />}
+                                    size={isMobile ? "small" : "middle"}
                                 />
                             </Form.Item>
 
                             <Form.Item
                                 label="Awards & Recognition"
                                 name="awards"
+                                style={{ marginBottom: isMobile ? 8 : 16 }}
                             >
                                 <TextArea
                                     rows={2}
                                     placeholder="Awards, honors, and recognition"
-                                    prefix={<TrophyOutlined />}
+                                    size={isMobile ? "small" : "middle"}
                                 />
                             </Form.Item>
 
                             <Form.Item
                                 label="Professional Bio"
                                 name="bio"
+                                style={{ marginBottom: 0 }}
                             >
-                                <TextArea rows={3} placeholder="Detailed professional biography" />
+                                <TextArea
+                                    rows={3}
+                                    placeholder="Detailed professional biography"
+                                    size={isMobile ? "small" : "middle"}
+                                />
                             </Form.Item>
                         </Card>
 
                         {/* Verification */}
-                        <Card size="small" title="Verification">
+                        <Card size="small" title="Verification" bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
                             <Form.Item
                                 label="Agent Verified"
                                 name="isVerified"
                                 valuePropName="checked"
+                                style={{ marginBottom: 0 }}
                             >
                                 <Switch
                                     checkedChildren="Verified"
                                     unCheckedChildren="Not Verified"
+                                    size={isMobile ? "small" : "default"}
                                 />
                             </Form.Item>
                         </Card>
@@ -570,10 +653,10 @@ const EditAgent = ({ agent, onSuccess, onCancel }) => {
                 <Divider />
                 <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
                     <Space>
-                        <Button onClick={onCancel} disabled={loading}>
+                        <Button onClick={onCancel} disabled={loading} size={isMobile ? "middle" : "large"}>
                             Cancel
                         </Button>
-                        <Button type="primary" htmlType="submit" loading={loading}>
+                        <Button type="primary" htmlType="submit" loading={loading} size={isMobile ? "middle" : "large"}>
                             Update Agent
                         </Button>
                     </Space>

@@ -15,7 +15,8 @@ import {
     Avatar,
     Row,
     Col,
-    Popconfirm
+    Popconfirm,
+    Grid
 } from 'antd';
 import {
     PlusOutlined,
@@ -35,9 +36,21 @@ import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService
 
 // Destructure necessary components
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
 // Initialize service
 const agentAvailabilityService = new AgentAvailabilityService();
+
+// Day of week mapping
+const daysOfWeek = [
+    { name: 'Sunday', value: 0 },
+    { name: 'Monday', value: 1 },
+    { name: 'Tuesday', value: 2 },
+    { name: 'Wednesday', value: 3 },
+    { name: 'Thursday', value: 4 },
+    { name: 'Friday', value: 5 },
+    { name: 'Saturday', value: 6 }
+];
 
 const AgentAvailability = ({ onScheduleUpdate }) => {
     const [availabilities, setAvailabilities] = useState([]);
@@ -48,21 +61,44 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
     const [agents, setAgents] = useState([]);
     const [agentsCache, setAgentsCache] = useState({});
     const [agentLoading, setAgentLoading] = useState({});
+    const [submitting, setSubmitting] = useState(false);
 
-    const daysOfWeek = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday'
-    ];
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     useEffect(() => {
         loadAvailabilities();
         loadAgents();
     }, []);
+
+    // Enhanced error handler
+    const handleApiError = (error) => {
+        console.error('API Error:', error);
+
+        if (error.response?.data) {
+            const serverError = error.response.data;
+
+            if (typeof serverError === 'string') {
+                return serverError;
+            }
+
+            if (serverError.message) {
+                return serverError.message;
+            }
+
+            if (serverError.details) {
+                return Array.isArray(serverError.details)
+                    ? serverError.details.join(', ')
+                    : serverError.details;
+            }
+        }
+
+        if (error.message) {
+            return error.message;
+        }
+
+        return 'An unexpected error occurred';
+    };
 
     // Copy the agent data loader algorithm from PropertyPage
     const loadAgentData = useCallback(async (agentId) => {
@@ -135,12 +171,12 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
         try {
             const result = await agentAvailabilityService.getAllAvailabilities();
 
-            // Enhanced availabilities loader with agent data (similar to PropertyPage)
+            // Enhanced availabilities loader with agent data
             if (result && result.length > 0) {
                 // First, set availabilities with basic data
                 const initialAvailabilities = result.map(availability => ({
                     ...availability,
-                    agent: availability.agent || null // Keep existing agent data if any
+                    agent: availability.agent || null
                 }));
 
                 setAvailabilities(initialAvailabilities);
@@ -178,7 +214,8 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
             }
         } catch (error) {
             console.error('Error loading availabilities:', error);
-            message.error(error.message || 'Failed to load availabilities');
+            const errorMessage = handleApiError(error);
+            message.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -186,21 +223,46 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
 
     const loadAgents = async () => {
         try {
+            console.log('Loading agents for availability dropdown...');
+
             // Load all agents for the dropdown
-            const allAgents = await agentService.getAllAgents();
-            const processedAgents = allAgents.map(agent => ({
-                id: agent.id,
-                firstName: agent.firstName || 'Unknown',
-                lastName: agent.lastName || 'Agent',
-                email: agent.email || '',
-                cellPhoneNo: agent.cellPhoneNo || '',
-                profilePictureUrl: agent.profilePictureUrl || '',
-                licenseNumber: agent.licenseNumber || ''
-            }));
+            const allAgents = await agentService.getAgents();
+            console.log('Raw agents data received:', allAgents);
+
+            // Enhanced agent processing with better error handling
+            const processedAgents = allAgents.map(agent => {
+                // Ensure we have basic required fields
+                const processedAgent = {
+                    id: agent.id || 0,
+                    firstName: agent.firstName || 'Unknown',
+                    lastName: agent.lastName || 'Agent',
+                    email: agent.email || '',
+                    cellPhoneNo: agent.cellPhoneNo || '',
+                    profilePictureUrl: agent.profilePictureUrl || '',
+                    licenseNumber: agent.licenseNumber || ''
+                };
+
+                // Log any problematic agents
+                if (!agent.id) {
+                    console.warn('Agent without ID found:', agent);
+                }
+
+                return processedAgent;
+            }).filter(agent => agent.id > 0); // Filter out invalid agents
+
+            console.log('Processed agents for dropdown:', processedAgents);
             setAgents(processedAgents);
+
+            if (processedAgents.length === 0) {
+                console.warn('No valid agents found for dropdown');
+                message.warning('No agents available. Please create agents first.');
+            }
+
         } catch (error) {
             console.error('Error loading agents:', error);
-            message.error('Failed to load agents');
+            const errorMessage = handleApiError(error);
+            message.error(errorMessage);
+
             // Fallback to empty array
             setAgents([]);
         }
@@ -238,16 +300,24 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
 
     const handleCreate = () => {
         setSelectedAvailability(null);
-        form.resetFields();
+        form.setFieldsValue({
+            agentId: undefined,
+            dayOfWeek: 1, // Default to Monday
+            startTime: moment('09:00:00', 'HH:mm:ss'),
+            endTime: moment('17:00:00', 'HH:mm:ss'),
+            isAvailable: true
+        });
         setModalVisible(true);
     };
 
     const handleEdit = (availability) => {
         setSelectedAvailability(availability);
         form.setFieldsValue({
-            ...availability,
-            startTime: availability.startTime ? moment(availability.startTime, 'HH:mm:ss') : null,
-            endTime: availability.endTime ? moment(availability.endTime, 'HH:mm:ss') : null
+            agentId: availability.agentId,
+            dayOfWeek: availability.dayOfWeek,
+            startTime: availability.startTime ? moment(availability.startTime, 'HH:mm:ss') : moment('09:00:00', 'HH:mm:ss'),
+            endTime: availability.endTime ? moment(availability.endTime, 'HH:mm:ss') : moment('17:00:00', 'HH:mm:ss'),
+            isAvailable: availability.isAvailable ?? true
         });
         setModalVisible(true);
     };
@@ -260,20 +330,31 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             console.error('Error deleting availability:', error);
-            message.error(error.message || 'Failed to delete availability');
+            const errorMessage = handleApiError(error);
+            message.error(errorMessage);
         }
     };
 
     const handleSubmit = async (values) => {
+        setSubmitting(true);
         try {
+            // Ensure all data types are correct
             const availabilityData = {
-                ...values,
+                agentId: parseInt(values.agentId),
+                dayOfWeek: parseInt(values.dayOfWeek), // Ensure it's a number
                 startTime: values.startTime ? values.startTime.format('HH:mm:ss') : '09:00:00',
                 endTime: values.endTime ? values.endTime.format('HH:mm:ss') : '17:00:00',
-                id: selectedAvailability?.id
+                isAvailable: values.isAvailable ?? true
             };
 
-            if (selectedAvailability) {
+            // Include ID for updates
+            if (selectedAvailability && selectedAvailability.id) {
+                availabilityData.id = selectedAvailability.id;
+            }
+
+            console.log('Submitting availability data:', availabilityData);
+
+            if (selectedAvailability && selectedAvailability.id) {
                 await agentAvailabilityService.updateAvailability(selectedAvailability.id, availabilityData);
                 message.success('Availability updated successfully');
             } else {
@@ -282,12 +363,95 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
             }
 
             setModalVisible(false);
+            form.resetFields();
             loadAvailabilities();
             if (onScheduleUpdate) onScheduleUpdate();
         } catch (error) {
             console.error('Error saving availability:', error);
-            message.error(error.message || 'Failed to save availability');
+            const errorMessage = handleApiError(error);
+
+            // More specific error handling
+            let userMessage = errorMessage;
+            if (errorMessage.includes('overlap')) {
+                userMessage = 'This time slot overlaps with existing availability for this agent.';
+            } else if (errorMessage.includes('Agent') && errorMessage.includes('exist')) {
+                userMessage = 'Selected agent does not exist.';
+            }
+
+            message.error(userMessage);
+        } finally {
+            setSubmitting(false);
         }
+    };
+
+    // Mobile Card View
+    const renderMobileCard = (availability) => {
+        const agent = availability.agent;
+        const isLoading = availability.agentId && isAgentLoading(availability.agentId);
+        const dayName = daysOfWeek.find(day => day.value === availability.dayOfWeek)?.name || 'Unknown';
+
+        return (
+            <Card
+                key={availability.id}
+                style={{ marginBottom: 16 }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    {getAgentAvatar(agent)}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                            {isLoading ? 'Loading...' : getAgentDisplayName(agent)}
+                        </div>
+                        {getAgentContactInfo(agent) && (
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                {getAgentContactInfo(agent)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <Row gutter={[8, 8]} style={{ marginBottom: '12px' }}>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {dayName}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Day</div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {availability.startTime} - {availability.endTime}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Time Slot</div>
+                    </Col>
+                </Row>
+
+                <div style={{ marginBottom: '12px' }}>
+                    <Tag color={availability.isAvailable ? 'green' : 'red'} icon={availability.isAvailable ? <CheckOutlined /> : <CloseOutlined />}>
+                        {availability.isAvailable ? 'Available' : 'Unavailable'}
+                    </Tag>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                
+                    <Popconfirm
+                        title="Are you sure to delete this availability?"
+                        onConfirm={() => handleDelete(availability.id)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            danger
+                            style={{ flex: 1 }}
+                        >
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </div>
+            </Card>
+        );
     };
 
     const columns = [
@@ -349,7 +513,11 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
             title: 'Day',
             dataIndex: 'dayOfWeek',
             key: 'dayOfWeek',
-            width: 120
+            width: 120,
+            render: (dayNumber) => {
+                const day = daysOfWeek.find(d => d.value === dayNumber);
+                return day ? day.name : `Day ${dayNumber}`;
+            }
         },
         {
             title: 'Time Slot',
@@ -378,13 +546,7 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
             width: 120,
             render: (_, record) => (
                 <Space size="small">
-                    <Tooltip title="Edit">
-                        <Button
-                            icon={<EditOutlined />}
-                            size="small"
-                            onClick={() => handleEdit(record)}
-                        />
-                    </Tooltip>
+                    
                     <Popconfirm
                         title="Are you sure to delete this availability?"
                         onConfirm={() => handleDelete(record.id)}
@@ -416,35 +578,70 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={handleCreate}
+                    size={isMobile ? "large" : "middle"}
+                    disabled={agents.length === 0}
                 >
                     Add Availability
                 </Button>
             </div>
 
-            <BaseTable
-                data={availabilities}
-                columns={columns}
-                loading={loading}
-                rowKey="id"
-                pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                }}
-            />
+            {agents.length === 0 && (
+                <Card style={{ marginBottom: 16, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                        <UserOutlined style={{ fontSize: '24px', color: '#faad14', marginBottom: '8px' }} />
+                        <div style={{ fontWeight: 500, marginBottom: '8px' }}>No Agents Available</div>
+                        <div style={{ color: '#666' }}>Please create agents first before adding availability schedules.</div>
+                    </div>
+                </Card>
+            )}
+
+            {/* Conditional Rendering: Table for Desktop, Cards for Mobile */}
+            {!isMobile ? (
+                <BaseTable
+                    data={availabilities}
+                    columns={columns}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                    }}
+                />
+            ) : (
+                <div>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                            Loading availabilities...
+                        </div>
+                    ) : (
+                        <div>
+                            {availabilities.map(availability => renderMobileCard(availability))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Create/Edit Modal */}
             <Modal
                 title={selectedAvailability ? 'Edit Availability' : 'Add Availability'}
                 open={modalVisible}
-                onCancel={() => setModalVisible(false)}
+                onCancel={() => {
+                    setModalVisible(false);
+                    form.resetFields();
+                    setSelectedAvailability(null);
+                }}
                 footer={null}
-                width={500}
+                width={isMobile ? '100%' : 500}
+                style={isMobile ? { top: 0, padding: 0 } : {}}
+                confirmLoading={submitting}
+                destroyOnClose
             >
                 <Form
                     form={form}
                     layout="vertical"
                     onFinish={handleSubmit}
+                    disabled={submitting}
                 >
                     <Form.Item
                         name="agentId"
@@ -452,12 +649,14 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                         rules={[{ required: true, message: 'Please select an agent' }]}
                     >
                         <Select
-                            placeholder="Select agent"
+                            placeholder={agents.length === 0 ? "No agents available" : "Select agent"}
                             showSearch
                             optionFilterProp="children"
                             filterOption={(input, option) =>
                                 option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                             }
+                            size={isMobile ? "large" : "middle"}
+                            disabled={agents.length === 0 || submitting}
                         >
                             {agents.map(agent => (
                                 <Option key={agent.id} value={agent.id}>
@@ -472,10 +671,14 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                         label="Day of Week"
                         rules={[{ required: true, message: 'Please select day' }]}
                     >
-                        <Select placeholder="Select day">
+                        <Select
+                            placeholder="Select day"
+                            size={isMobile ? "large" : "middle"}
+                            disabled={submitting}
+                        >
                             {daysOfWeek.map(day => (
-                                <Option key={day} value={day}>
-                                    {day}
+                                <Option key={day.value} value={day.value}>
+                                    {day.name}
                                 </Option>
                             ))}
                         </Select>
@@ -492,6 +695,9 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="Start time"
+                                    size={isMobile ? "large" : "middle"}
+                                    disabled={submitting}
+                                    minuteStep={15}
                                 />
                             </Form.Item>
                         </Col>
@@ -505,6 +711,9 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                                     format="HH:mm"
                                     style={{ width: '100%' }}
                                     placeholder="End time"
+                                    size={isMobile ? "large" : "middle"}
+                                    disabled={submitting}
+                                    minuteStep={15}
                                 />
                             </Form.Item>
                         </Col>
@@ -519,15 +728,31 @@ const AgentAvailability = ({ onScheduleUpdate }) => {
                         <Switch
                             checkedChildren="Available"
                             unCheckedChildren="Unavailable"
+                            size={isMobile ? "default" : "small"}
+                            disabled={submitting}
                         />
                     </Form.Item>
 
                     <Form.Item style={{ textAlign: 'right' }}>
                         <Space>
-                            <Button onClick={() => setModalVisible(false)}>
+                            <Button
+                                onClick={() => {
+                                    setModalVisible(false);
+                                    form.resetFields();
+                                    setSelectedAvailability(null);
+                                }}
+                                size={isMobile ? "large" : "middle"}
+                                disabled={submitting}
+                            >
                                 Cancel
                             </Button>
-                            <Button type="primary" htmlType="submit">
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                size={isMobile ? "large" : "middle"}
+                                disabled={agents.length === 0}
+                                loading={submitting}
+                            >
                                 {selectedAvailability ? 'Update' : 'Create'} Availability
                             </Button>
                         </Space>

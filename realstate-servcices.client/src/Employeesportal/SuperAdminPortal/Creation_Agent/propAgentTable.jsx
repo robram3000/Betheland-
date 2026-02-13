@@ -1,4 +1,4 @@
-// PropAgentTable.jsx
+// PropAgentTable.jsx - Mobile Optimized
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -9,7 +9,8 @@ import {
     Tag,
     Avatar,
     Tooltip,
-    Button
+    Button,
+    Grid
 } from 'antd';
 import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import BaseTable from './BaseTable';
@@ -17,6 +18,7 @@ import propertyService from '../../AdminPortal/Creation_Agent/Services/agentServ
 
 const { Option } = Select;
 const { Search } = Input;
+const { useBreakpoint } = Grid;
 
 const PropAgentTable = () => {
     const [properties, setProperties] = useState([]);
@@ -24,6 +26,9 @@ const PropAgentTable = () => {
     const [searchText, setSearchText] = useState('');
     const [agentFilter, setAgentFilter] = useState('all');
     const [agents, setAgents] = useState([]);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     useEffect(() => {
         loadProperties();
@@ -66,62 +71,110 @@ const PropAgentTable = () => {
             title: 'Property',
             dataIndex: 'title',
             key: 'property',
+            width: isMobile ? 150 : 200,
+            fixed: 'left',
             render: (text, record) => (
-                <Space>
+                <Space direction={isMobile ? "vertical" : "horizontal"} size={isMobile ? 2 : 8}>
                     <Avatar
                         src={record.images?.[0]}
                         shape="square"
+                        size={isMobile ? "small" : "default"}
                         style={{ backgroundColor: '#1a365d' }}
                     >
                         {text?.[0]}
                     </Avatar>
                     <div>
-                        <div style={{ fontWeight: 500 }}>{text}</div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
+                        <div style={{
+                            fontWeight: 500,
+                            fontSize: isMobile ? '12px' : '14px',
+                            lineHeight: isMobile ? '1.2' : '1.4'
+                        }}>
+                            {text}
+                        </div>
+                        <div style={{
+                            fontSize: isMobile ? '10px' : '12px',
+                            color: '#666',
+                            lineHeight: isMobile ? '1.2' : '1.4'
+                        }}>
                             {record.address}
                         </div>
                     </div>
                 </Space>
             ),
         },
-        {
-            title: 'Agent',
-            dataIndex: 'agentName',
-            key: 'agentName',
-            render: (text, record) => (
-                <Space>
-                    <Avatar size="small" src={record.agentPhoto}>
-                        {record.agentName?.[0]}
-                    </Avatar>
-                    {text}
-                </Space>
-            ),
-        },
+        ...(isMobile ? [] : [
+            {
+                title: 'Agent',
+                dataIndex: 'agentName',
+                key: 'agentName',
+                width: 120,
+                render: (text, record) => (
+                    <Space>
+                        <Avatar size="small" src={record.agentPhoto}>
+                            {record.agentName?.[0]}
+                        </Avatar>
+                        {text}
+                    </Space>
+                ),
+            }
+        ]),
         {
             title: 'Type',
             dataIndex: 'propertyType',
             key: 'propertyType',
-            render: (type) => <Tag color="blue">{type}</Tag>,
+            width: isMobile ? 80 : 100,
+            render: (type) => (
+                <Tag
+                    color="blue"
+                    style={{
+                        fontSize: isMobile ? '10px' : '12px',
+                        padding: isMobile ? '1px 4px' : '2px 6px'
+                    }}
+                >
+                    {type}
+                </Tag>
+            ),
         },
         {
             title: 'Price',
             dataIndex: 'price',
             key: 'price',
-            render: (price) => price ? `$${price.toLocaleString()}` : 'Not set',
+            width: isMobile ? 90 : 120,
+            render: (price) => (
+                <div style={{
+                    fontSize: isMobile ? '11px' : '13px',
+                    fontWeight: 500
+                }}>
+                    {price ? `$${price.toLocaleString()}` : 'Not set'}
+                </div>
+            ),
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
+            width: isMobile ? 80 : 100,
             render: (status) => {
                 const color = status === 'Active' ? 'green' :
                     status === 'Pending' ? 'orange' : 'red';
-                return <Tag color={color}>{status}</Tag>;
+                return (
+                    <Tag
+                        color={color}
+                        style={{
+                            fontSize: isMobile ? '10px' : '12px',
+                            padding: isMobile ? '1px 4px' : '2px 6px'
+                        }}
+                    >
+                        {status}
+                    </Tag>
+                );
             },
         },
         {
             title: 'Actions',
             key: 'actions',
+            width: isMobile ? 60 : 80,
+            fixed: 'right',
             render: (_, record) => (
                 <Tooltip title="View Property">
                     <Button
@@ -139,20 +192,32 @@ const PropAgentTable = () => {
     };
 
     return (
-        <Card>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                <Space>
+        <Card bodyStyle={{ padding: isMobile ? '12px' : '16px' }}>
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'stretch' : 'center',
+                gap: 16
+            }}>
+                <Space
+                    direction={isMobile ? 'vertical' : 'horizontal'}
+                    style={{ width: isMobile ? '100%' : 'auto' }}
+                >
                     <Search
-                        placeholder="Search properties..."
+                        placeholder={isMobile ? "Search properties..." : "Search properties..."}
                         allowClear
                         onSearch={setSearchText}
-                        style={{ width: 300 }}
+                        style={{ width: isMobile ? '100%' : 300 }}
+                        size={isMobile ? "middle" : "large"}
                     />
                     <Select
                         defaultValue="all"
-                        style={{ width: 200 }}
+                        style={{ width: isMobile ? '100%' : 200 }}
                         onChange={setAgentFilter}
                         placeholder="Filter by agent"
+                        size={isMobile ? "middle" : "large"}
                     >
                         <Option value="all">All Agents</Option>
                         {agents.map(agent => (
@@ -169,10 +234,15 @@ const PropAgentTable = () => {
                 columns={columns}
                 loading={loading}
                 rowKey="id"
+                scroll={{ x: isMobile ? 600 : 800 }}
                 pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
+                    pageSize: isMobile ? 5 : 10,
+                    showSizeChanger: !isMobile,
+                    showQuickJumper: !isMobile,
+                    showTotal: (total, range) =>
+                        `${range[0]}-${range[1]} of ${total} properties`,
+                    size: isMobile ? "small" : "default",
+                    simple: isMobile
                 }}
             />
         </Card>

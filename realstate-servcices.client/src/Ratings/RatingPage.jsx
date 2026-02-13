@@ -18,8 +18,8 @@ import {
     HomeOutlined,
     CalendarOutlined
 } from '@ant-design/icons';
-import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingService';
-import ratingScheduleMapper from '../Employeesportal/AdminPortal/Ratings/RatingScheduleMapper';
+import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingScheduleServices';
+
 import authService from '../Authpage/Services/LoginAuth';
 
 const { Title, Text } = Typography;
@@ -52,12 +52,30 @@ const RatingPage = ({ appointment, onClose, user }) => {
                     return;
                 }
 
+                console.log('Checking rating eligibility for appointment:', appointment);
+                console.log('Appointment status:', appointment.status);
+                console.log('Current user ID:', currentUser.userId);
+                console.log('Appointment clientId:', appointment.clientId);
+
                 // Check if user can rate this schedule
                 const canRateSchedule = await ratingScheduleService.canRateSchedule(appointment.id);
+                console.log('Can rate schedule result:', canRateSchedule);
+
                 setCanRate(canRateSchedule);
 
                 if (!canRateSchedule) {
-                    setError('You are not eligible to rate this appointment. The appointment must be completed and you must be the client who scheduled it.');
+                    // Provide more specific error message
+                    let errorMessage = 'You are not eligible to rate this appointment. ';
+
+                    if (appointment.status !== 'Completed') {
+                        errorMessage += 'The appointment must be completed.';
+                    } else if (appointment.clientId !== currentUser.userId) {
+                        errorMessage += 'You must be the client who scheduled this appointment.';
+                    } else {
+                        errorMessage += 'You may have already rated this appointment.';
+                    }
+
+                    setError(errorMessage);
                 }
 
             } catch (error) {
@@ -93,13 +111,15 @@ const RatingPage = ({ appointment, onClose, user }) => {
                 throw new Error('Please log in to submit a rating');
             }
 
-            // Prepare rating schedule data
+            console.log('Appointment data:', appointment);
+            console.log('Current user:', currentUser);
+
+            // Prepare rating schedule data - agentId will be handled by backend
             const ratingData = {
                 scheduleId: appointment.id,
-                agentId: appointment.agentId,
                 rating: rating,
                 comment: comment.trim(),
-                ratingType: 'agent' // or 'property' based on your needs
+                ratingType: 'agent'
             };
 
             console.log('Submitting rating schedule data:', ratingData);
@@ -128,6 +148,11 @@ const RatingPage = ({ appointment, onClose, user }) => {
             const errorMessage = error.message || 'Failed to submit rating. Please try again.';
             setError(errorMessage);
             message.error(errorMessage);
+
+            // Log detailed error information
+            if (error.response) {
+                console.error('Server response error:', error.response.data);
+            }
         } finally {
             setLoading(false);
         }
@@ -303,6 +328,16 @@ const RatingPage = ({ appointment, onClose, user }) => {
                                                 new Date(appointment.scheduleTime).toLocaleDateString() :
                                                 'Scheduled'
                                             }
+                                        </Space>
+                                    </Descriptions.Item>
+                                    <Descriptions.Item label="Status">
+                                        <Space>
+                                            <Text style={{
+                                                color: appointment.status === 'Completed' ? '#52c41a' : '#faad14',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {appointment.status}
+                                            </Text>
                                         </Space>
                                     </Descriptions.Item>
                                 </Descriptions>

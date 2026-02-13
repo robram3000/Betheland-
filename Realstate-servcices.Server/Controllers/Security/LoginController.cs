@@ -1,5 +1,4 @@
-﻿// LoginController.cs
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Login;
 using Realstate_servcices.Server.Dto.Jwt;
 using Realstate_servcices.Server.Services.Security;
@@ -7,6 +6,7 @@ using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Entity.Member;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Realstate_servcices.Server.Controllers.Security
 {
@@ -79,19 +79,31 @@ namespace Realstate_servcices.Server.Controllers.Security
 
                 // Generate claims with comprehensive null checks
                 var claims = new List<Claim>
-                    {
-                        new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? ""),
-                        new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
-                        new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
-                        new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
-                        new Claim("userId", baseMember.Id.ToString() ?? "")
-                    };
+                {
+                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? "0"),
+                    new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
+                    new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
+                    new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
+                    new Claim("userId", baseMember.Id.ToString() ?? "0")
+                };
 
                 var accessToken = _jwtService.GenerateAccessToken(claims);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
-     
-           
+                // **Store session data**
+                HttpContext.Session.SetString("UserId", baseMember.Id.ToString());
+                HttpContext.Session.SetString("UserEmail", baseMember.Email ?? "");
+                HttpContext.Session.SetString("UserName", baseMember.Username ?? "");
+                HttpContext.Session.SetString("UserRole", baseMember.Role ?? "Client");
+                HttpContext.Session.SetString("ProfilePicture", baseMember.ProfilePictureUrl ?? "");
+                HttpContext.Session.SetString("IsAuthenticated", "true");
+
+                // Store refresh token in session (in production, consider using distributed cache)
+                HttpContext.Session.SetString("RefreshToken", refreshToken);
+
+                // Store login timestamp
+                HttpContext.Session.SetString("LoginTime", DateTime.UtcNow.ToString("o"));
+
                 var response = new
                 {
                     success = true,
@@ -102,9 +114,11 @@ namespace Realstate_servcices.Server.Controllers.Security
                     userId = baseMember.Id.ToString(),
                     email = baseMember.Email,
                     userType = baseMember.Role,
-                    ImageProfile = baseMember.ProfilePictureUrl, 
+                    ImageProfile = baseMember.ProfilePictureUrl,
+                    sessionId = HttpContext.Session.Id,
                     message = "Login successful"
                 };
+
                 return Ok(response);
             }
             catch (Exception ex)
@@ -134,6 +148,17 @@ namespace Realstate_servcices.Server.Controllers.Security
                     });
                 }
 
+                // Check if refresh token matches the one in session
+                var storedRefreshToken = HttpContext.Session.GetString("RefreshToken");
+                if (storedRefreshToken != request.RefreshToken)
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid refresh token"
+                    });
+                }
+
                 var principal = _jwtService.GetPrincipalFromExpiredToken(request.AccessToken);
                 var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -146,7 +171,6 @@ namespace Realstate_servcices.Server.Controllers.Security
                     });
                 }
 
-      
                 var baseMember = await _baseMemberRepository.FindByUsernameOrEmailAsync(userId);
                 if (baseMember == null)
                 {
@@ -156,19 +180,21 @@ namespace Realstate_servcices.Server.Controllers.Security
                         message = "User not found"
                     });
                 }
+
                 var newClaims = new List<Claim>
                 {
-                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString()),
-                    new Claim(ClaimTypes.Email, baseMember.Email ?? string.Empty),
-                    new Claim(ClaimTypes.Name, baseMember.Username ?? string.Empty),
+                    new Claim(ClaimTypes.NameIdentifier, baseMember.Id.ToString() ?? "0"),
+                    new Claim(ClaimTypes.Email, baseMember.Email ?? ""),
+                    new Claim(ClaimTypes.Name, baseMember.Username ?? ""),
                     new Claim(ClaimTypes.Role, baseMember.Role ?? "Client"),
-                  
                 };
 
                 var newAccessToken = _jwtService.GenerateAccessToken(newClaims);
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
-                Console.WriteLine("____photourl :" , baseMember  );
-            
+
+                // Update refresh token in session
+                HttpContext.Session.SetString("RefreshToken", newRefreshToken);
+
                 var response = new
                 {
                     success = true,
@@ -180,7 +206,7 @@ namespace Realstate_servcices.Server.Controllers.Security
                     email = baseMember.Email,
                     username = baseMember.Username,
                     userType = baseMember.Role,
-                    ImageProfile = baseMember.ProfilePictureUrl, 
+                    ImageProfile = baseMember.ProfilePictureUrl,
                     message = "Token refreshed successfully"
                 };
 
@@ -205,13 +231,71 @@ namespace Realstate_servcices.Server.Controllers.Security
                 });
             }
         }
+
         [HttpPost("logout")]
+        [Authorize]
         public async Task<ActionResult> Logout()
-        {      
+        {
+            try
+            {
+                // Clear all session data
+                HttpContext.Session.Clear();
+
+                // Optional: Remove the session cookie
+                Response.Cookies.Delete(".AspNetCore.Session");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Logged out successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during logout");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error during logout",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("session-info")]
+        [Authorize]
+        public ActionResult GetSessionInfo()
+        {
+            var sessionInfo = new
+            {
+                SessionId = HttpContext.Session.Id,
+                IsAuthenticated = HttpContext.Session.GetString("IsAuthenticated"),
+                UserId = HttpContext.Session.GetString("UserId"),
+                UserName = HttpContext.Session.GetString("UserName"),
+                UserEmail = HttpContext.Session.GetString("UserEmail"),
+                UserRole = HttpContext.Session.GetString("UserRole"),
+                LoginTime = HttpContext.Session.GetString("LoginTime"),
+                SessionKeys = HttpContext.Session.Keys
+            };
+
             return Ok(new
             {
                 success = true,
-                message = "Logged out successfully"
+                data = sessionInfo
+            });
+        }
+
+        [HttpGet("check-auth")]
+        public ActionResult CheckAuthentication()
+        {
+            var isAuthenticated = HttpContext.Session.GetString("IsAuthenticated") == "true";
+
+            return Ok(new
+            {
+                success = true,
+                isAuthenticated = isAuthenticated,
+                userId = isAuthenticated ? HttpContext.Session.GetString("UserId") : null,
+                userRole = isAuthenticated ? HttpContext.Session.GetString("UserRole") : null
             });
         }
     }

@@ -714,7 +714,7 @@ namespace Realstate_servcices.Server.Controllers.Agent
             return Ok(result);
         }
 
-        [HttpGet("agent/{agentId}")]
+        [HttpGet("agent/{agentid}")]
         public async Task<ActionResult<PropertiesResponse>> GetPropertiesByAgent(int agentId)
         {
             try

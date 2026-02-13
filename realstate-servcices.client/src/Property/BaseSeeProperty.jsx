@@ -61,10 +61,16 @@ const BaseSeePropertySimple = () => {
     const [property, setProperty] = useState(null);
     const [agent, setAgent] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [currentView, setCurrentView] = useState('property'); // 'property' | 'schedule' | 'success' | 'waiting-confirmation'
 
     // Process agent image URL using the centralized utility
     const processAgentImageUrl = (url) => {
         return processImageUrl(url);
+    };
+
+    // Handler for schedule view changes
+    const handleScheduleViewChange = (view) => {
+        setCurrentView(view);
     };
 
     const processPropertyData = (property) => {
@@ -370,8 +376,21 @@ const BaseSeePropertySimple = () => {
                     margin: '0 auto',
                     width: '100%'
                 }}>
-                    <PropertyImageInfo property={property} agent={agent} />
-                    <PropertyLocation property={property} agent={agent} />
+                    {/* Only show PropertyImageInfo when in property view */}
+                    {currentView === 'property' && (
+                        <div style={{ marginBottom: '40px' }}> {/* ADDED SPACING HERE */}
+                            <PropertyImageInfo
+                                property={property}
+                                agent={agent}
+                                onScheduleViewChange={handleScheduleViewChange}
+                            />
+                        </div>
+                    )}
+                    <PropertyLocation
+                        property={property}
+                        agent={agent}
+                        onScheduleViewChange={handleScheduleViewChange}
+                    />
                 </Content>
                 <Footer />
             </Layout>

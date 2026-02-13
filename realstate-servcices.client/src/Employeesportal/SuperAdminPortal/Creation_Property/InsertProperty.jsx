@@ -45,7 +45,8 @@ import authService from '../../../Authpage/Services/LoginAuth';
 import amenities from '../../AdminPortal/Creation_Property/services/amenities';
 import statusOptions from '../../AdminPortal/Creation_Property/services/Status';
 import propertyTypeOptions from '../../AdminPortal/Creation_Property/services/propertyTypeOption';
-
+// Add this import at the top with other imports
+import { processImageUrl, processImageUrlWithEnv, getPropertyImage } from '../Creation_Property/processImageUrl';
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -559,18 +560,17 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             // Handle location data initialization
             if (property.state) {
                 console.log('Loading province data for:', property.state);
-                // We'll need to handle region first, then province, city, barangay
-                // This would require additional logic to determine region from province
             }
 
-            // Handle media
+            // Handle media - USING PROCESSED IMAGE URLS
             if (property.propertyImages && property.propertyImages.length > 0) {
                 const imagesWithPreview = property.propertyImages.map(img => ({
                     uid: img.id || `img-${Date.now()}`,
                     name: `image-${img.id}.jpg`,
                     status: 'done',
-                    url: img.imageUrl,
-                    thumbUrl: img.imageUrl
+                    url: processImageUrl(img.imageUrl), // Process the URL here
+                    thumbUrl: processImageUrl(img.imageUrl), // Process the URL here
+                    originalUrl: img.imageUrl // Keep original for reference
                 }));
                 setImageList(imagesWithPreview);
             }
@@ -580,7 +580,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     uid: vid.id || `vid-${Date.now()}`,
                     name: vid.videoName || `video-${vid.id}.mp4`,
                     status: 'done',
-                    url: vid.videoUrl
+                    url: processImageUrl(vid.videoUrl), // Process video URL
+                    thumbUrl: processImageUrl(vid.thumbnailUrl) || '/default-video-thumb.jpg', // Add thumbnail processing
+                    originalUrl: vid.videoUrl // Keep original for reference
                 }));
                 setVideoList(videosWithPreview);
             }
@@ -598,7 +600,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             message.error('Failed to load property data');
         }
     };
-
     // Region change handler
     const handleRegionChange = async (regionName) => {
         if (!regionName) {
@@ -1007,12 +1008,18 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     };
 
     const handlePreview = async (file) => {
-        if (!file.url && !file.preview) {
-            file.preview = await getBase64(file.originFileObj);
+        let imageUrl = file.url || file.preview;
+
+        // Process the URL for preview
+        if (!imageUrl && file.originFileObj) {
+            imageUrl = await getBase64(file.originFileObj);
+        } else if (imageUrl) {
+            imageUrl = processImageUrl(imageUrl);
         }
-        setPreviewImage(file.url || file.preview);
+
+        setPreviewImage(imageUrl);
         setPreviewVisible(true);
-        setPreviewTitle(file.name || file.url.substring(file.url.lastIndexOf('/') + 1));
+        setPreviewTitle(file.name || 'Image Preview');
     };
 
     const handleCancel = () => setPreviewVisible(false);
@@ -1048,6 +1055,10 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     );
 
     const customItemRender = (originNode, file, fileList, actions) => {
+        // Process URL for display
+        const displayUrl = file.thumbUrl || file.url;
+        const processedUrl = processImageUrl(displayUrl);
+
         return (
             <div style={{ display: 'flex', alignItems: 'center', padding: '8px', border: '1px solid #d9d9d9', borderRadius: '6px', marginBottom: '8px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1056,9 +1067,12 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             <Image
                                 width={50}
                                 height={50}
-                                src={file.thumbUrl || file.url}
+                                src={processedUrl} // Use processed URL
                                 style={{ objectFit: 'cover', borderRadius: '4px' }}
                                 preview={false}
+                                onError={(e) => {
+                                    e.target.src = '/default-property.jpg';
+                                }}
                             />
                             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {file.name}
@@ -1066,7 +1080,21 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <PlayCircleOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
+                            {/* Video thumbnail with processed URL */}
+                            {file.thumbUrl ? (
+                                <Image
+                                    width={50}
+                                    height={50}
+                                    src={processImageUrl(file.thumbUrl)}
+                                    style={{ objectFit: 'cover', borderRadius: '4px' }}
+                                    preview={false}
+                                    onError={(e) => {
+                                        e.target.src = '/default-video-thumb.jpg';
+                                    }}
+                                />
+                            ) : (
+                                <PlayCircleOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
+                            )}
                             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {file.name}
                             </span>
@@ -1473,34 +1501,47 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
 
         return (
-            <Collapse defaultActiveKey={['basics']} style={{ marginBottom: 16 }}>
+            <Collapse defaultActiveKey={['basics']} style={{ marginBottom: 16, border: 'none' }}>
                 {Object.entries(amenities).map(([category, categoryAmenities]) => (
-                    <Panel header={category.charAt(0).toUpperCase() + category.slice(1)} key={category}>
-                        <Row gutter={[8, 8]}>
+                    <Panel
+                        header={category.charAt(0).toUpperCase() + category.slice(1)}
+                        key={category}
+                        style={{ border: 'none' }}
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {categoryAmenities.map(amenity => (
-                                <Col span={8} key={amenity}>
-                                    <Button
-                                        type="default"
-                                        size="small"
-                                        style={{ width: '100%', marginBottom: 4, textAlign: 'left', fontSize: '12px' }}
-                                        onClick={() => {
-                                            const currentAmenities = form.getFieldValue('amenities') || [];
-                                            if (currentAmenities.includes(amenity)) {
-                                                form.setFieldsValue({
-                                                    amenities: currentAmenities.filter(a => a !== amenity)
-                                                });
-                                            } else {
-                                                form.setFieldsValue({
-                                                    amenities: [...currentAmenities, amenity]
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        {amenity}
-                                    </Button>
-                                </Col>
+                                <Button
+                                    key={amenity}
+                                    type="default"
+                                    size="small"
+                                    style={{
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        fontSize: '14px',
+                                        border: 'none',
+                                        boxShadow: 'none',
+                                        backgroundColor: '#f5f5f5',
+                                        height: 'auto',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px'
+                                    }}
+                                    onClick={() => {
+                                        const currentAmenities = form.getFieldValue('amenities') || [];
+                                        if (currentAmenities.includes(amenity)) {
+                                            form.setFieldsValue({
+                                                amenities: currentAmenities.filter(a => a !== amenity)
+                                            });
+                                        } else {
+                                            form.setFieldsValue({
+                                                amenities: [...currentAmenities, amenity]
+                                            });
+                                        }
+                                    }}
+                                >
+                                    {amenity}
+                                </Button>
                             ))}
-                        </Row>
+                        </div>
                     </Panel>
                 ))}
             </Collapse>
@@ -1511,9 +1552,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         {
             title: 'Basic Info',
             content: (
-                <Card title="Basic Information" size="small">
+                <Card title="Basic Information" size="small" style={{ border: 'none' }}>
                     <Row gutter={[16, 0]}>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Property Title"
                                 name="title"
@@ -1525,7 +1566,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 <Input placeholder="Enter property title" />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Property Type"
                                 name="type"
@@ -1553,7 +1594,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         <TextArea rows={4} placeholder="Enter property description" maxLength={1000} showCount />
                     </Form.Item>
                     <Row gutter={[16, 0]}>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Price"
                                 name="price"
@@ -1578,7 +1619,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item label="Status" name="status">
                                 <Select showSearch>
                                     {statuses.map(status => (
@@ -1596,7 +1637,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         {
             title: 'Location',
             content: (
-                <Card title="Location Information" size="small">
+                <Card title="Location Information" size="small" style={{ border: 'none' }}>
                     <Row gutter={[16, 16]}>
                         <Col span={24}>
                             <Form.Item
@@ -1630,7 +1671,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     </Row>
 
                     <Row gutter={[16, 0]}>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Region"
                                 name="region"
@@ -1653,7 +1694,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Province"
                                 name="state"
@@ -1680,7 +1721,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="City/Municipality"
                                 name="city"
@@ -1711,7 +1752,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     </Row>
 
                     <Row gutter={[16, 0]}>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Zip Code"
                                 name="zipCode"
@@ -1727,7 +1768,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item label="Barangay" name="barangay">
                                 <Select
                                     placeholder="Select barangay"
@@ -1753,7 +1794,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     <Card
                         title={<Space><EnvironmentOutlined />Location Map - Click to Set Location</Space>}
                         size="small"
-                        style={{ marginTop: 16 }}
+                        style={{ marginTop: 16, border: 'none' }}
                     >
                         <div style={{ height: '300px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
                             <MapContainer
@@ -1787,48 +1828,48 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         </div>
                     </Card>
 
-                  
+
                 </Card>
             )
         },
         {
             title: 'Details',
             content: (
-                <Card title="Property Details" size="small">
+                <Card title="Property Details" size="small" style={{ border: 'none' }}>
                     <Row gutter={[16, 0]}>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Bedrooms" name="bedrooms">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Bedrooms" />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Bathrooms" name="bathrooms">
                                 <InputNumber min={0} step={0.5} style={{ width: '100%' }} placeholder="Bathrooms" />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Kitchen" name="kitchen">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Kitchen" />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Garage" name="garage">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Garage" />
                             </Form.Item>
                         </Col>
                     </Row>
                     <Row gutter={[16, 0]}>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Area (sqm)" name="areaSqm">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Area in sqm" />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Property Age" name="propertyAge">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Age in years" />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={12} md={6}>
                             <Form.Item label="Floor" name="propertyFloor">
                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="Floor number" />
                             </Form.Item>
@@ -1843,11 +1884,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         </Select>
                     </Form.Item>
 
-                    <Card title="Select Amenities" size="small" style={{ marginTop: 16 }}>
+                    <Card title="Select Amenities" size="small" style={{ marginTop: 16, border: 'none' }}>
                         {renderCategorizedAmenities()}
                     </Card>
 
-                    <Card title="Media" size="small" style={{ marginTop: 16 }}>
+                    <Card title="Media" size="small" style={{ marginTop: 16, border: 'none' }}>
                         <Row gutter={[16, 16]}>
                             <Col span={24}>
                                 <Form.Item
@@ -1892,9 +1933,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         {
             title: 'Assignment',
             content: (
-                <Card title="Assignment" size="small">
+                <Card title="Assignment" size="small" style={{ border: 'none' }}>
                     <Row gutter={[16, 0]}>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Assigned Agent"
                                 name="agentId"
@@ -2004,7 +2045,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         width="80vw"
                         style={{ top: 20 }}
                     >
-                        <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+                        <img
+                            alt="Preview"
+                            style={{ width: '100%' }}
+                            src={previewImage}
+                            onError={(e) => {
+                                e.target.src = '/default-property.jpg';
+                            }}
+                        />
                     </Modal>
 
                     <Modal
@@ -2019,6 +2067,10 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             controls
                             style={{ width: '100%', maxHeight: '70vh' }}
                             src={previewVideo}
+                            onError={(e) => {
+                                console.error('Error loading video:', e);
+                                message.error('Failed to load video preview');
+                            }}
                         >
                             Your browser does not support the video tag.
                         </video>
@@ -2049,7 +2101,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 </Form>
             ) : (
                 <div>
-                    <Card bodyStyle={{ padding: '16px' }}>
+                    <Card bodyStyle={{ padding: '16px' }} style={{ border: 'none' }}>
                         <div style={{ textAlign: 'center', marginBottom: 16 }}>
                             <Title level={4} style={{ color: '#52c41a', marginBottom: 4 }}>
                                 ✅ {property ? 'Property Updated Successfully!' : 'Property Created Successfully!'}
@@ -2059,7 +2111,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             </Text>
                         </div>
 
-                        <Card title="Property Information" type="inner" style={{ marginBottom: 12 }}>
+                        <Card title="Property Information" type="inner" style={{ marginBottom: 12, border: 'none' }}>
                             <Descriptions bordered column={1} size="small">
                                 <Descriptions.Item label="Property Title">
                                     <Text strong>{submittedData?.title}</Text>

@@ -1,7 +1,10 @@
-﻿import React, { useState } from 'react';
-import { Button, Row, Col, Typography, Space, Select, Input, Slider, Card, Drawer } from 'antd';
+﻿import React, { useState, useEffect } from 'react';
+import { Button, Row, Col, Typography, Space, Select, Input, Slider, Card, Drawer, Spin, Statistic } from 'antd';
 import { EnvironmentOutlined, HomeOutlined, DollarOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import propertyService from '../Employeesportal/AdminPortal/Creation_Property/services/propertyService';  
+import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingScheduleServices';  
+
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -10,11 +13,15 @@ const FirstSection = () => {
     const navigate = useNavigate();
     const [propertyType, setPropertyType] = useState('');
     const [location, setLocation] = useState('');
-    const [priceRange, setPriceRange] = useState([1000000, 10000000]); // Updated for PHP prices
+    const [priceRange, setPriceRange] = useState([1000000, 10000000]);
     const [bedrooms, setBedrooms] = useState('');
     const [bathrooms, setBathrooms] = useState('');
     const [filterVisible, setFilterVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [loadingStats, setLoadingStats] = useState(false);
+    const [totalProperties, setTotalProperties] = useState('50K+');
+    const [happyClients, setHappyClients] = useState('25K+');
+    const [citiesNationwide, setCitiesNationwide] = useState('100+');
 
     // Philippines-specific locations
     const philippineLocations = [
@@ -49,6 +56,89 @@ const FirstSection = () => {
         'Batangas City',
         'Naga City'
     ];
+
+    // Load statistics from services
+    const loadStatistics = async () => {
+        try {
+            setLoadingStats(true);
+
+            // 1. Load total properties from property service
+            try {
+                const properties = await propertyService.getAllProperties();
+                if (properties && Array.isArray(properties)) {
+                    if (properties.length >= 10000) {
+                        setTotalProperties(`${Math.floor(properties.length / 1000)}K+`);
+                    } else if (properties.length >= 1000) {
+                        setTotalProperties(`${(properties.length / 1000).toFixed(1)}K+`);
+                    } else {
+                        setTotalProperties(properties.length.toString());
+                    }
+                }
+            } catch (error) {
+                console.log('Using default property count');
+            }
+
+            // 2. Load happy clients from ratings service
+            try {
+                const ratings = await ratingScheduleService.getAllRatingSchedules();
+                if (ratings && Array.isArray(ratings)) {
+                    // Count unique clients from ratings
+                    const uniqueClients = new Set(ratings.map(rating => rating.clientId));
+                    const clientCount = uniqueClients.size;
+
+                    if (clientCount >= 10000) {
+                        setHappyClients(`${Math.floor(clientCount / 1000)}K+`);
+                    } else if (clientCount >= 1000) {
+                        setHappyClients(`${(clientCount / 1000).toFixed(1)}K+`);
+                    } else {
+                        setHappyClients(clientCount.toString());
+                    }
+                }
+            } catch (error) {
+                console.log('Using default client count');
+            }
+
+            // 3. Load cities count from properties data
+            try {
+                const properties = await propertyService.getAllProperties();
+                if (properties && Array.isArray(properties)) {
+                    // Extract unique cities from properties
+                    const uniqueCities = new Set();
+                    properties.forEach(property => {
+                        if (property.city) {
+                            uniqueCities.add(property.city);
+                        }
+                    });
+
+                    const cityCount = uniqueCities.size;
+                    if (cityCount >= 100) {
+                        setCitiesNationwide(`${cityCount}+`);
+                    } else {
+                        setCitiesNationwide(cityCount.toString());
+                    }
+                }
+            } catch (error) {
+                console.log('Using default city count');
+            }
+
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        } finally {
+            setLoadingStats(false);
+        }
+    };
+
+    // Load statistics on component mount
+    useEffect(() => {
+        loadStatistics();
+
+        // Optional: Refresh statistics periodically (every 5 minutes)
+        const intervalId = setInterval(() => {
+            loadStatistics();
+        }, 300000); // 5 minutes
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     const handleSearch = () => {
         navigate('/properties', {
@@ -88,6 +178,13 @@ const FirstSection = () => {
         }
         return `₱${price}`;
     };
+
+    // Stats array for rendering
+    const statsData = [
+        { number: totalProperties, label: 'Properties', loading: loadingStats },
+        { number: happyClients, label: 'Happy Clients', loading: loadingStats },
+        { number: citiesNationwide, label: 'Cities Nationwide', loading: loadingStats }
+    ];
 
     return (
         <section style={{
@@ -336,30 +433,39 @@ const FirstSection = () => {
                                     </Space>
                                 </Drawer>
 
-                                {/* Minimal Stats */}
+                                {/* Live Stats from Services */}
                                 <Row gutter={32} style={{ marginTop: '2rem' }}>
-                                    {[
-                                        { number: '50K+', label: 'Properties' },
-                                        { number: '25K+', label: 'Happy Clients' },
-                                        { number: '100+', label: 'Cities Nationwide' }
-                                    ].map((stat, index) => (
+                                    {statsData.map((stat, index) => (
                                         <Col xs={8} key={index}>
-                                            <div>
-                                                <Title level={3} style={{
-                                                    margin: 0,
-                                                    fontSize: '1.8rem',
-                                                    color: '#001529'
-                                                }}>
-                                                    {stat.number}
-                                                </Title>
-                                                <Paragraph style={{
-                                                    margin: 0,
-                                                    fontSize: '0.9rem',
-                                                    color: '#666'
-                                                }}>
-                                                    {stat.label}
-                                                </Paragraph>
-                                            </div>
+                                            {loadingStats ? (
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <Spin size="small" />
+                                                    <Paragraph style={{
+                                                        margin: '8px 0 0 0',
+                                                        fontSize: '0.9rem',
+                                                        color: '#666'
+                                                    }}>
+                                                        Loading...
+                                                    </Paragraph>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <Title level={3} style={{
+                                                        margin: 0,
+                                                        fontSize: '1.8rem',
+                                                        color: '#001529'
+                                                    }}>
+                                                        {stat.number}
+                                                    </Title>
+                                                    <Paragraph style={{
+                                                        margin: 0,
+                                                        fontSize: '0.9rem',
+                                                        color: '#666'
+                                                    }}>
+                                                        {stat.label}
+                                                    </Paragraph>
+                                                </div>
+                                            )}
                                         </Col>
                                     ))}
                                 </Row>

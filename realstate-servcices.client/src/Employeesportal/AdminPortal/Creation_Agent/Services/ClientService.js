@@ -7,16 +7,17 @@ const baseClientService = {
         const response = await api.get('/client');
         console.log('Clients response:', response);
 
+        // Handle direct array response
+        if (Array.isArray(response)) {
+            return clientMapper.toFrontendList(response);
+        }
+
         if (response && response.success && response.data) {
             return clientMapper.toFrontendList(response.data);
         }
 
         if (response && Array.isArray(response.data)) {
             return clientMapper.toFrontendList(response.data);
-        }
-
-        if (Array.isArray(response)) {
-            return clientMapper.toFrontendList(response);
         }
 
         console.error('Unexpected response format:', response);
@@ -27,6 +28,11 @@ const baseClientService = {
         console.log('Fetching client:', id);
         const response = await api.get(`/client/${id}`);
         console.log('Client response:', response);
+
+        // Handle direct client object response
+        if (response && response.id) {
+            return clientMapper.toFrontend(response);
+        }
 
         if (response && response.success && response.data) {
             return clientMapper.toFrontend(response.data);
@@ -44,7 +50,16 @@ const baseClientService = {
         const response = await api.get(`/client/${baseMemberId}`);
         console.log('Client by member response:', response);
 
+        // Handle direct client object response
+        if (response && response.id) {
+            return clientMapper.toFrontend(response);
+        }
+
         if (response && response.success && response.data) {
+            return clientMapper.toFrontend(response.data);
+        }
+
+        if (response && response.data) {
             return clientMapper.toFrontend(response.data);
         }
 
@@ -63,16 +78,17 @@ const baseClientService = {
             const response = await api.post('/client/by-member-ids', baseMemberIds);
             console.log('Clients by member IDs response:', response);
 
+            // Handle direct array response
+            if (Array.isArray(response)) {
+                return clientMapper.toFrontendList(response);
+            }
+
             if (response && response.success && response.data) {
                 return clientMapper.toFrontendList(response.data);
             }
 
             if (response && Array.isArray(response.data)) {
                 return clientMapper.toFrontendList(response.data);
-            }
-
-            if (Array.isArray(response)) {
-                return clientMapper.toFrontendList(response);
             }
 
             console.warn('Unexpected response format for clients by member IDs:', response);

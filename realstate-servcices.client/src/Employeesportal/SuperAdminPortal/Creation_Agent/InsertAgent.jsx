@@ -18,8 +18,29 @@ import {
     Typography,
     Descriptions,
     Alert,
-    Steps
+    Steps,
+    Modal,
+    Progress,
+    notification,
+    Spin,
+    Image,
+    Collapse
 } from 'antd';
+import {
+    SaveOutlined,
+    CloseOutlined,
+    UploadOutlined,
+    EyeOutlined,
+    DeleteOutlined,
+    CheckCircleOutlined,
+    UserOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    IdcardOutlined,
+    EnvironmentOutlined,
+    BookOutlined,
+    TrophyOutlined
+} from '@ant-design/icons';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 import {
     useAgentErrorHandler,
@@ -31,15 +52,16 @@ const { Option } = Select;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Step } = Steps;
+const { Panel } = Collapse;
 
 const enhancedAgentService = createAgentServiceWithErrorHandling(agentService);
 
 const InsertAgent = ({ agent, onSuccess, onCancel }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const [imageUrl, setImageUrl] = useState('');
+    const [imageList, setImageList] = useState([]);
     const [submittedData, setSubmittedData] = useState(null);
-    const [showAccountInfo, setShowAccountInfo] = useState(false);
+    const [showSuccessInfo, setShowSuccessInfo] = useState(false);
     const [error, setError] = useState(null);
     const [currentStep, setCurrentStep] = useState(0);
     const [missingFields, setMissingFields] = useState([]);
@@ -47,38 +69,98 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
     const { handleError } = useAgentErrorHandler();
     const [showLicenseFields, setShowLicenseFields] = useState(false);
 
+    // Progress states like InsertProperty
+    const [progressVisible, setProgressVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [currentAction, setCurrentAction] = useState('');
+
+    // Preview states
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [previewTitle, setPreviewTitle] = useState('');
+
     useEffect(() => {
         if (agent) {
             form.setFieldsValue({
                 ...agent,
                 licenseExpiry: agent.licenseExpiry ? moment(agent.licenseExpiry) : null,
             });
-            setImageUrl(agent.profilePictureUrl || '');
-            setShowAccountInfo(true);
-            setSubmittedData({
-                username: agent.username,
-                email: agent.email,
-                password: '********',
-                profilePictureUrl: agent.profilePictureUrl
-            });
-            // Show license fields if agent has license data
-            if (agent.licenseNumber) {
-                setShowLicenseFields(true);
+
+            // Initialize image list like InsertProperty
+            if (agent.profilePictureUrl) {
+                setImageList([{
+                    uid: '-1',
+                    name: 'profile-picture.jpg',
+                    status: 'done',
+                    url: agent.profilePictureUrl,
+                    thumbUrl: agent.profilePictureUrl
+                }]);
             }
+
+            setShowLicenseFields(!!agent.licenseNumber);
         }
     }, [agent, form]);
+
+    // Progress functions like InsertProperty
+    const startProgress = (actionName) => {
+        setCurrentAction(actionName);
+        setProgressVisible(true);
+        setProgress(0);
+
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 100);
+
+        return interval;
+    };
+
+    const completeProgress = (interval) => {
+        setProgress(100);
+        setTimeout(() => {
+            if (interval) clearInterval(interval);
+            setProgressVisible(false);
+            setProgress(0);
+            setCurrentAction('');
+        }, 500);
+    };
+
+    // Success notification like InsertProperty
+    const showSuccessMessage = (action, agentName) => {
+        const messages = {
+            create: 'Agent created successfully!',
+            update: 'Agent updated successfully!'
+        };
+
+        notification.success({
+            message: (
+                <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    <span>{messages[action]}</span>
+                </Space>
+            ),
+            description: `"${agentName}" has been ${action === 'create' ? 'created' : 'updated'} successfully.`,
+            placement: 'topRight',
+            duration: 4,
+        });
+    };
 
     const clearError = () => {
         setError(null);
         setMissingFields([]);
     };
 
-    // Function to validate if string contains only whitespace
-    const validateNotWhitespace = (value) => {
+    // Enhanced validation like InsertProperty
+    const validateNoWhitespace = (_, value) => {
         if (value && value.trim() === '') {
-            return false;
+            return Promise.reject(new Error('This field cannot be empty or contain only spaces'));
         }
-        return true;
+        return Promise.resolve();
     };
 
     const validateCurrentStep = () => {
@@ -89,35 +171,35 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         fieldNames.forEach(field => {
             const value = values[field];
 
-            // Skip license fields if they are hidden
+            // Skip license fields if hidden
             if ((field === 'licenseNumber' || field === 'licenseExpiry') && !showLicenseFields) {
                 return;
             }
 
-            if (field === 'firstName' && (!value || !validateNotWhitespace(value))) {
+            // Required field validation
+            if (field === 'firstName' && (!value || value.trim() === '')) {
                 currentMissing.push('First Name');
             }
-            if (field === 'lastName' && (!value || !validateNotWhitespace(value))) {
+            if (field === 'lastName' && (!value || value.trim() === '')) {
                 currentMissing.push('Last Name');
             }
-            if (field === 'cellPhoneNo' && !value) {
+            if (field === 'cellPhoneNo' && (!value || value.trim() === '')) {
                 currentMissing.push('Cell Phone');
             } else if (field === 'cellPhoneNo' && value) {
-                // Additional validation for exact 11 digits
                 const cleanPhone = value.replace(/\D/g, '');
                 if (cleanPhone.length !== 11) {
                     currentMissing.push('Cell Phone (must be 11 digits)');
                 }
             }
-            if (field === 'email' && (!value || !validateNotWhitespace(value))) {
+            if (field === 'email' && (!value || value.trim() === '')) {
                 currentMissing.push('Email');
             }
-            if (field === 'licenseNumber' && showLicenseFields && (!value || !validateNotWhitespace(value))) {
+            if (field === 'licenseNumber' && showLicenseFields && (!value || value.trim() === '')) {
                 currentMissing.push('License Number');
             }
             if (field === 'username' && !value && !agent) {
                 currentMissing.push('Username');
-            } else if (field === 'username' && value && !validateNotWhitespace(value)) {
+            } else if (field === 'username' && value && value.trim() === '') {
                 currentMissing.push('Username');
             }
             if (field === 'password' && !value && !agent) {
@@ -125,8 +207,8 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
             }
         });
 
-        // Add image validation for the account step
-        if (currentStep === 4 && !agent && !imageUrl) {
+        // Profile picture validation for new agents
+        if (currentStep === 4 && !agent && imageList.length === 0) {
             currentMissing.push('Profile Picture');
         }
 
@@ -157,48 +239,113 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         setCurrentStep(currentStep - 1);
     };
 
+    // Enhanced image upload handling like InsertProperty
+    const handleImageUpload = ({ file, fileList }) => {
+        if (file.status === 'uploading') {
+            setUploading(true);
+        } else if (file.status === 'done') {
+            setUploading(false);
+            message.success(`${file.name} uploaded successfully`);
+
+            const updatedList = fileList.map(item => {
+                if (item.originFileObj && !item.url) {
+                    return {
+                        ...item,
+                        url: URL.createObjectURL(item.originFileObj),
+                        thumbUrl: URL.createObjectURL(item.originFileObj)
+                    };
+                }
+                return item;
+            });
+            setImageList(updatedList);
+        } else if (file.status === 'error') {
+            setUploading(false);
+            message.error(`${file.name} upload failed`);
+        }
+
+        setImageList(fileList);
+    };
+
+    const handlePreview = async (file) => {
+        if (!file.url && !file.preview) {
+            file.preview = await getBase64(file.originFileObj);
+        }
+        setPreviewImage(file.url || file.preview);
+        setPreviewVisible(true);
+        setPreviewTitle(file.name || file.url.substring(file.url.lastIndexOf('/') + 1));
+    };
+
+    const handleCancel = () => setPreviewVisible(false);
+
+    const getBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onError = error => reject(error);
+        });
+    };
+
+    const uploadButton = (
+        <div>
+            <UploadOutlined />
+            <div style={{ marginTop: 8 }}>Upload</div>
+        </div>
+    );
+
+    const imageUploadProps = {
+        beforeUpload: (file) => {
+            const isImage = file.type.startsWith('image/');
+            if (!isImage) {
+                message.error('You can only upload image files!');
+                return Upload.LIST_IGNORE;
+            }
+
+            // 5MB limit for profile pictures
+            if (file.size > 5 * 1024 * 1024) {
+                message.error('Image must be smaller than 5MB!');
+                return Upload.LIST_IGNORE;
+            }
+
+            return false;
+        },
+        fileList: imageList,
+        onChange: handleImageUpload,
+        onPreview: handlePreview,
+        multiple: false,
+        accept: "image/*",
+        listType: "picture-card",
+        showUploadList: {
+            showPreviewIcon: false,
+            showRemoveIcon: false,
+        },
+        maxCount: 1
+    };
+
     const onFinish = async (values) => {
+        const progressInterval = startProgress(agent ? 'Updating agent...' : 'Creating agent...');
         setLoading(true);
         clearError();
 
         try {
-            // Validate ALL steps before submission
             const allStepFields = [0, 1, 2, 3, 4].flatMap(step => getStepFields(step));
             const allValues = form.getFieldsValue(allStepFields);
 
-            // Check for missing required fields across all steps
+            console.log('All form values:', allValues);
+
             const missingFields = [];
 
-            // Validate required fields (trim whitespace)
-            if (!allValues.firstName || !validateNotWhitespace(allValues.firstName)) {
-                missingFields.push('First Name');
-            }
-            if (!allValues.lastName || !validateNotWhitespace(allValues.lastName)) {
-                missingFields.push('Last Name');
-            }
-            if (!allValues.cellPhoneNo) {
-                missingFields.push('Cell Phone');
-            } else {
-                const cleanPhone = allValues.cellPhoneNo.replace(/\D/g, '');
-                if (cleanPhone.length !== 11) {
-                    missingFields.push('Cell Phone (must be 11 digits)');
-                }
-            }
-            if (!allValues.email || !validateNotWhitespace(allValues.email)) {
-                missingFields.push('Email');
-            }
-            if (showLicenseFields && (!allValues.licenseNumber || !validateNotWhitespace(allValues.licenseNumber))) {
-                missingFields.push('License Number');
-            }
-            if (!agent && (!allValues.username || !validateNotWhitespace(allValues.username))) {
-                missingFields.push('Username');
-            }
-            if (!agent && !allValues.password) {
-                missingFields.push('Password');
-            }
+            // Enhanced validation like InsertProperty
+            if (!allValues.firstName || allValues.firstName.trim() === '') missingFields.push('First Name');
+            if (!allValues.lastName || allValues.lastName.trim() === '') missingFields.push('Last Name');
+            if (!allValues.cellPhoneNo || allValues.cellPhoneNo.trim() === '') missingFields.push('Cell Phone');
+            if (!allValues.email || allValues.email.trim() === '') missingFields.push('Email');
+            if (showLicenseFields && (!allValues.licenseNumber || allValues.licenseNumber.trim() === '')) missingFields.push('License Number');
+            if (!agent && (!allValues.username || allValues.username.trim() === '')) missingFields.push('Username');
+            if (!agent && !allValues.password) missingFields.push('Password');
 
-            // Validate profile picture for new agents
-            if (!agent && !imageUrl) {
+            // Profile picture validation
+            if (!agent && imageList.length === 0) {
                 missingFields.push('Profile Picture');
             }
 
@@ -209,148 +356,152 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                 return;
             }
 
-            // Prepare agent data with profile picture
+            // Get the uploaded image file
+            const imageFile = imageList.length > 0 && imageList[0].originFileObj instanceof File
+                ? imageList[0].originFileObj
+                : null;
+
+            let imageUrl = '';
+            if (imageFile) {
+                // Upload image and get URL
+                const uploadResponse = await agentService.uploadImage(imageFile);
+                if (uploadResponse && uploadResponse.success) {
+                    imageUrl = uploadResponse.url || uploadResponse.data?.url || uploadResponse.profilePictureUrl;
+                }
+            } else if (imageList.length > 0 && imageList[0].url) {
+                // Use existing URL for updates
+                imageUrl = imageList[0].url;
+            }
+
             const agentData = {
                 ...allValues,
                 photourl: imageUrl,
                 profilePictureUrl: imageUrl,
             };
 
-            // If license fields are hidden, remove them from the data
+            // Remove license fields if hidden
             if (!showLicenseFields) {
                 delete agentData.licenseNumber;
                 delete agentData.licenseExpiry;
             }
 
-            // Debug log
-            console.log('=== DEBUG: Submitting agent data ===');
-            console.log('Image URL:', imageUrl);
-            console.log('License Fields Visible:', showLicenseFields);
-            console.log('Agent data being sent:', agentData);
-            console.log('=== END DEBUG ===');
-
-            // Handle specialization - ensure it's properly formatted as JSON string
+            // Handle specialization
             if (Array.isArray(agentData.specialization)) {
                 agentData.specialization = JSON.stringify(agentData.specialization);
             } else if (!agentData.specialization) {
                 agentData.specialization = '[]';
             }
 
-            // Handle languages - convert array to string if needed
+            // Handle languages
             if (Array.isArray(agentData.languages)) {
                 agentData.languages = agentData.languages.join(', ');
             }
 
-            // Remove confirmPassword from the data sent to API
+            // Remove confirmPassword
             delete agentData.confirmPassword;
 
             let result;
             if (agent) {
                 result = await enhancedAgentService.updateAgent(agent.id, agentData);
-                message.success('Agent updated successfully');
             } else {
                 result = await enhancedAgentService.createAgent(agentData);
-                message.success('Agent created successfully');
             }
 
-            console.log('API Response:', result);
+            completeProgress(progressInterval);
+            showSuccessMessage(agent ? 'update' : 'create', `${allValues.firstName} ${allValues.lastName}`);
 
-            // Store account information to show after submission
-            setSubmittedData({
-                username: allValues.username,
-                email: allValues.email,
-                password: allValues.password || '********',
-                profilePictureUrl: imageUrl
-            });
+            if (result) {
+                setSubmittedData({
+                    firstName: allValues.firstName,
+                    lastName: allValues.lastName,
+                    email: allValues.email,
+                    username: allValues.username,
+                    password: allValues.password || '********',
+                    profilePictureUrl: imageUrl,
+                    referenceId: result.id || `AGT-${Date.now()}`,
+                    licenseNumber: showLicenseFields ? allValues.licenseNumber : 'Not provided'
+                });
 
-            setShowAccountInfo(true);
+                setShowSuccessInfo(true);
 
-            if (onSuccess) onSuccess();
+                if (onSuccess) {
+                    onSuccess(result);
+                }
+            } else {
+                throw new Error('Invalid response from server');
+            }
+
         } catch (error) {
             console.error('Error saving agent:', error);
-            const handledError = handleError(error);
+            completeProgress(progressInterval);
+            const errorMessage = error.message || `Failed to ${agent ? 'update' : 'create'} agent`;
 
-            // Show appropriate error message
-            if (handledError.isValidationError && handledError.details) {
-                // Set form field errors for validation errors
-                const fieldErrors = Object.entries(handledError.details).map(([field, errorMsg]) => ({
-                    name: field,
-                    errors: [errorMsg]
-                }));
-                form.setFields(fieldErrors);
-                message.error('Please fix the form errors');
-            } else {
-                setError(handledError);
-                message.error(handledError.message || `Failed to ${agent ? 'update' : 'create'} agent`);
+            let displayMessage = errorMessage;
+            if (error.details && Array.isArray(error.details) && error.details.length > 0) {
+                displayMessage += `: ${error.details.join(', ')}`;
+            } else if (error.details) {
+                displayMessage += `: ${error.details}`;
             }
+
+            message.error(displayMessage);
+            setError({
+                message: displayMessage,
+                details: error.details
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleImageUpload = async (options) => {
-        const { file, onSuccess, onError } = options;
+    const getErrorAlert = () => {
+        if (!error) return null;
 
-        setUploading(true);
-        clearError();
+        return (
+            <Alert
+                message="Error"
+                description={error.message}
+                type="error"
+                showIcon
+                closable
+                onClose={clearError}
+                style={{ marginBottom: 16 }}
+            />
+        );
+    };
 
-        try {
-            console.log('Uploading profile picture...', file);
+    const getMissingFieldsAlert = () => {
+        if (missingFields.length === 0) return null;
 
-            // Use your agentService to upload the image
-            const response = await agentService.uploadImage(file);
-
-            console.log('Upload response:', response);
-
-            if (response && response.success) {
-                // Extract URL from different possible response structures
-                let uploadedUrl = response.url || response.data?.url || response.profilePictureUrl || response.imageUrl;
-
-                // If response.data exists and has url property
-                if (!uploadedUrl && response.data && typeof response.data === 'object') {
-                    uploadedUrl = response.data.url || response.data.imageUrl;
+        return (
+            <Alert
+                message="Missing Required Fields"
+                description={
+                    <div>
+                        Please fill in the following required fields:
+                        <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
+                            {missingFields.map((field, index) => (
+                                <li key={index}>{field}</li>
+                            ))}
+                        </ul>
+                    </div>
                 }
+                type="warning"
+                showIcon
+                closable
+                onClose={() => setMissingFields([])}
+                style={{ marginBottom: 16 }}
+            />
+        );
+    };
 
-                // If still no URL, check the entire response structure
-                if (!uploadedUrl) {
-                    console.warn('No URL found in expected locations, checking full response:', response);
-                    // Try to find URL in the response object
-                    const findUrlInObject = (obj) => {
-                        for (let key in obj) {
-                            if (typeof obj[key] === 'string' && obj[key].includes('/uploads/')) {
-                                return obj[key];
-                            }
-                            if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                const found = findUrlInObject(obj[key]);
-                                if (found) return found;
-                            }
-                        }
-                        return null;
-                    };
-
-                    uploadedUrl = findUrlInObject(response);
-                }
-
-                if (!uploadedUrl) {
-                    throw new Error('Upload successful but no image URL returned in response');
-                }
-
-                setImageUrl(uploadedUrl);
-                onSuccess(response);
-                message.success('Profile picture uploaded successfully');
-                console.log('Profile picture uploaded successfully:', uploadedUrl);
-            } else {
-                const errorMsg = response?.message || 'Upload failed';
-                onError(new Error(errorMsg));
-                message.error(errorMsg);
-            }
-        } catch (error) {
-            console.error('Upload error:', error);
-            onError(error);
-            message.error('Failed to upload profile picture');
-        } finally {
-            setUploading(false);
-        }
+    const handleCreateAnother = () => {
+        setShowSuccessInfo(false);
+        setSubmittedData(null);
+        setError(null);
+        form.resetFields();
+        setImageList([]);
+        setCurrentStep(0);
+        setShowLicenseFields(false);
     };
 
     const specializationOptions = [
@@ -366,15 +517,7 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
 
     const languageOptions = [
         'English',
-        'Spanish',
-        'French',
-        'German',
-        'Chinese',
-        'Japanese',
-        'Korean',
-        'Arabic',
-        'Hindi',
-        'Portuguese'
+        'Filipino'
     ];
 
     const validatePasswordConfirm = ({ getFieldValue }) => ({
@@ -386,226 +529,56 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         },
     });
 
-    const handleCreateAnother = () => {
-        setShowAccountInfo(false);
-        setSubmittedData(null);
-        setError(null);
-        form.resetFields();
-        setImageUrl('');
-        setCurrentStep(0);
-        setShowLicenseFields(false);
-    };
-
-    const getErrorAlert = () => {
-        if (!error) return null;
-
-        let alertType = 'error';
-        let alertTitle = 'Error';
-
-        if (error.isNetworkError) {
-            alertType = 'warning';
-            alertTitle = 'Network Issue';
-        }
-        if (error.isValidationError) {
-            alertType = 'info';
-            alertTitle = 'Validation Error';
-        }
-        if (error.isAuthError) {
-            alertTitle = 'Authentication Error';
-        }
-        if (error.isLicenseError) {
-            alertTitle = 'License Error';
-        }
-
-        return (
-            <Alert
-                message={alertTitle}
-                description={
-                    <div>
-                        <div style={{ marginBottom: 8, fontWeight: 500 }}>{error.message}</div>
-                        {error.details && typeof error.details === 'object' && Object.keys(error.details).length > 0 ? (
-                            <div style={{ fontSize: '12px' }}>
-                                <div style={{ marginBottom: 4, fontWeight: 500 }}>Details:</div>
-                                {Object.entries(error.details).map(([key, value]) => (
-                                    <div key={key} style={{ marginLeft: 8 }}>
-                                        • <span style={{ fontWeight: 500 }}>{key}:</span> {String(value)}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : error.details ? (
-                            <div style={{ fontSize: '12px' }}>
-                                {String(error.details)}
-                            </div>
-                        ) : null}
-                    </div>
-                }
-                type={alertType}
-                showIcon
-                closable
-                onClose={clearError}
-                style={{
-                    marginBottom: 16,
-                    border: alertType === 'error' ? '1px solid #ffccc7' :
-                        alertType === 'warning' ? '1px solid #ffe58f' : '1px solid #91d5ff'
-                }}
-            />
-        );
-    };
-
-    const getMissingFieldsAlert = () => {
-        if (missingFields.length === 0) return null;
-
-        return (
-            <Alert
-                message="Missing Required Fields"
-                description={
-                    <div>
-                        Please fill in the following required fields before submitting:
-                        <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                            {missingFields.map((field, index) => (
-                                <li key={index} style={{ fontWeight: 500 }}>{field}</li>
-                            ))}
-                        </ul>
-                    </div>
-                }
-                type="warning"
-                showIcon
-                closable
-                onClose={() => setMissingFields([])}
-                style={{
-                    marginBottom: 16,
-                    border: '1px solid #ffe58f'
-                }}
-            />
-        );
-    };
-
-    // Fixed Upload component with proper image handling
-    const ProfilePictureUpload = () => (
-        <Upload
-            name="file"
-            listType="picture-card"
-            className="avatar-uploader"
-            showUploadList={false}
-            customRequest={handleImageUpload}
-            beforeUpload={(file) => {
-                const isImage = file.type.startsWith('image/');
-                if (!isImage) {
-                    message.error('You can only upload image files!');
-                    return false;
-                }
-
-                const isLt5M = file.size / 1024 / 1024 < 5;
-                if (!isLt5M) {
-                    message.error('Image must be smaller than 5MB!');
-                    return false;
-                }
-                return true;
-            }}
-            disabled={uploading}
-        >
-            {imageUrl ? (
-                <img
-                    src={imageUrl}
-                    alt="avatar"
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                    }}
-                />
-            ) : (
-                <div>
-                    <div style={{ marginTop: 8 }}>
-                        {uploading ? 'Uploading...' : 'Upload'}
-                    </div>
-                    <div style={{ fontSize: '12px' }}>Profile Photo</div>
-                </div>
-            )}
-        </Upload>
-    );
-
     const steps = [
         {
             title: 'Basic Info',
+            icon: <UserOutlined />,
             content: (
-                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    <Row gutter={[8, 4]}>
-                        <Col span={8}>
+                <Card title="Basic Information" size="small" style={{ border: 'none' }}>
+                    <Row gutter={[16, 0]}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="First Name"
                                 name="firstName"
                                 rules={[
                                     { required: true, message: 'Please enter first name' },
-                                    {
-                                        validator: (_, value) => {
-                                            if (value && !validateNotWhitespace(value)) {
-                                                return Promise.reject(new Error('First name cannot be only whitespace'));
-                                            }
-                                            return Promise.resolve();
-                                        }
-                                    }
+                                    { validator: validateNoWhitespace }
                                 ]}
-                                style={{ marginBottom: 8 }}
                             >
                                 <Input
                                     placeholder="Enter first name"
-                                    onChange={clearError}
-                                    size="small"
+                                    prefix={<UserOutlined />}
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Middle Name"
                                 name="middleName"
-                                style={{ marginBottom: 8 }}
                             >
-                                <Input
-                                    placeholder="Enter middle name"
-                                    onChange={clearError}
-                                    size="small"
-                                />
+                                <Input placeholder="Enter middle name" />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Last Name"
                                 name="lastName"
                                 rules={[
                                     { required: true, message: 'Please enter last name' },
-                                    {
-                                        validator: (_, value) => {
-                                            if (value && !validateNotWhitespace(value)) {
-                                                return Promise.reject(new Error('Last name cannot be only whitespace'));
-                                            }
-                                            return Promise.resolve();
-                                        }
-                                    }
+                                    { validator: validateNoWhitespace }
                                 ]}
-                                style={{ marginBottom: 8 }}
                             >
-                                <Input
-                                    placeholder="Enter last name"
-                                    onChange={clearError}
-                                    size="small"
-                                />
+                                <Input placeholder="Enter last name" />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={[8, 4]}>
-                        <Col span={6}>
+                    <Row gutter={[16, 0]}>
+                        <Col span={24} md={6}>
                             <Form.Item
                                 label="Suffix"
                                 name="suffix"
-                                style={{ marginBottom: 0 }}
                             >
-                                <Select
-                                    placeholder="Select suffix"
-                                    allowClear
-                                    onChange={clearError}
-                                    size="small"
-                                >
+                                <Select placeholder="Select suffix" allowClear>
                                     <Option value="Jr">Jr</Option>
                                     <Option value="Sr">Sr</Option>
                                     <Option value="II">II</Option>
@@ -614,7 +587,7 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={9}>
+                        <Col span={24} md={9}>
                             <Form.Item
                                 label="Cell Phone"
                                 name="cellPhoneNo"
@@ -625,42 +598,30 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                         message: 'Phone number must be exactly 11 digits'
                                     }
                                 ]}
-                                style={{ marginBottom: 0 }}
                             >
                                 <Input
                                     placeholder="Enter 11-digit number"
-                                    onChange={clearError}
-                                    size="small"
+                                    prefix={<PhoneOutlined />}
                                     maxLength={11}
                                     onInput={(e) => {
-                                        // Only allow numbers
                                         e.target.value = e.target.value.replace(/\D/g, '');
                                     }}
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={9}>
+                        <Col span={24} md={9}>
                             <Form.Item
                                 label="Email"
                                 name="email"
                                 rules={[
                                     { required: true, message: 'Please enter email' },
                                     { type: 'email', message: 'Please enter valid email' },
-                                    {
-                                        validator: (_, value) => {
-                                            if (value && !validateNotWhitespace(value)) {
-                                                return Promise.reject(new Error('Email cannot be only whitespace'));
-                                            }
-                                            return Promise.resolve();
-                                        }
-                                    }
+                                    { validator: validateNoWhitespace }
                                 ]}
-                                style={{ marginBottom: 0 }}
                             >
                                 <Input
                                     placeholder="Enter email"
-                                    onChange={clearError}
-                                    size="small"
+                                    prefix={<MailOutlined />}
                                 />
                             </Form.Item>
                         </Col>
@@ -670,12 +631,12 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
         },
         {
             title: 'Professional',
+            icon: <IdcardOutlined />,
             content: (
-                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    {/* License Fields Toggle */}
-                    <Row gutter={[8, 4]} style={{ marginBottom: 12 }}>
+                <Card title="Professional Information" size="small" style={{ border: 'none' }}>
+                    <Row gutter={[16, 16]}>
                         <Col span={24}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                                 <Text strong>License Information</Text>
                                 <Switch
                                     checked={showLicenseFields}
@@ -690,52 +651,37 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
 
                     {showLicenseFields && (
                         <>
-                            <Row gutter={[8, 4]}>
-                                <Col span={12}>
+                            <Row gutter={[16, 0]}>
+                                <Col span={24} md={12}>
                                     <Form.Item
                                         label="License Number"
                                         name="licenseNumber"
                                         rules={[
                                             { required: true, message: 'Please enter license number' },
-                                            {
-                                                validator: (_, value) => {
-                                                    if (value && !validateNotWhitespace(value)) {
-                                                        return Promise.reject(new Error('License number cannot be only whitespace'));
-                                                    }
-                                                    return Promise.resolve();
-                                                }
-                                            }
+                                            { validator: validateNoWhitespace }
                                         ]}
-                                        style={{ marginBottom: 8 }}
                                     >
-                                        <Input
-                                            placeholder="Enter license number"
-                                            onChange={clearError}
-                                            size="small"
-                                        />
+                                        <Input placeholder="Enter license number" />
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col span={24} md={12}>
                                     <Form.Item
                                         label="License Expiry"
                                         name="licenseExpiry"
-                                        style={{ marginBottom: 8 }}
                                     >
                                         <DatePicker
                                             style={{ width: '100%' }}
                                             placeholder="Select expiry date"
-                                            onChange={clearError}
-                                            size="small"
                                         />
                                     </Form.Item>
                                 </Col>
                             </Row>
-                            <Divider style={{ margin: '8px 0' }} />
+                            <Divider style={{ margin: '16px 0' }} />
                         </>
                     )}
 
-                    <Row gutter={[8, 4]}>
-                        <Col span={12}>
+                    <Row gutter={[16, 0]}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Years of Experience"
                                 name="yearsOfExperience"
@@ -747,45 +693,34 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                         message: 'Experience must be between 0-50 years'
                                     }
                                 ]}
-                                style={{ marginBottom: 8 }}
                             >
                                 <InputNumber
                                     style={{ width: '100%' }}
                                     placeholder="Enter years of experience"
                                     min={0}
                                     max={50}
-                                    onChange={clearError}
-                                    size="small"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Brokerage Name"
                                 name="brokerageName"
-                                style={{ marginBottom: 8 }}
                             >
-                                <Input
-                                    placeholder="Enter brokerage name"
-                                    onChange={clearError}
-                                    size="small"
-                                />
+                                <Input placeholder="Enter brokerage name" />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={[8, 4]}>
+                    <Row gutter={[16, 0]}>
                         <Col span={24}>
                             <Form.Item
                                 label="Specialization"
                                 name="specialization"
-                                style={{ marginBottom: 8 }}
                             >
                                 <Select
                                     mode="multiple"
                                     placeholder="Select areas of specialization"
                                     allowClear
-                                    onChange={clearError}
-                                    size="small"
                                 >
                                     {specializationOptions.map(spec => (
                                         <Option key={spec} value={spec}>{spec}</Option>
@@ -794,216 +729,162 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={[8, 4]}>
-                        <Col span={24}>
-                            <Form.Item
-                                label="Bio/Experience Summary"
-                                name="experience"
-                                style={{ marginBottom: 0 }}
-                            >
-                                <TextArea
-                                    rows={2}
-                                    placeholder="Describe your professional experience and background"
-                                    onChange={clearError}
-                                    showCount
-                                    maxLength={500}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item
+                        label="Bio/Experience Summary"
+                        name="experience"
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="Describe your professional experience and background"
+                            showCount
+                            maxLength={500}
+                        />
+                    </Form.Item>
                 </Card>
             )
         },
         {
             title: 'Contact',
+            icon: <EnvironmentOutlined />,
             content: (
-                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    <Row gutter={[8, 4]}>
-                        <Col span={12}>
+                <Card title="Contact Information" size="small" style={{ border: 'none' }}>
+                    <Row gutter={[16, 0]}>
+                        <Col span={24}>
                             <Form.Item
                                 label="Office Address"
                                 name="officeAddress"
-                                style={{ marginBottom: 8 }}
                             >
                                 <TextArea
-                                    rows={2}
+                                    rows={3}
                                     placeholder="Enter office address"
-                                    onChange={clearError}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                label="Office Phone"
-                                name="officePhone"
-                                style={{ marginBottom: 8 }}
-                            >
-                                <Input
-                                    placeholder="Enter office phone number"
-                                    onChange={clearError}
-                                    size="small"
+                                    showCount
+                                    maxLength={300}
                                 />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={[8, 4]}>
-                        <Col span={12}>
+                    <Row gutter={[16, 0]}>
+                        <Col span={24} md={12}>
+                            <Form.Item
+                                label="Office Phone"
+                                name="officePhone"
+                            >
+                                <Input placeholder="Enter office phone number" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Website"
                                 name="website"
                                 rules={[
                                     { type: 'url', message: 'Please enter a valid URL' }
                                 ]}
-                                style={{ marginBottom: 8 }}
                             >
-                                <Input
-                                    placeholder="https://example.com"
-                                    onChange={clearError}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                label="Languages Spoken"
-                                name="languages"
-                                style={{ marginBottom: 0 }}
-                            >
-                                <Select
-                                    mode="multiple"
-                                    placeholder="Select languages spoken"
-                                    allowClear
-                                    onChange={clearError}
-                                    size="small"
-                                >
-                                    {languageOptions.map(lang => (
-                                        <Option key={lang} value={lang}>{lang}</Option>
-                                    ))}
-                                </Select>
+                                <Input placeholder="https://example.com" />
                             </Form.Item>
                         </Col>
                     </Row>
+                    <Form.Item
+                        label="Languages Spoken"
+                        name="languages"
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="Select languages spoken"
+                            allowClear
+                        >
+                            {languageOptions.map(lang => (
+                                <Option key={lang} value={lang}>{lang}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
                 </Card>
             )
         },
         {
             title: 'Education',
+            icon: <BookOutlined />,
             content: (
-                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    <Row gutter={[8, 4]}>
-                        <Col span={24}>
-                            <Form.Item
-                                label="Education"
-                                name="education"
-                                style={{ marginBottom: 8 }}
-                            >
-                                <TextArea
-                                    rows={2}
-                                    placeholder="List your educational background and certifications"
-                                    onChange={clearError}
-                                    showCount
-                                    maxLength={300}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={[8, 4]}>
-                        <Col span={24}>
-                            <Form.Item
-                                label="Awards & Recognition"
-                                name="awards"
-                                style={{ marginBottom: 8 }}
-                            >
-                                <TextArea
-                                    rows={2}
-                                    placeholder="List any awards, honors, or recognition received"
-                                    onChange={clearError}
-                                    showCount
-                                    maxLength={300}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={[8, 4]}>
-                        <Col span={24}>
-                            <Form.Item
-                                label="Professional Bio"
-                                name="bio"
-                                style={{ marginBottom: 0 }}
-                            >
-                                <TextArea
-                                    rows={2}
-                                    placeholder="Write a detailed professional biography"
-                                    onChange={clearError}
-                                    showCount
-                                    maxLength={1000}
-                                    size="small"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                <Card title="Education & Background" size="small" style={{ border: 'none' }}>
+                    <Form.Item
+                        label="Education"
+                        name="education"
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="List your educational background and certifications"
+                            showCount
+                            maxLength={300}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="Awards & Recognition"
+                        name="awards"
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="List any awards, honors, or recognition received"
+                            showCount
+                            maxLength={300}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="Professional Bio"
+                        name="bio"
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="Write a detailed professional biography"
+                            showCount
+                            maxLength={1000}
+                        />
+                    </Form.Item>
                 </Card>
             )
         },
         {
             title: agent ? 'Verification' : 'Account',
+            icon: agent ? <CheckCircleOutlined /> : <UserOutlined />,
             content: (
-                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px' }}>
-                    {/* Profile Picture Section with validation */}
-                    <Row gutter={[8, 4]} style={{ marginBottom: 8 }}>
+                <Card title={agent ? "Verification" : "Account Setup"} size="small" style={{ border: 'none' }}>
+                    <Row gutter={[16, 16]}>
                         <Col span={24}>
-                            <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                                <Text strong>
-                                    Profile Picture {!agent && <Text type="danger">*</Text>}
-                                </Text>
-                                {!agent && !imageUrl && (
-                                    <div>
-                                        <Text type="danger" style={{ fontSize: '12px' }}>
-                                            Profile picture is required
-                                        </Text>
+                            <Form.Item
+                                label="Profile Picture"
+                                required={!agent}
+                                rules={!agent ? [{ required: true, message: 'Profile picture is required' }] : []}
+                            >
+                                <div>
+                                    <Upload {...imageUploadProps}>
+                                        {imageList.length >= 1 ? null : uploadButton}
+                                    </Upload>
+                                    <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                                        Upload profile picture (max 5MB). {!agent && 'Required for new agents.'}
                                     </div>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <ProfilePictureUpload />
-                            </div>
-                            {imageUrl && (
-                                <div style={{ textAlign: 'center', marginTop: 8 }}>
-                                    <Text type="success" style={{ fontSize: '12px' }}>
-                                        ✓ Profile picture uploaded
-                                    </Text>
+                                    {!agent && imageList.length === 0 && (
+                                        <div style={{ marginTop: 8, color: '#ff4d4f', fontSize: '12px' }}>
+                                            Profile picture is required
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </Form.Item>
                         </Col>
                     </Row>
 
                     {agent ? (
-                        // Verification for existing agents
-                        <Row gutter={[8, 4]}>
-                            <Col span={24}>
-                                <Form.Item
-                                    label="Agent Verified"
-                                    name="isVerified"
-                                    valuePropName="checked"
-                                    style={{ marginBottom: 0 }}
-                                >
-                                    <Switch
-                                        checkedChildren="Verified"
-                                        unCheckedChildren="Not Verified"
-                                        onChange={clearError}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                        <Form.Item
+                            label="Agent Verified"
+                            name="isVerified"
+                            valuePropName="checked"
+                        >
+                            <Switch
+                                checkedChildren="Verified"
+                                unCheckedChildren="Not Verified"
+                            />
+                        </Form.Item>
                     ) : (
-                        // Account setup for new agents
                         <>
-                            <Divider style={{ margin: '8px 0' }} />
-                            <Row gutter={[8, 4]}>
+                            <Row gutter={[16, 0]}>
                                 <Col span={24}>
                                     <Form.Item
                                         label="Username"
@@ -1015,27 +896,15 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                                 pattern: /^[a-zA-Z0-9_]+$/,
                                                 message: 'Username can only contain letters, numbers and underscore'
                                             },
-                                            {
-                                                validator: (_, value) => {
-                                                    if (value && !validateNotWhitespace(value)) {
-                                                        return Promise.reject(new Error('Username cannot be only whitespace'));
-                                                    }
-                                                    return Promise.resolve();
-                                                }
-                                            }
+                                            { validator: validateNoWhitespace }
                                         ]}
-                                        style={{ marginBottom: 8 }}
                                     >
-                                        <Input
-                                            placeholder="Enter username"
-                                            onChange={clearError}
-                                            size="small"
-                                        />
+                                        <Input placeholder="Enter username" />
                                     </Form.Item>
                                 </Col>
                             </Row>
-                            <Row gutter={[8, 4]}>
-                                <Col span={12}>
+                            <Row gutter={[16, 0]}>
+                                <Col span={24} md={12}>
                                     <Form.Item
                                         label="Password"
                                         name="password"
@@ -1047,16 +916,11 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                                 message: 'Password must contain uppercase, lowercase and number'
                                             }
                                         ]}
-                                        style={{ marginBottom: 0 }}
                                     >
-                                        <Input.Password
-                                            placeholder="Enter password"
-                                            onChange={clearError}
-                                            size="small"
-                                        />
+                                        <Input.Password placeholder="Enter password" />
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col span={24} md={12}>
                                     <Form.Item
                                         label="Confirm Password"
                                         name="confirmPassword"
@@ -1065,13 +929,8 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                             { required: true, message: 'Please confirm password' },
                                             validatePasswordConfirm
                                         ]}
-                                        style={{ marginBottom: 0 }}
                                     >
-                                        <Input.Password
-                                            placeholder="Confirm password"
-                                            onChange={clearError}
-                                            size="small"
-                                        />
+                                        <Input.Password placeholder="Confirm password" />
                                     </Form.Item>
                                 </Col>
                             </Row>
@@ -1084,59 +943,88 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
 
     return (
         <>
-            {!showAccountInfo ? (
-                // FORM VIEW WITH STEPS
+            {!showSuccessInfo ? (
                 <Form
                     form={form}
                     layout="vertical"
                     onFinish={onFinish}
-                    onFieldsChange={clearError}
                     initialValues={{
                         isVerified: false,
                         yearsOfExperience: 0,
                     }}
-                    scrollToFirstError
                 >
-                    {/* ERROR ALERTS AT THE TOP */}
+                    {progressVisible && (
+                        <div style={{ marginBottom: 16 }}>
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: 8
+                                }}>
+                                    <span style={{ fontWeight: 500, color: '#1890ff' }}>
+                                        {currentAction}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: '#666' }}>
+                                        {progress}%
+                                    </span>
+                                </div>
+                                <Progress
+                                    percent={progress}
+                                    status="active"
+                                    strokeColor={{
+                                        '0%': '#108ee9',
+                                        '100%': '#87d068',
+                                    }}
+                                    showInfo={false}
+                                />
+                            </Space>
+                        </div>
+                    )}
+
                     <div style={{ marginBottom: 16 }}>
                         {getErrorAlert()}
                         {getMissingFieldsAlert()}
                     </div>
 
-                    {/* Progress Steps */}
                     <div style={{ marginBottom: 16 }}>
                         <Steps current={currentStep} size="small">
                             {steps.map((step, index) => (
-                                <Step key={index} title={step.title} />
+                                <Step key={index} title={step.title} icon={step.icon} />
                             ))}
                         </Steps>
                     </div>
 
-                    {/* Current Step Content */}
                     {steps[currentStep].content}
+
+                    <Modal
+                        open={previewVisible}
+                        title={previewTitle}
+                        footer={null}
+                        onCancel={handleCancel}
+                        width="80vw"
+                        style={{ top: 20 }}
+                    >
+                        <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+                    </Modal>
 
                     <Divider style={{ margin: '12px 0' }} />
 
-                    {/* Navigation Buttons */}
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>
                             {currentStep > 0 && (
-                                <Button onClick={prev} size="small">
-                                    Previous
-                                </Button>
+                                <Button onClick={prev}>Previous</Button>
                             )}
                             {currentStep < steps.length - 1 && (
-                                <Button type="primary" onClick={next} size="small">
-                                    Next
-                                </Button>
+                                <Button type="primary" onClick={next}>Next</Button>
                             )}
                             {currentStep === steps.length - 1 && (
                                 <>
-                                    <Button onClick={onCancel} disabled={loading} size="small">
-                                        Cancel
+                                    <Button onClick={onCancel} disabled={loading}>
+                                        <CloseOutlined /> Cancel
                                     </Button>
-                                    <Button type="primary" htmlType="submit" loading={loading} size="small">
-                                        {agent ? 'Update Agent' : 'Create Agent'}
+                                    <Button type="primary" htmlType="submit" loading={loading}>
+                                        <SaveOutlined /> {agent ? 'Update Agent' : 'Create Agent'}
                                     </Button>
                                 </>
                             )}
@@ -1144,48 +1032,42 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                     </Form.Item>
                 </Form>
             ) : (
-                // ACCOUNT INFORMATION VIEW (After Submission)
                 <div>
-                    <Card bodyStyle={{ padding: '16px' }}>
+                    <Card bodyStyle={{ padding: '16px' }} style={{ border: 'none' }}>
                         <div style={{ textAlign: 'center', marginBottom: 16 }}>
                             <Title level={4} style={{ color: '#52c41a', marginBottom: 4 }}>
                                 ✅ {agent ? 'Agent Updated Successfully!' : 'Agent Created Successfully!'}
                             </Title>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                            <Text type="secondary">
                                 {agent ? 'The agent information has been updated.' : 'The new agent has been created successfully.'}
                             </Text>
                         </div>
 
-                        {/* Show profile picture in success view */}
                         {submittedData?.profilePictureUrl && (
                             <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                <img
+                                <Image
+                                    width={100}
+                                    height={100}
                                     src={submittedData.profilePictureUrl}
-                                    alt="Profile"
                                     style={{
-                                        width: 100,
-                                        height: 100,
                                         borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '2px solid #d9d9d9'
+                                        objectFit: 'cover'
                                     }}
+                                    preview={false}
                                 />
                             </div>
                         )}
 
-                        <Card
-                            title="Account Information"
-                            type="inner"
-                            style={{ marginBottom: 12 }}
-                            headStyle={{ backgroundColor: '#f0f8ff', borderBottom: '1px solid #d9d9d9', padding: '8px 12px' }}
-                            bodyStyle={{ padding: '12px' }}
-                        >
+                        <Card title="Agent Information" type="inner" style={{ marginBottom: 12, border: 'none' }}>
                             <Descriptions bordered column={1} size="small">
-                                <Descriptions.Item label="Username">
-                                    <Text strong>{submittedData?.username}</Text>
+                                <Descriptions.Item label="Agent Name">
+                                    <Text strong>{submittedData?.firstName} {submittedData?.lastName}</Text>
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Email">
                                     <Text strong>{submittedData?.email}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Username">
+                                    <Text strong>{submittedData?.username}</Text>
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Password">
                                     <Text type="warning" strong>
@@ -1197,13 +1079,14 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                                         </Text>
                                     </div>
                                 </Descriptions.Item>
-                                {submittedData?.profilePictureUrl && (
-                                    <Descriptions.Item label="Profile Picture">
-                                        <Text type="success">Uploaded ✓</Text>
-                                    </Descriptions.Item>
-                                )}
+                                <Descriptions.Item label="License Number">
+                                    <Text>{submittedData?.licenseNumber}</Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Reference ID">
+                                    <Text type="secondary">{submittedData?.referenceId}</Text>
+                                </Descriptions.Item>
                                 <Descriptions.Item label="Status">
-                                    <Text type="success">Active</Text>
+                                    <Text type="success" strong>Active</Text>
                                 </Descriptions.Item>
                             </Descriptions>
                         </Card>
@@ -1211,20 +1094,11 @@ const InsertAgent = ({ agent, onSuccess, onCancel }) => {
                         <div style={{ textAlign: 'center', marginTop: 12 }}>
                             <Space>
                                 {!agent && (
-                                    <Button
-                                        type="primary"
-                                        onClick={handleCreateAnother}
-                                        size="small"
-                                    >
+                                    <Button type="primary" onClick={handleCreateAnother}>
                                         Create Another Agent
                                     </Button>
                                 )}
-                                <Button
-                                    onClick={onCancel}
-                                    size="small"
-                                >
-                                    Close
-                                </Button>
+                                <Button onClick={onCancel}>Close</Button>
                             </Space>
                         </div>
                     </Card>

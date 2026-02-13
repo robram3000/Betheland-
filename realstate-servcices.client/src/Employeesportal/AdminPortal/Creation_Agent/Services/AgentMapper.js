@@ -3,7 +3,7 @@ import moment from 'moment';
 // Your image processing algorithm
 const processImageUrl = (url) => {
     if (!url || typeof url !== 'string' || url.trim() === '') {
-        return '/default-agent.jpg';
+        return '/default-avatar.jpg';
     }
 
     // Already full URL
@@ -11,22 +11,30 @@ const processImageUrl = (url) => {
         return url;
     }
 
-    // Server path - prepend base URL
+    // Server path - prepend appropriate base URL
     if (url.startsWith('/uploads/')) {
-        return `https://localhost:7080${url}`;
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}${url}`;
     }
 
-    // Relative path without leading slash
     if (url.includes('.') && !url.startsWith('/')) {
-        return `https://localhost:7080/uploads/agents/${url}`;
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/uploads/agents/${url}`;
     }
 
     // uploads/ path
     if (url.startsWith('uploads/')) {
-        return `https://localhost:7080/${url}`;
+        const baseUrl = window.location.hostname === 'localhost'
+            ? 'https://localhost:7080'
+            : 'https://betheland.runasp.net';
+        return `${baseUrl}/${url}`;
     }
 
-    return '/default-agent.jpg';
+    return '/default-avatar.jpg';
 };
 
 export const agentMapper = {

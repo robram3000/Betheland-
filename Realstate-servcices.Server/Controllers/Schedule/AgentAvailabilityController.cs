@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Schedule;
 using Realstate_servcices.Server.Services.Scheduling;
@@ -10,10 +11,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
     public class AgentAvailabilityController : ControllerBase
     {
         private readonly IAgentAvailabilityService _availabilityService;
+        private readonly ILogger<AgentAvailabilityController> _logger;
 
-        public AgentAvailabilityController(IAgentAvailabilityService availabilityService)
+        public AgentAvailabilityController(
+            IAgentAvailabilityService availabilityService,
+            ILogger<AgentAvailabilityController> logger)
         {
             _availabilityService = availabilityService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -21,11 +26,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
         {
             try
             {
+                _logger.LogInformation("🔍 GetAllAvailabilities called");
                 var availabilities = await _availabilityService.GetAllAvailabilitiesAsync();
+                _logger.LogInformation($"✅ Retrieved {availabilities?.Count() ?? 0} availabilities");
                 return Ok(availabilities);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "❌ Error in GetAllAvailabilities");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -43,6 +51,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error getting availability by ID {Id}", id);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -57,24 +66,11 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error getting availabilities for agent {AgentId}", agentId);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        [HttpGet("agent/{agentId}/day/{dayOfWeek}")]
-        public async Task<ActionResult<IEnumerable<AgentAvailability>>> GetAvailabilitiesByAgentAndDay(
-            int agentId, DayOfWeek dayOfWeek)
-        {
-            try
-            {
-                var availabilities = await _availabilityService.GetAvailabilitiesByAgentAndDayAsync(agentId, dayOfWeek);
-                return Ok(availabilities);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
         [HttpPost]
         public async Task<ActionResult<AgentAvailability>> CreateAvailability([FromBody] AgentAvailabilityDto availabilityDto)
         {
@@ -85,7 +81,6 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 if (!agentExists)
                     return BadRequest($"Agent with ID {availabilityDto.AgentId} does not exist.");
 
-                // Map DTO to entity
                 var availability = new AgentAvailability
                 {
                     AgentId = availabilityDto.AgentId,
@@ -105,17 +100,16 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating availability");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
         private async Task<bool> VerifyAgentExists(int agentId)
         {
-            // Implement agent existence check - you'll need to inject an agent service/repository
-            // This is a placeholder - implement based on your application structure
+            // Implement agent existence check
             return await Task.FromResult(true); // Replace with actual check
         }
-
 
         [HttpPut("{id}")]
         public async Task<ActionResult<AgentAvailability>> UpdateAvailability(int id, [FromBody] AgentAvailabilityDto availabilityDto)
@@ -125,7 +119,14 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                 if (id != availabilityDto.Id)
                     return BadRequest("ID mismatch");
 
-                // Map DTO to entity
+                var existingAvailability = await _availabilityService.GetAvailabilityByIdAsync(id);
+                if (existingAvailability == null)
+                    return NotFound($"Availability with ID {id} not found.");
+
+                var agentExists = await VerifyAgentExists(availabilityDto.AgentId);
+                if (!agentExists)
+                    return BadRequest($"Agent with ID {availabilityDto.AgentId} does not exist.");
+
                 var availability = new AgentAvailability
                 {
                     Id = id,
@@ -134,6 +135,7 @@ namespace Realstate_servcices.Server.Controllers.Schedule
                     StartTime = availabilityDto.StartTime,
                     EndTime = availabilityDto.EndTime,
                     IsAvailable = availabilityDto.IsAvailable,
+                    CreatedAt = existingAvailability.CreatedAt,
                     UpdatedAt = DateTime.UtcNow
                 };
 
@@ -144,8 +146,13 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             {
                 return NotFound(ex.Message);
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error updating availability {Id}", id);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -163,62 +170,21 @@ namespace Realstate_servcices.Server.Controllers.Schedule
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error deleting availability {Id}", id);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-        [HttpPost("agent/{agentId}/set-availability")]
-        public async Task<ActionResult> SetAgentAvailability(int agentId, [FromBody] List<AgentAvailabilityDto> availabilityDtos)
+        [HttpGet("health-check")]
+        public ActionResult HealthCheck()
         {
-            try
+            _logger.LogInformation("✅ Health check endpoint called");
+            return Ok(new
             {
-                // Map DTOs to entities
-                var availabilities = availabilityDtos.Select(dto => new AgentAvailability
-                {
-                    AgentId = agentId,
-                    DayOfWeek = dto.DayOfWeek,
-                    StartTime = dto.StartTime,
-                    EndTime = dto.EndTime,
-                    IsAvailable = dto.IsAvailable,
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
-
-                var result = await _availabilityService.SetAgentAvailabilityAsync(agentId, availabilities);
-                return Ok(new { message = "Agent availability set successfully." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpGet("check-availability")]
-        public async Task<ActionResult<bool>> CheckAgentAvailability(
-            [FromQuery] int agentId, [FromQuery] DateTime dateTime)
-        {
-            try
-            {
-                var isAvailable = await _availabilityService.IsAgentAvailableAsync(agentId, dateTime);
-                return Ok(new { isAvailable });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpGet("agent/{agentId}/available-days")]
-        public async Task<ActionResult<IEnumerable<DayOfWeek>>> GetAvailableDays(int agentId)
-        {
-            try
-            {
-                var availableDays = await _availabilityService.GetAvailableDaysAsync(agentId);
-                return Ok(availableDays);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+                status = "Healthy",
+                timestamp = DateTime.UtcNow,
+                controller = nameof(AgentAvailabilityController)
+            });
         }
     }
 }

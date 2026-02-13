@@ -74,18 +74,30 @@ class AgentAvailabilityService {
 
     async updateAvailability(id, availabilityData) {
         try {
+            console.log('updateAvailability called with:', { id, availabilityData });
+
             const backendData = agentAvailabilityMapper.toBackend({
                 ...availabilityData,
-                id: id
+                id: parseInt(id)
             });
+
+            console.log('Mapped backend data:', backendData);
+
             const response = await this.client.put(`/AgentAvailability/${id}`, backendData);
+            console.log('Update response:', response.data);
+
             return agentAvailabilityMapper.toFrontend(response.data);
         } catch (error) {
             console.error('Error updating availability:', error);
+            console.error('Error details:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                headers: error.response?.headers
+            });
             throw error;
         }
     }
-
     async deleteAvailability(id) {
         try {
             const response = await this.client.delete(`/AgentAvailability/${id}`);

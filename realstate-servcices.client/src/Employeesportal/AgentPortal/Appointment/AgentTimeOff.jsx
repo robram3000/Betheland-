@@ -1,4 +1,4 @@
-// AgentTimeOff.jsx
+// AgentPortal/AgentTimeOff.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Table,
@@ -19,24 +19,35 @@ import {
     Alert,
     Spin,
     Result,
-    Empty
+    Empty,
+    Grid,
+    List,
+    Typography
 } from 'antd';
 import {
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
     ReloadOutlined,
-    ExclamationCircleOutlined
+    ClockCircleOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    CalendarOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
-import { agentTimeOffService } from '../../AdminPortal/appointment/Services/index.js';
+import { AgentTimeOffService } from '../../AdminPortal/appointment/Services/index.js';
 import authService from '../../../Authpage/Services/LoginAuth';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
+
+// Initialize service
+const agentTimeOffService = new AgentTimeOffService();
 
 const AgentTimeOff = () => {
     const [timeOffs, setTimeOffs] = useState([]);
@@ -48,6 +59,9 @@ const AgentTimeOff = () => {
     const [submitting, setSubmitting] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
     const [currentAgentId, setCurrentAgentId] = useState(null);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const timeOffTypes = [
         'Vacation',
@@ -155,8 +169,9 @@ const AgentTimeOff = () => {
                 startDate: values.dateRange[0].format('YYYY-MM-DD'),
                 endDate: values.dateRange[1].format('YYYY-MM-DD'),
                 reason: values.reason,
-                agentId: parseInt(agentId), // Use the actual agent ID
+                agentId: parseInt(agentId),
                 isApproved: false,
+                status: 'Pending', // Explicitly set status for consistency
                 isAllDay: true
             };
 
@@ -195,8 +210,24 @@ const AgentTimeOff = () => {
         return statusMap[status] || 'default';
     };
 
-    const getStatusText = (isApproved) => {
-        return isApproved ? 'Approved' : 'Pending';
+    const getStatusIcon = (status) => {
+        const icons = {
+            'Pending': <ClockCircleOutlined />,
+            'Approved': <CheckCircleOutlined />,
+            'Rejected': <CloseCircleOutlined />
+        };
+        return icons[status] || <ClockCircleOutlined />;
+    };
+
+    // Unified status getter that handles both status field and isApproved boolean
+    const getStatusInfo = (record) => {
+        // Prefer status field, fallback to isApproved
+        const status = record.status || (record.isApproved ? 'Approved' : 'Pending');
+        return {
+            status,
+            color: getStatusColor(status),
+            icon: getStatusIcon(status)
+        };
     };
 
     const ErrorIndicator = ({ message, onRetry }) => (
@@ -224,7 +255,122 @@ const AgentTimeOff = () => {
         </div>
     );
 
-    const columns = [
+    // Mobile Card Component
+    const TimeOffCard = ({ record }) => {
+        const statusInfo = getStatusInfo(record);
+        const start = moment(record.startDate);
+        const end = moment(record.endDate);
+        const duration = end.diff(start, 'days') + 1;
+        const isPending = statusInfo.status === 'Pending';
+
+        return (
+            <Card
+                size="small"
+                style={{
+                    marginBottom: 12,
+                    borderLeft: `4px solid ${getStatusColor(statusInfo.status)}`
+                }}
+                bodyStyle={{ padding: '12px' }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                            <Tag
+                                color={statusInfo.color}
+                                icon={statusInfo.icon}
+                                style={{
+                                    margin: 0,
+                                    fontSize: '11px',
+                                    padding: '2px 6px'
+                                }}
+                            >
+                                {statusInfo.status}
+                            </Tag>
+                            <Text strong style={{ marginLeft: 8, fontSize: '14px' }}>
+                                {record.type}
+                            </Text>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                            <CalendarOutlined style={{ color: '#666', marginRight: 6 }} />
+                            <Text style={{ fontSize: '12px', color: '#666' }}>
+                                {start.format('MMM DD')} - {end.format('MMM DD, YYYY')}
+                            </Text>
+                        </div>
+
+                        <div style={{ marginBottom: 6 }}>
+                            <Text style={{ fontSize: '12px', color: '#666' }}>
+                                {duration} day{duration > 1 ? 's' : ''}
+                            </Text>
+                        </div>
+
+                        {record.reason && (
+                            <div>
+                                <Text
+                                    style={{ fontSize: '12px' }}
+                                    ellipsis={{ tooltip: record.reason }}
+                                >
+                                    {record.reason}
+                                </Text>
+                            </div>
+                        )}
+                    </div>
+
+                    {isPending && (
+                        <Space direction="vertical" size={4} style={{ marginLeft: 12 }}>
+                            <Tooltip title="Edit">
+                                <Button
+                                    icon={<EditOutlined />}
+                                    size="small"
+                                    onClick={() => handleEdit(record)}
+                                    type="text"
+                                    style={{ color: '#1890ff' }}
+                                />
+                            </Tooltip>
+                            <Popconfirm
+                                title="Delete this time off request?"
+                                onConfirm={() => handleDelete(record.id)}
+                                okText="Yes"
+                                cancelText="No"
+                                okButtonProps={{ loading: deletingId === record.id }}
+                            >
+                                <Tooltip title="Delete">
+                                    <Button
+                                        icon={<DeleteOutlined />}
+                                        size="small"
+                                        danger
+                                        type="text"
+                                        loading={deletingId === record.id}
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
+                        </Space>
+                    )}
+                </div>
+            </Card>
+        );
+    };
+
+    // Mobile Card List
+    const MobileCardList = () => (
+        <div style={{ padding: '8px 0' }}>
+            {timeOffs.length > 0 ? (
+                timeOffs.map(record => (
+                    <TimeOffCard key={record.id} record={record} />
+                ))
+            ) : (
+                <Empty
+                    description="No time off requests"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    imageStyle={{ height: 60 }}
+                    style={{ margin: '40px 0' }}
+                />
+            )}
+        </div>
+    );
+
+    // Desktop Table Columns
+    const desktopColumns = [
         {
             title: 'Type',
             dataIndex: 'type',
@@ -257,14 +403,16 @@ const AgentTimeOff = () => {
         },
         {
             title: 'Status',
-            dataIndex: 'isApproved',
             key: 'status',
             width: 100,
-            render: (isApproved) => (
-                <Tag color={getStatusColor(getStatusText(isApproved))}>
-                    {getStatusText(isApproved)}
-                </Tag>
-            )
+            render: (_, record) => {
+                const statusInfo = getStatusInfo(record);
+                return (
+                    <Tag color={statusInfo.color} icon={statusInfo.icon}>
+                        {statusInfo.status}
+                    </Tag>
+                );
+            }
         },
         {
             title: 'Reason',
@@ -276,65 +424,87 @@ const AgentTimeOff = () => {
             title: 'Actions',
             key: 'actions',
             width: 120,
-            render: (_, record) => (
-                <Space size="small">
-                    {!record.isApproved && (
-                        <>
-                            <Tooltip title="Edit">
-                                <Button
-                                    icon={<EditOutlined />}
-                                    size="small"
-                                    onClick={() => handleEdit(record)}
-                                />
-                            </Tooltip>
-                            <Popconfirm
-                                title="Are you sure to delete this time off request?"
-                                onConfirm={() => handleDelete(record.id)}
-                                okText="Yes"
-                                cancelText="No"
-                                okButtonProps={{ loading: deletingId === record.id }}
-                            >
-                                <Tooltip title="Delete">
+            render: (_, record) => {
+                const statusInfo = getStatusInfo(record);
+                const isPending = statusInfo.status === 'Pending';
+
+                return (
+                    <Space size="small">
+                        {isPending && (
+                            <>
+                                <Tooltip title="Edit">
                                     <Button
-                                        icon={<DeleteOutlined />}
+                                        icon={<EditOutlined />}
                                         size="small"
-                                        danger
-                                        loading={deletingId === record.id}
+                                        onClick={() => handleEdit(record)}
                                     />
                                 </Tooltip>
-                            </Popconfirm>
-                        </>
-                    )}
-                </Space>
-            )
+                                <Popconfirm
+                                    title="Are you sure to delete this time off request?"
+                                    onConfirm={() => handleDelete(record.id)}
+                                    okText="Yes"
+                                    cancelText="No"
+                                    okButtonProps={{ loading: deletingId === record.id }}
+                                >
+                                    <Tooltip title="Delete">
+                                        <Button
+                                            icon={<DeleteOutlined />}
+                                            size="small"
+                                            danger
+                                            loading={deletingId === record.id}
+                                        />
+                                    </Tooltip>
+                                </Popconfirm>
+                            </>
+                        )}
+                        {!isPending && (
+                            <Tooltip title="This request can no longer be modified">
+                                <span style={{ color: '#999', fontSize: '12px' }}>
+                                    Locked
+                                </span>
+                            </Tooltip>
+                        )}
+                    </Space>
+                );
+            }
         }
     ];
 
     return (
         <div>
-            <Card>
+            <Card bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
                 <div style={{
                     marginBottom: 16,
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: isMobile ? '12px' : '0'
                 }}>
                     <div>
-                        <h3 style={{ margin: 0 }}>My Time Off Requests</h3>
-                        <p style={{ margin: 0, color: '#666' }}>
+                        <h3 style={{
+                            margin: 0,
+                            fontSize: isMobile ? '18px' : '20px'
+                        }}>
+                            My Time Off Requests
+                        </h3>
+                        <p style={{
+                            margin: 0,
+                            color: '#666',
+                            fontSize: isMobile ? '13px' : '14px'
+                        }}>
                             Request and manage your time off
                         </p>
                     </div>
-                    <Space>
-                      
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={handleCreate}
-                        >
-                            Request Time Off
-                        </Button>
-                    </Space>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleCreate}
+                        size={isMobile ? 'middle' : 'middle'}
+                        block={isMobile}
+                    >
+                        {isMobile ? 'New Time Off Request' : 'Request Time Off'}
+                    </Button>
                 </div>
 
                 {error && (
@@ -363,10 +533,12 @@ const AgentTimeOff = () => {
                     <LoadingIndicator />
                 ) : error ? (
                     <ErrorIndicator message={error} onRetry={loadTimeOffs} />
+                ) : isMobile ? (
+                    <MobileCardList />
                 ) : (
                     <BaseTable
                         data={timeOffs}
-                        columns={columns}
+                        columns={desktopColumns}
                         loading={loading}
                         rowKey="id"
                         pagination={{
@@ -391,9 +563,16 @@ const AgentTimeOff = () => {
                 open={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 footer={null}
-                width={500}
+                width={isMobile ? '90%' : 500}
                 confirmLoading={submitting}
                 destroyOnClose
+                style={{
+                    maxWidth: '100vw',
+                    top: isMobile ? 20 : undefined
+                }}
+                bodyStyle={{
+                    padding: isMobile ? '16px' : '24px'
+                }}
             >
                 <Form
                     form={form}
@@ -406,7 +585,10 @@ const AgentTimeOff = () => {
                         label="Type"
                         rules={[{ required: true, message: 'Please select type' }]}
                     >
-                        <Select placeholder="Select type">
+                        <Select
+                            placeholder="Select type"
+                            size={isMobile ? 'middle' : 'large'}
+                        >
                             {timeOffTypes.map(type => (
                                 <Option key={type} value={type}>
                                     {type}
@@ -426,6 +608,7 @@ const AgentTimeOff = () => {
                             disabledDate={(current) => {
                                 return current && current < moment().startOf('day');
                             }}
+                            size={isMobile ? 'middle' : 'large'}
                         />
                     </Form.Item>
 
@@ -435,29 +618,47 @@ const AgentTimeOff = () => {
                         rules={[{ required: true, message: 'Please enter reason' }]}
                     >
                         <TextArea
-                            rows={3}
+                            rows={isMobile ? 3 : 4}
                             placeholder="Enter reason for time off..."
                             maxLength={500}
                             showCount
+                            size={isMobile ? 'middle' : 'large'}
                         />
                     </Form.Item>
 
-                    <Form.Item style={{ textAlign: 'right' }}>
-                        <Space>
+                    <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+                        <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+                            {isMobile && (
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={submitting}
+                                    icon={selectedTimeOff ? <EditOutlined /> : <PlusOutlined />}
+                                    block
+                                    size="large"
+                                >
+                                    {selectedTimeOff ? 'Update' : 'Submit'} Request
+                                </Button>
+                            )}
                             <Button
                                 onClick={() => setModalVisible(false)}
                                 disabled={submitting}
+                                block={isMobile}
+                                size={isMobile ? 'large' : 'middle'}
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={submitting}
-                                icon={selectedTimeOff ? <EditOutlined /> : <PlusOutlined />}
-                            >
-                                {selectedTimeOff ? 'Update' : 'Submit'} Request
-                            </Button>
+                            {!isMobile && (
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={submitting}
+                                    icon={selectedTimeOff ? <EditOutlined /> : <PlusOutlined />}
+                                    size="middle"
+                                >
+                                    {selectedTimeOff ? 'Update' : 'Submit'} Request
+                                </Button>
+                            )}
                         </Space>
                     </Form.Item>
                 </Form>

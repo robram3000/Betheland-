@@ -36,6 +36,7 @@ const ApprovalQueue = ({ onUpdate }) => {
     const [viewModalVisible, setViewModalVisible] = useState(false);
     const [rejectModalVisible, setRejectModalVisible] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
         loadPendingProperties();
@@ -58,24 +59,32 @@ const ApprovalQueue = ({ onUpdate }) => {
     };
 
     const handleApprove = async (propertyId) => {
+        setActionLoading(true);
         try {
             await propertyService.approveProperty(propertyId);
             message.success('Property approved successfully');
-            loadPendingProperties();
+            await loadPendingProperties();
         } catch (error) {
+            console.error('Error approving property:', error);
             message.error('Failed to approve property');
+        } finally {
+            setActionLoading(false);
         }
     };
 
     const handleReject = async (propertyId, reason) => {
+        setActionLoading(true);
         try {
             await propertyService.rejectProperty(propertyId, reason);
             message.success('Property rejected successfully');
             setRejectModalVisible(false);
             setRejectReason('');
-            loadPendingProperties();
+            await loadPendingProperties();
         } catch (error) {
+            console.error('Error rejecting property:', error);
             message.error('Failed to reject property');
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -177,6 +186,7 @@ const ApprovalQueue = ({ onUpdate }) => {
                         icon={<CheckOutlined />}
                         size="small"
                         type="primary"
+                        loading={actionLoading}
                         onClick={() => handleApprove(record.id)}
                     >
                         Approve
@@ -185,6 +195,7 @@ const ApprovalQueue = ({ onUpdate }) => {
                         icon={<CloseOutlined />}
                         size="small"
                         danger
+                        loading={actionLoading}
                         onClick={() => {
                             setSelectedProperty(record);
                             setRejectModalVisible(true);
@@ -296,6 +307,7 @@ const ApprovalQueue = ({ onUpdate }) => {
                         key="reject"
                         danger
                         icon={<CloseOutlined />}
+                        loading={actionLoading}
                         onClick={() => {
                             setViewModalVisible(false);
                             setRejectModalVisible(true);
@@ -307,6 +319,7 @@ const ApprovalQueue = ({ onUpdate }) => {
                         key="approve"
                         type="primary"
                         icon={<CheckOutlined />}
+                        loading={actionLoading}
                         onClick={() => {
                             handleApprove(selectedProperty?.id);
                             setViewModalVisible(false);
@@ -381,6 +394,7 @@ const ApprovalQueue = ({ onUpdate }) => {
                 onOk={() => handleReject(selectedProperty?.id, rejectReason)}
                 okText="Reject Property"
                 okType="danger"
+                confirmLoading={actionLoading}
             >
                 <p>Are you sure you want to reject "<strong>{selectedProperty?.title}</strong>"?</p>
                 <TextArea

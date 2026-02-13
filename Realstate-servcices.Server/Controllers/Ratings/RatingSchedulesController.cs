@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Services.Scheduling;
+using System.Security.Claims;
 
 namespace Realstate_servcices.Server.Controllers.Ratings
 {
@@ -9,10 +10,14 @@ namespace Realstate_servcices.Server.Controllers.Ratings
     public class RatingSchedulesController : ControllerBase
     {
         private readonly IRatingSchedulesServices _ratingServices;
+        private readonly ILogger<RatingSchedulesController> _logger;
 
-        public RatingSchedulesController(IRatingSchedulesServices ratingServices)
+        public RatingSchedulesController(
+            IRatingSchedulesServices ratingServices,
+            ILogger<RatingSchedulesController> logger)
         {
             _ratingServices = ratingServices;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -56,23 +61,32 @@ namespace Realstate_servcices.Server.Controllers.Ratings
         {
             try
             {
-                // In a real application, you'd get the client ID from the authenticated user
-                var clientId = GetCurrentClientId(); // Implement this based on your auth system
+                // Get the client ID from the authenticated user
+                var clientId = GetCurrentClientId();
+                _logger.LogInformation("Creating rating for ScheduleId: {ScheduleId}, ClientId: {ClientId}", createDto.ScheduleId, clientId);
 
                 var rating = await _ratingServices.CreateRatingAsync(createDto, clientId);
                 return CreatedAtAction(nameof(GetRatingById), new { id = rating.Id }, rating);
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while creating rating");
                 return BadRequest(ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while creating rating");
                 return Unauthorized(ex.Message);
             }
             catch (ArgumentException ex)
             {
+                _logger.LogWarning(ex, "Argument error while creating rating");
                 return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while creating rating");
+                return StatusCode(500, "An unexpected error occurred");
             }
         }
 
@@ -95,16 +109,78 @@ namespace Realstate_servcices.Server.Controllers.Ratings
         [HttpGet("can-rate/{scheduleId}")]
         public async Task<ActionResult<bool>> CanRateSchedule(int scheduleId)
         {
-            var clientId = GetCurrentClientId(); // Implement this based on your auth system
-            var canRate = await _ratingServices.CanRateScheduleAsync(scheduleId, clientId);
-            return Ok(canRate);
+            try
+            {
+                var clientId = GetCurrentClientId();
+                _logger.LogInformation("Checking can-rate for ScheduleId: {ScheduleId}, ClientId: {ClientId}", scheduleId, clientId);
+                var canRate = await _ratingServices.CanRateScheduleAsync(scheduleId, clientId);
+                _logger.LogInformation("CanRate result: {CanRate}", canRate);
+                return Ok(canRate);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in CanRateSchedule endpoint for ScheduleId: {ScheduleId}", scheduleId);
+                return StatusCode(500, false);
+            }
         }
 
         private int GetCurrentClientId()
         {
-            // Implement this method to get the current client ID from your authentication system
-            // This is a placeholder - replace with your actual implementation
-            return 1; // Example client ID
+            try
+            {
+                _logger.LogInformation("🔍 Getting current client ID from claims...");
+
+                // Log all claims for debugging
+                _logger.LogInformation("Available claims:");
+                foreach (var claim in User.Claims)
+                {
+                    _logger.LogInformation("Claim Type: {ClaimType}, Value: {ClaimValue}", claim.Type, claim.Value);
+                }
+
+                var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (nameIdentifierClaim != null)
+                {
+                    _logger.LogInformation("Found NameIdentifier claim: {ClaimValue}", nameIdentifierClaim.Value);
+
+                    if (int.TryParse(nameIdentifierClaim.Value, out int clientId))
+                    {
+                        _logger.LogInformation("✅ Successfully parsed client ID: {ClientId}", clientId);
+                        return clientId;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("❌ Could not parse NameIdentifier claim value: {ClaimValue}", nameIdentifierClaim.Value);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("❌ NameIdentifier claim not found");
+                }
+
+                // Fallback: Try other common claim types
+                var fallbackClaims = new[]
+                {
+            "userId", "sub", "id", "clientId", "name", "unique_name"
+        };
+
+                foreach (var claimType in fallbackClaims)
+                {
+                    var claim = User.FindFirst(claimType);
+                    if (claim != null && int.TryParse(claim.Value, out int clientId))
+                    {
+                        _logger.LogInformation("✅ Found client ID from fallback claim {ClaimType}: {ClientId}", claimType, clientId);
+                        return clientId;
+                    }
+                }
+
+                _logger.LogError("❌ No valid client ID claim found. Using fallback client ID 3 for testing.");
+                return 3; // Temporary fallback for testing
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "💥 Error getting current client ID");
+                return 3; // Temporary fallback for testing
+            }
         }
     }
 }

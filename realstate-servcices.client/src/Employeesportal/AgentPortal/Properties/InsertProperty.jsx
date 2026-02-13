@@ -1,4 +1,4 @@
-﻿// InsertProperty.jsx (Agent Version)
+﻿// InsertProperty.jsx (Agent Version) - Mobile Optimized
 import React, { useState, useEffect } from 'react';
 import {
     Form,
@@ -22,7 +22,8 @@ import {
     Modal,
     Progress,
     notification,
-    Spin
+    Spin,
+    Tag
 } from 'antd';
 import {
     SaveOutlined,
@@ -35,7 +36,8 @@ import {
     CheckCircleOutlined,
     SearchOutlined,
     AimOutlined,
-    UserOutlined
+    UserOutlined,
+    ClockCircleOutlined
 } from '@ant-design/icons';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -73,14 +75,8 @@ const DEFAULT_PROPERTY_TYPES = [
     'Other'
 ];
 
-const DEFAULT_STATUS_OPTIONS = [
-    'draft',
-    'available',
-    'sold',
-    'rented',
-    'pending',
-    'expired'
-];
+// Constant status for agent submissions
+const AGENT_PROPERTY_STATUS = 'pending';
 
 const DEFAULT_PH_COORDINATES = [14.5995, 120.9842]; // Manila coordinates
 const DEFAULT_ZOOM = 15;
@@ -637,7 +633,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
 
     // Safe options with fallbacks
     const [propertyTypes, setPropertyTypes] = useState([]);
-    const [statuses, setStatuses] = useState([]);
 
     // Flatten amenities for the select component
     const allAmenities = amenities && typeof amenities === 'object'
@@ -653,8 +648,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     // Show success notification
     const showSuccessMessage = (action, propertyTitle) => {
         const messages = {
-            create: 'Property created successfully!',
-            update: 'Property updated successfully!'
+            create: 'Property created successfully and sent for approval!',
+            update: 'Property updated successfully and sent for re-approval!'
         };
 
         notification.success({
@@ -664,7 +659,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     <span>{messages[action]}</span>
                 </Space>
             ),
-            description: `"${propertyTitle}" has been ${action === 'create' ? 'created' : 'updated'} successfully.`,
+            description: `"${propertyTitle}" has been ${action === 'create' ? 'created and is pending approval' : 'updated and requires re-approval'}.`,
             placement: 'topRight',
             duration: 4,
         });
@@ -745,6 +740,34 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         } finally {
             setLoadingAgent(false);
         }
+    };
+
+    // Enhanced image URL processing for display
+    const processImageUrlForDisplay = (url) => {
+        if (!url) return '/default-property.jpg';
+
+        // If it's already a full URL, return as is
+        if (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+
+        // Handle relative paths for display
+        if (url.startsWith('/uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? 'https://localhost:7080'
+                : 'http://betheland.runasp.net';
+            return `${baseUrl}${url}`;
+        }
+
+        // Handle paths without leading slash
+        if (url.startsWith('uploads/')) {
+            const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? 'https://localhost:7080'
+                : 'http://betheland.runasp.net';
+            return `${baseUrl}/${url}`;
+        }
+
+        return '/default-property.jpg';
     };
 
     // Load Philippine geographic data on component mount
@@ -830,7 +853,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         });
     };
 
-    // Enhanced initializeFormWithPropertyData function
+    // Enhanced initializeFormWithPropertyData function with better image handling
     const initializeFormWithPropertyData = async () => {
         try {
             console.log('Initializing form with property data:', property);
@@ -860,11 +883,61 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 areaSqm: property.areaSqm || 0,
                 propertyAge: property.propertyAge || 0,
                 propertyFloor: property.propertyFloor || 1,
-                barangay: property.barangay || ''
+                barangay: property.barangay || '',
+                // Force status to be pending for agent submissions
+                status: AGENT_PROPERTY_STATUS
             };
 
             console.log('Setting form values:', formData);
             form.setFieldsValue(formData);
+
+            // Enhanced image handling for existing property
+            if (property.propertyImages && property.propertyImages.length > 0) {
+                console.log('Processing existing property images:', property.propertyImages);
+
+                const imagesWithPreview = property.propertyImages.map((img, index) => {
+                    const processedUrl = processImageUrlForDisplay(img.imageUrl);
+                    console.log(`Image ${index}: ${img.imageUrl} -> ${processedUrl}`);
+
+                    return {
+                        uid: img.id || `existing-img-${index}-${Date.now()}`,
+                        name: `image-${img.id || index}.jpg`,
+                        status: 'done',
+                        url: processedUrl,
+                        thumbUrl: processedUrl,
+                        isExisting: true, // Mark as existing image
+                        imageId: img.id // Store the original image ID
+                    };
+                });
+
+                console.log('Final image list for display:', imagesWithPreview);
+                setImageList(imagesWithPreview);
+            } else {
+                console.log('No existing property images found');
+                setImageList([]);
+            }
+
+            // Enhanced video handling for existing property
+            if (property.propertyVideos && property.propertyVideos.length > 0) {
+                console.log('Processing existing property videos:', property.propertyVideos);
+
+                const videosWithPreview = property.propertyVideos.map((vid, index) => {
+                    const processedUrl = processImageUrlForDisplay(vid.videoUrl);
+
+                    return {
+                        uid: vid.id || `existing-vid-${index}-${Date.now()}`,
+                        name: vid.videoName || `video-${vid.id || index}.mp4`,
+                        status: 'done',
+                        url: processedUrl,
+                        isExisting: true, // Mark as existing video
+                        videoId: vid.id // Store the original video ID
+                    };
+                });
+
+                setVideoList(videosWithPreview);
+            } else {
+                setVideoList([]);
+            }
 
             // Handle location data initialization
             if (property.state) {
@@ -886,28 +959,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         }
                     }, 500);
                 }
-            }
-
-            // Handle media
-            if (property.propertyImages && property.propertyImages.length > 0) {
-                const imagesWithPreview = property.propertyImages.map(img => ({
-                    uid: img.id || `img-${Date.now()}`,
-                    name: `image-${img.id}.jpg`,
-                    status: 'done',
-                    url: img.imageUrl,
-                    thumbUrl: img.imageUrl
-                }));
-                setImageList(imagesWithPreview);
-            }
-
-            if (property.propertyVideos && property.propertyVideos.length > 0) {
-                const videosWithPreview = property.propertyVideos.map(vid => ({
-                    uid: vid.id || `vid-${Date.now()}`,
-                    name: vid.videoName || `video-${vid.id}.mp4`,
-                    status: 'done',
-                    url: vid.videoUrl
-                }));
-                setVideoList(videosWithPreview);
             }
 
             // Handle coordinates - store internally but don't show in form
@@ -1213,16 +1264,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
     };
 
-    // Enhanced coordinates change handler - REMOVED since fields are hidden
-    const handleCoordinatesChange = () => {
-        // This function is no longer needed since coordinates fields are hidden
-    };
-
-    // Manual coordinate update with validation - REMOVED since fields are hidden
-    const handleManualCoordinateUpdate = () => {
-        // This function is no longer needed since coordinates fields are hidden
-    };
-
     // Enhanced handleMapClick function
     const handleMapClick = async (latlng) => {
         setMarkerPosition([latlng.lat, latlng.lng]);
@@ -1246,16 +1287,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         } else {
             setPropertyTypes(DEFAULT_PROPERTY_TYPES);
         }
-
-        if (statusOptions && typeof statusOptions === 'object') {
-            const flattenedStatuses = Object.values(statusOptions).flat();
-            setStatuses(flattenedStatuses);
-        } else {
-            setStatuses(DEFAULT_STATUS_OPTIONS);
-        }
     };
 
-    // Image upload handlers
+    // Enhanced image upload handlers with better existing image support
     const handleImageUpload = ({ file, fileList }) => {
         if (file.status === 'uploading') {
             setUploading(true);
@@ -1313,7 +1347,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         }
         setPreviewImage(file.url || file.preview);
         setPreviewVisible(true);
-        setPreviewTitle(file.name || file.url.substring(file.url.lastIndexOf('/') + 1));
+        setPreviewTitle(file.name || file.url?.substring(file.url.lastIndexOf('/') + 1) || 'Image Preview');
     };
 
     const handleCancel = () => setPreviewVisible(false);
@@ -1348,11 +1382,22 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         </div>
     );
 
+    // Enhanced custom item render with better image display
     const customItemRender = (originNode, file, fileList, actions) => {
+        const isImage = file.type?.startsWith('image/') || file.thumbUrl || file.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+
         return (
-            <div style={{ display: 'flex', alignItems: 'center', padding: '8px', border: '1px solid #d9d9d9', borderRadius: '6px', marginBottom: '8px' }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '8px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                marginBottom: '8px',
+                backgroundColor: file.isExisting ? '#f6ffed' : '#fff'
+            }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    {file.type?.startsWith('image/') ? (
+                    {isImage ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Image
                                 width={50}
@@ -1360,17 +1405,63 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 src={file.thumbUrl || file.url}
                                 style={{ objectFit: 'cover', borderRadius: '4px' }}
                                 preview={false}
+                                fallback="/default-property.jpg"
+                                placeholder={
+                                    <div style={{
+                                        width: 50,
+                                        height: 50,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: '#f5f5f5',
+                                        borderRadius: '4px'
+                                    }}>
+                                        <UploadOutlined />
+                                    </div>
+                                }
                             />
-                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {file.name}
-                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 500
+                                }}>
+                                    {file.name}
+                                </div>
+                                {file.isExisting && (
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: '#52c41a',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        Existing Image
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <PlayCircleOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
-                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {file.name}
-                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 500
+                                }}>
+                                    {file.name}
+                                </div>
+                                {file.isExisting && (
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: '#52c41a',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        Existing Video
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1378,8 +1469,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     <Button
                         type="text"
                         icon={<EyeOutlined />}
-                        onClick={() => file.type?.startsWith('image/') ? handlePreview(file) : handleVideoPreview(file)}
+                        onClick={() => isImage ? handlePreview(file) : handleVideoPreview(file)}
                         size="small"
+                        title="Preview"
                     />
                     <Button
                         type="text"
@@ -1387,6 +1479,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         onClick={() => actions.remove()}
                         size="small"
                         danger
+                        title="Remove"
                     />
                 </Space>
             </div>
@@ -1449,11 +1542,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         itemRender: customItemRender
     };
 
-    // Geocode from coordinates handler - REMOVED since fields are hidden
-    const handleGeocodeFromCoordinates = async () => {
-        // This function is no longer needed since coordinates fields are hidden
-    };
-
     const clearError = () => {
         setError(null);
         setMissingFields([]);
@@ -1501,10 +1589,10 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
     // MODIFIED: Removed assignment step from step fields and latitude/longitude fields
     const getStepFields = (step) => {
         const stepFields = {
-            0: ['title', 'type', 'description', 'price', 'status'],
+            0: ['title', 'type', 'description', 'price'],
             1: ['address', 'city', 'state', 'zipCode', 'barangay'], // REMOVED: latitude, longitude
             2: ['bedrooms', 'bathrooms', 'kitchen', 'garage', 'areaSqm', 'propertyAge', 'propertyFloor', 'amenities'],
-            // REMOVED: Assignment step fields
+            // REMOVED: Assignment step fields and status field
         };
         return stepFields[step] || [];
     };
@@ -1568,13 +1656,29 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 return;
             }
 
-            const imageFiles = imageList
+            // Separate new files from existing images
+            const newImageFiles = imageList
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
 
-            const videoFiles = videoList
+            const existingImages = imageList
+                .filter(file => file.isExisting)
+                .map(file => ({
+                    id: file.imageId,
+                    imageUrl: file.url
+                }));
+
+            const newVideoFiles = videoList
                 .filter(file => file.originFileObj instanceof File)
                 .map(file => file.originFileObj);
+
+            const existingVideos = videoList
+                .filter(file => file.isExisting)
+                .map(file => ({
+                    id: file.videoId,
+                    videoUrl: file.url,
+                    videoName: file.name
+                }));
 
             let amenitiesValue = allValues.amenities;
             if (Array.isArray(amenitiesValue)) {
@@ -1583,19 +1687,20 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 amenitiesValue = '';
             }
 
-            // MODIFIED: Use the fetched agentId and hidden coordinates
+            // MODIFIED: Use constant pending status for all agent submissions
             const propertyData = {
                 title: allValues.title.trim(),
                 type: allValues.type,
                 description: allValues.description.trim(),
                 price: parseFloat(allValues.price) || 0,
-                status: allValues.status || 'available',
+                // CONSTANT STATUS: Always set to pending for agent submissions
+                status: AGENT_PROPERTY_STATUS,
                 listedDate: new Date().toISOString(),
                 address: allValues.address.trim(),
                 city: allValues.city,
                 state: allValues.state,
                 zipCode: allValues.zipCode.trim(),
-                country: 'Philippines', // Hardcoded as Philippines
+                country: 'Philippines',
                 // Use hidden coordinates instead of form values
                 latitude: hiddenCoordinates.latitude,
                 longitude: hiddenCoordinates.longitude,
@@ -1613,11 +1718,18 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 agentId: agentId ? parseInt(agentId) : null,
                 provinceCode: selectedProvinceCode,
                 cityCode: selectedCityCode,
-                barangayCode: selectedBarangayCode
+                barangayCode: selectedBarangayCode,
+                // Include existing media information
+                existingImages: existingImages,
+                existingVideos: existingVideos
             };
 
-            console.log('Submitting property with agent ID:', {
+            console.log('Submitting property with constant pending status:', {
                 propertyData,
+                newImageFiles: newImageFiles.length,
+                existingImages: existingImages.length,
+                newVideoFiles: newVideoFiles.length,
+                existingVideos: existingVideos.length,
                 currentUser,
                 agentId,
                 coordinates: hiddenCoordinates
@@ -1625,14 +1737,23 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
 
             let result;
             if (property) {
-                if (imageFiles.length > 0 || videoFiles.length > 0) {
-                    result = await propertyService.updatePropertyWithMedia(property.id, propertyData, imageFiles, videoFiles);
+                if (newImageFiles.length > 0 || newVideoFiles.length > 0) {
+                    result = await propertyService.updatePropertyWithMedia(
+                        property.id,
+                        propertyData,
+                        newImageFiles,
+                        newVideoFiles
+                    );
                 } else {
                     result = await propertyService.updateProperty(property.id, propertyData);
                 }
             } else {
-                if (imageFiles.length > 0 || videoFiles.length > 0) {
-                    result = await propertyService.createPropertyWithMedia(propertyData, imageFiles, videoFiles);
+                if (newImageFiles.length > 0 || newVideoFiles.length > 0) {
+                    result = await propertyService.createPropertyWithMedia(
+                        propertyData,
+                        newImageFiles,
+                        newVideoFiles
+                    );
                 } else {
                     result = await propertyService.createProperty(propertyData);
                 }
@@ -1649,13 +1770,16 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     type: propertyData.type,
                     price: propertyData.price,
                     address: `${propertyData.address}, ${propertyData.city}, ${propertyData.state}, ${propertyData.zipCode}, Philippines`,
-                    status: propertyData.status,
+                    status: propertyData.status, // This will always be 'pending'
                     referenceId: propertyResult.id || `PROP-${Date.now()}`,
                     // Add current user and agent info to display
                     assignedTo: currentUser?.agentName || `${currentUser?.firstName} ${currentUser?.lastName}` || 'You',
                     agentId: agentId,
                     // Add coordinates to success display
-                    coordinates: hiddenCoordinates
+                    coordinates: hiddenCoordinates,
+                    // Add media counts
+                    imageCount: imageList.length,
+                    videoCount: videoList.length
                 });
 
                 setShowSuccessInfo(true);
@@ -1760,6 +1884,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         return String(status);
     };
 
+    // UPDATED: Mobile-optimized amenities renderer
     const renderCategorizedAmenities = () => {
         if (!amenities || typeof amenities !== 'object') {
             return (
@@ -1767,6 +1892,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     mode="multiple"
                     placeholder="Select amenities"
                     style={{ width: '100%' }}
+                    size="large"
                 >
                     {allAmenities.map(amenity => (
                         <Option key={amenity} value={amenity}>{amenity}</Option>
@@ -1778,14 +1904,32 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         return (
             <Collapse defaultActiveKey={['basics']} style={{ marginBottom: 16 }}>
                 {Object.entries(amenities).map(([category, categoryAmenities]) => (
-                    <Panel header={category.charAt(0).toUpperCase() + category.slice(1)} key={category}>
+                    <Panel
+                        header={category.charAt(0).toUpperCase() + category.slice(1)}
+                        key={category}
+                    >
                         <Row gutter={[8, 8]}>
                             {categoryAmenities.map(amenity => (
-                                <Col span={8} key={amenity}>
+                                <Col
+                                    xs={24}   // Full width on extra small screens (mobile)
+                                    sm={12}   // Half width on small screens
+                                    md={8}    // One third on medium screens
+                                    lg={6}    // One quarter on large screens
+                                    key={amenity}
+                                >
                                     <Button
                                         type="default"
                                         size="small"
-                                        style={{ width: '100%', marginBottom: 4, textAlign: 'left', fontSize: '12px' }}
+                                        style={{
+                                            width: '100%',
+                                            marginBottom: 4,
+                                            textAlign: 'left',
+                                            fontSize: '12px',
+                                            height: 'auto',
+                                            whiteSpace: 'normal',
+                                            padding: '4px 8px',
+                                            lineHeight: '1.2'
+                                        }}
                                         onClick={() => {
                                             const currentAmenities = form.getFieldValue('amenities') || [];
                                             if (currentAmenities.includes(amenity)) {
@@ -1810,14 +1954,31 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
         );
     };
 
-    // MODIFIED: Steps without Assignment step
+    // MODIFIED: Steps without Assignment step and without status field
     const steps = [
         {
             title: 'Basic Info',
             content: (
                 <Card title="Basic Information" size="small">
-                    <Row gutter={[16, 0]}>
-                        <Col span={12}>
+                    {/* Status Display - Constant Pending */}
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: '#fffbe6', border: '1px solid #ffe58f', borderRadius: '6px' }}>
+                        <Space>
+                            <ClockCircleOutlined style={{ color: '#faad14' }} />
+                            <Text strong style={{ color: '#faad14' }}>
+                                Status:
+                            </Text>
+                            <Tag color="orange" icon={<ClockCircleOutlined />}>
+                                Pending Approval
+                            </Tag>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                All agent-submitted properties require admin approval
+                            </Text>
+                        </Space>
+                    </div>
+
+                    {/* UPDATED: Vertical layout for mobile */}
+                    <Row gutter={[16, 16]}>
+                        <Col span={24}>
                             <Form.Item
                                 label="Property Title"
                                 name="title"
@@ -1836,22 +1997,29 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 <Input
                                     placeholder="Enter property title"
                                     onBlur={(e) => {
-                                        // Auto-trim on blur
                                         const trimmed = e.target.value.trim();
                                         if (trimmed !== e.target.value) {
                                             form.setFieldsValue({ title: trimmed });
                                         }
                                     }}
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                    </Row>
+
+                    <Row gutter={[16, 16]}>
+                        <Col span={24}>
                             <Form.Item
                                 label="Property Type"
                                 name="type"
                                 rules={[{ required: true, message: 'Please select property type' }]}
                             >
-                                <Select placeholder="Select property type" showSearch>
+                                <Select
+                                    placeholder="Select property type"
+                                    showSearch
+                                    size="large"
+                                >
                                     {propertyTypes.map(type => (
                                         <Option key={type} value={type}>{type}</Option>
                                     ))}
@@ -1859,6 +2027,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             </Form.Item>
                         </Col>
                     </Row>
+
                     <Form.Item
                         label="Description"
                         name="description"
@@ -1883,7 +2052,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             maxLength={1000}
                             showCount
                             onBlur={(e) => {
-                                // Auto-trim on blur
                                 const trimmed = e.target.value.trim();
                                 if (trimmed !== e.target.value) {
                                     form.setFieldsValue({ description: trimmed });
@@ -1891,8 +2059,9 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                             }}
                         />
                     </Form.Item>
-                    <Row gutter={[16, 0]}>
-                        <Col span={12}>
+
+                    <Row gutter={[16, 16]}>
+                        <Col span={24} md={12}>
                             <Form.Item
                                 label="Price"
                                 name="price"
@@ -1914,23 +2083,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     placeholder="Enter price (min: ₱5,000)"
                                     formatter={value => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                     parser={value => value.replace(/\₱\s?|(,*)/g, '')}
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item label="Status" name="status">
-                                <Select showSearch>
-                                    {statuses.map(status => (
-                                        <Option key={status} value={status}>
-                                            {getStatusDisplayName(status)}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
                     </Row>
-
-
                 </Card>
             )
         },
@@ -1938,6 +2095,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             title: 'Location',
             content: (
                 <Card title="Location Information" size="small">
+                    {/* UPDATED: Vertical layout for mobile */}
                     <Row gutter={[16, 16]}>
                         <Col span={24}>
                             <Form.Item
@@ -1959,7 +2117,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     placeholder="Enter address (e.g., 123 Main St)"
                                     onChange={handleAddressChange}
                                     onBlur={(e) => {
-                                        // Auto-trim on blur
                                         const trimmed = e.target.value.trim();
                                         if (trimmed !== e.target.value) {
                                             form.setFieldsValue({ address: trimmed });
@@ -1977,13 +2134,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                             Locate
                                         </Button>
                                     }
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    <Row gutter={[16, 0]}>
-                        <Col span={8}>
+                    <Row gutter={[16, 16]}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Province"
                                 name="state"
@@ -1997,6 +2155,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     filterOption={(input, option) =>
                                         option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                                     }
+                                    size="large"
                                 >
                                     {provinces.map(province => (
                                         <Option key={province.code} value={province.name}>
@@ -2006,7 +2165,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="City/Municipality"
                                 name="city"
@@ -2021,6 +2180,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                                     }
                                     disabled={!form.getFieldValue('state')}
+                                    size="large"
                                 >
                                     {cities.map(city => (
                                         <Option key={city.code} value={city.name}>
@@ -2030,7 +2190,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={24} md={8}>
                             <Form.Item
                                 label="Zip Code"
                                 name="zipCode"
@@ -2050,19 +2210,19 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     placeholder="Zip code"
                                     suffix={loadingZipCode ? <Spin size="small" /> : null}
                                     onBlur={(e) => {
-                                        // Auto-trim on blur
                                         const trimmed = e.target.value.trim();
                                         if (trimmed !== e.target.value) {
                                             form.setFieldsValue({ zipCode: trimmed });
                                         }
                                     }}
+                                    size="large"
                                 />
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    <Row gutter={[16, 0]}>
-                        <Col span={12}>
+                    <Row gutter={[16, 16]}>
+                        <Col span={24} md={12}>
                             <Form.Item label="Barangay" name="barangay">
                                 <Select
                                     placeholder="Select barangay"
@@ -2073,6 +2233,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                                     }
                                     disabled={!form.getFieldValue('city')}
+                                    size="large"
                                 >
                                     {barangays.map(barangay => (
                                         <Option key={barangay.code} value={barangay.name}>
@@ -2109,12 +2270,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
                             Click on the map to set the property location and automatically fill Philippine address details using PSGC data
                         </p>
-                        {/* REMOVED: Coordinates display and manual input fields */}
                     </Card>
-
-                    {/* REMOVED: Latitude and Longitude input fields */}
-
-
                 </Card>
             )
         },
@@ -2122,48 +2278,86 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
             title: 'Details',
             content: (
                 <Card title="Property Details" size="small">
-                    <Row gutter={[16, 0]}>
-                        <Col span={6}>
+                    {/* UPDATED: Vertical layout for mobile */}
+                    <Row gutter={[16, 16]}>
+                        <Col span={24} md={6}>
                             <Form.Item label="Bedrooms" name="bedrooms">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Bedrooms" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Bedrooms"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={24} md={6}>
                             <Form.Item label="Bathrooms" name="bathrooms">
-                                <InputNumber min={0} step={0.5} style={{ width: '100%' }} placeholder="Bathrooms" />
+                                <InputNumber
+                                    min={0}
+                                    step={0.5}
+                                    style={{ width: '100%' }}
+                                    placeholder="Bathrooms"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={24} md={6}>
                             <Form.Item label="Kitchen" name="kitchen">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Kitchen" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Kitchen"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={24} md={6}>
                             <Form.Item label="Garage" name="garage">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Garage" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Garage"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={[16, 0]}>
-                        <Col span={6}>
+
+                    <Row gutter={[16, 16]}>
+                        <Col span={24} md={8}>
                             <Form.Item label="Area (sqm)" name="areaSqm">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Area in sqm" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Area in sqm"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={24} md={8}>
                             <Form.Item label="Property Age" name="propertyAge">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Age in years" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Age in years"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={6}>
+                        <Col span={24} md={8}>
                             <Form.Item label="Floor" name="propertyFloor">
-                                <InputNumber min={0} style={{ width: '100%' }} placeholder="Floor number" />
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: '100%' }}
+                                    placeholder="Floor number"
+                                    size="large"
+                                />
                             </Form.Item>
                         </Col>
                     </Row>
 
                     <Form.Item label="Selected Amenities" name="amenities">
-                        <Select mode="multiple" placeholder="Selected amenities will appear here" style={{ width: '100%' }}>
+                        <Select mode="multiple" placeholder="Selected amenities will appear here" style={{ width: '100%' }} size="large">
                             {allAmenities.map(amenity => (
                                 <Option key={amenity} value={amenity}>{amenity}</Option>
                             ))}
@@ -2183,7 +2377,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                             {imageList.length >= 8 ? null : uploadButton}
                                         </Upload>
                                         <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
-                                            Upload up to 8 images. Click on images to preview.
+                                            {property ? 'Existing images are shown in green. Upload up to 8 images total.' : 'Upload up to 8 images. Click on images to preview.'}
+                                            {imageList.length > 0 && (
+                                                <div style={{ marginTop: 4 }}>
+                                                    <Text type="secondary">
+                                                        Total images: {imageList.length} {property && `(${imageList.filter(img => img.isExisting).length} existing)`}
+                                                    </Text>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </Form.Item>
@@ -2197,7 +2398,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                             {videoList.length >= 5 ? null : videoUploadButton}
                                         </Upload>
                                         <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
-                                            Upload up to 5 videos. Click on videos to preview.
+                                            {property ? 'Existing videos are shown in green. Upload up to 5 videos total.' : 'Upload up to 5 videos. Click on videos to preview.'}
+                                            {videoList.length > 0 && (
+                                                <div style={{ marginTop: 4 }}>
+                                                    <Text type="secondary">
+                                                        Total videos: {videoList.length} {property && `(${videoList.filter(vid => vid.isExisting).length} existing)`}
+                                                    </Text>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </Form.Item>
@@ -2207,7 +2415,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                 </Card>
             )
         }
-        // REMOVED: Assignment step
     ];
 
     return (
@@ -2218,7 +2425,8 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                     layout="vertical"
                     onFinish={onFinish}
                     initialValues={{
-                        status: 'available',
+                        // Constant status for all agent submissions
+                        status: AGENT_PROPERTY_STATUS,
                         bedrooms: 0,
                         bathrooms: 1,
                         kitchen: 0,
@@ -2286,7 +2494,14 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                         width="80vw"
                         style={{ top: 20 }}
                     >
-                        <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+                        <img
+                            alt="Preview"
+                            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+                            src={previewImage}
+                            onError={(e) => {
+                                e.target.src = '/default-property.jpg';
+                            }}
+                        />
                     </Modal>
 
                     <Modal
@@ -2337,7 +2552,7 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                 ✅ {property ? 'Property Updated Successfully!' : 'Property Created Successfully!'}
                             </Title>
                             <Text type="secondary">
-                                {property ? 'The property information has been updated.' : 'The new property has been created successfully.'}
+                                {property ? 'The property information has been updated and sent for re-approval.' : 'The new property has been created successfully and is pending approval.'}
                             </Text>
                         </div>
 
@@ -2356,11 +2571,13 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                     <Text>{submittedData?.address}</Text>
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Status">
-                                    <Text type="success" strong>
-                                        {getStatusDisplayName(submittedData?.status)}
+                                    <Tag color="orange" icon={<ClockCircleOutlined />}>
+                                        Pending Approval
+                                    </Tag>
+                                    <Text type="secondary" style={{ marginLeft: 8, fontSize: '12px' }}>
+                                        Awaiting admin approval
                                     </Text>
                                 </Descriptions.Item>
-                                {/* ADDED: Assigned To information */}
                                 <Descriptions.Item label="Assigned To">
                                     <Text strong type="primary">
                                         <UserOutlined /> {submittedData?.assignedTo || 'You'}
@@ -2371,7 +2588,6 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         <Text code>{submittedData.agentId}</Text>
                                     </Descriptions.Item>
                                 )}
-                                {/* ADDED: Coordinates in success display (optional) */}
                                 {submittedData?.coordinates?.latitude && submittedData?.coordinates?.longitude && (
                                     <>
                                         <Descriptions.Item label="Latitude">
@@ -2382,6 +2598,11 @@ const InsertProperty = ({ property, onSuccess, onCancel }) => {
                                         </Descriptions.Item>
                                     </>
                                 )}
+                                <Descriptions.Item label="Media">
+                                    <Text>
+                                        {submittedData?.imageCount || 0} images, {submittedData?.videoCount || 0} videos
+                                    </Text>
+                                </Descriptions.Item>
                                 <Descriptions.Item label="Reference ID">
                                     <Text type="secondary">{submittedData?.referenceId}</Text>
                                 </Descriptions.Item>

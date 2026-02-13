@@ -22,7 +22,9 @@ import {
     Alert,
     Dropdown,
     Menu,
-    TimePicker
+    TimePicker,
+    Grid,
+    Collapse
 } from 'antd';
 import {
     SearchOutlined,
@@ -42,7 +44,8 @@ import {
     ExclamationCircleOutlined,
     SyncOutlined,
     PlayCircleOutlined,
-    PauseCircleOutlined
+    PauseCircleOutlined,
+    FilterOutlined
 } from '@ant-design/icons';
 import BaseTable from './BaseTable';
 import moment from 'moment';
@@ -56,6 +59,8 @@ import { schedulePropertiesMapper } from '../../AdminPortal/appointment/mappers/
 
 const { TextArea } = Input;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
+const { Panel } = Collapse;
 
 const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [appointments, setAppointments] = useState([]);
@@ -72,6 +77,10 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [error, setError] = useState(null);
+    const [filtersVisible, setFiltersVisible] = useState(false);
+
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
     const scheduleService = new SchedulePropertiesService();
 
@@ -437,8 +446,206 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
         return actions;
     };
 
+    // Mobile Card View
+    const renderMobileCard = (appointment) => {
+        const availableActions = getAvailableActions(appointment);
+
+        const actionMenu = (
+            <Menu>
+                {availableActions.map(action => (
+                    <Menu.Item
+                        key={action.key}
+                        icon={action.icon}
+                        onClick={action.onClick}
+                        style={{ color: action.color }}
+                    >
+                        {action.label}
+                    </Menu.Item>
+                ))}
+            </Menu>
+        );
+
+        return (
+            <Card
+                key={appointment.id}
+                style={{ marginBottom: 16 }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                    <Avatar
+                        size="large"
+                        src={appointment.agent?.profilePicture}
+                        icon={<UserOutlined />}
+                    />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                            {appointment.agentName || 'Unknown Agent'}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                            with {appointment.clientName || 'Unknown Client'}
+                        </div>
+                        <Tag color={getStatusColor(appointment.status)} icon={getStatusIcon(appointment.status)}>
+                            {appointment.status}
+                        </Tag>
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 500, fontSize: '14px' }}>
+                        {appointment.propertyTitle || 'Unknown Property'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        {appointment.propertyAddress || 'No address available'}
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                        {moment(appointment.scheduleTime).format('MMM DD, YYYY')}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        {moment(appointment.scheduleTime).format('hh:mm A')}
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                    <Tag color={appointment.meetingType === 'Virtual' ? 'blue' : appointment.meetingType === 'Phone' ? 'orange' : 'green'}>
+                        {appointment.meetingType || 'InPerson'}
+                    </Tag>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <Button
+                        icon={<EyeOutlined />}
+                        size="small"
+                        onClick={() => handleView(appointment)}
+                        style={{ flex: 1 }}
+                    >
+                        View
+                    </Button>
+
+                    {/* Status Actions Dropdown */}
+                    {availableActions.length > 0 && (
+                        <Dropdown overlay={actionMenu} trigger={['click']}>
+                            <Button
+                                icon={<MoreOutlined />}
+                                size="small"
+                                style={{ flex: 1 }}
+                            >
+                                Actions
+                            </Button>
+                        </Dropdown>
+                    )}
+
+                    {appointment.canDelete && (
+                        <Popconfirm
+                            title="Are you sure to delete this appointment?"
+                            onConfirm={() => handleDelete(appointment.id)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Button
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                danger
+                                style={{ flex: 1 }}
+                            >
+                                Delete
+                            </Button>
+                        </Popconfirm>
+                    )}
+                </div>
+            </Card>
+        );
+    };
+
+    // Render filters based on device
+    const renderFilters = () => {
+        if (isMobile) {
+            return (
+                <div style={{ width: '100%' }}>
+                    {/* Search Bar - Full width on mobile */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <Input
+                            placeholder="Search appointments..."
+                            prefix={<SearchOutlined />}
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            style={{ width: '100%' }}
+                            size="large"
+                        />
+                    </div>
+
+                    {/* Filter Toggle Button */}
+                    <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+                        <Button
+                            type={filtersVisible ? "primary" : "default"}
+                            icon={<FilterOutlined />}
+                            onClick={() => setFiltersVisible(!filtersVisible)}
+                            size="large"
+                            style={{ width: '100%' }}
+                        >
+                            {filtersVisible ? 'Hide Filters' : 'Show Filters'}
+                        </Button>
+                    </div>
+
+                    {/* Collapsible Filters */}
+                    {filtersVisible && (
+                        <div style={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px'
+                        }}>
+                            <Select
+                                value={statusFilter}
+                                onChange={setStatusFilter}
+                                style={{ width: '100%' }}
+                                placeholder="Filter by status"
+                                size="large"
+                            >
+                                <Option value="all">All Status</Option>
+                                <Option value="Pending">Pending</Option>
+                                <Option value="Scheduled">Scheduled</Option>
+                                <Option value="Completed">Completed</Option>
+                                <Option value="Cancelled">Cancelled</Option>
+                                <Option value="Rescheduled">Rescheduled</Option>
+                            </Select>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Desktop filters
+        return (
+            <Space>
+                <Input
+                    placeholder="Search appointments..."
+                    prefix={<SearchOutlined />}
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    style={{ width: 300 }}
+                />
+                <Select
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    style={{ width: 150 }}
+                    placeholder="Filter by status"
+                >
+                    <Option value="all">All Status</Option>
+                    <Option value="Pending">Pending</Option>
+                    <Option value="Scheduled">Scheduled</Option>
+                    <Option value="Completed">Completed</Option>
+                    <Option value="Cancelled">Cancelled</Option>
+                    <Option value="Rescheduled">Rescheduled</Option>
+                </Select>
+            </Space>
+        );
+    };
+
     const columns = [
-       
         {
             title: 'Agent',
             dataIndex: 'agentName',
@@ -600,7 +807,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
 
     return (
         <div>
-            {/* Statistics Cards */}
+            {/* Statistics Cards - Responsive */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={4}>
                     <Card size="small">
@@ -608,7 +815,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             title="Total"
                             value={stats.total}
                             prefix={<CalendarOutlined />}
-                            valueStyle={{ color: '#1a365d' }}
+                            valueStyle={{ color: '#1a365d', fontSize: isMobile ? '16px' : '24px' }}
                         />
                     </Card>
                 </Col>
@@ -618,7 +825,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             title="Pending"
                             value={stats.pending}
                             prefix={<ClockCircleOutlined />}
-                            valueStyle={{ color: '#faad14' }}
+                            valueStyle={{ color: '#faad14', fontSize: isMobile ? '16px' : '24px' }}
                         />
                     </Card>
                 </Col>
@@ -628,7 +835,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             title="Scheduled"
                             value={stats.scheduled}
                             prefix={<PlayCircleOutlined />}
-                            valueStyle={{ color: '#1890ff' }}
+                            valueStyle={{ color: '#1890ff', fontSize: isMobile ? '16px' : '24px' }}
                         />
                     </Card>
                 </Col>
@@ -638,7 +845,7 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             title="Completed"
                             value={stats.completed}
                             prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#52c41a' }}
+                            valueStyle={{ color: '#52c41a', fontSize: isMobile ? '16px' : '24px' }}
                         />
                     </Card>
                 </Col>
@@ -648,63 +855,62 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             title="Cancelled"
                             value={stats.cancelled}
                             prefix={<CloseCircleOutlined />}
-                            valueStyle={{ color: '#ff4d4f' }}
+                            valueStyle={{ color: '#ff4d4f', fontSize: isMobile ? '16px' : '24px' }}
                         />
                     </Card>
                 </Col>
             </Row>
 
             <Card>
+                {/* Filters Section */}
                 <div style={{
                     marginBottom: 16,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     flexWrap: 'wrap',
-                    gap: 16
+                    gap: 16,
+                    flexDirection: isMobile ? 'column' : 'row'
                 }}>
-                    <Space>
-                        <Input
-                            placeholder="Search appointments..."
-                            prefix={<SearchOutlined />}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            style={{ width: 300 }}
-                        />
-                        <Select
-                            value={statusFilter}
-                            onChange={setStatusFilter}
-                            style={{ width: 150 }}
-                            placeholder="Filter by status"
-                        >
-                            <Option value="all">All Status</Option>
-                            <Option value="Pending">Pending</Option>
-                            <Option value="Scheduled">Scheduled</Option>
-                            <Option value="Completed">Completed</Option>
-                            <Option value="Cancelled">Cancelled</Option>
-                            <Option value="Rescheduled">Rescheduled</Option>
-                        </Select>
-                    </Space>
+                    {renderFilters()}
+                </div>
 
-                    {/* REMOVED: New Appointment Button */}
+                {/* Results Count */}
+                <div style={{ marginBottom: 16, textAlign: isMobile ? 'center' : 'left' }}>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                        Showing {filteredAppointments.length} of {appointments.length} appointments
+                    </div>
                 </div>
 
                 {renderErrorAlert()}
 
-                <BaseTable
-                    data={filteredAppointments}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                    }}
-                />
+                {/* Conditional Rendering: Table for Desktop, Cards for Mobile */}
+                {!isMobile ? (
+                    <BaseTable
+                        data={filteredAppointments}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                        }}
+                    />
+                ) : (
+                    <div>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                Loading appointments...
+                            </div>
+                        ) : (
+                            <div>
+                                {filteredAppointments.map(appointment => renderMobileCard(appointment))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </Card>
-
-            {/* REMOVED: Create/Edit Modal */}
 
             {/* Cancel Confirmation Modal */}
             <Modal
@@ -712,7 +918,8 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                 open={statusModalVisible}
                 onCancel={() => setStatusModalVisible(false)}
                 footer={null}
-                width={500}
+                width={isMobile ? '100%' : 500}
+                style={isMobile ? { top: 0, padding: 0 } : {}}
             >
                 <Form
                     layout="vertical"
@@ -752,7 +959,8 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                 open={rescheduleModalVisible}
                 onCancel={() => setRescheduleModalVisible(false)}
                 footer={null}
-                width={500}
+                width={isMobile ? '100%' : 500}
+                style={isMobile ? { top: 0, padding: 0 } : {}}
             >
                 <Form
                     form={rescheduleForm}
@@ -809,16 +1017,17 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                         Close
                     </Button>
                 ]}
-                width={600}
+                width={isMobile ? '100%' : 600}
+                style={isMobile ? { top: 0, padding: 0 } : {}}
             >
                 {selectedAppointment && (
                     <div>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Schedule No:</strong>
                                 <div>{selectedAppointment.scheduleNo}</div>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Status:</strong>
                                 <div>
                                     <Tag color={getStatusColor(selectedAppointment.status)}>
@@ -828,11 +1037,11 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             </Col>
                         </Row>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Agent:</strong>
                                 <div>{selectedAppointment.agentName}</div>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Client:</strong>
                                 <div>{selectedAppointment.clientName}</div>
                             </Col>
@@ -847,11 +1056,11 @@ const ScheduleAppointments = ({ onScheduleUpdate }) => {
                             </Col>
                         </Row>
                         <Row gutter={16} style={{ marginBottom: 16 }}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Schedule Time:</strong>
                                 <div>{moment(selectedAppointment.scheduleTime).format('MMM DD, YYYY hh:mm A')}</div>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <strong>Meeting Type:</strong>
                                 <div>
                                     <Tag color={selectedAppointment.meetingType === 'Virtual' ? 'blue' : selectedAppointment.meetingType === 'Phone' ? 'orange' : 'green'}>

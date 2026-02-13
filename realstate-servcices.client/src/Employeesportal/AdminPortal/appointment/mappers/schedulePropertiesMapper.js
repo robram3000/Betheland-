@@ -204,21 +204,44 @@ export const schedulePropertiesMapper = {
         try {
             console.log('toCreateRequest formData:', formData);
 
-            // Handle scheduleTime - ensure it's properly formatted
-            let scheduleTime;
-            if (formData.scheduleTime) {
-                if (formData.scheduleTime instanceof Date) {
-                    scheduleTime = formData.scheduleTime.toISOString();
-                } else if (typeof formData.scheduleTime === 'string') {
-                    scheduleTime = new Date(formData.scheduleTime).toISOString();
-                }
+            // Handle scheduleTime - keep as local time string
+            let scheduleTime = formData.scheduleTime;
+            if (formData.scheduleTime instanceof Date) {
+                // Convert to local time string without timezone
+                const year = formData.scheduleTime.getFullYear();
+                const month = String(formData.scheduleTime.getMonth() + 1).padStart(2, '0');
+                const day = String(formData.scheduleTime.getDate()).padStart(2, '0');
+                const hours = String(formData.scheduleTime.getHours()).padStart(2, '0');
+                const minutes = String(formData.scheduleTime.getMinutes()).padStart(2, '0');
+                const seconds = String(formData.scheduleTime.getSeconds()).padStart(2, '0');
+                scheduleTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
             }
 
-            // Calculate end time (1 hour after schedule time)
+            // Calculate end time (1 hour after schedule time) as local time string
             let scheduleEndTime;
-            if (scheduleTime) {
+            if (formData.scheduleEndTime) {
+                if (formData.scheduleEndTime instanceof Date) {
+                    const year = formData.scheduleEndTime.getFullYear();
+                    const month = String(formData.scheduleEndTime.getMonth() + 1).padStart(2, '0');
+                    const day = String(formData.scheduleEndTime.getDate()).padStart(2, '0');
+                    const hours = String(formData.scheduleEndTime.getHours()).padStart(2, '0');
+                    const minutes = String(formData.scheduleEndTime.getMinutes()).padStart(2, '0');
+                    const seconds = String(formData.scheduleEndTime.getSeconds()).padStart(2, '0');
+                    scheduleEndTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                } else {
+                    scheduleEndTime = formData.scheduleEndTime;
+                }
+            } else if (scheduleTime) {
+                // Calculate 1 hour later from scheduleTime
                 const baseTime = new Date(scheduleTime);
-                scheduleEndTime = new Date(baseTime.getTime() + 60 * 60 * 1000).toISOString();
+                const endTime = new Date(baseTime.getTime() + 60 * 60 * 1000);
+                const year = endTime.getFullYear();
+                const month = String(endTime.getMonth() + 1).padStart(2, '0');
+                const day = String(endTime.getDate()).padStart(2, '0');
+                const hours = String(endTime.getHours()).padStart(2, '0');
+                const minutes = String(endTime.getMinutes()).padStart(2, '0');
+                const seconds = String(endTime.getSeconds()).padStart(2, '0');
+                scheduleEndTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
             }
 
             // Create complete request data with all required fields
@@ -242,7 +265,7 @@ export const schedulePropertiesMapper = {
                 throw new Error('Missing required fields: propertyId, agentId, clientId, or scheduleTime');
             }
 
-            console.log('Mapped create request:', requestData);
+            console.log('Mapped create request (LOCAL TIME):', requestData);
             return requestData;
 
         } catch (error) {
@@ -274,8 +297,10 @@ export const schedulePropertiesMapper = {
                     : new Date(formData.scheduleEndTime).toISOString())
                 : null;
 
+            // Return the complete ScheduleProperties entity structure
             return {
                 id: parseInt(formData.id) || 0,
+                scheduleNo: formData.scheduleNo || '',
                 propertyId: parseInt(formData.propertyId) || 0,
                 agentId: parseInt(formData.agentId) || 0,
                 clientId: parseInt(formData.clientId) || 0,
@@ -287,7 +312,9 @@ export const schedulePropertiesMapper = {
                 meetingLocation: formData.meetingLocation || '',
                 virtualMeetingLink: formData.virtualMeetingLink || '',
                 cancellationReason: formData.cancellationReason || '',
-                rescheduleReason: formData.rescheduleReason || ''
+                rescheduleReason: formData.rescheduleReason || '',
+                createdAt: formData.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
         } catch (error) {
             console.error('Error mapping schedule update request:', error);

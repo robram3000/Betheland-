@@ -1,4 +1,5 @@
-﻿using Realstate_servcices.Server.Dto.Scheduling;
+﻿using Microsoft.Extensions.Logging;
+using Realstate_servcices.Server.Dto.Scheduling;
 using Realstate_servcices.Server.Entity.Ratings;
 using Realstate_servcices.Server.Repositories;
 using Realstate_servcices.Server.Repository.ScheduleDao;
@@ -22,13 +23,16 @@ namespace Realstate_servcices.Server.Services.Scheduling
     {
         private readonly IRatingSchedulesRepository _ratingRepository;
         private readonly ISchedulePropertiesRepository _scheduleRepository;
+        private readonly ILogger<RatingSchedulesServices> _logger;
 
         public RatingSchedulesServices(
             IRatingSchedulesRepository ratingRepository,
-            ISchedulePropertiesRepository scheduleRepository)
+            ISchedulePropertiesRepository scheduleRepository,
+            ILogger<RatingSchedulesServices> logger)
         {
             _ratingRepository = ratingRepository;
             _scheduleRepository = scheduleRepository;
+            _logger = logger;
         }
 
         public async Task<RatingScheduleDto?> GetRatingByIdAsync(int id)
@@ -57,6 +61,8 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<RatingScheduleDto> CreateRatingAsync(CreateRatingScheduleDto createDto, int clientId)
         {
+            _logger.LogInformation("Creating rating - ScheduleId: {ScheduleId}, ClientId: {ClientId}", createDto.ScheduleId, clientId);
+
             // Check if rating already exists for this schedule
             if (await _ratingRepository.ExistsForScheduleAsync(createDto.ScheduleId))
             {
@@ -79,7 +85,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
             {
                 ScheduleId = createDto.ScheduleId,
                 ClientId = clientId,
-                AgentId = schedule.AgentId,
+                AgentId = schedule.AgentId, // Get from schedule, not from DTO
                 Rating = createDto.Rating,
                 Comment = createDto.Comment,
                 RatingType = createDto.RatingType,
@@ -89,6 +95,7 @@ namespace Realstate_servcices.Server.Services.Scheduling
             };
 
             var createdRating = await _ratingRepository.CreateAsync(rating);
+            _logger.LogInformation("Rating created successfully - ID: {RatingId}", createdRating.Id);
             return MapToDto(createdRating);
         }
 
@@ -125,17 +132,53 @@ namespace Realstate_servcices.Server.Services.Scheduling
 
         public async Task<bool> CanRateScheduleAsync(int scheduleId, int clientId)
         {
-            var schedule = await _scheduleRepository.GetByIdAsync(scheduleId);
-            if (schedule == null) return false;
+            try
+            {
+                _logger.LogInformation("🔍 Checking rating eligibility - ScheduleId: {ScheduleId}, ClientId: {ClientId}", scheduleId, clientId);
 
-            // Check if client is the one who scheduled the appointment
-            if (schedule.ClientId != clientId) return false;
+                var schedule = await _scheduleRepository.GetByIdAsync(scheduleId);
+                if (schedule == null)
+                {
+                    _logger.LogWarning("❌ Schedule not found for ScheduleId: {ScheduleId}", scheduleId);
+                    return false;
+                }
 
-            // Check if schedule is completed
-            if (schedule.Status != "Completed") return false;
+                _logger.LogInformation("✅ Schedule found - ID: {ScheduleId}, ClientId: {ScheduleClientId}, Status: {ScheduleStatus}",
+                    schedule.Id, schedule.ClientId, schedule.Status);
 
-            // Check if rating already exists
-            return !await _ratingRepository.ExistsForScheduleAsync(scheduleId);
+                // Check if client is the one who scheduled the appointment
+                if (schedule.ClientId != clientId)
+                {
+                    _logger.LogWarning("❌ Client mismatch: Schedule ClientId {ScheduleClientId} != Current ClientId {CurrentClientId}",
+                        schedule.ClientId, clientId);
+                    return false;
+                }
+
+                // Check if schedule is completed - make comparison case-insensitive and handle different status formats
+                var status = schedule.Status?.ToLower()?.Trim();
+                _logger.LogInformation("📊 Status check - Raw: '{RawStatus}', Normalized: '{NormalizedStatus}'",
+                    schedule.Status, status);
+
+                if (status != "completed")
+                {
+                    _logger.LogWarning("❌ Schedule status is not completed. Current status: '{ScheduleStatus}'", schedule.Status);
+                    return false;
+                }
+
+                // Check if rating already exists
+                bool ratingExists = await _ratingRepository.ExistsForScheduleAsync(scheduleId);
+                _logger.LogInformation("⭐ Rating already exists: {RatingExists}", ratingExists);
+
+                bool canRate = !ratingExists;
+                _logger.LogInformation("🎯 Final canRate result: {CanRate}", canRate);
+
+                return canRate;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "💥 Error in CanRateScheduleAsync for ScheduleId: {ScheduleId}, ClientId: {ClientId}", scheduleId, clientId);
+                return false;
+            }
         }
 
         private static RatingScheduleDto MapToDto(RatingSchedule rating)
@@ -148,7 +191,8 @@ namespace Realstate_servcices.Server.Services.Scheduling
                 AgentId = rating.AgentId,
                 Rating = rating.Rating,
                 Comment = rating.Comment,
-                RatingType = rating.RatingType
+                RatingType = rating.RatingType,
+              
             };
         }
     }

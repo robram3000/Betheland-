@@ -1,5 +1,4 @@
-﻿// ChatService.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Dto.Property;
@@ -37,7 +36,6 @@ namespace Realstate_servcices.Server.Services.Conversation
 
             var createdChat = await _chatRepository.CreateAsync(chat);
 
-            // Add creator as participant
             var creatorParticipant = new ChatParticipant
             {
                 ChatId = createdChat.Id,

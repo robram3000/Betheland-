@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Layout, theme, ConfigProvider } from 'antd';
-import GlobalAdminNavigation from './GlobalAdminNavigation';
-import GlobalAdminTopbar from './GlobalAdminTopbar';
+
+import GlobalAdminTopbar from '../Navigation/GlobalAdminTopbar';
 
 const { Content } = Layout;
 
@@ -107,30 +107,28 @@ const AgentLayout = ({ children, pageTitle = "Agent Management", pageDescription
                 </script>
             </Helmet>
 
-            <Layout style={{ minHeight: '100vh' }}>
+            <Layout style={{
+                minHeight: '100vh',
+                overflow: 'hidden'
+            }}>
                 <GlobalAdminTopbar onToggle={handleToggle} collapsed={collapsed} />
-                <Layout>
-                    <GlobalAdminNavigation collapsed={collapsed} />
-                    <Layout
+                <Layout style={{
+                    marginTop: 112, // Topbar (64px) + Sub-topbar (48px)
+                    marginLeft: 0,
+                    height: 'calc(100vh - 112px)',
+                    overflow: 'hidden'
+                }}>
+                    <Content
                         style={{
-                            marginLeft: collapsed ? 80 : 200,
-                            marginTop: 52,
-                            transition: 'all 0.2s',
+                            background: colorBgContainer,
+                            minHeight: '100%',
+                            borderRadius: borderRadiusLG,
+                            overflow: 'hidden',
+                            padding: "30px"
                         }}
                     >
-                        <Content
-                            style={{
-                                background: colorBgContainer,
-                                minHeight: 280,
-                                borderRadius: borderRadiusLG,
-                                maxWidth: '100%',
-                                overflow: 'hidden'
-                        
-                            }}
-                        >
-                            {children}
-                        </Content>
-                    </Layout>
+                        {children}
+                    </Content>
                 </Layout>
             </Layout>
         </ConfigProvider>

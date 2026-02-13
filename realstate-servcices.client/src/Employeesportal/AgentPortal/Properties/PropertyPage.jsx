@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿// PropertyPagegent.jsx - Complete Fixed Version with Corrected Image Utilities
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table,
     Button,
@@ -17,7 +18,9 @@ import {
     Menu,
     Row,
     Col,
-    Divider
+    Divider,
+    Grid,
+    Radio
 } from 'antd';
 import {
     SearchOutlined,
@@ -43,20 +46,32 @@ import {
     FaBed,
     FaBath,
     FaUtensils,
-    FaCar
+    FaCar,
+    FaMapMarkerAlt,
+    FaHome
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import BaseTable from './BaseTable';
 import propertyService from '../../AdminPortal/Creation_Property/services/propertyService';
 import agentService from '../../AdminPortal/Creation_Agent/Services/AgentService';
 import authService from '../../Services/LoginAuth';
-import { processImageUrl, getPropertyImage, getAllMedia, getMediaCounts } from '../../AdminPortal/Creation_Property/processImageUrl';
+import {
+    processImageUrl,
+    getPropertyImage,
+    getAllPropertyImages,
+    getAllMedia,
+    getMediaCounts
+} from '../../AdminPortal/Creation_Property/processImageUrl';
 
 const { Search } = Input;
 const { Option } = Select;
+const { useBreakpoint } = Grid;
 
 const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) => {
     const navigate = useNavigate();
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
+
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -77,7 +92,546 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     const [propertiesCount, setPropertiesCount] = useState(0);
     const [cardTitle, setCardTitle] = useState(null);
 
-    // Get current user and agent data directly when needed
+    // Enhanced image processing function using the corrected utilities
+    const getEnhancedPropertyImage = (property) => {
+        try {
+            // Use the corrected getPropertyImage function
+            const imageUrl = getPropertyImage(property);
+            console.log('Enhanced property image for property:', property.id, 'URL:', imageUrl);
+            return imageUrl;
+        } catch (error) {
+            console.error('Error getting enhanced property image:', error);
+            return '/default-property.jpg';
+        }
+    };
+
+    // Safe image URL processing function using the corrected processImageUrl
+    const safeProcessImageUrl = (url) => {
+        try {
+            return processImageUrl(url);
+        } catch (error) {
+            console.error('Error processing image URL:', error, url);
+            return '/default-property.jpg';
+        }
+    };
+
+    // Enhanced Mobile Card View Component with Fixed Thumbnails
+    const PropertyCard = ({ property }) => {
+        const [localSelectedThumbnail, setLocalSelectedThumbnail] = useState(0);
+        const imageUrl = getEnhancedPropertyImage(property);
+        const { imageCount, videoCount } = getMediaCounts(property);
+        const hasMedia = imageCount > 0 || videoCount > 0;
+        const allMedia = getAllMedia(property);
+        const allImages = getAllPropertyImages(property);
+
+        console.log('Property Card Media:', {
+            propertyId: property.id,
+            imageUrl,
+            allMediaCount: allMedia.length,
+            allImagesCount: allImages.length,
+            allMedia,
+            allImages
+        });
+
+        // Format price
+        const formatPrice = (price) => {
+            if (!price && price !== 0) return 'Price on request';
+            const priceNum = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, "")) : price;
+            return `₱${priceNum.toLocaleString()}`;
+        };
+
+        // Format address
+        const formatCompleteAddress = () => {
+            const addressParts = [
+                property.address,
+                property.city,
+                property.state,
+                property.zipCode
+            ].filter(part => part && part.trim() !== '');
+            return addressParts.join(', ') || 'Address not specified';
+        };
+
+        // Get property type display
+        const getPropertyTypeDisplay = () => {
+            const type = property.type;
+            if (!type) return 'Property';
+
+            const lowerType = type.toLowerCase();
+            const typeNames = {
+                'house': 'House',
+                'apartment': 'Apartment',
+                'condo': 'Condo',
+                'townhouse': 'Townhouse',
+                'commercial': 'Commercial',
+                'land': 'Land',
+                'residential': 'Residential'
+            };
+
+            if (typeNames[lowerType]) {
+                return typeNames[lowerType];
+            }
+
+            return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+        };
+
+        // Get property type color
+        const getPropertyTypeColor = (type) => {
+            if (!type) return 'gray';
+
+            const lowerType = type.toLowerCase();
+            const typeColors = {
+                'house': 'blue',
+                'apartment': 'geekblue',
+                'condo': 'cyan',
+                'townhouse': 'blue',
+                'commercial': 'green',
+                'land': 'orange',
+                'default': 'gray'
+            };
+
+            if (typeColors[lowerType]) {
+                return typeColors[lowerType];
+            }
+
+            return typeColors.default;
+        };
+
+        // Handle thumbnail change
+        const handleThumbnailChange = (index) => {
+            setLocalSelectedThumbnail(index);
+        };
+
+        // Get current display image - use images array for thumbnails
+        const getCurrentDisplayImage = () => {
+            if (allImages.length > localSelectedThumbnail) {
+                return allImages[localSelectedThumbnail];
+            }
+            return imageUrl;
+        };
+
+        return (
+            <Card
+                style={{
+                    marginBottom: 16,
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    border: '1px solid #f0f0f0',
+                    width: '100%',
+                    marginLeft: 0,
+                    marginRight: 0
+                }}
+                bodyStyle={{
+                    padding: 0,
+                    margin: 0
+                }}
+            >
+                {/* Image Section with Radio Button Thumbnails - FIXED */}
+                <div
+                    style={{
+                        position: 'relative',
+                        height: '200px',
+                        overflow: 'hidden',
+                        backgroundColor: '#f8fafc'
+                    }}
+                >
+                    <img
+                        alt={property.title}
+                        src={getCurrentDisplayImage()}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block'
+                        }}
+                        onError={(e) => {
+                            console.error('Image failed to load:', e.target.src);
+                            e.target.src = '/default-property.jpg';
+                            e.target.onerror = null; // Prevent infinite loop
+                        }}
+                    />
+
+                    {/* Property Type Badge */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '12px',
+                        zIndex: 5
+                    }}>
+                        <Tag
+                            color={getPropertyTypeColor(property.type)}
+                            style={{
+                                borderRadius: '6px',
+                                fontWeight: '500',
+                                fontSize: '10px',
+                                padding: '2px 8px'
+                            }}
+                        >
+                            {getPropertyTypeDisplay()}
+                        </Tag>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        zIndex: 5
+                    }}>
+                        <Tag
+                            color={getStatusColor(property.status)}
+                            style={{
+                                fontSize: '10px',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            {getStatusText(property.status)}
+                        </Tag>
+                    </div>
+
+                    {/* Radio Button Thumbnails - Use allImages array */}
+                    {allImages.length > 1 && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '12px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            display: 'flex',
+                            gap: '8px',
+                            zIndex: 5,
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            padding: '4px 8px',
+                            borderRadius: '20px'
+                        }}>
+                            <Radio.Group
+                                value={localSelectedThumbnail}
+                                onChange={(e) => handleThumbnailChange(e.target.value)}
+                                size="small"
+                                style={{ display: 'flex', gap: '4px' }}
+                            >
+                                {allImages.slice(0, 5).map((image, index) => (
+                                    <Radio
+                                        key={index}
+                                        value={index}
+                                        style={{
+                                            margin: 0,
+                                            padding: 0,
+                                            width: '12px',
+                                            height: '12px'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: localSelectedThumbnail === index ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                                            cursor: 'pointer'
+                                        }} />
+                                    </Radio>
+                                ))}
+                            </Radio.Group>
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Section */}
+                <div style={{
+                    padding: '16px',
+                    backgroundColor: 'white'
+                }}>
+                    {/* Title and Price */}
+                    <div style={{ marginBottom: '12px' }}>
+                        <div style={{
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: '#1B3C53',
+                            lineHeight: '1.3',
+                            marginBottom: '6px'
+                        }}>
+                            {property.title || 'Untitled Property'}
+                        </div>
+                        <div style={{
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            color: '#1B3C53',
+                            display: 'block'
+                        }}>
+                            {formatPrice(property.price)}
+                        </div>
+                    </div>
+
+                    {/* Address */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        marginBottom: '12px'
+                    }}>
+                        <FaMapMarkerAlt style={{
+                            marginRight: '8px',
+                            color: '#64748b',
+                            fontSize: '12px',
+                            marginTop: '2px',
+                            flexShrink: 0
+                        }} />
+                        <div style={{
+                            fontSize: '12px',
+                            color: '#64748b',
+                            lineHeight: '1.4'
+                        }}>
+                            {formatCompleteAddress()}
+                        </div>
+                    </div>
+
+                    {/* Property Features */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '16px',
+                        marginBottom: '12px',
+                        padding: '12px 0',
+                        borderTop: '1px solid #f0f0f0',
+                        borderBottom: '1px solid #f0f0f0',
+                        flexWrap: 'wrap'
+                    }}>
+                        <Tooltip title="Bedrooms">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <FaBed style={{ color: '#666', fontSize: '12px' }} />
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    color: '#1B3C53'
+                                }}>
+                                    {property.bedrooms || 0}
+                                </span>
+                            </div>
+                        </Tooltip>
+
+                        <Tooltip title="Bathrooms">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <FaBath style={{ color: '#666', fontSize: '12px' }} />
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    color: '#1B3C53'
+                                }}>
+                                    {property.bathrooms || 0}
+                                </span>
+                            </div>
+                        </Tooltip>
+
+                        <Tooltip title="Kitchens">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <FaUtensils style={{ color: '#666', fontSize: '12px' }} />
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    color: '#1B3C53'
+                                }}>
+                                    {property.kitchens || 0}
+                                </span>
+                            </div>
+                        </Tooltip>
+
+                        <Tooltip title="Garages">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <FaCar style={{ color: '#666', fontSize: '12px' }} />
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    color: '#1B3C53'
+                                }}>
+                                    {property.garages || 0}
+                                </span>
+                            </div>
+                        </Tooltip>
+
+                        {property.areaSqm && (
+                            <Tooltip title="Area">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <FaHome style={{ color: '#666', fontSize: '12px' }} />
+                                    <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: '500',
+                                        color: '#1B3C53'
+                                    }}>
+                                        {property.areaSqm} sqm
+                                    </span>
+                                </div>
+                            </Tooltip>
+                        )}
+                    </div>
+
+                    {/* Amenities Preview */}
+                    <div style={{ marginBottom: '16px' }}>
+                        {renderAmenities(property.amenities)}
+                    </div>
+
+                    {/* Vertical Actions */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        width: '100%'
+                    }}>
+                        {/* Primary Actions */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            width: '100%'
+                        }}>
+                            <Button
+                                icon={<EyeOutlined />}
+                                onClick={() => handleView(property)}
+                                style={{
+                                    backgroundColor: '#1B3C53',
+                                    borderColor: '#1B3C53',
+                                    color: 'white',
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                View Details
+                            </Button>
+                            <Button
+                                icon={<EditOutlined />}
+                                onClick={() => handleEdit(property)}
+                                style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                Edit
+                            </Button>
+                        </div>
+
+                        {/* Status Actions */}
+                        {property.status === 'pending' && (
+                            <div style={{
+                                display: 'flex',
+                                gap: '8px',
+                                width: '100%'
+                            }}>
+                                <Button
+                                    icon={<CheckOutlined />}
+                                    onClick={() => handleApprove(property.id)}
+                                    style={{
+                                        color: '#52c41a',
+                                        borderColor: '#52c41a',
+                                        flex: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    Approve
+                                </Button>
+                                <Button
+                                    icon={<CloseOutlined />}
+                                    onClick={() => {
+                                        setSelectedProperty(property);
+                                        setRejectModalVisible(true);
+                                    }}
+                                    style={{
+                                        color: '#ff4d4f',
+                                        borderColor: '#ff4d4f',
+                                        flex: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    Reject
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Secondary Actions */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            width: '100%'
+                        }}>
+                            <Button
+                                icon={<PictureOutlined />}
+                                onClick={() => handleOpenMedia(property)}
+                                style={{
+                                    backgroundColor: '#1e3a8a',
+                                    borderColor: '#1e3a8a',
+                                    color: 'white',
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                Media ({imageCount + videoCount})
+                            </Button>
+
+                            <Dropdown
+                                overlay={actionMenu(property)}
+                                trigger={['click']}
+                                placement="bottomRight"
+                            >
+                                <Button
+                                    icon={<MoreOutlined />}
+                                    style={{
+                                        flex: 0.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    More
+                                </Button>
+                            </Dropdown>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        );
+    };
+
+    // Mobile Card Grid View
+    const PropertyCardGrid = () => {
+        if (filteredProperties.length === 0) {
+            return (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '40px 20px',
+                    color: '#999',
+                    width: '100%'
+                }}>
+                    <PictureOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                    <div>No properties found</div>
+                    <div style={{ fontSize: 14, marginTop: 8 }}>
+                        Try adjusting your search or filters
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div style={{
+                width: '100%',
+                padding: '0',
+                margin: '0'
+            }}>
+                {filteredProperties.map(property => (
+                    <PropertyCard key={property.id} property={property} />
+                ))}
+            </div>
+        );
+    };
+
     const getCurrentUserAndAgent = async () => {
         try {
             const user = authService.getCurrentUser();
@@ -99,12 +653,10 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
     };
 
-    // Define handleSearch function early to avoid reference errors
     const handleSearch = (value) => {
         setSearchText(value);
     };
 
-    // Define all handler functions at the top
     const handleStatusFilter = (value) => {
         setStatusFilter(value);
     };
@@ -319,13 +871,23 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
 
         if (user && user.userType && user.userType.toLowerCase() === 'agent') {
             return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: isMobile ? '0' : '0 16px'
+                }}>
+                    <span style={{
+                        fontSize: isMobile ? '16px' : '18px',
+                        fontWeight: '600',
+                        color: '#1B3C53'
+                    }}>
                         My Properties
                         {propertiesCount > 0 && (
                             <span style={{
                                 marginLeft: '8px',
-                                fontSize: '14px',
+                                fontSize: isMobile ? '12px' : '14px',
                                 color: '#666',
                                 fontWeight: 'normal'
                             }}>
@@ -333,24 +895,28 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             </span>
                         )}
                     </span>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleAddProperty}
-                    >
-                        Add New Property
-                    </Button>
+                
                 </div>
             );
         } else {
             return (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: isMobile ? '0' : '0 16px'
+                }}>
+                    <span style={{
+                        fontSize: isMobile ? '16px' : '18px',
+                        fontWeight: '600',
+                        color: '#1B3C53'
+                    }}>
                         Properties Management
                         {propertiesCount > 0 && (
                             <span style={{
                                 marginLeft: '8px',
-                                fontSize: '14px',
+                                fontSize: isMobile ? '12px' : '14px',
                                 color: '#666',
                                 fontWeight: 'normal'
                             }}>
@@ -358,7 +924,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             </span>
                         )}
                     </span>
-           
+                    
                 </div>
             );
         }
@@ -371,7 +937,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             setCardTitle(title);
         };
         loadCardTitle();
-    }, [propertiesCount]);
+    }, [propertiesCount, isMobile]);
 
     const filteredProperties = properties.filter(property => {
         const matchesSearch = property.title?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -675,16 +1241,23 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
         }
 
         if (amenitiesArray.length === 0) {
-            return <span style={{ color: '#999' }}>No amenities</span>;
+            return <span style={{ color: '#999', fontSize: '11px' }}>No amenities</span>;
         }
 
-        const displayAmenities = amenitiesArray.slice(0, 3);
-        const remainingAmenities = amenitiesArray.slice(3);
+        const displayAmenities = amenitiesArray.slice(0, 2);
+        const remainingAmenities = amenitiesArray.slice(2);
 
         const content = (
-            <Space size={[4, 4]} wrap>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {displayAmenities.map((amenity, index) => (
-                    <Tag key={index} size="small" color="#1e3a8a" style={{ color: 'white', border: 'none' }}>
+                    <Tag key={index} size="small" color="#1B3C53" style={{
+                        color: 'white',
+                        border: 'none',
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        margin: 0
+                    }}>
                         {amenity}
                     </Tag>
                 ))}
@@ -701,40 +1274,23 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         }
                         trigger={['click']}
                     >
-                        <Tag size="small" color="#1e3a8a" style={{ cursor: 'pointer', color: 'white', border: 'none' }}>
+                        <Tag size="small" color="#1B3C53" style={{
+                            cursor: 'pointer',
+                            color: 'white',
+                            border: 'none',
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            margin: 0
+                        }}>
                             +{remainingAmenities.length} more
                         </Tag>
                     </Dropdown>
                 )}
-            </Space>
+            </div>
         );
 
         return content;
-    };
-
-    // Safe image URL processing function
-    const safeProcessImageUrl = (url) => {
-        try {
-            if (!url) {
-                return '/default-property.jpg';
-            }
-
-            // If it's already a processed URL or full URL, return as is
-            if (typeof url === 'string' && (url.startsWith('http') || url.startsWith('//') || url.startsWith('blob:') || url.startsWith('data:'))) {
-                return url;
-            }
-
-            // If it's not a string, return default
-            if (typeof url !== 'string') {
-                return '/default-property.jpg';
-            }
-
-            // Use the existing processImageUrl function for string URLs
-            return processImageUrl(url);
-        } catch (error) {
-            console.error('Error processing image URL:', error);
-            return '/default-property.jpg';
-        }
     };
 
     // Render media preview
@@ -841,14 +1397,14 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
             key: 'property',
             width: '25%',
             render: (text, record) => {
-                const imageUrl = getPropertyImage(record);
+                const imageUrl = getEnhancedPropertyImage(record);
 
                 return (
                     <Space direction="vertical" size={4}>
                         <Space>
                             <Badge dot={record.status === 'pending'} color="orange" offset={[-5, 5]}>
                                 <Avatar
-                                    src={safeProcessImageUrl(imageUrl)}
+                                    src={imageUrl}
                                     shape="square"
                                     style={{
                                         backgroundColor: '#1a365d',
@@ -857,7 +1413,9 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                         objectFit: 'cover'
                                     }}
                                     onError={(e) => {
+                                        console.error('Avatar image failed to load:', e.target.src);
                                         e.target.src = '/default-property.jpg';
+                                        e.target.onerror = null;
                                     }}
                                 >
                                     {text?.[0]?.toUpperCase()}
@@ -1004,123 +1562,231 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
     ];
 
     return (
-        <div>
+        <div style={{
+            width: '100%',
+            padding: isMobile ? '0px' : '0px',
+            margin: 0
+        }}>
             <Card
                 title={cardTitle}
+                style={{
+                    width: '100%',
+                    margin: 0,
+                    padding: isMobile ? '0px' : '0px',
+                    border: 'none',
+                }}
+                bodyStyle={{
+                    padding: isMobile ? '0px' : '0px',
+                    margin: 0
+                }}
             >
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                    <Space wrap>
+                <div style={{
+                    marginBottom: 16,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    width: '100%'
+                }}>
+                    <Space wrap style={{ width: isMobile ? '100%' : 'auto' }}>
                         <Search
                             placeholder="Search properties, addresses, cities..."
                             allowClear
                             onSearch={handleSearch}
-                            style={{ width: 300 }}
+                            style={{
+                                width: isMobile ? '100%' : 300,
+                                marginBottom: isMobile ? '8px' : 0
+                            }}
                         />
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 180 }}
-                            onChange={handleStatusFilter}
-                        >
-                            <Option value="all">All Status</Option>
-                            <Option value="pending">Pending Approval</Option>
-                            <Option value="approved">Approved</Option>
-                            <Option value="rejected">Rejected</Option>
-                            <Option value="available">Available</Option>
-                            <Option value="sold">Sold</Option>
-                            <Option value="rented">Rented</Option>
-                            <Option value="draft">Draft</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handleTypeFilter}
-                        >
-                            <Option value="all">All Types</Option>
-                            <Option value="House">House</Option>
-                            <Option value="Apartment">Apartment</Option>
-                            <Option value="Condo">Condo</Option>
-                            <Option value="Townhouse">Townhouse</Option>
-                            <Option value="Land">Land</Option>
-                            <Option value="Commercial">Commercial</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handlePriceRangeFilter}
-                        >
-                            <Option value="all">All Prices</Option>
-                            <Option value="0-500k">₱0 - ₱500K</Option>
-                            <Option value="500k-1M">₱500K - ₱1M</Option>
-                            <Option value="1M-5M">₱1M - ₱5M</Option>
-                            <Option value="5M+">₱5M+</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 130 }}
-                            onChange={handleBedroomsFilter}
-                        >
-                            <Option value="all">All Bedrooms</Option>
-                            <Option value="1">1 Bedroom</Option>
-                            <Option value="2">2 Bedrooms</Option>
-                            <Option value="3">3 Bedrooms</Option>
-                            <Option value="4+">4+ Bedrooms</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 130 }}
-                            onChange={handleBathroomsFilter}
-                        >
-                            <Option value="all">All Bathrooms</Option>
-                            <Option value="1">1 Bathroom</Option>
-                            <Option value="2">2 Bathrooms</Option>
-                            <Option value="3+">3+ Bathrooms</Option>
-                        </Select>
-                        <Select
-                            defaultValue="all"
-                            style={{ width: 150 }}
-                            onChange={handleCityFilter}
-                        >
-                            <Option value="all">All Cities</Option>
-                            {getUniqueCities().map(city => (
-                                <Option key={city} value={city}>{city}</Option>
-                            ))}
-                        </Select>
+                        {!isMobile && (
+                            <>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 180 }}
+                                    onChange={handleStatusFilter}
+                                >
+                                    <Option value="all">All Status</Option>
+                                    <Option value="pending">Pending Approval</Option>
+                                    <Option value="approved">Approved</Option>
+                                    <Option value="rejected">Rejected</Option>
+                                    <Option value="available">Available</Option>
+                                    <Option value="sold">Sold</Option>
+                                    <Option value="rented">Rented</Option>
+                                    <Option value="draft">Draft</Option>
+                                </Select>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 150 }}
+                                    onChange={handleTypeFilter}
+                                >
+                                    <Option value="all">All Types</Option>
+                                    <Option value="House">House</Option>
+                                    <Option value="Apartment">Apartment</Option>
+                                    <Option value="Condo">Condo</Option>
+                                    <Option value="Townhouse">Townhouse</Option>
+                                    <Option value="Land">Land</Option>
+                                    <Option value="Commercial">Commercial</Option>
+                                </Select>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 150 }}
+                                    onChange={handlePriceRangeFilter}
+                                >
+                                    <Option value="all">All Prices</Option>
+                                    <Option value="0-500k">₱0 - ₱500K</Option>
+                                    <Option value="500k-1M">₱500K - ₱1M</Option>
+                                    <Option value="1M-5M">₱1M - ₱5M</Option>
+                                    <Option value="5M+">₱5M+</Option>
+                                </Select>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 130 }}
+                                    onChange={handleBedroomsFilter}
+                                >
+                                    <Option value="all">All Bedrooms</Option>
+                                    <Option value="1">1 Bedroom</Option>
+                                    <Option value="2">2 Bedrooms</Option>
+                                    <Option value="3">3 Bedrooms</Option>
+                                    <Option value="4+">4+ Bedrooms</Option>
+                                </Select>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 130 }}
+                                    onChange={handleBathroomsFilter}
+                                >
+                                    <Option value="all">All Bathrooms</Option>
+                                    <Option value="1">1 Bathroom</Option>
+                                    <Option value="2">2 Bathrooms</Option>
+                                    <Option value="3+">3+ Bathrooms</Option>
+                                </Select>
+                                <Select
+                                    defaultValue="all"
+                                    style={{ width: 150 }}
+                                    onChange={handleCityFilter}
+                                >
+                                    <Option value="all">All Cities</Option>
+                                    {getUniqueCities().map(city => (
+                                        <Option key={city} value={city}>{city}</Option>
+                                    ))}
+                                </Select>
+                            </>
+                        )}
                     </Space>
 
-                    <Space>
-                        <Tooltip title="Print">
-                            <Button icon={<PrinterOutlined />} onClick={handlePrint}>
-                                Print
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Export PDF">
-                            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
-                                PDF
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Export Excel">
-                            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
-                                Excel
-                            </Button>
-                        </Tooltip>
-                    </Space>
+                    {!isMobile && (
+                        <Space>
+                            <Tooltip title="Print">
+                                <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                                    Print
+                                </Button>
+                            </Tooltip>
+                            <Tooltip title="Export PDF">
+                                <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+                                    PDF
+                                </Button>
+                            </Tooltip>
+                            <Tooltip title="Export Excel">
+                                <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+                                    Excel
+                                </Button>
+                            </Tooltip>
+                        </Space>
+                    )}
                 </div>
 
-                <BaseTable
-                    data={filteredProperties}
-                    columns={columns}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} of ${total} properties`,
-                        position: ['bottomRight']
-                    }}
-                    style={{ marginBottom: 0 }}
-                />
+              
+
+                {/* Mobile Filters Dropdown */}
+                {isMobile && (
+                    <div style={{ marginBottom: 16, width: '100%' }}>
+                        <Dropdown
+                            overlay={
+                                <Menu style={{ padding: 8, width: '200px' }}>
+                                    <Menu.ItemGroup title="Status">
+                                        <Select
+                                            defaultValue="all"
+                                            style={{ width: '100%', marginBottom: 8 }}
+                                            onChange={handleStatusFilter}
+                                            size="small"
+                                        >
+                                            <Option value="all">All Status</Option>
+                                            <Option value="pending">Pending Approval</Option>
+                                            <Option value="approved">Approved</Option>
+                                            <Option value="rejected">Rejected</Option>
+                                            <Option value="available">Available</Option>
+                                            <Option value="sold">Sold</Option>
+                                            <Option value="rented">Rented</Option>
+                                            <Option value="draft">Draft</Option>
+                                        </Select>
+                                    </Menu.ItemGroup>
+                                    <Menu.ItemGroup title="Type">
+                                        <Select
+                                            defaultValue="all"
+                                            style={{ width: '100%', marginBottom: 8 }}
+                                            onChange={handleTypeFilter}
+                                            size="small"
+                                        >
+                                            <Option value="all">All Types</Option>
+                                            <Option value="House">House</Option>
+                                            <Option value="Apartment">Apartment</Option>
+                                            <Option value="Condo">Condo</Option>
+                                            <Option value="Townhouse">Townhouse</Option>
+                                            <Option value="Land">Land</Option>
+                                            <Option value="Commercial">Commercial</Option>
+                                        </Select>
+                                    </Menu.ItemGroup>
+                                    <Menu.ItemGroup title="Price Range">
+                                        <Select
+                                            defaultValue="all"
+                                            style={{ width: '100%', marginBottom: 8 }}
+                                            onChange={handlePriceRangeFilter}
+                                            size="small"
+                                        >
+                                            <Option value="all">All Prices</Option>
+                                            <Option value="0-500k">₱0 - ₱500K</Option>
+                                            <Option value="500k-1M">₱500K - ₱1M</Option>
+                                            <Option value="1M-5M">₱1M - ₱5M</Option>
+                                            <Option value="5M+">₱5M+</Option>
+                                        </Select>
+                                    </Menu.ItemGroup>
+                                </Menu>
+                            }
+                            trigger={['click']}
+                        >
+                            <Button type="default" style={{ width: '100%' }}>
+                                Filters
+                            </Button>
+                        </Dropdown>
+                    </div>
+                )}
+
+                {/* Results Count */}
+                <div style={{ marginBottom: 16, textAlign: isMobile ? 'center' : 'left' }}>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                        Showing {filteredProperties.length} of {properties.length} properties
+                    </div>
+                </div>
+
+                {/* Conditional rendering based on screen size */}
+                {isMobile ? (
+                    <PropertyCardGrid />
+                ) : (
+                    <BaseTable
+                        data={filteredProperties}
+                        columns={columns}
+                        loading={loading}
+                        rowKey="id"
+                        pagination={{
+                            pageSize: 10,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} properties`,
+                            position: ['bottomRight']
+                        }}
+                        style={{ marginBottom: 0, width: '100%' }}
+                    />
+                )}
             </Card>
 
             {/* View Property Modal */}
@@ -1133,19 +1799,19 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                         Close
                     </Button>,
                 ]}
-                width={800}
+                width={isMobile ? '95%' : 800}
             >
                 {selectedProperty && (
                     <div>
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Basic Information</h3>
                                 <p><strong>Title:</strong> {selectedProperty.title}</p>
                                 <p><strong>Type:</strong> {selectedProperty.type}</p>
                                 <p><strong>Price:</strong> ₱{selectedProperty.price?.toLocaleString()}</p>
                                 <p><strong>Status:</strong> <Tag color={getStatusColor(selectedProperty.status)}>{getStatusText(selectedProperty.status)}</Tag></p>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Location</h3>
                                 <p><strong>Address:</strong> {selectedProperty.address}</p>
                                 <p><strong>City:</strong> {selectedProperty.city}</p>
@@ -1153,14 +1819,14 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                             </Col>
                         </Row>
                         <Row gutter={16} style={{ marginTop: 16 }}>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Specifications</h3>
                                 <p><strong>Bedrooms:</strong> {selectedProperty.bedrooms}</p>
                                 <p><strong>Bathrooms:</strong> {selectedProperty.bathrooms}</p>
                                 <p><strong>Kitchens:</strong> {selectedProperty.kitchens}</p>
                                 <p><strong>Garages:</strong> {selectedProperty.garages}</p>
                             </Col>
-                            <Col span={12}>
+                            <Col span={isMobile ? 24 : 12}>
                                 <h3>Amenities</h3>
                                 {renderAmenities(selectedProperty.amenities)}
                             </Col>
@@ -1191,6 +1857,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 okText="Reject Property"
                 okButtonProps={{ danger: true }}
                 cancelText="Cancel"
+                width={isMobile ? '95%' : 520}
             >
                 <p>Please provide a reason for rejecting this property:</p>
                 <Input.TextArea
@@ -1207,7 +1874,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                 open={mediaModalVisible}
                 onCancel={() => setMediaModalVisible(false)}
                 footer={null}
-                width={800}
+                width={isMobile ? '95%' : 800}
                 centered
             >
                 {selectedProperty && (
@@ -1218,7 +1885,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                     <Image
                                         width="100%"
                                         style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                        src={safeProcessImageUrl(getAllMedia(selectedProperty)[currentMediaIndex])}
+                                        src={safeProcessImageUrl(getAllMedia(selectedProperty)[currentMediaIndex]?.url || getAllMedia(selectedProperty)[currentMediaIndex])}
                                         fallback={'/default-property.jpg'}
                                         alt={`Media ${currentMediaIndex + 1}`}
                                     />
@@ -1246,7 +1913,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                     <h4>All Media</h4>
                                     <Row gutter={[8, 8]}>
                                         {getAllMedia(selectedProperty).map((media, index) => (
-                                            <Col span={6} key={index}>
+                                            <Col span={isMobile ? 8 : 6} key={index}>
                                                 <div
                                                     style={{
                                                         border: index === currentMediaIndex ? '2px solid #1890ff' : '1px solid #d9d9d9',
@@ -1260,7 +1927,7 @@ const PropertyPage = ({ onFilterUpdate, onPropertiesUpdate, onEditProperty }) =>
                                                         width="100%"
                                                         height={80}
                                                         style={{ objectFit: 'cover' }}
-                                                        src={safeProcessImageUrl(media)}
+                                                        src={safeProcessImageUrl(media.url || media)}
                                                         fallback={'/default-property.jpg'}
                                                         preview={false}
                                                         alt={`Thumbnail ${index + 1}`}

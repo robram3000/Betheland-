@@ -30,6 +30,7 @@ namespace Realstate_servcices.Server.Repository.Conversation
                 .FirstOrDefaultAsync(p => p.ChatId == chatId && p.BaseMemberId == userId && p.IsActive);
         }
 
+    
         public async Task<ChatParticipant> AddParticipantAsync(ChatParticipant participant)
         {
             // Auto-set RecipientId based on other participants for direct chats

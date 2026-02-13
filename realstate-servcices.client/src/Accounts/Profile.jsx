@@ -14,7 +14,9 @@ import {
     Tabs,
     message,
     Spin,
-    Typography
+    Typography,
+    Modal,
+    Steps
 } from 'antd';
 import {
     UserOutlined,
@@ -24,13 +26,18 @@ import {
     MailOutlined,
     PhoneOutlined,
     EnvironmentOutlined,
-    HomeOutlined
+    HomeOutlined,
+    SafetyOutlined,
+    MailOutlined as MailIcon
 } from '@ant-design/icons';
 import useProfile from './Services/useProfile';
+import { otpService } from '../Register/Services/otpService';
+import { forgotPasswordService } from '../Forgotpassword/Services/ForgotPasswordService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
+const { Step } = Steps;
 
 const ProfilePage = () => {
     const {
@@ -49,12 +56,25 @@ const ProfilePage = () => {
     const [activeTab, setActiveTab] = useState('profile');
     const [profileImageError, setProfileImageError] = useState(false);
 
+    // OTP Verification States
+    const [otpModalVisible, setOtpModalVisible] = useState(false);
+    const [otpStep, setOtpStep] = useState(0); // 0: request OTP, 1: verify OTP, 2: change password
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [otpData, setOtpData] = useState({
+        email: '',
+        otpCode: '',
+        newPassword: '',
+        confirmPassword: '',
+        currentPassword: ''
+    });
+
     useEffect(() => {
         getProfile();
     }, [getProfile]);
 
     useEffect(() => {
-        console.log('📥 Profile data received:', profileData); 
+        console.log('📥 Profile data received:', profileData);
         if (profileData) {
             form.setFieldsValue({
                 firstName: profileData.firstName,
@@ -66,11 +86,11 @@ const ProfilePage = () => {
                 country: profileData.country,
                 city: profileData.city,
                 street: profileData.street,
-                address: profileData.address, 
+                address: profileData.address,
                 zipCode: profileData.zipCode,
                 gender: profileData.gender,
             });
-            console.log('🔄 Form fields set with address:', profileData.address); 
+            console.log('🔄 Form fields set with address:', profileData.address);
         }
     }, [profileData, form]);
 
@@ -82,20 +102,124 @@ const ProfilePage = () => {
         }
     };
 
-    const handlePasswordChange = async (values) => {
+    // OTP Verification Flow for Password Change
+    const initiatePasswordChange = async (values) => {
         if (values.newPassword !== values.confirmPassword) {
             message.error('New passwords do not match!');
             return;
         }
 
-        const result = await changePassword({
+        // Store password data for later use
+        setOtpData({
+            email: profileData?.email || '',
+            newPassword: values.newPassword,
+            confirmPassword: values.confirmPassword,
             currentPassword: values.currentPassword,
-            newPassword: values.newPassword
+            otpCode: ''
         });
 
-        if (result.success) {
-            message.success('Password changed successfully!');
-            passwordForm.resetFields();
+        // Show OTP modal and start verification process
+        setOtpModalVisible(true);
+        setOtpStep(0);
+        setOtpVerified(false);
+    };
+
+    const requestOTP = async () => {
+        if (!profileData?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            await otpService.generateOTP(profileData.email);
+            message.success('OTP sent to your email!');
+            setOtpStep(1); // Move to verification step
+        } catch (error) {
+            console.error('OTP request error:', error);
+            message.error('Failed to send OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const verifyOTP = async (values) => {
+        if (!profileData?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            await otpService.verifyOTP(profileData.email, values.otpCode);
+            message.success('OTP verified successfully!');
+            setOtpVerified(true);
+            setOtpStep(2); // Move to password change step
+            setOtpData(prev => ({ ...prev, otpCode: values.otpCode }));
+        } catch (error) {
+            console.error('OTP verification error:', error);
+            message.error('Invalid OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const executePasswordChange = async () => {
+        if (!otpVerified) {
+            message.error('Please verify OTP first');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            // Use forgotPasswordService.resetPassword for password reset
+            const result = await forgotPasswordService.resetPassword(
+                otpData.email,
+                otpData.newPassword,
+                otpData.confirmPassword,
+                otpData.otpCode
+            );
+
+            if (result && result.success) {
+                message.success('Password changed successfully!');
+                setOtpModalVisible(false);
+                passwordForm.resetFields();
+                setOtpVerified(false);
+                setOtpStep(0);
+
+                // Optional: Force logout for security
+                setTimeout(() => {
+                    message.info('Please login again with your new password');
+                    // authService.logout();
+                    // window.location.href = '/login';
+                }, 2000);
+            } else {
+                throw new Error(result?.message || 'Password change failed');
+            }
+        } catch (error) {
+            console.error('Password change error:', error);
+            const errorMsg = error.message || 'Failed to change password. Please try again.';
+            message.error(errorMsg);
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const resendOTP = async () => {
+        if (!profileData?.email) {
+            message.error('Email not found');
+            return;
+        }
+
+        setOtpLoading(true);
+        try {
+            await otpService.resendOTP(profileData.email);
+            message.success('OTP resent to your email!');
+        } catch (error) {
+            console.error('OTP resend error:', error);
+            message.error('Failed to resend OTP. Please try again.');
+        } finally {
+            setOtpLoading(false);
         }
     };
 
@@ -266,8 +390,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="First name"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -278,8 +403,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Middle"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -291,8 +417,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Last name"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -304,8 +431,9 @@ const ProfilePage = () => {
                                                 >
                                                     <Select
                                                         placeholder="Suffix"
-                                                        size="small"
+                                                        size="large"
                                                         dropdownStyle={{ fontSize: '12px' }}
+                                                        style={{ height: '60px' }}
                                                     >
                                                         <Option value="Jr.">Jr.</Option>
                                                         <Option value="Sr.">Sr.</Option>
@@ -326,9 +454,10 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Email"
                                                         disabled
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -339,8 +468,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Phone"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -353,8 +483,9 @@ const ProfilePage = () => {
                                         >
                                             <Select
                                                 placeholder="Gender"
-                                                size="small"
+                                                size="large"
                                                 dropdownStyle={{ fontSize: '12px' }}
+                                                style={{ height: '60px' }}
                                             >
                                                 <Option value="male">Male</Option>
                                                 <Option value="female">Female</Option>
@@ -377,8 +508,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Country"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -389,8 +521,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="City"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -401,8 +534,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="Street"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -413,8 +547,9 @@ const ProfilePage = () => {
                                                     style={{ marginBottom: '8px' }}
                                                 >
                                                     <Input
-                                                        size="small"
+                                                        size="large"
                                                         placeholder="ZIP"
+                                                        style={{ height: '60px', fontSize: '16px' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -427,12 +562,16 @@ const ProfilePage = () => {
                                             style={{ marginBottom: '12px' }}
                                         >
                                             <Input.TextArea
-                                                size="small"
+                                                size="large"
                                                 placeholder="Full address"
-                                                rows={2}
+                                                rows={3}
                                                 showCount
                                                 maxLength={200}
-                                                style={{ fontSize: '12px' }}
+                                                style={{
+                                                    fontSize: '16px',
+                                                    minHeight: '60px',
+                                                    resize: 'vertical'
+                                                }}
                                             />
                                         </Form.Item>
 
@@ -443,12 +582,12 @@ const ProfilePage = () => {
                                                 type="primary"
                                                 htmlType="submit"
                                                 icon={<SaveOutlined />}
-                                                size="small"
+                                                size="large"
                                                 loading={updating}
                                                 style={{
-                                                    height: '28px',
-                                                    fontSize: '11px',
-                                                    padding: '0 12px',
+                                                    height: '50px',
+                                                    fontSize: '16px',
+                                                    padding: '0 24px',
                                                     backgroundColor: '#1B3C53',
                                                     borderColor: '#1B3C53'
                                                 }}
@@ -459,13 +598,12 @@ const ProfilePage = () => {
                                     </Form>
                                 </TabPane>
 
-                                {/* Change Password Tab - Commented Out */}
-                                
+                                {/* Change Password Tab with OTP Verification */}
                                 <TabPane tab="Password" key="password">
                                     <Form
                                         form={passwordForm}
                                         layout="vertical"
-                                        onFinish={handlePasswordChange}
+                                        onFinish={initiatePasswordChange}
                                         className="password-form"
                                     >
                                         <Divider style={{ margin: '0 0 12px 0' }}>
@@ -475,51 +613,63 @@ const ProfilePage = () => {
                                         </Divider>
 
                                         <Form.Item
-                                            label={<span style={{ fontSize: '12px' }}>Current Password</span>}
+                                            label={<span style={{ fontSize: '14px' }}>Current Password</span>}
                                             name="currentPassword"
                                             rules={[{ required: true, message: 'Please enter current password' }]}
-                                            style={{ marginBottom: '8px' }}
+                                            style={{ marginBottom: '16px' }}
                                         >
                                             <Input.Password
-                                                size="small"
+                                                size="large"
                                                 placeholder="Current password"
+                                                style={{
+                                                    height: '60px',
+                                                    fontSize: '16px'
+                                                }}
                                             />
                                         </Form.Item>
 
                                         <Form.Item
-                                            label={<span style={{ fontSize: '12px' }}>New Password</span>}
+                                            label={<span style={{ fontSize: '14px' }}>New Password</span>}
                                             name="newPassword"
                                             rules={[
                                                 { required: true, message: 'Please enter new password' },
-                                                { min: 6, message: 'Min 6 characters' }
+                                                { min: 8, message: 'Password must be at least 8 characters' }
                                             ]}
-                                            style={{ marginBottom: '8px' }}
+                                            style={{ marginBottom: '16px' }}
                                         >
                                             <Input.Password
-                                                size="small"
+                                                size="large"
                                                 placeholder="New password"
+                                                style={{
+                                                    height: '60px',
+                                                    fontSize: '16px'
+                                                }}
                                             />
                                         </Form.Item>
 
                                         <Form.Item
-                                            label={<span style={{ fontSize: '12px' }}>Confirm Password</span>}
+                                            label={<span style={{ fontSize: '14px' }}>Confirm New Password</span>}
                                             name="confirmPassword"
                                             rules={[
-                                                { required: true, message: 'Please confirm password' },
+                                                { required: true, message: 'Please confirm your new password' },
                                                 ({ getFieldValue }) => ({
                                                     validator(_, value) {
                                                         if (!value || getFieldValue('newPassword') === value) {
                                                             return Promise.resolve();
                                                         }
-                                                        return Promise.reject(new Error('Passwords do not match'));
+                                                        return Promise.reject(new Error('The two passwords do not match'));
                                                     },
                                                 }),
                                             ]}
-                                            style={{ marginBottom: '12px' }}
+                                            style={{ marginBottom: '16px' }}
                                         >
                                             <Input.Password
-                                                size="small"
-                                                placeholder="Confirm password"
+                                                size="large"
+                                                placeholder="Confirm new password"
+                                                style={{
+                                                    height: '60px',
+                                                    fontSize: '16px'
+                                                }}
                                             />
                                         </Form.Item>
 
@@ -527,23 +677,33 @@ const ProfilePage = () => {
                                             <Button
                                                 type="primary"
                                                 htmlType="submit"
-                                                icon={<LockOutlined />}
-                                                size="small"
+                                                icon={<SafetyOutlined />}
+                                                size="large"
                                                 loading={updating}
                                                 style={{
-                                                    height: '28px',
-                                                    fontSize: '11px',
-                                                    padding: '0 12px',
+                                                    height: '50px',
+                                                    fontSize: '16px',
+                                                    padding: '0 24px',
                                                     backgroundColor: '#1B3C53',
-                                                    borderColor: '#1B3C53'
+                                                    borderColor: '#1B3C53',
+                                                    width: '100%'
                                                 }}
                                             >
-                                                Change Password
+                                                Verify & Change Password
                                             </Button>
                                         </Form.Item>
+
+                                        <Text type="secondary" style={{
+                                            fontSize: '12px',
+                                            display: 'block',
+                                            textAlign: 'center',
+                                            marginTop: '12px'
+                                        }}>
+                                            You will need to verify via OTP before changing your password
+                                        </Text>
                                     </Form>
                                 </TabPane>
-                                
+
                             </Tabs>
 
                             {error && (
@@ -555,6 +715,143 @@ const ProfilePage = () => {
                     </Col>
                 </Row>
             </div>
+
+            {/* OTP Verification Modal */}
+            <Modal
+                title={
+                    <div style={{ textAlign: 'center' }}>
+                        <SafetyOutlined style={{ color: '#1a365d', marginRight: '8px' }} />
+                        OTP Verification Required
+                    </div>
+                }
+                open={otpModalVisible}
+                onCancel={() => !otpLoading && setOtpModalVisible(false)}
+                footer={null}
+                width={400}
+                closable={!otpLoading}
+                maskClosable={!otpLoading}
+            >
+                <Steps current={otpStep} size="small" style={{ marginBottom: '20px' }}>
+                    <Step title="Request" />
+                    <Step title="Verify" />
+                    <Step title="Change" />
+                </Steps>
+
+                {otpStep === 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                        <Avatar
+                            size={64}
+                            icon={<MailIcon />}
+                            style={{ backgroundColor: '#1a365d', marginBottom: '16px' }}
+                        />
+                        <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            Secure Password Change
+                        </Text>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
+                            We need to verify your identity before changing your password.
+                        </Text>
+                        <div style={{ marginTop: '16px' }}>
+                            <Button
+                                type="primary"
+                                onClick={requestOTP}
+                                loading={otpLoading}
+                                size="large"
+                                style={{
+                                    backgroundColor: '#1a365d',
+                                    borderColor: '#1a365d',
+                                    width: '100%',
+                                    height: '50px',
+                                    fontSize: '16px'
+                                }}
+                            >
+                                Send OTP to {profileData?.email}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {otpStep === 1 && (
+                    <Form
+                        layout="vertical"
+                        onFinish={verifyOTP}
+                    >
+                        <Form.Item
+                            label="Enter OTP Code"
+                            name="otpCode"
+                            rules={[
+                                { required: true, message: 'Please enter OTP code' },
+                                { len: 6, message: 'OTP must be 6 digits' }
+                            ]}
+                        >
+                            <Input
+                                placeholder="Enter 6-digit OTP"
+                                maxLength={6}
+                                style={{
+                                    textAlign: 'center',
+                                    letterSpacing: '8px',
+                                    fontSize: '16px',
+                                    height: '60px'
+                                }}
+                            />
+                        </Form.Item>
+
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                            <Button
+                                onClick={resendOTP}
+                                loading={otpLoading}
+                                disabled={otpLoading}
+                                size="large"
+                                style={{ height: '50px', fontSize: '14px' }}
+                            >
+                                Resend OTP
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={otpLoading}
+                                size="large"
+                                style={{
+                                    backgroundColor: '#1a365d',
+                                    borderColor: '#1a365d',
+                                    height: '50px',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                Verify OTP
+                            </Button>
+                        </div>
+                    </Form>
+                )}
+
+                {otpStep === 2 && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#52c41a', fontSize: '48px', marginBottom: '16px' }}>
+                            ✓
+                        </div>
+                        <Text strong style={{ display: 'block', marginBottom: '16px' }}>
+                            OTP Verified Successfully!
+                        </Text>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
+                            You can now change your password securely.
+                        </Text>
+                        <Button
+                            type="primary"
+                            onClick={executePasswordChange}
+                            loading={otpLoading}
+                            size="large"
+                            style={{
+                                backgroundColor: '#52c41a',
+                                borderColor: '#52c41a',
+                                width: '100%',
+                                height: '50px',
+                                fontSize: '16px'
+                            }}
+                        >
+                            Change Password Now
+                        </Button>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

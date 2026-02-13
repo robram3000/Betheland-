@@ -1490,3 +1490,252 @@
 .spinner {
     animation: spin 1s linear infinite;
 }
+
+
+// Add these styles to your PropertyLocation.scss file
+
+// Ratings Section Styles
+.property-location-ratings-section {
+    margin-bottom: 2rem;
+}
+
+.property-location-ratings-container {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.property-location-ratings-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #666;
+
+    .spinner {
+        margin-right: 0.5rem;
+        animation: spin 1s linear infinite;
+    }
+}
+
+.property-location-rating-summary {
+    display: flex;
+    gap: 3rem;
+    margin-bottom: 2rem;
+    align-items: flex-start;
+}
+
+.property-location-overall-rating {
+    text-align: center;
+    min-width: 150px;
+}
+
+.property-location-rating-score {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #2c5530;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.property-location-rating-stars-large {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    margin-bottom: 0.5rem;
+}
+
+.property-location-rating-count {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.property-location-rating-distribution {
+    flex: 1;
+
+    h4 {
+        margin-bottom: 1rem;
+        color: #333;
+        font-size: 1.1rem;
+    }
+}
+
+.property-location-rating-distribution-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.property-location-rating-stars-label {
+    min-width: 60px;
+    color: #666;
+}
+
+.property-location-rating-bar-container {
+    flex: 1;
+    background: #f0f0f0;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.property-location-rating-bar {
+    height: 100%;
+    background: #ffc107;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.property-location-rating-count {
+    min-width: 40px;
+    text-align: right;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+// Recent Reviews Styles
+.property-location-recent-reviews {
+    h4 {
+        margin-bottom: 1rem;
+        color: #333;
+        font-size: 1.1rem;
+    }
+}
+
+.property-location-no-reviews {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+
+    .property-location-no-reviews-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #ddd;
+    }
+}
+
+.property-location-reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.property-location-review-item {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid #2c5530;
+}
+
+.property-location-review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.property-location-reviewer-info {
+    flex: 1;
+}
+
+.property-location-reviewer-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.property-location-review-date {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.property-location-review-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.property-location-review-comment {
+    color: #555;
+    line-height: 1.5;
+    font-style: italic;
+}
+
+.property-location-show-more-reviews-btn {
+    background: transparent;
+    border: 2px solid #2c5530;
+    color: #2c5530;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+
+    &:hover {
+        background: #2c5530;
+        color: white;
+    }
+}
+
+// Updated Agent Card Ratings
+.property-location-agent-ratings {
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.property-location-agent-rating-stars {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    margin-bottom: 0.25rem;
+}
+
+.property-location-agent-rating-text {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+// Updated Schedule Section Ratings
+.property-location-schedule-agent-ratings {
+    .property-location-schedule-rating-stars {
+        display: flex;
+        gap: 2px;
+        margin-bottom: 0.25rem;
+    }
+
+    .property-location-schedule-rating-text {
+        font-size: 0.8rem;
+        color: #666;
+    }
+}
+
+// Star animations
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+    .property-location-rating-summary {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .property-location-overall-rating {
+        min-width: auto;
+    }
+
+    .property-location-review-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

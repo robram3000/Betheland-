@@ -126,9 +126,9 @@ export const PropertyDataProvider = ({ children }) => {
     const loadProperties = async (options = {}) => {
         const { includeAgents = true, forceRefresh = false } = options;
 
-        // Don't reload if we already have properties and not forcing refresh
+
         if (properties.length > 0 && !forceRefresh && !loading) {
-            console.log('📊 Using cached properties, count:', properties.length);
+            console.log('📊 Using cached properties, count:', properties.length);    
             return properties;
         }
 
@@ -259,7 +259,7 @@ export const PropertyDataProvider = ({ children }) => {
                 title: property.title
             });
 
-            // FIXED: Better amenities parsing
+        
             let amenities = [];
             if (property.amenities) {
                 if (typeof property.amenities === 'string') {
@@ -270,11 +270,10 @@ export const PropertyDataProvider = ({ children }) => {
                         } else if (typeof parsed === 'string') {
                             amenities = parsed.split(',').map(item => item.trim()).filter(item => item);
                         } else if (parsed && typeof parsed === 'object') {
-                            // Handle object format amenities
                             amenities = Object.values(parsed).filter(item => item && typeof item === 'string');
                         }
                     } catch (e) {
-                        // If JSON parsing fails, try comma separation
+                        
                         amenities = property.amenities.split(',').map(item => item.trim()).filter(item => item);
                     }
                 } else if (Array.isArray(property.amenities)) {
@@ -285,12 +284,10 @@ export const PropertyDataProvider = ({ children }) => {
             }
 
             console.log('🔧 Processed amenities:', amenities);
-
-            // Process images
             let propertyImages = [];
             let mainImage = '';
 
-            // Check propertyImages array first
+     
             if (property.propertyImages && Array.isArray(property.propertyImages)) {
                 propertyImages = property.propertyImages
                     .map(img => ({
@@ -300,7 +297,7 @@ export const PropertyDataProvider = ({ children }) => {
                     .filter(img => img.imageUrl && img.imageUrl !== '/default-property.jpg');
             }
 
-            // Check imageUrls array as fallback
+      
             if (propertyImages.length === 0 && property.imageUrls && Array.isArray(property.imageUrls)) {
                 propertyImages = property.imageUrls
                     .map(url => ({
@@ -309,7 +306,7 @@ export const PropertyDataProvider = ({ children }) => {
                     .filter(img => img.imageUrl && img.imageUrl !== '/default-property.jpg');
             }
 
-            // Set main image
+         
             if (propertyImages.length > 0) {
                 mainImage = propertyImages[0].imageUrl;
             } else if (property.mainImage) {

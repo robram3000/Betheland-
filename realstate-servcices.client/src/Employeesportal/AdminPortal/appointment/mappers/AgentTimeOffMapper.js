@@ -1,17 +1,22 @@
+// AgentTimeOffMapper.js - Updated
 export const agentTimeOffMapper = {
     toFrontend: (backendData) => {
         try {
             if (!backendData) return null;
 
-            // Enhanced status determination
+            // Enhanced status determination - handle both scenarios
             let status = 'Pending';
+            let isApproved = false;
+
             if (backendData.status) {
                 // Use status field if provided
                 status = backendData.status;
-            } else if (backendData.isApproved === true) {
-                status = 'Approved';
-            } else if (backendData.isApproved === false) {
-                status = 'Rejected';
+                isApproved = status === 'Approved';
+            } else if (backendData.isApproved !== undefined) {
+                // Use isApproved boolean if provided
+                isApproved = backendData.isApproved;
+                status = isApproved ? 'Approved' :
+                    backendData.isApproved === false ? 'Rejected' : 'Pending';
             }
 
             return {
@@ -22,7 +27,7 @@ export const agentTimeOffMapper = {
                 type: backendData.type || 'Vacation',
                 reason: backendData.reason || '',
                 status: status,
-                isApproved: backendData.isApproved || false,
+                isApproved: isApproved,
                 isAllDay: backendData.isAllDay !== undefined ? backendData.isAllDay : true,
                 createdAt: backendData.createdAt ? new Date(backendData.createdAt) : new Date(),
                 updatedAt: backendData.updatedAt ? new Date(backendData.updatedAt) : null,
@@ -37,12 +42,16 @@ export const agentTimeOffMapper = {
 
     toBackend: (frontendData) => {
         try {
-            // Convert status to isApproved for backend
-            let isApproved = frontendData.isApproved || false;
+            // Convert status to isApproved for backend compatibility
+            let isApproved = false;
+            let status = 'Pending';
 
-            // If status is provided, use it to determine isApproved
             if (frontendData.status) {
-                isApproved = frontendData.status === 'Approved';
+                status = frontendData.status;
+                isApproved = status === 'Approved';
+            } else if (frontendData.isApproved !== undefined) {
+                isApproved = frontendData.isApproved;
+                status = isApproved ? 'Approved' : 'Pending';
             }
 
             const backendData = {
@@ -53,13 +62,9 @@ export const agentTimeOffMapper = {
                 type: frontendData.type || 'Vacation',
                 reason: frontendData.reason || '',
                 isApproved: isApproved,
+                status: status, // Include both fields for compatibility
                 isAllDay: frontendData.isAllDay !== undefined ? frontendData.isAllDay : true
             };
-
-            // Include status field if it exists
-            if (frontendData.status) {
-                backendData.status = frontendData.status;
-            }
 
             return backendData;
         } catch (error) {
@@ -71,28 +76,11 @@ export const agentTimeOffMapper = {
     toFrontendList: (backendList) => {
         try {
             if (!Array.isArray(backendList)) return [];
-
-            return backendList
-                .map(item => agentTimeOffMapper.toFrontend(item))
-                .filter(item => item !== null);
+            return backendList.map(item => agentTimeOffMapper.toFrontend(item)).filter(item => item !== null);
         } catch (error) {
             console.error('Error mapping time off list:', error);
             return [];
         }
-    },
-
-    createTimeOffRequest: (agentId, startDate, endDate, type = 'Vacation', reason = '') => {
-        return {
-            agentId: agentId,
-            startDate: startDate,
-            endDate: endDate,
-            type: type,
-            reason: reason,
-            isApproved: false,
-            status: 'Pending',
-            isAllDay: true
-        };
     }
 };
-
 export default agentTimeOffMapper;
