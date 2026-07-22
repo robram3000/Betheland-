@@ -4,7 +4,7 @@ using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Entity.member;
 using Realstate_servcices.Server.Repository.UserDAO;
-using Realstate_servcices.Server.Services.ProfileCreation;
+using Realstate_servcices.Server.Services.ProfileCreation.Interfaces;
 using Realstate_servcices.Server.Utilities.Storage;
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {

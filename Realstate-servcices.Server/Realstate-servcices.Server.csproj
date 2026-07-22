@@ -41,9 +41,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Entity\footer\" />
-    <Folder Include="Entity\landingpage\NewFolder\" />
+    <Folder Include="Domain\Property\Betheland.Property.Application\" />
+    <Folder Include="Domain\Property\Betheland.Property.Api\" />
+    <Folder Include="Domain\Property\Betheland.Property.Core\" />
+    <Folder Include="Domain\Property\Betheland.Property.Insfrastracture\Persistance\Services\" />
+    <Folder Include="Domain\Property\Betheland.Property.Insfrastracture\Persistance\Repositories\" />
     <Folder Include="Hub\" />
+    <Folder Include="MapperProfile\" />
+    <Folder Include="MobileRequest\ControllerMA\" />
+    <Folder Include="MobileRequest\MapperProfileMA\" />
+    <Folder Include="MobileRequest\TestMA\" />
+    <Folder Include="Middleware\" />
+    <Folder Include="Repository\ChatManagement\Interfaces\" />
+    <Folder Include="Repository\ChatManagement\Implementation\" />
+    <Folder Include="Validator\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

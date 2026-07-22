@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Register;
-using Realstate_servcices.Server.Services.ProfileCreation;
+using Realstate_servcices.Server.Services.ProfileCreation.Interfaces;
 
 namespace Realstate_servcices.Server.Controllers.Client
 {

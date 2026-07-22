@@ -1,166 +1,55 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Button, Row, Col, Typography, Space, Select, Input, Slider, Card, Drawer, Spin, Statistic } from 'antd';
-import { EnvironmentOutlined, HomeOutlined, DollarOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons';
+﻿// FirstSection.jsx - REFACTORED: Merged with DiscoverPlace design (Filter & Grid Removed)
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Row, Col, Typography, Space, Spin, message } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import propertyService from '../Employeesportal/AdminPortal/Creation_Property/services/propertyService';  
-import ratingScheduleService from '../Employeesportal/AdminPortal/Ratings/RatingScheduleServices';  
 
 
 const { Title, Paragraph } = Typography;
-const { Option } = Select;
+
+// Filter options for the dropdown
+const FILTER_OPTIONS = ["City", "Zip Code", "Neighborhood", "Province"];
 
 const FirstSection = () => {
     const navigate = useNavigate();
-    const [propertyType, setPropertyType] = useState('');
-    const [location, setLocation] = useState('');
-    const [priceRange, setPriceRange] = useState([1000000, 10000000]);
-    const [bedrooms, setBedrooms] = useState('');
-    const [bathrooms, setBathrooms] = useState('');
-    const [filterVisible, setFilterVisible] = useState(false);
-    const [searchText, setSearchText] = useState('');
-    const [loadingStats, setLoadingStats] = useState(false);
-    const [totalProperties, setTotalProperties] = useState('50K+');
-    const [happyClients, setHappyClients] = useState('25K+');
-    const [citiesNationwide, setCitiesNationwide] = useState('100+');
 
-    // Philippines-specific locations
-    const philippineLocations = [
-        'Metro Manila',
-        'Quezon City',
-        'Manila',
-        'Makati',
-        'Taguig',
-        'Pasig',
-        'Mandaluyong',
-        'Pasay',
-        'Parañaque',
-        'Las Piñas',
-        'Muntinlupa',
-        'Marikina',
-        'Caloocan',
-        'Malabon',
-        'Navotas',
-        'Valenzuela',
-        'San Juan',
-        'Cebu City',
-        'Davao City',
-        'Baguio City',
-        'Iloilo City',
-        'Bacolod City',
-        'Cagayan de Oro',
-        'Zamboanga City',
-        'General Santos',
-        'Dagupan City',
-        'Angeles City',
-        'Olongapo City',
-        'Batangas City',
-        'Naga City'
-    ];
+    // Search state
+    const [query, setQuery] = useState('');
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [selectedFilter, setSelectedFilter] = useState('City');
+    const [focused, setFocused] = useState(false);
+    const dropdownRef = useRef(null);
 
-    // Load statistics from services
-    const loadStatistics = async () => {
-        try {
-            setLoadingStats(true);
 
-            // 1. Load total properties from property service
-            try {
-                const properties = await propertyService.getAllProperties();
-                if (properties && Array.isArray(properties)) {
-                    if (properties.length >= 10000) {
-                        setTotalProperties(`${Math.floor(properties.length / 1000)}K+`);
-                    } else if (properties.length >= 1000) {
-                        setTotalProperties(`${(properties.length / 1000).toFixed(1)}K+`);
-                    } else {
-                        setTotalProperties(properties.length.toString());
-                    }
-                }
-            } catch (error) {
-                console.log('Using default property count');
-            }
-
-            // 2. Load happy clients from ratings service
-            try {
-                const ratings = await ratingScheduleService.getAllRatingSchedules();
-                if (ratings && Array.isArray(ratings)) {
-                    // Count unique clients from ratings
-                    const uniqueClients = new Set(ratings.map(rating => rating.clientId));
-                    const clientCount = uniqueClients.size;
-
-                    if (clientCount >= 10000) {
-                        setHappyClients(`${Math.floor(clientCount / 1000)}K+`);
-                    } else if (clientCount >= 1000) {
-                        setHappyClients(`${(clientCount / 1000).toFixed(1)}K+`);
-                    } else {
-                        setHappyClients(clientCount.toString());
-                    }
-                }
-            } catch (error) {
-                console.log('Using default client count');
-            }
-
-            // 3. Load cities count from properties data
-            try {
-                const properties = await propertyService.getAllProperties();
-                if (properties && Array.isArray(properties)) {
-                    // Extract unique cities from properties
-                    const uniqueCities = new Set();
-                    properties.forEach(property => {
-                        if (property.city) {
-                            uniqueCities.add(property.city);
-                        }
-                    });
-
-                    const cityCount = uniqueCities.size;
-                    if (cityCount >= 100) {
-                        setCitiesNationwide(`${cityCount}+`);
-                    } else {
-                        setCitiesNationwide(cityCount.toString());
-                    }
-                }
-            } catch (error) {
-                console.log('Using default city count');
-            }
-
-        } catch (error) {
-            console.error('Error loading statistics:', error);
-        } finally {
-            setLoadingStats(false);
-        }
-    };
-
-    // Load statistics on component mount
+    // Handle click outside dropdown
     useEffect(() => {
-        loadStatistics();
-
-        // Optional: Refresh statistics periodically (every 5 minutes)
-        const intervalId = setInterval(() => {
-            loadStatistics();
-        }, 300000); // 5 minutes
-
-        return () => clearInterval(intervalId);
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+ 
+
+
+
     const handleSearch = () => {
+        if (!query.trim()) {
+            message.info('Please enter a search term');
+            return;
+        }
+
         navigate('/properties', {
             state: {
                 filters: {
-                    propertyType,
-                    location,
-                    priceRange,
-                    bedrooms,
-                    bathrooms,
-                    searchText
+                    searchText: query,
+                    searchBy: selectedFilter
                 }
             }
         });
-    };
-
-    const showFilterDrawer = () => {
-        setFilterVisible(true);
-    };
-
-    const closeFilterDrawer = () => {
-        setFilterVisible(false);
     };
 
     const handleKeyPress = (e) => {
@@ -169,376 +58,335 @@ const FirstSection = () => {
         }
     };
 
-    // Format price in Philippine Peso
-    const formatPrice = (price) => {
-        if (price >= 1000000) {
-            return `₱${(price / 1000000).toFixed(1)}M`;
-        } else if (price >= 1000) {
-            return `₱${(price / 1000).toFixed(0)}K`;
-        }
-        return `₱${price}`;
-    };
-
-    // Stats array for rendering
-    const statsData = [
-        { number: totalProperties, label: 'Properties', loading: loadingStats },
-        { number: happyClients, label: 'Happy Clients', loading: loadingStats },
-        { number: citiesNationwide, label: 'Cities Nationwide', loading: loadingStats }
-    ];
-
     return (
-        <section style={{
-            padding: '40px 24px',
-            background: 'white',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            {/* Grid Background */}
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundImage: `
-                    linear-gradient(rgba(192, 192, 192, 0.3) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(192, 192, 192, 0.3) 1px, transparent 1px)
-                `,
-                backgroundSize: '50px 50px',
-                backgroundPosition: 'center center',
-                zIndex: 0,
-                opacity: 0.6
-            }} />
+        <>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Source+Code+Pro:wght@400;500&display=swap');
 
-            {/* Content Overlay */}
-            <div style={{
-                position: 'relative',
-                zIndex: 1
-            }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                    <Row gutter={[64, 32]} align="middle">
-                        <Col xs={24} style={{ textAlign: 'center' }}>
-                            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                                <Title level={1} style={{
-                                    fontSize: '3rem',
-                                    fontWeight: '700',
-                                    margin: 0,
-                                    lineHeight: '1.2',
-                                    color: '#001529'
-                                }}>
-                                    Find Your Dream Home in the Philippines
-                                </Title>
-
-                                <Paragraph style={{
-                                    fontSize: '1.1rem',
-                                    lineHeight: '1.6',
-                                    maxWidth: '500px',
-                                    margin: '0 auto',
-                                    color: '#666'
-                                }}>
-                                    Discover the perfect property across the beautiful islands of the Philippines.
-                                </Paragraph>
-
-                                {/* Search Card */}
-                                <Card className="search-card" style={{
-                                    background: 'white',
-                                    borderRadius: '12px',
-                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                                    width: '100%',
-                                    maxWidth: '800px',
-                                    margin: '0 auto',
-                                    border: '1px solid #e8e8e8'
-                                }}>
-                                    <Row gutter={[12, 12]} align="middle">
-                                        <Col xs={24} sm={16} md={18}>
-                                            <Input
-                                                placeholder="Search by city, municipality, or keyword"
-                                                size="large"
-                                                value={searchText}
-                                                onChange={(e) => setSearchText(e.target.value)}
-                                                onKeyPress={handleKeyPress}
-                                                prefix={<SearchOutlined style={{ color: '#999' }} />}
-                                                style={{
-                                                    width: '100%',
-                                                    borderRadius: '8px',
-                                                    height: '50px'
-                                                }}
-                                            />
-                                        </Col>
-                                        <Col xs={24} sm={8} md={6}>
-                                            <div className="action-buttons">
-                                                <Button
-                                                    icon={<FilterOutlined />}
-                                                    size="large"
-                                                    onClick={showFilterDrawer}
-                                                    style={{
-                                                        flex: 1,
-                                                        borderRadius: '8px',
-                                                        height: '50px'
-                                                    }}
-                                                >
-                                                    Filters
-                                                </Button>
-                                                <Button
-                                                    type="primary"
-                                                    size="large"
-                                                    onClick={handleSearch}
-                                                    style={{
-                                                        flex: 1,
-                                                        borderRadius: '8px',
-                                                        background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
-                                                        border: 'none',
-                                                        fontWeight: '600',
-                                                        height: '50px'
-                                                    }}
-                                                >
-                                                    Search
-                                                </Button>
-                                            </div>
-                                        </Col>
-                                    </Row>
-                                </Card>
-
-                                {/* Filter Drawer */}
-                                <Drawer
-                                    title="Filter Properties"
-                                    placement="right"
-                                    onClose={closeFilterDrawer}
-                                    open={filterVisible}
-                                    width={350}
-                                    className="filter-drawer"
-                                >
-                                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                                        <div className="filter-section">
-                                            <span className="filter-title">
-                                                <HomeOutlined /> Property Type
-                                            </span>
-                                            <Select
-                                                placeholder="Any Type"
-                                                size="middle"
-                                                value={propertyType}
-                                                onChange={setPropertyType}
-                                                style={{ width: '100%' }}
-                                                className="search-input"
-                                            >
-                                                <Option value="">Any Type</Option>
-                                                <Option value="house">House</Option>
-                                                <Option value="apartment">Apartment</Option>
-                                                <Option value="condo">Condominium</Option>
-                                                <Option value="villa">Villa</Option>
-                                                <Option value="townhouse">Townhouse</Option>
-                                                <Option value="land">Land</Option>
-                                                <Option value="commercial">Commercial</Option>
-                                            </Select>
-                                        </div>
-
-                                        <div className="filter-section">
-                                            <span className="filter-title">
-                                                <EnvironmentOutlined /> Location
-                                            </span>
-                                            <Select
-                                                placeholder="Select City/Municipality"
-                                                size="middle"
-                                                value={location}
-                                                onChange={setLocation}
-                                                style={{ width: '100%' }}
-                                                className="search-input"
-                                                showSearch
-                                                filterOption={(input, option) =>
-                                                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                                                }
-                                            >
-                                                <Option value="">Any Location</Option>
-                                                {philippineLocations.map(location => (
-                                                    <Option key={location} value={location.toLowerCase().replace(/\s+/g, '-')}>
-                                                        {location}
-                                                    </Option>
-                                                ))}
-                                            </Select>
-                                        </div>
-
-                                        <div className="filter-section">
-                                            <span className="filter-title">Bedrooms</span>
-                                            <Select
-                                                placeholder="Any"
-                                                size="middle"
-                                                value={bedrooms}
-                                                onChange={setBedrooms}
-                                                style={{ width: '100%' }}
-                                                className="search-input"
-                                            >
-                                                <Option value="">Any</Option>
-                                                <Option value="1">1+</Option>
-                                                <Option value="2">2+</Option>
-                                                <Option value="3">3+</Option>
-                                                <Option value="4">4+</Option>
-                                                <Option value="5">5+</Option>
-                                            </Select>
-                                        </div>
-
-                                        <div className="filter-section">
-                                            <span className="filter-title">Bathrooms</span>
-                                            <Select
-                                                placeholder="Any"
-                                                size="middle"
-                                                value={bathrooms}
-                                                onChange={setBathrooms}
-                                                style={{ width: '100%' }}
-                                                className="search-input"
-                                            >
-                                                <Option value="">Any</Option>
-                                                <Option value="1">1+</Option>
-                                                <Option value="2">2+</Option>
-                                                <Option value="3">3+</Option>
-                                                <Option value="4">4+</Option>
-                                            </Select>
-                                        </div>
-
-                                        <div className="filter-section">
-                                            <span className="filter-title">
-                                                <DollarOutlined /> Price Range
-                                            </span>
-                                            <Slider
-                                                range
-                                                min={500000}
-                                                max={50000000}
-                                                step={500000}
-                                                value={priceRange}
-                                                onChange={setPriceRange}
-                                                className="price-slider"
-                                                tooltip={{ formatter: formatPrice }}
-                                            />
-                                            <div className="price-display">
-                                                {formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ marginTop: '20px' }}>
-                                            <Button
-                                                type="primary"
-                                                size="middle"
-                                                onClick={closeFilterDrawer}
-                                                style={{
-                                                    width: '100%',
-                                                    borderRadius: '8px',
-                                                    background: 'linear-gradient(135deg, #001529 0%, #003366 100%)',
-                                                    border: 'none',
-                                                    fontWeight: '600',
-                                                    height: '50px'
-                                                }}
-                                            >
-                                                Apply Filters
-                                            </Button>
-                                        </div>
-                                    </Space>
-                                </Drawer>
-
-                                {/* Live Stats from Services */}
-                                <Row gutter={32} style={{ marginTop: '2rem' }}>
-                                    {statsData.map((stat, index) => (
-                                        <Col xs={8} key={index}>
-                                            {loadingStats ? (
-                                                <div style={{ textAlign: 'center' }}>
-                                                    <Spin size="small" />
-                                                    <Paragraph style={{
-                                                        margin: '8px 0 0 0',
-                                                        fontSize: '0.9rem',
-                                                        color: '#666'
-                                                    }}>
-                                                        Loading...
-                                                    </Paragraph>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <Title level={3} style={{
-                                                        margin: 0,
-                                                        fontSize: '1.8rem',
-                                                        color: '#001529'
-                                                    }}>
-                                                        {stat.number}
-                                                    </Title>
-                                                    <Paragraph style={{
-                                                        margin: 0,
-                                                        fontSize: '0.9rem',
-                                                        color: '#666'
-                                                    }}>
-                                                        {stat.label}
-                                                    </Paragraph>
-                                                </div>
-                                            )}
-                                        </Col>
-                                    ))}
-                                </Row>
-                            </Space>
-                        </Col>
-                    </Row>
-                </div>
-            </div>
-
-            <style>
-                {`                
-                .search-tabs .ant-tabs-nav {
-                    margin-bottom: 16px;
-                }
-
-                .search-tabs .ant-tabs-tab {
-                    font-weight: 600;
-                    padding: 8px 16px;
-                }
-
-                .action-buttons {
+                .firstsection-root {
+                    min-height: 30vh;
                     display: flex;
-                    gap: 8px;
-                    height: 50px;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: linear-gradient(135deg, #f8faff 0%, #ffffff 100%);
+                    padding: 3rem 2rem;
+                    position: relative;
+                    overflow: hidden;
                 }
 
-                .filter-drawer .ant-drawer-body {
-                    padding: 20px;
-                }
-
-                .filter-section {
-                    margin-bottom: 20px;
-                }
-
-                .filter-section .ant-select,
-                .filter-section .ant-slider {
-                    margin-top: 8px;
-                }
-
-                .filter-title {
-                    font-weight: 600;
-                    margin-bottom: 8px;
-                    display: block;
-                    color: #001529;
-                }
-
-                .price-slider {
-                    margin: 10px 0;
-                }
-                
-                .price-display {
-                    color: #001529;
-                    font-weight: 600;
-                    margin-top: 10px;
-                    font-size: 14px;
+                .firstsection-title {
+                    font-family: 'Playfair Display', Georgia, serif;
+                    font-weight: 800;
+                    font-size: clamp(2rem, 5.5vw, 3.6rem);
+                    color: #1b3d9e;
                     text-align: center;
+                    letter-spacing: -0.5px;
+                    line-height: 1.2;
+                    margin-bottom: 1rem;
+                    animation: fadeDown 0.6s ease both;
                 }
 
-      
-                .ant-btn {
+                .firstsection-subtitle {
+                    font-family: 'Source Code Pro', 'Courier New', monospace;
+                    font-size: 0.9rem;
+                    font-weight: 400;
+                    color: #a89cc8;
+                    letter-spacing: 0.06em;
+                    text-align: center;
+                    animation: fadeDown 0.6s 0.1s ease both;
+                    opacity: 0;
+                    animation-fill-mode: forwards;
+                    max-width: 500px;
+                    margin: 0 auto;
+                }
+
+                .firstsection-divider {
+                    width: 260px;
+                    height: 1px;
+                    background: linear-gradient(to right, transparent, #d4d0e8, transparent);
+                    margin: 1.4rem 0 2.2rem;
+                    animation: fadeIn 0.6s 0.2s ease both;
+                    opacity: 0;
+                    animation-fill-mode: forwards;
+                }
+
+                /* Search Bar */
+                .searchbar-container {
+                    display: flex;
+                    align-items: stretch;
+                    height: 56px;
+                    animation: fadeUp 0.6s 0.3s ease both;
+                    opacity: 0;
+                    animation-fill-mode: forwards;
+                    position: relative;
+                    margin-bottom: 2rem;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                    border-radius: 12px;
+                }
+
+                .searchbar-container.focused .search-input,
+                .searchbar-container.focused .dropdown-btn,
+                .searchbar-container.focused .search-btn {
+                    border-color: #1b3d9e;
+                }
+
+                /* Dropdown */
+                .dropdown-wrap {
+                    position: relative;
+                }
+
+                .dropdown-btn {
+                    width: 60px;
+                    height: 100%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    border: 1.5px solid #c5cad8;
+                    border-right: none;
+                    border-radius: 12px 0 0 12px;
+                    background: #fff;
+                    cursor: pointer;
+                    color: #6b7a9b;
+                    font-size: 0.75rem;
+                    transition: all 0.2s;
+                    user-select: none;
                 }
 
-                .ant-select-single:not(.ant-select-customize-input) .ant-select-selector {
-                    height: 40px;
+                .dropdown-btn:hover {
+                    background: #f4f6fb;
+                }
+
+                .dropdown-arrow {
+                    display: inline-block;
+                    transition: transform 0.2s;
+                }
+
+                .dropdown-btn.open .dropdown-arrow {
+                    transform: rotate(180deg);
+                }
+
+                .dropdown-menu {
+                    position: absolute;
+                    top: calc(100% + 8px);
+                    left: 0;
+                    min-width: 150px;
+                    background: #fff;
+                    border: 1.5px solid #c5cad8;
+                    border-radius: 12px;
+                    list-style: none;
+                    padding: 8px 0;
+                    z-index: 20;
+                    box-shadow: 0 8px 24px rgba(27, 61, 158, 0.12);
+                    animation: menuFade 0.15s ease;
+                }
+
+                @keyframes menuFade {
+                    from { opacity: 0; transform: translateY(-6px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                .dropdown-menu li {
+                    padding: 10px 18px;
+                    font-family: 'Source Code Pro', monospace;
+                    font-size: 0.85rem;
+                    color: #3a4566;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+
+                .dropdown-menu li:hover {
+                    background: #eef2fb;
+                    color: #1b3d9e;
+                }
+
+                .dropdown-menu li.active {
+                    color: #1b3d9e;
+                    font-weight: 600;
+                    background: #eef2fb;
+                }
+
+                /* Input */
+                .search-input {
+                    width: clamp(260px, 40vw, 400px);
+                    height: 100%;
+                    border: 1.5px solid #c5cad8;
+                    border-right: none;
+                    outline: none;
+                    padding: 0 20px;
+                    font-family: 'Source Code Pro', monospace;
+                    font-size: 0.95rem;
+                    color: #2a3455;
+                    background: #fff;
+                    transition: border-color 0.2s;
+                    letter-spacing: 0.02em;
+                }
+
+                .search-input::placeholder {
+                    color: #b0b8cc;
+                    letter-spacing: 0.04em;
+                }
+
+                /* Search Button */
+                .search-btn {
+                    width: 60px;
+                    height: 100%;
+                    border: 1.5px solid #1b3d9e;
+                    border-radius: 0 12px 12px 0;
+                    background: #fff;
+                    cursor: pointer;
                     display: flex;
                     align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
                 }
-                `}
-            </style>
-        </section>
+
+                .search-btn:hover {
+                    background: #1b3d9e;
+                }
+
+                .search-btn:hover svg {
+                    stroke: white;
+                }
+
+                .search-btn svg {
+                    width: 20px;
+                    height: 20px;
+                    stroke: #1b3d9e;
+                    fill: none;
+                    stroke-width: 2;
+                    transition: stroke 0.2s;
+                }
+
+                /* Stats */
+                .stat-number {
+                    font-family: 'Playfair Display', Georgia, serif;
+                    font-size: 2rem;
+                    font-weight: 800;
+                    color: #1b3d9e;
+                    margin: 0;
+                    line-height: 1.2;
+                }
+
+                .stat-label {
+                    font-family: 'Source Code Pro', monospace;
+                    font-size: 0.8rem;
+                    color: #a89cc8;
+                    letter-spacing: 0.04em;
+                    margin: 0;
+                }
+
+                @keyframes fadeDown {
+                    from { opacity: 0; transform: translateY(-16px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @keyframes fadeUp {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+
+                /* Responsive */
+                @media (max-width: 768px) {
+                    .firstsection-root {
+                        padding: 2rem 1rem;
+                    }
+                    .searchbar-container {
+                        flex-wrap: wrap;
+                        height: auto;
+                        gap: 10px;
+                        background: transparent;
+                        box-shadow: none;
+                    }
+                    .dropdown-wrap {
+                        flex: 1;
+                    }
+                    .dropdown-btn {
+                        width: 50px;
+                        border-radius: 12px;
+                        border-right: 1.5px solid #c5cad8;
+                    }
+                    .search-input {
+                        flex: 2;
+                        border-radius: 12px;
+                        border-right: 1.5px solid #c5cad8;
+                    }
+                    .search-btn {
+                        border-radius: 12px;
+                        flex-shrink: 0;
+                    }
+                }
+            `}</style>
+
+            <div className="firstsection-root">
+                <h1 className="firstsection-title">Discover Your Perfect Place</h1>
+                <p className="firstsection-subtitle">
+                    Discover the perfect property across the beautiful islands — search by city, zip code, or neighborhood.
+                </p>
+                <div className="firstsection-divider" />
+
+                {/* Search Bar */}
+                <div className={`searchbar-container ${focused ? 'focused' : ''}`}>
+                    {/* Dropdown */}
+                    <div className="dropdown-wrap" ref={dropdownRef}>
+                        <button
+                            className={`dropdown-btn ${dropdownOpen ? 'open' : ''}`}
+                            onClick={() => setDropdownOpen(prev => !prev)}
+                            aria-label="Select filter type"
+                        >
+                            <span className="dropdown-arrow">▾</span>
+                        </button>
+
+                        {dropdownOpen && (
+                            <ul className="dropdown-menu" role="listbox">
+                                {FILTER_OPTIONS.map(opt => (
+                                    <li
+                                        key={opt}
+                                        className={opt === selectedFilter ? 'active' : ''}
+                                        role="option"
+                                        aria-selected={opt === selectedFilter}
+                                        onClick={() => {
+                                            setSelectedFilter(opt);
+                                            setDropdownOpen(false);
+                                        }}
+                                    >
+                                        {opt}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    {/* Input */}
+                    <input
+                        className="search-input"
+                        type="text"
+                        placeholder={`Search by ${selectedFilter.toLowerCase()}...`}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onFocus={() => setFocused(true)}
+                        onBlur={() => setFocused(false)}
+                        onKeyDown={handleKeyPress}
+                        aria-label="Search properties"
+                    />
+
+                    {/* Search button */}
+                    <button className="search-btn" onClick={handleSearch} aria-label="Submit search">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="16.5" y1="16.5" x2="22" y2="22" />
+                        </svg>
+                    </button>
+                </div>
+
+           
+            </div>
+        </>
     );
 };
 

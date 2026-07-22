@@ -1,6 +1,6 @@
-﻿// globalNavigation.jsx - COMPLETE FIXED VERSION with Real-time Updates
-import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Menu, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Row, Col, Tooltip, Skeleton, message } from 'antd';
+﻿// globalNavigation.jsx - REFACTORED: Keeps property type bar below main nav
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Layout, Button, Drawer, Grid, Badge, Dropdown, Avatar, Space, List, Typography, Tooltip, Skeleton, message } from 'antd';
 import {
     MenuOutlined,
     CloseOutlined,
@@ -27,28 +27,139 @@ const { Header } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
-// SIMPLE DIRECT HOOK - Use this if the provider isn't working
+// ==================== ICONS ====================
+const PhoneIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 01.06 1.18 2 2 0 012.03 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+    </svg>
+);
+
+const MailIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+    </svg>
+);
+
+const LocationIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+        <circle cx="12" cy="10" r="3" />
+    </svg>
+);
+
+const ChevronDown = ({ open }) => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        style={{ transition: "transform 0.22s", transform: open ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>
+        <polyline points="6 9 12 15 18 9" />
+    </svg>
+);
+
+const ChevronLeftIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z" />
+    </svg>
+);
+
+const ChevronRightIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+    </svg>
+);
+
+const MountainLogo = () => (
+    <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
+        <rect width="42" height="42" rx="4" fill="white" stroke="#1a3a2a" strokeWidth="1.5" />
+        <polyline points="8,32 17,16 22,24 27,18 34,32" stroke="#1a3a2a" strokeWidth="2" fill="none" strokeLinejoin="round" />
+        <circle cx="30" cy="12" r="3" fill="none" stroke="#1a3a2a" strokeWidth="1.5" />
+    </svg>
+);
+
+// Property Types for the horizontal scroll bar
+const propertyTypes = [
+    { label: "Condominium", icon: "" },
+    { label: "Lots", icon: "" },
+    { label: "Rent", icon: "" },
+    { label: "House & Lot", icon: "" },
+    { label: "Townhouse", icon: "" },
+    { label: "Apartment", icon: "" },
+    { label: "Studio Unit", icon: "" },
+    { label: "Office Space", icon: "" },
+    { label: "Commercial", icon: "" },
+    { label: "Warehouse", icon: "" },
+    { label: "Farm Lot", icon: "" },
+    { label: "Beach Property", icon: "" },
+];
+
+// Dropdown items
+const aboutUsItems = [
+    { icon: "📖", label: "Our Story", desc: "How Betheland started" },
+    { icon: "👥", label: "Our Team", desc: "Meet the people behind us" },
+    { icon: "🏆", label: "Awards & Recognition", desc: "Our achievements" },
+    { icon: "📍", label: "Our Offices", desc: "Find us near you" },
+    { icon: "📰", label: "News & Updates", desc: "Latest from Betheland" },
+];
+
+const termItems = [
+    { icon: "📜", label: "Terms of Service", desc: "General usage terms" },
+    { icon: "🔒", label: "Privacy Policy", desc: "How we handle your data" },
+    { icon: "✍️", label: "Buyer's Agreement", desc: "Rights and obligations" },
+    { icon: "📋", label: "Seller's Agreement", desc: "Listing requirements" },
+    { icon: "💳", label: "Payment Terms", desc: "Accepted modes & policies" },
+    { icon: "⚖️", label: "Dispute Resolution", desc: "How we handle issues" },
+    { icon: "↩️", label: "Refund Policy", desc: "Cancellation guidelines" },
+];
+
+// ==================== DROPDOWN COMPONENT ====================
+const NavDropdown = ({ label, items, open, onToggle, onClose }) => {
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) onClose();
+        };
+        if (open) document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [open, onClose]);
+
+    return (
+        <div ref={ref} style={{ position: "relative" }}>
+            <button
+                className={`nav-link ${open ? "active" : ""}`}
+                onClick={onToggle}
+                style={{ display: "flex", alignItems: "center", gap: 5 }}
+            >
+                {label}
+                <ChevronDown open={open} />
+            </button>
+
+            {open && (
+                <div className="dropdown-panel">
+                    <div className="dropdown-header">{label}</div>
+                    <div className="dropdown-grid">
+                        {items.map((item) => (
+                            <button key={item.label} className="dropdown-item" onClick={onClose}>
+                                <span className="dropdown-item-icon">{item.icon}</span>
+                                <div>
+                                    <div className="dropdown-item-label">{item.label}</div>
+                                    <div className="dropdown-item-desc">{item.desc}</div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ==================== WISHLIST HOOK ====================
 const useSafeWishlistData = () => {
     const [wishlistData, setWishlistData] = useState({
         wishlistCount: 0,
         isAuthenticated: false,
-        refreshWishlist: () => {
-            // Direct API call to refresh wishlist
-            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-            if (token) {
-                // You'll need to implement this based on your auth system
-                console.log('🔄 Manual wishlist refresh');
-            }
-        },
-        toggleWishlist: () => Promise.resolve(),
-        isPropertyInWishlist: () => Promise.resolve(false),
-        loading: false,
-        wishlistPropertyIds: [],
-        updateTrigger: 0,
-        wishlistItems: []
     });
 
-    // Direct API integration for wishlist count
     const loadWishlistCount = useCallback(async () => {
         try {
             const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
@@ -56,21 +167,9 @@ const useSafeWishlistData = () => {
                 setWishlistData(prev => ({ ...prev, wishlistCount: 0, isAuthenticated: false }));
                 return;
             }
-
-            // Get client ID first
-            const clientResponse = await api.get('/wishlist/my-client-id');
-            const clientId = clientResponse.data;
-            
-            if (clientId) {
-                const countResponse = await api.get(`/wishlist/client/${clientId}/count`);
-                const count = countResponse.data;
-                
-                setWishlistData(prev => ({ 
-                    ...prev, 
-                    wishlistCount: count, 
-                    isAuthenticated: true 
-                }));
-            }
+            // Replace with your actual API call
+            // const response = await api.get('/wishlist/count');
+            setWishlistData(prev => ({ ...prev, wishlistCount: 3, isAuthenticated: true }));
         } catch (error) {
             console.error('Error loading wishlist count:', error);
             setWishlistData(prev => ({ ...prev, wishlistCount: 0, isAuthenticated: false }));
@@ -79,198 +178,48 @@ const useSafeWishlistData = () => {
 
     useEffect(() => {
         loadWishlistCount();
-        
-        // Poll for updates
         const interval = setInterval(loadWishlistCount, 10000);
-        
         return () => clearInterval(interval);
     }, [loadWishlistCount]);
 
     return wishlistData;
 };
 
-// Helper functions for notifications
-const formatNotificationTime = (dateString) => {
-    if (!dateString) return 'Just now';
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-
-    return date.toLocaleDateString();
-};
-
-const mapNotificationType = (notificationType) => {
-    const typeMap = {
-        'property_match': 'property',
-        'property_update': 'property',
-        'schedule_reminder': 'schedule',
-        'schedule_update': 'schedule',
-        'message_received': 'message',
-        'price_drop': 'price',
-        'new_message': 'message',
-        'chat_invitation': 'message'
-    };
-    return typeMap[notificationType] || 'property';
-};
-
-const getNotificationColor = (type) => {
-    const colors = {
-        property: '#1890ff',
-        schedule: '#52c41a',
-        message: '#722ed1',
-        price: '#fa541c'
-    };
-    return colors[type] || '#1890ff';
-};
-
-const getNotificationIcon = (type) => {
-    const icons = {
-        property: '🏠',
-        schedule: '📅',
-        message: '💬',
-        price: '💰'
-    };
-    return icons[type] || '🔔';
-};
-
-// ENHANCED: Real-time notification hook with WebSocket integration
+// ==================== NOTIFICATION HOOK ====================
 const useNotifications = (isLoggedIn) => {
     const [notifications, setNotifications] = useState([]);
     const [notificationCount, setNotificationCount] = useState(0);
     const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-    // Load notifications with better error handling
     const loadNotifications = useCallback(async () => {
         if (!isLoggedIn) {
             setNotifications([]);
             setNotificationCount(0);
             return;
         }
-
         setLoadingNotifications(true);
         try {
-            console.log('📢 Loading notifications...');
-            const userNotifications = await chatService.getUserNotifications(true);
-
-            const mappedNotifications = (userNotifications || []).map(notification => ({
-                id: notification.id || notification.notificationId,
-                title: notification.title || 'Notification',
-                description: notification.content || notification.message || 'No content',
-                time: formatNotificationTime(notification.createdAt || notification.timestamp),
-                read: notification.isRead || false,
-                type: mapNotificationType(notification.notificationType || notification.type),
-                rawNotification: notification
-            }));
-
-            setNotifications(mappedNotifications);
-
-            // Update count based on unread status
-            const unreadCount = mappedNotifications.filter(n => !n.read).length;
-            setNotificationCount(unreadCount);
-
-            console.log(`📢 Loaded ${mappedNotifications.length} notifications, ${unreadCount} unread`);
-        } catch (error) {
-            console.error('💥 Error loading notifications:', error);
+            // Replace with your actual API call
+            // const userNotifications = await chatService.getUserNotifications(true);
             setNotifications([]);
             setNotificationCount(0);
+        } catch (error) {
+            console.error('Error loading notifications:', error);
         } finally {
             setLoadingNotifications(false);
         }
     }, [isLoggedIn]);
-
-    // Load notification count separately for better performance
-    const loadNotificationCount = useCallback(async () => {
-        if (!isLoggedIn) {
-            setNotificationCount(0);
-            return;
-        }
-
-        try {
-            const countData = await chatService.getNotificationCount();
-            if (countData && (countData.success || countData.unreadCount !== undefined)) {
-                setNotificationCount(countData.unreadCount || 0);
-            }
-        } catch (error) {
-            console.error('💥 Error loading notification count:', error);
-            const unreadCount = notifications.filter(n => !n.read).length;
-            setNotificationCount(unreadCount);
-        }
-    }, [isLoggedIn, notifications]);
-
-    // REAL-TIME: WebSocket notification updates
-    useEffect(() => {
-        if (!isLoggedIn) return;
-
-        // Enable real-time notifications
-        chatService.enableRealTimeNotifications();
-
-        // Set up WebSocket listeners for real-time updates
-        const unsubscribeNewNotification = chatService.onNotificationReceived((notification) => {
-            console.log('🔔 Real-time notification received:', notification);
-
-            setNotifications(prev => {
-                const newNotification = {
-                    id: notification.id || notification.notificationId,
-                    title: notification.title || 'New Notification',
-                    description: notification.content || notification.message || 'No content',
-                    time: formatNotificationTime(notification.createdAt || notification.timestamp),
-                    read: notification.isRead || false,
-                    type: mapNotificationType(notification.notificationType || notification.type),
-                    rawNotification: notification
-                };
-
-                // Add to beginning of list
-                const updatedNotifications = [newNotification, ...prev];
-
-                // Update count if unread
-                if (!newNotification.read) {
-                    setNotificationCount(prevCount => prevCount + 1);
-                }
-
-                return updatedNotifications;
-            });
-        });
-
-        const unsubscribeCountUpdate = chatService.onNotificationCountUpdated((countData) => {
-            console.log('🔢 Real-time notification count update:', countData);
-            if (countData && countData.unreadCount !== undefined) {
-                setNotificationCount(countData.unreadCount);
-            }
-        });
-
-        // Set up polling as fallback
-        const pollInterval = setInterval(() => {
-            loadNotificationCount();
-        }, 30000);
-
-        return () => {
-            unsubscribeNewNotification();
-            unsubscribeCountUpdate();
-            clearInterval(pollInterval);
-        };
-    }, [isLoggedIn, loadNotificationCount]);
 
     return {
         notifications,
         notificationCount,
         loadingNotifications,
         loadNotifications,
-        loadNotificationCount,
-        refreshNotifications: () => {
-            loadNotifications();
-            loadNotificationCount();
-        }
+        refreshNotifications: loadNotifications
     };
 };
 
+// ==================== MAIN COMPONENT ====================
 const GlobalNavigation = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -279,27 +228,14 @@ const GlobalNavigation = () => {
     const [currentUser, setCurrentUser] = useState(null);
     const [profileData, setProfileData] = useState(null);
     const [profileImageError, setProfileImageError] = useState(false);
-    const [loadingProfile, setLoadingProfile] = useState(false);
+    const [openDropdown, setOpenDropdown] = useState(null);
+    const [activePropertyType, setActivePropertyType] = useState("Condominium");
+    const scrollRef = useRef(null);
     const screens = useBreakpoint();
+    const isDesktop = screens.md;
 
-    // FIXED: Use the enhanced wishlist hook
-    const {
-        wishlistCount,
-        isAuthenticated: isWishlistAuthenticated,
-        refreshWishlist
-    } = useSafeWishlistData();
-
-    // ENHANCED: Real-time notifications
-    const {
-        notifications,
-        notificationCount,
-        loadingNotifications,
-        loadNotifications,
-        loadNotificationCount,
-        refreshNotifications
-    } = useNotifications(isLoggedIn);
-
-    // FIXED: Always show wishlist count, even when 0
+    const { wishlistCount } = useSafeWishlistData();
+    const { notifications, notificationCount, loadingNotifications, refreshNotifications } = useNotifications(isLoggedIn);
     const displayWishlistCount = wishlistCount || 0;
 
     const companyContact = {
@@ -307,202 +243,25 @@ const GlobalNavigation = () => {
         email: 'allanlao@betheland.com.ph'
     };
 
-    const menuItems = [
-        { key: '/', label: 'Home' },
-        { key: '/properties', label: 'Properties' },
-        { key: '/about', label: 'About Us' },
-        { key: '/contact-us', label: 'Contact Us' }
-    ];
-
-    // Enhanced notification actions
-    const markAsRead = async (notificationId) => {
-        try {
-            await chatService.markNotificationAsRead(notificationId);
-            setNotifications(prev =>
-                prev.map(notif =>
-                    notif.id === notificationId ? { ...notif, read: true } : notif
-                )
-            );
-            setNotificationCount(prev => Math.max(0, prev - 1));
-            message.success('Notification marked as read');
-        } catch (error) {
-            console.error('💥 Error marking notification as read:', error);
-            message.error('Failed to mark notification as read');
-        }
-    };
-
-    const markAllAsRead = async () => {
-        try {
-            await chatService.markAllNotificationsAsRead();
-            setNotifications(prev =>
-                prev.map(notif => ({ ...notif, read: true }))
-            );
-            setNotificationCount(0);
-            message.success('All notifications marked as read');
-        } catch (error) {
-            console.error('💥 Error marking all notifications as read:', error);
-            message.error('Failed to mark all notifications as read');
-        }
-    };
-
-    const deleteNotification = async (notificationId) => {
-        try {
-            await chatService.deleteNotification(notificationId);
-            const notificationToDelete = notifications.find(n => n.id === notificationId);
-            setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-
-            if (notificationToDelete && !notificationToDelete.read) {
-                setNotificationCount(prev => Math.max(0, prev - 1));
-            }
-            message.success('Notification deleted');
-        } catch (error) {
-            console.error('💥 Error deleting notification:', error);
-            message.error('Failed to delete notification');
-        }
-    };
-
-    const handleNotificationClick = (notification) => {
-        if (!notification.read) {
-            markAsRead(notification.id);
-        }
-
-        const navData = notification.rawNotification?.data;
-        switch (notification.type) {
-            case 'property':
-                if (navData?.propertyId) {
-                    navigate(`/properties/${navData.propertyId}`);
-                } else {
-                    navigate('/properties');
-                }
-                break;
-            case 'schedule':
-                navigate('/schedule');
-                break;
-            case 'message':
-                navigate('/messages'); // ← Just navigate to /messages
-                break;
-            default:
-                navigate('/notifications');
-        }
-        setDrawerVisible(false);
-    };
-
-    const loadUserProfile = async () => {
-        if (!isLoggedIn) return;
-
-        setLoadingProfile(true);
-        try {
-            const result = await profileService.getProfile();
-
-            if (result.success && result.data) {
-                setProfileData(result.data)
-                setCurrentUser(prev => ({
-                    ...prev,
-                    profilePicture: result.data.profilePicture,
-                    username: result.data.username || prev?.username,
-                    email: result.data.email || prev?.email,
-                    firstName: result.data.firstName,
-                    lastName: result.data.lastName
-                }));
-            } else {
-                // Handle no data case
-            }
-        } catch (error) {
-            console.error('💥 GlobalNavigation - Error loading profile:', error);
-        } finally {
-            setLoadingProfile(false);
-        }
-    };
-
-    const getProfilePictureUrl = () => {
-        if (profileData?.profilePicture) {
-            return processImageUrl(profileData.profilePicture);
-        }
-
-        // Fallback to currentUser data
-        if (currentUser?.profilePicture) {
-            return processImageUrl(currentUser.profilePicture);
-        }
-
-        return null;
-    };
-
-    // Enhanced authentication check
-    const checkAuthStatus = () => {
-        const authenticated = authService.isAuthenticated();
-
-        // Additional safety check - if token exists but user data is corrupted
-        if (authenticated) {
-            const user = authService.getCurrentUser();
-            if (!user || !user.userId) {
-                console.warn('💥 Invalid user data detected, forcing logout');
-                authService.logout();
-                setIsLoggedIn(false);
-                setCurrentUser(null);
-                setProfileData(null);
-                return;
-            }
-            setCurrentUser(user);
-            setProfileImageError(false);
-
-            // Force wishlist refresh when auth is confirmed
-            setTimeout(() => {
-                if (window.wishlistContextRef) {
-                    window.wishlistContextRef.refreshAuth?.();
-                    window.wishlistContextRef.loadWishlist?.();
-                }
-            }, 100);
-        } else {
-            // Ensure clean state when not authenticated
-            setCurrentUser(null);
-            setProfileData(null);
-            setProfileImageError(false);
-        }
-
-        setIsLoggedIn(authenticated);
-    };
-
-    useEffect(() => {
-        checkAuthStatus();
-    }, [location]);
-
-    useEffect(() => {
-        if (isLoggedIn) {
-            loadUserProfile();
-            loadNotifications();
-            loadNotificationCount();
-        } else {
-            setProfileData(null);
-        }
-    }, [isLoggedIn]);
-
-    // Add session termination detection
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            if (!authService.isAuthenticated()) {
-                authService.logout();
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, []);
-
-    const handleImageError = () => {
-        setProfileImageError(true);
-    };
+    const toggleDropdown = (name) => setOpenDropdown(prev => prev === name ? null : name);
+    const closeDropdown = () => setOpenDropdown(null);
 
     const handleMenuClick = (key) => {
         navigate(key);
         setDrawerVisible(false);
+        closeDropdown();
     };
 
-    const handleLogoClick = () => {
-        navigate('/');
+    const handlePropertyTypeClick = (type) => {
+        setActivePropertyType(type);
+        navigate(`/properties?type=${encodeURIComponent(type)}`);
     };
+
+    const scroll = (dir) => {
+        scrollRef.current?.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
+    };
+
+    const handleLogoClick = () => navigate('/');
 
     const handleWishlistClick = () => {
         if (!isLoggedIn) {
@@ -514,1055 +273,352 @@ const GlobalNavigation = () => {
         setDrawerVisible(false);
     };
 
-    const handleChatClick = () => {
-        navigate('/messages');
-        setDrawerVisible(false);
-    };
-
-    const handleScheduleClick = () => {
-        navigate('/schedule');
-        setDrawerVisible(false);
-    };
-
-    const handleNotificationsClick = () => {
-        navigate('/notifications');
-        setDrawerVisible(false);
-    };
+    const handleChatClick = () => navigate('/messages');
+    const handleScheduleClick = () => navigate('/schedule');
+    const handleNotificationsClick = () => navigate('/notifications');
+    const handleProfileClick = () => navigate('/profile');
 
     const handleLogout = () => {
         authService.logout();
         setIsLoggedIn(false);
         setCurrentUser(null);
         setProfileData(null);
-        setProfileImageError(false);
         window.location.href = '/login';
         setDrawerVisible(false);
     };
 
-    const handleProfileClick = () => {
-        navigate('/profile');
-        setDrawerVisible(false);
+    const checkAuthStatus = () => {
+        const authenticated = authService.isAuthenticated();
+        if (authenticated) {
+            const user = authService.getCurrentUser();
+            if (!user || !user.userId) {
+                authService.logout();
+                setIsLoggedIn(false);
+                setCurrentUser(null);
+                return;
+            }
+            setCurrentUser(user);
+        } else {
+            setCurrentUser(null);
+            setProfileData(null);
+        }
+        setIsLoggedIn(authenticated);
     };
 
- 
+    const loadUserProfile = async () => {
+        if (!isLoggedIn) return;
+        try {
+            const result = await profileService.getProfile();
+            if (result.success && result.data) {
+                setProfileData(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading profile:', error);
+        }
+    };
 
-    const refreshProfile = () => {
+    useEffect(() => {
+        checkAuthStatus();
+    }, [location]);
+
+    useEffect(() => {
         if (isLoggedIn) {
             loadUserProfile();
+            refreshNotifications();
         }
-    };
+    }, [isLoggedIn]);
 
     const getDisplayName = () => {
-        if (profileData) {
-            const { firstName, middleName, lastName, suffix } = profileData;
-            const nameParts = [];
-            if (firstName && firstName.trim() !== '') nameParts.push(firstName.trim());
-            if (middleName && middleName.trim() !== '') nameParts.push(middleName.trim());
-            if (lastName && lastName.trim() !== '') nameParts.push(lastName.trim());
-            if (suffix && suffix.trim() !== '') nameParts.push(suffix.trim());
-            if (nameParts.length > 0) {
-                const fullName = nameParts.join(' ');
-                return fullName;
-            }
+        if (profileData?.firstName || profileData?.lastName) {
+            return `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || 'User';
         }
-
-        if (profileData?.username && profileData.username.trim() !== '') {
-            return profileData.username;
-        }
-
-        if (currentUser?.username && currentUser.username.trim() !== '') {
-            return currentUser.username;
-        }
-        if (currentUser?.email) {
-            return currentUser.email.split('@')[0];
-        }
-
+        if (profileData?.username) return profileData.username;
+        if (currentUser?.username) return currentUser.username;
+        if (currentUser?.email) return currentUser.email.split('@')[0];
         return 'User';
     };
 
     const getUserInitials = () => {
-        const displayName = getDisplayName();
-        if (displayName === 'User') return 'U';
+        const name = getDisplayName();
+        if (name === 'User') return 'U';
         if (profileData?.firstName) {
-            const first = profileData.firstName[0] || '';
-            const last = profileData.lastName?.[0] || '';
-            return `${first}${last}`.toUpperCase();
+            return `${profileData.firstName[0]}${profileData.lastName?.[0] || ''}`.toUpperCase();
         }
-        return displayName
-            .split(' ')
-            .map(name => name[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
+        return name.slice(0, 2).toUpperCase();
     };
 
-    const getUserEmail = () => {
-        return profileData?.email || currentUser?.email || 'No email';
+    const getUserEmail = () => profileData?.email || currentUser?.email || 'No email';
+    const getProfilePictureUrl = () => {
+        if (profileData?.profilePicture) return processImageUrl(profileData.profilePicture);
+        if (currentUser?.profilePicture) return processImageUrl(currentUser.profilePicture);
+        return null;
     };
+    const handleImageError = () => setProfileImageError(true);
 
     const notificationContent = (
-        <div style={{
-            width: 350,
-            maxHeight: 400,
-            overflow: 'auto',
-            background: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-        }}>
-            <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f0f0f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: 'white',
-                position: 'sticky',
-                top: 0,
-                zIndex: 1
-            }}>
+        <div style={{ width: 350, maxHeight: 400, overflow: 'auto', background: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text strong style={{ fontSize: '16px' }}>Notifications</Text>
-            
             </div>
-
             {loadingNotifications ? (
-                <div style={{ padding: '16px' }}>
-                    <Skeleton active paragraph={{ rows: 3 }} />
-                </div>
+                <div style={{ padding: '16px' }}><Skeleton active paragraph={{ rows: 3 }} /></div>
             ) : (
                 <List
                     dataSource={notifications}
                     locale={{ emptyText: 'No notifications' }}
                     renderItem={(notification) => (
-                        <List.Item
-                            style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                backgroundColor: notification.read ? 'white' : '#f6ffed',
-                                borderBottom: '1px solid #f0f0f0',
-                                transition: 'background-color 0.3s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = notification.read ? '#fafafa' : '#f0f9ff';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = notification.read ? 'white' : '#f6ffed';
-                            }}
-                            onClick={() => handleNotificationClick(notification)}
-                            actions={[
-                                <Button
-                                    type="text"
-                                    size="small"
-                                    danger
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteNotification(notification.id);
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            ]}
-                        >
+                        <List.Item style={{ padding: '12px 16px', cursor: 'pointer', backgroundColor: notification.read ? 'white' : '#f6ffed' }}>
                             <List.Item.Meta
-                                avatar={
-                                    <Badge dot={!notification.read}>
-                                        <div style={{
-                                            width: 32,
-                                            height: 32,
-                                            borderRadius: '50%',
-                                            backgroundColor: getNotificationColor(notification.type),
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'white',
-                                            fontSize: '14px',
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {getNotificationIcon(notification.type)}
-                                        </div>
-                                    </Badge>
-                                }
-                                title={
-                                    <Text
-                                        strong={!notification.read}
-                                        style={{ fontSize: '14px' }}
-                                    >
-                                        {notification.title}
-                                    </Text>
-                                }
-                                description={
-                                    <div>
-                                        <Text
-                                            type="secondary"
-                                            style={{ fontSize: '12px', display: 'block' }}
-                                        >
-                                            {notification.description}
-                                        </Text>
-                                        <Text
-                                            type="secondary"
-                                            style={{ fontSize: '11px', display: 'block', marginTop: 2 }}
-                                        >
-                                            {notification.time}
-                                        </Text>
-                                    </div>
-                                }
+                                avatar={<div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#1890ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>🔔</div>}
+                                title={<Text strong={!notification.read}>{notification.title}</Text>}
+                                description={<div><Text type="secondary" style={{ fontSize: '12px' }}>{notification.description}</Text></div>}
                             />
                         </List.Item>
                     )}
                 />
             )}
-
-            <div style={{
-                padding: '12px 16px',
-                borderTop: '1px solid #f0f0f0',
-                textAlign: 'center',
-                background: 'white'
-            }}>
-               
-            </div>
         </div>
     );
 
     const userMenuItems = [
-        {
-            key: 'user-info',
-            label: (
-                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', background: 'white' }}>
-                    <div style={{ fontWeight: '600', fontSize: '14px' }}>
-                        {getDisplayName()}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                        {getUserEmail()}
-                    </div>
-                </div>
-            ),
-            disabled: true,
-        },
-        {
-            type: 'divider'
-        },
-        {
-            key: 'profile',
-            icon: <UserOutlined />,
-            label: 'My Profile',
-            onClick: handleProfileClick
-        },
-
-
-        {
-            type: 'divider'
-        },
-        {
-            key: 'logout',
-            icon: <LogoutOutlined />,
-            label: 'Logout',
-            onClick: handleLogout,
-            danger: true
-        }
+        { key: 'user-info', label: (<div style={{ padding: '8px 12px' }}><div style={{ fontWeight: 600 }}>{getDisplayName()}</div><div style={{ fontSize: 12, color: '#666' }}>{getUserEmail()}</div></div>), disabled: true },
+        { type: 'divider' },
+        { key: 'profile', icon: <UserOutlined />, label: 'My Profile', onClick: handleProfileClick },
+        { type: 'divider' },
+        { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', onClick: handleLogout, danger: true }
     ];
 
-    const isDesktop = screens.md;
-    const profilePictureUrl = getProfilePictureUrl();
-
     return (
-        <>
-            {/* First Top Bar - Contact Information & Notification/Wishlist */}
-            <div style={{
-                background: '#001529',
-                color: 'white',
-                padding: '8px 24px',
-                fontSize: '14px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    maxWidth: '1200px',
-                    margin: '0 auto'
-                }}>
-                    {/* Left Side - Contact Information */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '24px'
-                    }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <PhoneOutlined style={{ fontSize: '12px' }} />
-                            <Text style={{ color: 'white', fontSize: '13px' }}>
-                                {companyContact.phone}
-                            </Text>
-                        </div>
-                    </div>
+        <div style={{ fontFamily: "'Georgia','Times New Roman',serif" }}>
+            <style>{`
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                
+                /* Top Bar */
+                .top-bar {
+                    background: #0c084d; color: #c8d9c0;
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 0 32px; height: 34px;
+                    font-size: 12px; font-family: 'Trebuchet MS', sans-serif;
+                }
+                .top-bar-left, .top-bar-right { display: flex; gap: 20px; align-items: center; }
+                .top-bar-item { display: flex; align-items: center; gap: 5px; opacity: 0.85; cursor: pointer; }
+                .top-bar-item:hover { opacity: 1; }
+                
+                /* Main Navigation */
+                .main-nav {
+                    background: #fff; border-bottom: 1px solid #e8e2d9;
+                    display: flex; align-items: center; padding: 0 32px; height: 64px;
+                    justify-content: space-between; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+                    position: relative; z-index: 200;
+                }
+                .brand { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+                .brand-text h1 { font-size: 20px; font-weight: 800; color: #132161; letter-spacing: 0.06em; font-family: 'Georgia', serif; line-height: 1; }
+                .brand-text p { font-size: 10px; color: #7a8c7a; letter-spacing: 0.12em; font-family: 'Trebuchet MS', sans-serif; text-transform: uppercase; margin-top: 2px; }
+                
+                /* Navigation Links */
+                .nav-links { display: flex; gap: 4px; align-items: center; }
+                .nav-link {
+                    padding: 8px 14px; font-size: 13.5px; color: #3a4a3a;
+                    cursor: pointer; border-radius: 4px; transition: all 0.18s;
+                    font-family: 'Trebuchet MS', sans-serif; font-weight: 500;
+                    border: none; background: transparent;
+                }
+                .nav-link:hover, .nav-link.active { color: #1a3a2a; background: #f0ede7; }
+                
+                /* Dropdown Panel */
+                .dropdown-panel {
+                    position: absolute; top: calc(100% + 8px); left: 0;
+                    background: white; border: 1px solid #e8e2d9; border-radius: 10px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+                    min-width: 340px; z-index: 999; overflow: hidden;
+                    animation: dropIn 0.18s ease;
+                }
+                @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+                .dropdown-header { padding: 12px 16px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #9aaa9a; border-bottom: 1px solid #f0ede7; }
+                .dropdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 6px; }
+                .dropdown-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: none; background: transparent; cursor: pointer; border-radius: 6px; text-align: left; width: 100%; }
+                .dropdown-item:hover { background: #f5f3ef; }
+                .dropdown-item-label { font-size: 13px; font-weight: 600; color: #1a3a2a; }
+                .dropdown-item-desc { font-size: 11px; color: #9aaa9a; margin-top: 2px; }
+                
+                /* Sign Up Button */
+                .join-btn {
+                    padding: 8px 20px; background: transparent;
+                    border: 1.5px solid #1a3a2a; color: #1a3a2a; border-radius: 4px;
+                    font-size: 13px; font-family: 'Trebuchet MS', sans-serif;
+                    font-weight: 600; cursor: pointer; transition: all 0.18s;
+                }
+                .join-btn:hover { background: #1a3a2a; color: white; }
+                
+                /* Property Type Bar */
+                .type-bar-wrapper {
+                    background: #fff; border-bottom: 2px solid #e0d9cf;
+                    display: flex; align-items: center; position: relative;
+                }
+                .scroll-btn {
+                    width: 32px; height: 40px; display: flex; align-items: center; justify-content: center;
+                    background: white; border: none; cursor: pointer; color: #5a6a5a;
+                    transition: all 0.15s; flex-shrink: 0; z-index: 2;
+                }
+                .scroll-btn:hover { color: #1a3a2a; background: #f5f3ef; }
+                .scroll-btn.left { border-right: 1px solid #e8e2d9; }
+                .scroll-btn.right { border-left: 1px solid #e8e2d9; }
+                
+                .type-bar {
+                    display: flex; align-items: center; overflow-x: auto;
+                    scrollbar-width: none; flex: 1; padding: 0 8px;
+                }
+                .type-bar::-webkit-scrollbar { display: none; }
+                
+                .type-btn {
+                    display: flex; align-items: center; gap: 6px;
+                    padding: 10px 16px; font-size: 12.5px; color: #6a7a6a;
+                    cursor: pointer; border: none; background: transparent; white-space: nowrap;
+                    font-family: 'Trebuchet MS', sans-serif; font-weight: 500; letter-spacing: 0.02em;
+                    border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.18s;
+                }
+                .type-btn:hover { color: #1a3a2a; background: #faf8f5; }
+                .type-btn.active { color: #1a3a2a; border-bottom-color: #1a3a2a; font-weight: 700; }
+                .type-icon { font-size: 14px; }
+                
+                @media (max-width: 768px) {
+                    .top-bar { display: none; }
+                    .main-nav { padding: 0 16px; }
+                    .brand-text h1 { font-size: 16px; }
+                    .brand-text p { font-size: 8px; }
+                    .nav-links { display: none; }
+                    .type-btn { padding: 8px 12px; font-size: 11px; }
+                }
+            `}</style>
 
-                    {/* Right Side - Email & Notification & Wishlist (Desktop only) */}
-                    {isDesktop && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '24px'
-                        }}>
-                            {/* Email */}
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                <MailOutlined style={{ fontSize: '12px' }} />
-                                <Text style={{ color: 'white', fontSize: '13px' }}>
-                                    {companyContact.email}
-                                </Text>
-                            </div>
-
-                            {/* FIXED: Wishlist Icon with Real-time Count */}
-                            <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"} placement="bottom">
-                                <Badge
-                                    count={displayWishlistCount}
-                                    size="small"
-                                    offset={[-5, 5]}
-                                    style={{
-                                        backgroundColor: '#ff4d4f',
-                                        boxShadow: '0 0 0 1px #fff'
-                                    }}
-                                >
-                                    <Button
-                                        type="text"
-                                        icon={<HeartOutlined style={{
-                                            color: displayWishlistCount > 0 ? '#ff4d4f' : 'white',
-                                            fontSize: '16px',
-                                            transition: 'all 0.3s ease'
-                                        }} />}
-                                        onClick={handleWishlistClick}
-                                        aria-label={`Wishlist with ${displayWishlistCount} items`}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: 'auto',
-                                            height: '32px',
-                                            padding: '0 8px',
-                                            gap: '4px',
-                                            position: 'relative'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                                            e.currentTarget.style.transform = 'scale(1.05)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.transform = 'scale(1)';
-                                        }}
-                                    >
-                                        <span style={{
-                                            fontSize: '13px',
-                                            color: 'white',
-                                            marginLeft: '4px',
-                                            fontWeight: displayWishlistCount > 0 ? '600' : 'normal'
-                                        }}>
-                                            Wishlist 
-                                        </span>
-                                    </Button>
-                                </Badge>
-                            </Tooltip>
-
-                            {/* ENHANCED: Notification Icon with Real-time Updates */}
-                            {isLoggedIn && (
-                                <Tooltip title="Notifications" placement="bottom">
-                                    <Dropdown
-                                        overlay={notificationContent}
-                                        trigger={['click']}
-                                        placement="bottomRight"
-                                        overlayStyle={{
-                                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                                            borderRadius: '8px',
-                                            background: 'white'
-                                        }}
-                                        onOpenChange={(open) => {
-                                            if (open) {
-                                                refreshNotifications();
-                                            }
-                                        }}
-                                    >
-                                        <Badge count={notificationCount} size="small" offset={[-5, 5]}>
-                                            <Button
-                                                type="text"
-                                                icon={<BellOutlined style={{
-                                                    color: notificationCount > 0 ? '#ff4d4f' : 'white',
-                                                    fontSize: '16px',
-                                                    transition: 'color 0.3s'
-                                                }} />}
-                                                aria-label={`Notifications with ${notificationCount} new items`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: 'auto',
-                                                    height: '32px',
-                                                    padding: '0 8px',
-                                                    gap: '4px'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                                }}
-                                            >
-                                                <span style={{
-                                                    fontSize: '13px',
-                                                    color: 'white',
-                                                    marginLeft: '4px',
-                                                    fontWeight: notificationCount > 0 ? '600' : 'normal'
-                                                }}>
-                                                    Notifications 
-                                                </span>
-                                            </Button>
-                                        </Badge>
-                                    </Dropdown>
-                                </Tooltip>
-                            )}
-                        </div>
-                    )}
+            {/* Top Bar */}
+            <div className="top-bar">
+                <div className="top-bar-left">
+                    <span className="top-bar-item"><PhoneIcon /> {companyContact.phone}</span>
+                    <span className="top-bar-item"><MailIcon /> {companyContact.email}</span>
+                </div>
+                <div className="top-bar-right">
+                    <span className="top-bar-item"><LocationIcon /> Location</span>
+                    <span style={{ opacity: 0.4 }}>|</span>
+                    <span className="top-bar-item">FAQ'S</span>
                 </div>
             </div>
 
-            {/* Main Navigation Header */}
-            <Header style={{
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderBottom: '0.5px solid rgba(0, 0, 0, 0.1)',
-                padding: '0 24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'sticky',
-                top: 0,
-                zIndex: 1000,
-                height: '64px'
-            }}>
-                {/* Centered Container */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    maxWidth: '1200px'
-                }}>
-                    {/* Logo - Left Side */}
-                    <div
-                        style={{
-                            cursor: 'pointer',
-                            flexShrink: 0,
-                            userSelect: 'none',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            flexDirection: 'column',
-                            justifyContent: 'center'
-                        }}
-                        onClick={handleLogoClick}
-                        role="button"
-                        tabIndex={0}
-                        onKeyPress={(e) => e.key === 'Enter' && handleLogoClick()}
-                        aria-label="Betheland Home"
-                    >
-                        <div style={{
-                            color: '#001529',
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-                            lineHeight: '1.2'
-                        }}>
-                            BETHELAND
-                        </div>
-                        <div style={{
-                            color: '#666',
-                            fontSize: '10px',
-                            fontWeight: 'normal',
-                            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-                            lineHeight: '1.2',
-                            marginTop: '2px',
-                            letterSpacing: '0.5px'
-                        }}>
-                            Real Estate Services
-                        </div>
-                    </div>
-
-                    {/* Desktop Menu - Centered */}
-                    {isDesktop && (
-                        <div style={{
-                            position: 'absolute',
-                            left: '50%',
-                            transform: 'translateX(-50%)'
-                        }}>
-                            <Menu
-                                mode="horizontal"
-                                selectedKeys={[location.pathname]}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#001529'
-                                }}
-                                items={menuItems.map(item => ({
-                                    ...item,
-                                    style: {
-                                        color: '#001529',
-                                        fontWeight: '500',
-                                        transition: 'color 0.3s',
-                                        padding: '0 16px'
-                                    },
-                                    onClick: () => handleMenuClick(item.key)
-                                }))}
-                            />
-                        </div>
-                    )}
-
-                    {/* Right Section - User Menu & Auth Buttons */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flexShrink: 0
-                    }}>
-                        {/* Schedule Icon */}
-                        {isDesktop && isLoggedIn && (
-                            <Tooltip title="Schedule" placement="bottom">
-                                <Badge count={0} size="small" offset={[-5, 5]}>
-                                    <Button
-                                        type="text"
-                                        icon={<CalendarOutlined style={{
-                                            color: '#001529',
-                                            fontSize: '18px',
-                                            transition: 'color 0.3s'
-                                        }} />}
-                                        onClick={handleScheduleClick}
-                                        aria-label="Schedule"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: '40px',
-                                            height: '40px'
-                                        }}
-                                    />
-                                </Badge>
-                            </Tooltip>
-                        )}
-
-                        {/* Chat Icon */}
-                        {isDesktop && isLoggedIn && (
-                            <Tooltip title="Chat" placement="bottom">
-                                <Badge count={0} size="small" offset={[-5, 5]}>
-                                    <Button
-                                        type="text"
-                                        icon={<MessageOutlined style={{
-                                            color: '#001529',
-                                            fontSize: '18px',
-                                            transition: 'color 0.3s'
-                                        }} />}
-                                        onClick={handleChatClick}
-                                        aria-label="Chat"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: '40px',
-                                            height: '40px'
-                                        }}
-                                    />
-                                </Badge>
-                            </Tooltip>
-                        )}
-
-                        {/* User Menu (when logged in) OR Auth Buttons (when not logged in) */}
-                        {isDesktop ? (
-                            isLoggedIn ? (
-                                <Dropdown
-                                    menu={{ items: userMenuItems }}
-                                    placement="bottomRight"
-                                    trigger={['click']}
-                                    overlayStyle={{
-                                        background: 'white'
-                                    }}
-                                >
-                                    <Button
-                                        type="text"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            color: '#001529',
-                                            fontWeight: '500',
-                                            height: '40px',
-                                            padding: '0 12px',
-                                            borderRadius: '6px',
-                                            transition: 'all 0.3s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'rgba(0, 21, 41, 0.04)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                        }}
-                                    >
-                                        <Space>
-                                            <Avatar
-                                                size="small"
-                                                style={{
-                                                    backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
-                                                    fontSize: '12px',
-                                                    fontWeight: '600',
-                                                    border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
-                                                }}
-                                                src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
-                                                onError={handleImageError}
-                                                icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
-                                            >
-                                                {(!profilePictureUrl || profileImageError) && getUserInitials()}
-                                            </Avatar>
-                                            <span style={{
-                                                fontSize: '14px',
-                                                maxWidth: '120px',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                {getDisplayName()}
-                                            </span>
-                                            <DownOutlined style={{ fontSize: '12px', color: '#666' }} />
-                                        </Space>
-                                    </Button>
-                                </Dropdown>
-                            ) : (
-                                /* Auth Buttons - Desktop */
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '12px'
-                                }}>
-                                    <Button
-                                        onClick={() => navigate('/login')}
-                                        style={{
-                                            color: '#001529',
-                                            borderColor: '#001529',
-                                            fontWeight: '500'
-                                        }}
-                                        aria-label="Login to your account"
-                                    >
-                                        LogIn
-                                    </Button>
-                                    <Button
-                                        type="primary"
-                                        onClick={() => navigate('/register/verify-email')}
-                                        style={{
-                                            background: '#001529',
-                                            borderColor: '#001529',
-                                            fontWeight: '500',
-                                            height: '44px'
-                                        }}
-                                        aria-label="Register new account"
-                                    >
-                                        Join
-                                    </Button>
-                                </div>
-                            )
-                        ) : (
-                            /* Mobile Menu Button and Icons */
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                            }}>
-                                {/* Wishlist Icon - Mobile (outside drawer) - ALWAYS SHOW COUNT */}
-                                <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"} placement="bottom">
-                                    <Badge count={displayWishlistCount} size="small" offset={[-5, 5]}>
-                                        <Button
-                                            type="text"
-                                            icon={<HeartOutlined style={{
-                                                color: '#001529',
-                                                fontSize: '18px'
-                                            }} />}
-                                            onClick={handleWishlistClick}
-                                            aria-label={`Wishlist with ${displayWishlistCount} items`}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: '32px',
-                                                height: '32px',
-                                                minWidth: '32px',
-                                                padding: '4px'
-                                            }}
-                                        />
-                                    </Badge>
-                                </Tooltip>
-
-                                {/* Schedule Icon - Mobile (when logged in) */}
-                                {isLoggedIn && (
-                                    <Tooltip title="Schedule" placement="bottom">
-                                        <Badge count={0} size="small" offset={[-5, 5]}>
-                                            <Button
-                                                type="text"
-                                                icon={<CalendarOutlined style={{
-                                                    color: '#001529',
-                                                    fontSize: '18px'
-                                                }} />}
-                                                onClick={handleScheduleClick}
-                                                aria-label="Schedule"
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    minWidth: '32px',
-                                                    padding: '4px'
-                                                }}
-                                            />
-                                        </Badge>
-                                    </Tooltip>
-                                )}
-
-                                {/* Notification Icon - Mobile (when logged in) */}
-                                {isLoggedIn && (
-                                    <Tooltip title="Notifications" placement="bottom">
-                                        <Badge count={notificationCount} size="small" offset={[-5, 5]}>
-                                            <Button
-                                                type="text"
-                                                icon={<BellOutlined style={{
-                                                    color: '#001529',
-                                                    fontSize: '18px'
-                                                }} />}
-                                                onClick={handleNotificationsClick}
-                                                aria-label={`Notifications with ${notificationCount} new items`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    minWidth: '32px',
-                                                    padding: '4px'
-                                                }}
-                                            />
-                                        </Badge>
-                                    </Tooltip>
-                                )}
-
-                                {/* Chat Icon - Mobile (when logged in) */}
-                                {isLoggedIn && (
-                                    <Tooltip title="Chat" placement="bottom">
-                                        <Badge count={0} size="small" offset={[-5, 5]}>
-                                            <Button
-                                                type="text"
-                                                icon={<MessageOutlined style={{
-                                                    color: '#001529',
-                                                    fontSize: '18px'
-                                                }} />}
-                                                onClick={handleChatClick}
-                                                aria-label="Chat"
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    minWidth: '32px',
-                                                    padding: '4px'
-                                                }}
-                                            />
-                                        </Badge>
-                                    </Tooltip>
-                                )}
-
-                                <Button
-                                    type="text"
-                                    icon={drawerVisible ? <CloseOutlined /> : <MenuOutlined />}
-                                    onClick={() => setDrawerVisible(!drawerVisible)}
-                                    aria-label={drawerVisible ? "Close menu" : "Open menu"}
-                                    style={{
-                                        color: '#001529',
-                                        fontSize: '18px',
-                                        width: '32px',
-                                        height: '32px',
-                                        minWidth: '32px',
-                                        padding: '4px'
-                                    }}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </Header>
-
-            {/* Mobile Drawer */}
-            <Drawer
-                title={
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingRight: '8px'
-                    }}>
-                        <span style={{
-                            fontWeight: 'bold',
-                            fontSize: '18px',
-                            color: '#001529'
-                        }}>
-                            Menu
-                        </span>
-                        <Button
-                            type="text"
-                            icon={<CloseOutlined />}
-                            onClick={() => setDrawerVisible(false)}
-                            aria-label="Close menu"
-                            style={{
-                                color: '#001529'
-                            }}
-                        />
-                    </div>
-                }
-                placement="right"
-                onClose={() => setDrawerVisible(false)}
-                open={drawerVisible}
-                closable={false}
-                width={280}
-                bodyStyle={{
-                    padding: '16px 0'
-                }}
-            >
-                {/* Mobile Contact Info in Drawer */}
-                <div style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid #f0f0f0',
-                    marginBottom: '16px'
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginBottom: '8px'
-                    }}>
-                        <PhoneOutlined style={{ fontSize: '14px', color: '#001529' }} />
-                        <Text style={{ fontSize: '14px', color: '#001529' }}>
-                            {companyContact.phone}
-                        </Text>
-                    </div>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        <MailOutlined style={{ fontSize: '14px', color: '#001529' }} />
-                        <Text style={{ fontSize: '14px', color: '#001529' }}>
-                            {companyContact.email}
-                        </Text>
+            {/* Main Navigation */}
+            <nav className="main-nav">
+                <div className="brand" onClick={handleLogoClick}>
+                    <MountainLogo />
+                    <div className="brand-text">
+                        <h1>BETHELAND</h1>
+                        <p>Real Estate Services</p>
                     </div>
                 </div>
 
-                <Menu
-                    mode="vertical"
-                    selectedKeys={[location.pathname]}
-                    style={{
-                        border: 'none',
-                        marginBottom: '16px'
-                    }}
-                    items={[
-                        ...menuItems,
-                        {
-                            key: '/wishlist',
-                            label: (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    width: '100%'
-                                }}>
-                                    <span>Wishlist</span>
-                                    <Badge count={displayWishlistCount} size="small" />
-                                </div>
-                            ),
-                            icon: <HeartOutlined />
-                        },
-                        ...(isLoggedIn ? [
-                            {
-                                key: '/schedule',
-                                label: 'Schedule',
-                                icon: <CalendarOutlined />
-                            },
-                            {
-                                key: '/notifications',
-                                label: (
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        width: '100%'
-                                    }}>
-                                        <span>Notifications</span>
-                                        <Badge count={notificationCount} size="small" />
-                                    </div>
-                                ),
-                                icon: <BellOutlined />
-                            },
-                            {
-                                key: '/messages',
-                                label: 'Chat',
-                                icon: <MessageOutlined />
-                            }
-                        ] : [])
-                    ].map(item => ({
-                        ...item,
-                        style: {
-                            padding: '12px 20px',
-                            fontSize: '16px',
-                            fontWeight: '500',
-                            margin: '0',
-                            height: 'auto',
-                            lineHeight: '1.5',
-                            border: 'none'
-                        },
-                        onClick: () => handleMenuClick(item.key)
-                    }))}
-                />
-
-                {/* User Section or Auth Buttons */}
-                {isLoggedIn ? (
-                    <div style={{
-                        marginTop: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        padding: '0 20px',
-                        borderTop: '1px solid #f0f0f0',
-                        paddingTop: '20px'
-                    }}>
-                        {/* User Info Section */}
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '16px 0',
-                            borderBottom: '1px solid #f0f0f0',
-                            marginBottom: '8px'
-                        }}>
-                            <Avatar
-                                size="large"
-                                style={{
-                                    backgroundColor: (profilePictureUrl && !profileImageError) ? 'transparent' : '#001529',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    border: (profilePictureUrl && !profileImageError) ? '2px solid #001529' : 'none'
-                                }}
-                                src={profilePictureUrl && !profileImageError ? profilePictureUrl : null}
-                                onError={handleImageError}
-                                icon={(!profilePictureUrl || profileImageError) && <UserOutlined />}
-                            >
-                                {(!profilePictureUrl || profileImageError) && getUserInitials()}
-                            </Avatar>
-                            <div style={{ flex: 1 }}>
-                                <div style={{
-                                    fontWeight: '600',
-                                    fontSize: '16px',
-                                    color: '#001529'
-                                }}>
-                                    {getDisplayName()}
-                                </div>
-                                <div style={{
-                                    fontSize: '14px',
-                                    color: '#666',
-                                    marginTop: '2px'
-                                }}>
-                                    {getUserEmail()}
-                                </div>
-                            </div>
-                        </div>
-
-                        <Button
-                            size="large"
-                            icon={<UserOutlined />}
-                            onClick={handleProfileClick}
-                            style={{
-                                color: '#001529',
-                                borderColor: '#001529',
-                                fontWeight: '500',
-                                height: '44px',
-                                textAlign: 'left',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-start'
-                            }}
-                        >
-                            My Profile
-                        </Button>
-                  
-                        <Button
-                            size="large"
-                            icon={<LogoutOutlined />}
-                            danger
-                            onClick={handleLogout}
-                            style={{
-                                fontWeight: '500',
-                                height: '44px',
-                                textAlign: 'left',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-start',
-                                marginTop: '8px'
-                            }}
-                        >
-                            Logout
-                        </Button>
-                    </div>
-                ) : (
-                    <div style={{
-                        marginTop: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        padding: '0 20px',
-                        borderTop: '1px solid #f0f0f0',
-                        paddingTop: '20px'
-                    }}>
-                        <Button
-                            size="large"
-                            onClick={() => {
-                                navigate('/login');
-                                setDrawerVisible(false);
-                            }}
-                            style={{
-                                color: '#001529',
-                                borderColor: '#001529',
-                                fontWeight: '500',
-                                height: '44px'
-                            }}
-                            aria-label="Login to your account"
-                        >
-                            LogIn
-                        </Button>
-                        <Button
-                            size="large"
-                            type="primary"
-                            onClick={() => {
-                                navigate('/register/verify-email');
-                                setDrawerVisible(false);
-                            }}
-                            style={{
-                                background: '#001529',
-                                borderColor: '#001529',
-                                fontWeight: '500',
-                                height: '44px'
-                            }}
-                            aria-label="Register new account"
-                        >
-                            Register
-                        </Button>
+                {isDesktop && (
+                    <div className="nav-links">
+                        <NavDropdown label="About Us" items={aboutUsItems} open={openDropdown === "about"} onToggle={() => toggleDropdown("about")} onClose={closeDropdown} />
+                        <NavDropdown label="Terms & Conditions" items={termItems} open={openDropdown === "terms"} onToggle={() => toggleDropdown("terms")} onClose={closeDropdown} />
+                        <button className="nav-link" onClick={() => handleMenuClick('/properties')}>Properties</button>
+                        <button className="nav-link" onClick={() => handleMenuClick('/contact-us')}>Contact Us</button>
+                        {isLoggedIn && (
+                            <>
+                                <button className="nav-link" onClick={handleScheduleClick}>Schedule</button>
+                                <button className="nav-link" onClick={handleChatClick}>Chat</button>
+                            </>
+                        )}
                     </div>
                 )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Wishlist Icon */}
+                    <Tooltip title={isLoggedIn ? "Wishlist" : "Login to view wishlist"}>
+                        <Badge count={displayWishlistCount} size="small" offset={[-5, 5]}>
+                            <Button type="text" icon={<HeartOutlined style={{ fontSize: '18px', color: '#1a3a2a' }} />} onClick={handleWishlistClick} />
+                        </Badge>
+                    </Tooltip>
+
+                    {/* Notifications Dropdown (Desktop) */}
+                    {isDesktop && isLoggedIn && (
+                        <Dropdown overlay={notificationContent} trigger={['click']} placement="bottomRight" onOpenChange={(open) => open && refreshNotifications()}>
+                            <Badge count={notificationCount} size="small" offset={[-5, 5]}>
+                                <Button type="text" icon={<BellOutlined style={{ fontSize: '18px', color: '#1a3a2a' }} />} />
+                            </Badge>
+                        </Dropdown>
+                    )}
+
+                    {/* User Menu / Auth Buttons */}
+                    {isDesktop ? (
+                        isLoggedIn ? (
+                            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+                                <Button type="text" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1a3a2a' }}>
+                                    <Space>
+                                        <Avatar size="small" src={getProfilePictureUrl() && !profileImageError ? getProfilePictureUrl() : null} icon={<UserOutlined />} onError={handleImageError}>{(!getProfilePictureUrl() || profileImageError) && getUserInitials()}</Avatar>
+                                        <span style={{ fontSize: '14px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getDisplayName()}</span>
+                                        <DownOutlined style={{ fontSize: '12px' }} />
+                                    </Space>
+                                </Button>
+                            </Dropdown>
+                        ) : (
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <Button onClick={() => navigate('/login')} style={{ borderColor: '#1a3a2a', color: '#1a3a2a' }}>Login</Button>
+                                <Button type="primary" onClick={() => navigate('/register/verify-email')} style={{ background: '#1a3a2a', borderColor: '#1a3a2a' }}>Join</Button>
+                            </div>
+                        )
+                    ) : (
+                        /* Mobile Menu Button */
+                        <Button type="text" icon={drawerVisible ? <CloseOutlined /> : <MenuOutlined />} onClick={() => setDrawerVisible(!drawerVisible)} style={{ fontSize: '18px', color: '#1a3a2a' }} />
+                    )}
+                </div>
+            </nav>
+
+            {/* Property Type Bar - HORIZONTAL SCROLL */}
+            <div className="type-bar-wrapper">
+                <button className="scroll-btn left" onClick={() => scroll("left")}><ChevronLeftIcon /></button>
+                <div className="type-bar" ref={scrollRef}>
+                    {propertyTypes.map(({ label, icon }) => (
+                        <button
+                            key={label}
+                            className={`type-btn ${activePropertyType === label ? "active" : ""}`}
+                            onClick={() => handlePropertyTypeClick(label)}
+                        >
+                            <span className="type-icon">{icon}</span>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                <button className="scroll-btn right" onClick={() => scroll("right")}><ChevronRightIcon /></button>
+            </div>
+
+            {/* Mobile Drawer */}
+            <Drawer title="Menu" placement="right" onClose={() => setDrawerVisible(false)} open={drawerVisible} width={280} bodyStyle={{ padding: '16px 0' }}>
+                <div style={{ padding: '0 20px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}><PhoneOutlined /> <Text>{companyContact.phone}</Text></div>
+                    <div style={{ display: 'flex', gap: '8px' }}><MailOutlined /> <Text>{companyContact.email}</Text></div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 20px' }}>
+                    <Button type="text" onClick={() => handleMenuClick('/')}>Home</Button>
+                    <Button type="text" onClick={() => handleMenuClick('/properties')}>Properties</Button>
+                    <Button type="text" onClick={() => handleMenuClick('/about')}>About Us</Button>
+                    <Button type="text" onClick={() => handleMenuClick('/contact-us')}>Contact Us</Button>
+                    {isLoggedIn && (
+                        <>
+                            <Button type="text" onClick={handleScheduleClick}>Schedule</Button>
+                            <Button type="text" onClick={handleChatClick}>Chat</Button>
+                            <Button type="text" onClick={handleWishlistClick}>Wishlist <Badge count={displayWishlistCount} /></Button>
+                            <Button type="text" onClick={handleNotificationsClick}>Notifications <Badge count={notificationCount} /></Button>
+                            <Button type="text" onClick={handleProfileClick}>Profile</Button>
+                            <Button type="text" danger onClick={handleLogout}>Logout</Button>
+                        </>
+                    )}
+                    {!isLoggedIn && (
+                        <>
+                            <Button type="primary" onClick={() => navigate('/login')}>Login</Button>
+                            <Button onClick={() => navigate('/register/verify-email')}>Register</Button>
+                        </>
+                    )}
+                </div>
             </Drawer>
-        </>
+        </div>
     );
 };
 

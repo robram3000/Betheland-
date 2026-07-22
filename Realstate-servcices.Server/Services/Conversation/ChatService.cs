@@ -4,7 +4,8 @@ using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Entity.Chat;
 using Realstate_servcices.Server.Entity.Properties;
-using Realstate_servcices.Server.Repository.Conversation;
+using Realstate_servcices.Server.Repository.Conversation.Interfaces;
+using Realstate_servcices.Server.Services.Conversation.Interfaces;
 
 namespace Realstate_servcices.Server.Services.Conversation
 {

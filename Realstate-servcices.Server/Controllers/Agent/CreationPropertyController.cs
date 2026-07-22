@@ -2,8 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Dto.Property;
-using Realstate_servcices.Server.Services.PropertyCreation;
-using Realstate_servcices.Server.Utilities.Storage;
+using Realstate_servcices.Server.Services.PropertyCreation.Interfaces;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 using System.Text.Json;
 
 namespace Realstate_servcices.Server.Controllers.Agent

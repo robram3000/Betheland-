@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Login;
 using Realstate_servcices.Server.Dto.Jwt;
-using Realstate_servcices.Server.Services.Security;
 using Realstate_servcices.Server.Repository.UserDAO;
 using Realstate_servcices.Server.Entity.Member;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
+using Realstate_servcices.Server.Services.Security.Interfaces;
 
 namespace Realstate_servcices.Server.Controllers.Security
 {

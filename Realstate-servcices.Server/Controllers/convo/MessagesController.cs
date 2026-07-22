@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Realstate_servcices.Server.Dto.Chat;
-using Realstate_servcices.Server.Services.Conversation;
-using Realstate_servcices.Server.Utilities.Storage;
+using Realstate_servcices.Server.Services.Conversation.Interfaces;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 using System.Security.Claims;
 
 namespace Realstate_servcices.Server.Controllers

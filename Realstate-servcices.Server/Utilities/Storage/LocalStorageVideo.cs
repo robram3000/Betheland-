@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 namespace Realstate_servcices.Server.Utilities.Storage
 {
     public class LocalStorageVideo : ILocalStorageVideo

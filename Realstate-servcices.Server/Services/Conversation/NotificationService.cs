@@ -1,10 +1,11 @@
 ﻿// NotificationService.cs - FIXED VERSION
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Entity.Chat;
-using Realstate_servcices.Server.Repository.Conversation;
 using Realstate_servcices.Server.Repository.UserDAO;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Realstate_servcices.Server.Services.Conversation.Interfaces;
+using Realstate_servcices.Server.Repository.Conversation.Interfaces;
 
 namespace Realstate_servcices.Server.Services.Conversation
 {

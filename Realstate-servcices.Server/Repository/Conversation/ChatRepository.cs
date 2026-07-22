@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Realstate_servcices.Server.Data;
 using Realstate_servcices.Server.Entity.Chat;
+using Realstate_servcices.Server.Repository.Conversation.Interfaces;
 
 namespace Realstate_servcices.Server.Repository.Conversation
 {

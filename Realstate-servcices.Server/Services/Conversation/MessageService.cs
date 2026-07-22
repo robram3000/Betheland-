@@ -1,9 +1,10 @@
 ﻿// MessageService.cs - FIXED VERSION
 using Realstate_servcices.Server.Dto.Chat;
 using Realstate_servcices.Server.Entity.Chat;
-using Realstate_servcices.Server.Repository.Conversation;
-using Realstate_servcices.Server.Utilities.Storage;
 using Microsoft.EntityFrameworkCore;
+using Realstate_servcices.Server.Services.Conversation.Interfaces;
+using Realstate_servcices.Server.Repository.Conversation.Interfaces;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 
 namespace Realstate_servcices.Server.Services.Conversation
 {

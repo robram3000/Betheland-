@@ -1,6 +1,7 @@
 ﻿using Realstate_servcices.Server.Dto.Register;
 using Realstate_servcices.Server.Repository.UserDAO;
-using Realstate_servcices.Server.Utilities.Storage;
+using Realstate_servcices.Server.Services.ProfileCreation.Interfaces;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 namespace Realstate_servcices.Server.Services.ProfileCreation
 {
     /// <summary>

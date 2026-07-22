@@ -1,0 +1,3 @@
+﻿@Realstate_servcices.Server_HostAddress_HTTPS = https://localhost:7080
+@Realstate_servcices.Server_HostAddress_HTTP = http://localhost:1452
+@ContentType = application/json

@@ -1,4 +1,6 @@
-﻿namespace Realstate_servcices.Server.Utilities.Storage
+﻿using Realstate_servcices.Server.Utilities.Storage.Interfaces;
+
+namespace Realstate_servcices.Server.Utilities.Storage
 {
     public class LocalStorageChatVideo : ILocalStorageChatVideo
     {

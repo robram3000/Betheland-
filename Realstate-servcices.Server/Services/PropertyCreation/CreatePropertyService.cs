@@ -1,7 +1,8 @@
 ﻿using Realstate_servcices.Server.Dto.Property;
 using Realstate_servcices.Server.Entity.Properties;
 using Realstate_servcices.Server.Repository.Properties;
-using Realstate_servcices.Server.Utilities.Storage;
+using Realstate_servcices.Server.Services.PropertyCreation.Interfaces;
+using Realstate_servcices.Server.Utilities.Storage.Interfaces;
 namespace Realstate_servcices.Server.Services.PropertyCreation
 {
     public class CreatePropertyService : ICreatePropertyService
